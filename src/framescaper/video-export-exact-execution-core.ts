@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { videoPictureCaptionStage } from '../common/editor/video-picture-caption-stage.ts';
+import type { FramescaperCaptionRaster } from './video-export-caption-raster.ts';
 
 import type { FileSizeWarningConfirmation } from '../common/editor/controller/shared/file-size-warning.ts';
 import type { ProductVideoExportStrategyEncodeRequest } from '../common/editor/controller/export/product-video-export-strategy.ts';
@@ -111,6 +113,8 @@ export async function createFramescaperVideoExportExactExecutionCore<Plan extend
 	}
 	let supplemental: FramescaperVideoExportSupplementalPictureExecutionFinishing | null = null;
 	let supplementalCandidate: unknown = null;
+	let captionRaster: FramescaperCaptionRaster | null = null;
+	const caption = videoPictureCaptionStage(options.request.plan);
 	try {
 		supplementalCandidate = await options.createSupplementalPictureExecution?.({
 			canonicalProject: options.request.canonicalProject,
@@ -121,11 +125,18 @@ export async function createFramescaperVideoExportExactExecutionCore<Plan extend
 		}) ?? null;
 		assertSupplementalExecution(supplementalCandidate);
 		supplemental = supplementalCandidate;
+		if (caption) {
+			const { createFramescaperCaptionRaster } = await import('./video-export-caption-raster.ts');
+			const { width, height } = visual.exactPlan.output.canvas;
+			captionRaster = await createFramescaperCaptionRaster(caption.stage, width, height, options.request.signal);
+			options.request.assertCurrent();
+		}
 	} catch (error) {
 		const failures: unknown[] = [error];
 		try { await disposeSupplementalCandidate(supplementalCandidate); } catch (cleanupError) {
 			failures.push(cleanupError);
 		}
+		try { captionRaster?.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { await exact.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { await sourceFrames.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
 		try { visual.dispose(); } catch (cleanupError) { failures.push(cleanupError); }
@@ -159,6 +170,8 @@ export async function createFramescaperVideoExportExactExecutionCore<Plan extend
 			layers: restoredLayers, supplementalPictures,
 			width, height, target: rgba, signal,
 		});
+		captionRaster?.draw(rgba, (frame.timelineSample - visual.exactPlan.timebase.sampleStart)
+			/ visual.exactPlan.timebase.sampleRate);
 		visual.accountFrame(frame, result.consumedNodeIds);
 		openFxDispositions.push(...result.openFxDispositions);
 		reportsOpenFxDegradation ||= result.reportsOpenFxDegradation;
@@ -170,6 +183,7 @@ export async function createFramescaperVideoExportExactExecutionCore<Plan extend
 		}
 		return Object.freeze({
 			...visual.disposition(),
+			...(caption ? { captionDisposition: 'burn-in' as const, captionTrackIds: Object.freeze([caption.trackId]) } : {}),
 			openFxDispositions: Object.freeze([...openFxDispositions]),
 			reportsOpenFxDegradation,
 		});
@@ -177,6 +191,7 @@ export async function createFramescaperVideoExportExactExecutionCore<Plan extend
 	async function dispose(): Promise<void> {
 		const failures: unknown[] = [];
 		try { await supplemental?.dispose(); } catch (error) { failures.push(error); }
+		try { captionRaster?.dispose(); } catch (error) { failures.push(error); }
 		try { await exact.dispose(); } catch (error) { failures.push(error); }
 		try { await sourceFrames.dispose(); } catch (error) { failures.push(error); }
 		try { visual.dispose(); } catch (error) { failures.push(error); }

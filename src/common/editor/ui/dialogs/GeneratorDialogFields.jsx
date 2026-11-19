@@ -12,6 +12,7 @@ import { Dropdown } from '@soundscaper/design-system/Dropdown';
 import { Knob } from '@soundscaper/design-system/Knob';
 import { LabeledRadio } from '@soundscaper/design-system/LabeledRadio';
 import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function GeneratorNumberField({ name, label, ariaLabel = label, value, min, max, step, onChange }) {
 	const inputRef = useRef(null);
@@ -35,7 +36,7 @@ export function GeneratorNumberField({ name, label, ariaLabel = label, value, mi
 	}, [value]);
 	return (
 		<label className="kw-audio-editor-dialog__field" data-generator-field={name}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<NumberStepper
 				ref={inputRef}
 				value={draft}
@@ -57,11 +58,12 @@ export function GeneratorNumberField({ name, label, ariaLabel = label, value, mi
 export function GeneratorSelect({ label, value, disabled = false, onChange, options }) {
 	const wrapperRef = useRef(null);
 	useEffect(() => {
-		wrapperRef.current?.querySelector('.dropdown__trigger')?.setAttribute('aria-label', label);
-	}, [label]);
+		const trigger = wrapperRef.current?.querySelector('.dropdown__trigger');
+		trigger?.setAttribute('aria-label', `${label}: ${trigger.querySelector('.dropdown__text')?.textContent || ''}`);
+	}, [label, value, options]);
 	return (
 		<div ref={wrapperRef} className="kw-audio-editor-dialog__field" data-generator-field={label} role="group" aria-label={label}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<Dropdown
 				disabled={disabled}
 				value={value}
@@ -111,7 +113,7 @@ export function GeneratorRadioGroup({ label, value, onChange, options }) {
 						if (!event.target.closest('.labeled-radio')) selectAndFocus(id);
 					}}
 				>
-					<LabeledRadio label={text} name="generator-interpolation" value={id} checked={value === id} tabIndex={value === id ? 0 : -1} onChange={() => onChange(id)} />
+					<LabeledRadio className="audio-editor-control-label" label={text} name="generator-interpolation" value={id} checked={value === id} tabIndex={value === id ? 0 : -1} onChange={() => onChange(id)} />
 				</div>
 			))}
 		</div>

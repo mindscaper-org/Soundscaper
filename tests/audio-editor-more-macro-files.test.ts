@@ -80,14 +80,14 @@ for (const sameId of [false, true]) test(`MP35: replacing a ${sameId ? 'same-ID'
 		await fixture.render(macroSnapshot('project-a'));
 		await act(async () => { fixture.scripts.save({ name: 'Shared program', source: 'await sound.select.all();' }); });
 		await click(fixture.program('Shared program'));
-		await click(fixture.button('Run program'));
+		await click(fixture.button('Run macro'));
 		assert.equal(fixture.scriptRuns.length, 1);
 		await fixture.render(macroSnapshot(sameId ? 'project-a' : 'project-b'), sameId);
-		assert.ok(fixture.buttonLabels().includes('Run program'), 'the new project must not inherit the old run admission');
-		await click(fixture.button('Run program'));
+		assert.equal(fixture.button('Run macro').hasAttribute('disabled'), false, 'the new project must not inherit the old run admission');
+		await click(fixture.button('Run macro'));
 		assert.equal(fixture.scriptRuns.length, 2);
 		await act(async () => { fixture.scriptRuns[0]!.settlement.resolve({ log: [] }); await Promise.resolve(); });
-		assert.equal(fixture.buttonLabels().includes('Run program'), false, 'old completion cannot release the new run');
+		assert.equal(fixture.button('Run macro').hasAttribute('disabled'), true, 'old completion cannot release the new run');
 	} finally {
 		for (const run of fixture.scriptRuns) run.settlement.resolve({ log: [] });
 		fixture.settlePending(); await fixture.cleanup();

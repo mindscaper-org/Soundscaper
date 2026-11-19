@@ -20,10 +20,12 @@ export async function createNativeDeviceIoWorkletNode(context, options) {
 	if (typeof Constructor !== 'function') throw new Error('AudioWorkletNode is unavailable.');
 	const direction = options.direction;
 	const channelCount = options.channelCount;
+	// The second capture output carries a terminal flag with the same audio quantum.
+	const outputChannelCount = direction === 'output' ? [channelCount] : [channelCount, 1];
 	const node = new Constructor(context, NATIVE_DEVICE_IO_WORKLET_NAME, {
 		numberOfInputs: direction === 'input' ? 0 : 1,
-		numberOfOutputs: 1,
-		outputChannelCount: [channelCount],
+		numberOfOutputs: outputChannelCount.length,
+		outputChannelCount,
 		// Only the programme input folds speakers. Native capture comes from
 		// the port at the separate output and keeps its physical plane count.
 		...(direction !== 'input' && channelCount === 1 ? {

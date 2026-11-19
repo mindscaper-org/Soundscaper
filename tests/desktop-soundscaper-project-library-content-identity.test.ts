@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
 import { lstatSync, readdirSync } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 
 import {
@@ -55,7 +58,74 @@ test('unchanged freeze PCM keeps one content identity across project saves', () 
 	assert.deepEqual(secondRenderer, secondMain);
 });
 
-test('content-addressed readers retain compatibility with revision-addressed freeze bodies', () => {
+test('startup retires only uncommitted freeze stages after an interrupted renderer upload', {
+	skip: process.platform !== 'linux', timeout: 15_000,
+}, async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-interrupted-freeze-'));
+	const paths = createSoundscaperDesktopProjectLibraryPaths(root);
+	const stageRoot = join(paths.libraryRoot, 'stage');
+	const stagedProjectPath = join(root, 'project.json');
+	const testControl = { leaseTtlMs: 1_000, renewIntervalMs: 300, checkpoint: null };
+	context.after(async () => rm(root, { recursive: true, force: true }));
+	await writeFile(stagedProjectPath, JSON.stringify(frozenProject()));
+	const child = spawn(process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', `
+		import { createHash } from 'node:crypto';
+		import { readFile } from 'node:fs/promises';
+		import { createSoundscaperDesktopProjectLibraryHandshake as handshake } from './desktop/soundscaper-project-library-contract.ts';
+		import { SoundscaperDesktopProjectLibraryMain as Main } from './desktop/soundscaper-project-library-main.ts';
+		import { createSoundscaperDesktopProjectLibraryTransferBodies as bodies } from './desktop/soundscaper-project-library-transfer-contract.ts';
+		import { createSoundscaperProject } from './src/soundscaper/editor-project.ts';
+		const main = await Main.start({ appDataPath: process.argv[1], handshake: handshake(), onLeaseLost() {},
+			owner: { product: 'soundscaper', processId: process.pid, instanceId: 'freeze-child' }, testControl: ${JSON.stringify(testControl)} });
+		const session = main.openSession(handshake());
+		const priorId = '1'.repeat(48);
+		const prior = createSoundscaperProject({ id: 'prior-project', title: 'Prior project' });
+		await session.beginPublication({ publicationId: priorId, expectedMetadataRevision: 0, expectedProject: null, project: prior, bodies: [] });
+		const priorResult = await session.finishPublication({ publicationId: priorId });
+		const document = await readFile(process.argv[2], 'utf8');
+		const project = JSON.parse(document);
+		const publicationId = '2'.repeat(48);
+		await session.beginPublication({ publicationId, expectedMetadataRevision: priorResult.metadataRevision, expectedProject: null,
+			project, bodies: bodies(project, createHash('sha256').update(document).digest('hex')) });
+		await session.writePublicationChunk({ publicationId, bodyIndex: 0, offset: 0, bytes: new Uint8Array(13) });
+		process.stdout.write('stage ready\\n');
+		setInterval(() => {}, 10_000);
+	`, root, stagedProjectPath], { stdio: ['ignore', 'pipe', 'inherit'] });
+	const exit = once(child, 'exit');
+	context.after(async () => { child.kill('SIGKILL'); await exit; });
+	const ready = await Promise.race([once(child.stdout, 'data'), exit]);
+	assert.match(String(ready[0]), /stage ready/u);
+	assert.equal(child.kill('SIGKILL'), true);
+	assert.equal((await exit)[1], 'SIGKILL');
+	const staleStages = await readdir(stageRoot);
+	assert.equal(staleStages.length, 2);
+	const pcmStage = staleStages.find((name) => name.endsWith('-0001.stage'));
+	assert.ok(pcmStage);
+	assert.equal((await lstat(join(stageRoot, pcmStage))).size, 13);
+	const database = new DatabaseSync(paths.databasePath, { readOnly: true });
+	try { assert.equal(database.prepare("SELECT count(*) AS n FROM publication_journal WHERE state = 'prepared'").get()?.n, 0); }
+	finally { database.close(); }
+	const unrelatedPath = join(stageRoot, 'copy-notes.txt');
+	const unrelatedLink = join(stageRoot, `${'f'.repeat(48)}-0004.stage`);
+	await writeFile(unrelatedPath, 'independent copy notes');
+	await symlink(unrelatedPath, unrelatedLink);
+	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
+	const restarted = await SoundscaperDesktopProjectLibraryMain.start({
+		appDataPath: root, owner: { product: 'soundscaper', processId: process.pid, instanceId: 'freeze-reopen' },
+		handshake, onLeaseLost: () => undefined, testControl,
+	});
+	try {
+		const session = restarted.openSession(handshake);
+		try {
+			assert.equal((await session.readProjectBundle('prior-project'))?.project.name, 'Prior project');
+			assert.equal(await session.readProjectBundle('content-identity-project'), null);
+			assert.deepEqual((await readdir(stageRoot)).sort(), [unrelatedPath, unrelatedLink].map((path) => basename(path)).sort());
+			assert.equal(await readFile(unrelatedLink, 'utf8'), 'independent copy notes');
+		} finally { await session.close(); }
+	} finally { await restarted.close(); }
+});
+
+test('content-addressed readers retain legacy freeze bodies with one authenticated project clone', context => {
 	const project = frozenProject();
 	const document = JSON.stringify(project);
 	const projectSha256 = documentDigest(project);
@@ -97,14 +167,17 @@ test('content-addressed readers retain compatibility with revision-addressed fre
 	assert.equal(validateSoundscaperDesktopProjectLibraryHostBundle({
 		metadata, document, bodies: [legacyBody],
 	}, String(project.id)).bodies[0]?.bindingId, legacyBinding.id);
+	const cloning = context.mock.method(globalThis, 'structuredClone', structuredClone);
 	assert.equal(validateSoundscaperDesktopBundle(SOUNDSCAPER_PROJECT_RUNTIME_PROFILE, {
 		metadataRevision: 1, project: projectRow, document, bodies: [legacyBody],
 	}, String(project.id)).bundle.bodies[0]?.bindingId, legacyBinding.id);
+	assert.equal(cloning.mock.calls.filter(({ arguments: [value] }) => (
+		typeof value === 'object' && value !== null && 'id' in value && value.id === project.id
+	)).length, 1, 'the validated bundle provides the project for both descriptor versions');
 });
 
 test('a metadata save negotiates existing frozen PCM without upload or a temporary copy', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-reused-freeze-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const bytes = Uint8Array.from({ length: 36 }, (_value, index) => index);
 	const project = frozenProject(createHash('sha256').update(bytes).digest('hex'));
 	const descriptor = createSoundscaperDesktopProjectLibraryTransferBodies(project, documentDigest(project))[0]!;
@@ -132,7 +205,9 @@ test('a metadata save negotiates existing frozen PCM without upload or a tempora
 			},
 		},
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const firstId = '1'.repeat(48);

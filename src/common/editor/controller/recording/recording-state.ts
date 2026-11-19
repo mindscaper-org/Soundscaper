@@ -13,6 +13,13 @@ import type {
 } from './recording-transaction-types.ts';
 import type { TimedRecordingDescriptor } from './internal/timed-recording-service.ts';
 
+export interface RecordingPunchTarget {
+	readonly projectId: string;
+	readonly startFrame: number;
+	readonly selection: RecordingSelection | null;
+	readonly trackIds: readonly string[];
+}
+
 /** One row of the recording device inventory the routing service enumerates. */
 export interface ControllerRecordingDevice {
 	readonly deviceId: string;
@@ -55,6 +62,8 @@ export interface ControllerRecordingState<Routing = ControllerRecordingRouting> 
 	recordingPaused: boolean;
 	recordingInputGain: number;
 	leadInRecording: boolean;
+	leadInDurationSeconds: number | null;
+	lastRecordingPunch: RecordingPunchTarget | null;
 	recordingSourceId: string | null;
 	recordingStartFrame: number;
 	recordingSourceOffsetFrames: number;
@@ -126,6 +135,8 @@ export function createControllerRecordingState<Routing = ControllerRecordingRout
 		recordingPaused: false,
 		recordingInputGain,
 		leadInRecording: false,
+		leadInDurationSeconds: null,
+		lastRecordingPunch: null,
 		recordingSourceId: null,
 		recordingStartFrame: 0,
 		recordingSourceOffsetFrames: 0,

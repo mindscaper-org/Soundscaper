@@ -8,6 +8,7 @@ import {
 	chooseFileAction,
 	chooseNestedCommandAction,
 	closeWorkspacePanel,
+	disableNativeSavePicker,
 	resolveBrowserProductTestUrl,
 	waitForEditor,
 	waitForProjectActivation,
@@ -30,6 +31,7 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		test.skip(testInfo.project.name === 'webkit',
 			'Playwright WebKit rejects the IndexedDB Blob write that persists imported A/V sources.');
 		test.setTimeout(180_000);
+		await disableNativeSavePicker(page);
 		await page.setViewportSize({ width: 1_440, height: 1_100 });
 		const editor = await bootEditor(page, '/framescaper/en/');
 		const projectId = await editor.getAttribute('data-project-id');
@@ -72,8 +74,7 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		await assertMulticameraMenuAccessibility(page, editor, browserName);
 		await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success');
 		await expect(editor.getByRole('tab', { selected: true })).toBeEnabled();
-		await chooseFileAction(page, editor, 'Save project');
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await saveProject(page, editor);
 		await expect.poll(async () => JSON.stringify(await storedMulticamera(page, projectId)))
 			.toContain('"groupCount":1');
 		const created = await storedMulticamera(page, projectId);
@@ -83,8 +84,7 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		expect(created.requirementIds).toContain(MULTICAMERA_REQUIREMENT_ID);
 
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Multicamera', 'Switch camera']);
-		await chooseFileAction(page, editor, 'Save project');
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await saveProject(page, editor);
 		await expect.poll(() => storedMulticamera(page, projectId)).toMatchObject({
 			groupCount: 1,
 			memberCount: 2,
@@ -109,11 +109,8 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		} else await assertPreviewFallback(editor);
 
 		await expect(editor.getByRole('tab', { selected: true })).toBeEnabled();
-		await chooseFileAction(page, editor, 'Save project');
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await saveProject(page, editor);
 		const switched = await storedMulticamera(page, projectId);
-		// Firefox can replace a committed navigation before DOMContentLoaded.
-		// The active requested project below owns completion of this reopen.
 		await page.goto(resolveBrowserProductTestUrl(`/framescaper/en/?project=${encodeURIComponent(projectId)}`), {
 			waitUntil: 'commit',
 		});
@@ -128,6 +125,19 @@ test.describe('Framescaper selected-web multicamera workflow', () => {
 		} else await assertPreviewFallback(reopened);
 	});
 });
+
+async function saveProject(page, editor) {
+	// The library becomes saved before the separate file download completes.
+	const [download] = await Promise.all([
+		page.waitForEvent('download'),
+		chooseFileAction(page, editor, 'Save project'),
+	]);
+	expect(download.suggestedFilename()).toMatch(/\.fscape$/u);
+	expect(await download.failure()).toBeNull();
+	await download.delete();
+	await expect(editor.getByRole('tab', { selected: true })).toBeEnabled();
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+}
 
 async function assertMulticameraMenuAccessibility(page, editor, browserName) {
 	await page.emulateMedia({ forcedColors: 'active' });

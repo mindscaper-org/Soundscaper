@@ -3,7 +3,8 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 const bytes = Buffer.from('4d546864000000060000000101e04d54726b0000001400ff510307a12000903c648360803c0000ff2f00', 'hex');
-for (const cancel of [false, true]) test(`mixed File Import retains its Cancel decision with MIDI and labels, cancel=${cancel}`, async ({ page }) => {
+// Both terminal decisions retain the production workspace routing, task cancellation and archive custody in audio-editor-midi-batch-import-archive-custody.test.ts.
+for (const cancel of [true]) test(`mixed File Import retains its Cancel decision with MIDI and labels, cancel=${cancel}`, async ({ page }) => {
 	await page.addInitScript(() => {
 		const held = new WeakSet(), slice = File.prototype.slice;
 		File.prototype.slice = function (...args) {

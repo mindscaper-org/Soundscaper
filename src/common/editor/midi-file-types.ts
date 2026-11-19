@@ -57,6 +57,8 @@ export interface MidiFileDocument {
 
 export interface MidiFileReadOptions {
 	readonly sampleRate?: number;
+	/** A containing session may own PPQ timing instead of the SMF tempo track. */
+	readonly tickToFrame?: (tick: number, ppq: number) => number;
 }
 
 export const MIDI_FILE_MAX_BYTES = 16 * 1024 * 1024;

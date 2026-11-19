@@ -27,8 +27,8 @@ import {
 	type LocalAssistanceSelectedMediaPreparationPort,
 	type LocalAssistanceValidatedResultAcceptanceRequest,
 } from '../assistance/local-assistance-preparation.ts';
-import { deriveLocalAssistanceReviewAuthority } from './local-assistance-review-authority.ts';
-import { reviewLocalAssistanceOutput } from '../assistance/local-assistance-result-review.ts';
+import { readLocalAssistanceReviewAuthority } from '../controller/assistance/local-assistance-review-authority.ts';
+import { reviewLocalAssistanceOutput, type LocalAssistanceReviewAuthority } from '../assistance/local-assistance-result-review.ts';
 import {
 	localAssistanceCleanupVoiceActivity,
 	type LocalAssistanceTranscriptCleanupVoiceActivity,
@@ -56,13 +56,14 @@ import {
 } from './local-assistance-selection-state.ts';
 
 interface Options {
-	readonly bridge: LocalAssistanceBridge | null;
+	readonly bridge: Pick<LocalAssistanceBridge, 'models' | 'workflow'> | null;
 	readonly preparation: LocalAssistanceSelectedMediaPreparationPort | null;
 }
 
 const ADVANCED_PROJECT_ACCEPTANCE_OPERATIONS: ReadonlySet<AssistanceOperation> = new Set([
 	'voice-activity-detection', 'speech-recognition', 'speaker-diarization',
 	'speech-enhancement', 'source-separation', 'shot-detection',
+	'music-transcription',
 ]);
 
 export function createLocalAssistanceAdvancedWorkflowSessionStore(
@@ -224,7 +225,6 @@ export function createLocalAssistanceAdvancedWorkflowSessionStore(
 					: prepared.reason === 'source-custody-unavailable'
 						? 'selection-required' : 'bridge-unavailable';
 			} else {
-				const authority = await deriveLocalAssistanceReviewAuthority(prepared.prepared);
 				preparedWorkflow = prepared.workflow;
 				signal.throwIfAborted();
 				update({ phase: 'running' });
@@ -241,7 +241,7 @@ export function createLocalAssistanceAdvancedWorkflowSessionStore(
 						const bytes = await workflow.readOutput!({ jobId: job.jobId, workflowId, claim });
 						const outputClaim = await reviewedClaim(claim.claimId, job.jobId,
 							output.role, bytes, signal);
-						const review = await reviewLocalAssistanceOutput(outputClaim, bytes, authority);
+						const review = await reviewLocalAssistanceOutput(outputClaim, bytes, prepared.reviewAuthority);
 						if (mode) assertLocalAssistanceShotDetectionReviewMode(mode, review);
 						return Object.freeze({ ...(output.slotId ? { slotId: output.slotId } : {}),
 							claim: outputClaim, bytes, review });
@@ -345,7 +345,7 @@ export function createLocalAssistanceAdvancedWorkflowSessionStore(
 }
 
 type PreparedOutcome = Readonly<{ outcome: 'prepared'; workflow: AssistanceWorkflowV1;
-	prepared: LocalAssistancePreparedMedia }> | Readonly<{ outcome: 'unavailable';
+	prepared: LocalAssistancePreparedMedia; reviewAuthority: LocalAssistanceReviewAuthority }> | Readonly<{ outcome: 'unavailable';
 	reason: 'aggregate-custody-unavailable' | 'model-binding-unavailable'
 		| 'source-custody-unavailable' }>;
 
@@ -367,7 +367,7 @@ function normalizeAdvancedPreparation(
 		}
 		return Object.freeze({ outcome: 'unavailable', reason });
 	}
-	if (row.outcome !== 'prepared' || Object.keys(row).length !== 3) {
+	if (row.outcome !== 'prepared' || Object.keys(row).length !== 4) {
 		throw new TypeError('Advanced preparation returned a malformed prepared outcome.');
 	}
 	const workflow = validateAssistanceWorkflow(row.workflow);
@@ -384,7 +384,8 @@ function normalizeAdvancedPreparation(
 	if (JSON.stringify(bound) !== JSON.stringify(models.map(({ modelId, version, artifactSha256s }) => ({
 		modelId, version, artifactSha256s: [...artifactSha256s].sort(),
 	})))) throw new TypeError('Advanced preparation changed its selected models.');
-	return Object.freeze({ outcome: 'prepared', workflow, prepared });
+	const reviewAuthority = readLocalAssistanceReviewAuthority(row.reviewAuthority, row.prepared);
+	return Object.freeze({ outcome: 'prepared', workflow, prepared, reviewAuthority });
 }
 
 async function reviewedClaim(

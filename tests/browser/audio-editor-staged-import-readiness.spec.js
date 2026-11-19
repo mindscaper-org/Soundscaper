@@ -25,8 +25,10 @@ for (const action of ['continue editing', 'undo import']) test(`audio clips allo
 	const errors = collectClientErrors(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	await page.evaluate(() => { globalThis.__holdNextPeaks = true; });
+	// Repeat complete ADTS frames so the decoded PCM exceeds the tiny-source local analysis limit.
+	const aac = Buffer.from(aacLcAdtsPceFixture(false));
 	await editor.locator('[data-import-input]').setInputFiles({
-		name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.from(aacLcAdtsPceFixture(false)),
+		name: 'Pending.bin', mimeType: 'application/octet-stream', buffer: Buffer.concat([aac, aac, aac, aac]),
 	});
 	try {
 		await expect.poll(() => page.evaluate(() => Boolean(globalThis.__heldPeakWorker))).toBe(true);

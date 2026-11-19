@@ -506,6 +506,7 @@ test('project session service deduplicates legacy recents and persists active UI
 		selectedTrackId: 'track',
 		selectedClipId: 'clip',
 		selectedAnnotationId: 'annotation',
+		selectedLabels: [],
 	}]]);
 	assert.equal(service.setTrackChannelHeightRatio('track', 0.7), 0.7);
 	assert.deepEqual(tabMetadata.trackChannelHeightRatios, { track: 0.7 });

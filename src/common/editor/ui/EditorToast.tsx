@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Button } from '@soundscaper/design-system/Button';
 import { Toast } from '@soundscaper/design-system/Toast/Toast';
+import { useEditorNotifications } from './EditorNotificationProvider.tsx';
+import { useToastReadingTime } from './useToastReadingTime.ts';
 
 export interface EditorToastAction {
 	readonly label: string;
@@ -17,28 +19,37 @@ export interface EditorToastProps {
 	readonly description?: string;
 	readonly timer?: string;
 	readonly type?: 'info' | 'warning' | 'error' | 'success';
+	readonly icon?: ReactNode;
 	readonly actions?: readonly EditorToastAction[];
 	readonly dismissLabel?: string;
 	readonly onDismiss?: () => void;
 	readonly persistent?: boolean;
 	readonly progress?: number;
+	readonly progressContent?: ReactNode;
 }
 
 /** Controlled notifications stay within the editor that owns their state. */
 export default function EditorToast({
-	id, title, description, timer, type = 'info', actions = [], dismissLabel, onDismiss, persistent = false, progress,
+	id, title, description, timer, type = 'info', icon, actions = [], dismissLabel, onDismiss, persistent = false, progress, progressContent,
 }: EditorToastProps) {
-	const dismissAutomatically = useEffectEvent(() => onDismiss?.());
-	const dismissible = Boolean(onDismiss);
+	const session = useEditorNotifications();
+	const instance = useId();
+	const hasProgress = progress !== undefined || Boolean(progressContent);
+	const important = type === 'error' || persistent || actions.length > 0 || hasProgress;
+	const [admitted] = useState(() => session?.shouldShow({ type, actionable: actions.length > 0, progress: hasProgress, persistent }) ?? true);
+	const visible = admitted || important;
+	const timed = visible && !important && Boolean(onDismiss);
+	const readingTime = useToastReadingTime(id, timed, onDismiss);
 	useEffect(() => {
-		if (persistent || !dismissible) return;
-		const timeout = setTimeout(() => dismissAutomatically(), 10_000);
-		return () => clearTimeout(timeout);
-	}, [id, persistent, dismissible]);
+		if (!hasProgress) session?.record({ key: `${instance}:${id}`, title, description, type });
+	}, [session, instance, id, title, description, type, hasProgress]);
+	if (!visible) return null;
 
-	return <section className="kw-audio-editor__toast" aria-label={title} data-editor-toast={id}>
-		<Toast id={id} type={type} title={title} description={description} showCloseButton={false}
+	return <section className="kw-audio-editor__toast" aria-label={title} data-editor-toast={id}
+		data-timed={timed || undefined} data-actionable={actions.length > 0 || hasProgress || undefined} {...readingTime}>
+		<Toast id={id} type={type} icon={icon} title={title} description={description} showCloseButton={false}
 			progress={progress} showProgress={progress !== undefined} timeRemaining={progress !== undefined ? description : undefined} />
+		{progressContent && <div className="kw-audio-editor__toast-detail">{progressContent}</div>}
 		{timer && <div className="kw-audio-editor__toast-detail" role="timer" aria-live="off">{timer}</div>}
 		{!persistent && onDismiss && <Button className="kw-audio-editor__toast-close" onClick={(event) => {
 			event?.currentTarget.closest('[data-audio-editor]')?.querySelector<HTMLElement>('[data-chrome-drawer-toggle], [role="menuitem"]')?.focus({ preventScroll: true });

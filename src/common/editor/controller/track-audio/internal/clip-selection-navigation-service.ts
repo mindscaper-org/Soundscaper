@@ -259,23 +259,12 @@ function adjacentClip(
 function nativeAdjacentClipRange(project: RuntimeClipProject, selection: ClipSelectionNavigationSelection, next: boolean) {
 	const range = resolveSelectionRange(project) ?? selection;
 	const start = selectionFrame(range.startFrame, 'selection.startFrame'), end = selectionFrame(range.endFrame, 'selection.endFrame');
-	const byTrack = new Map<string, ProjectedAudioClipCandidate[]>();
-	for (const clip of projectedAudioClips(project, selection, true)) {
-		const clips = byTrack.get(clip.trackId) ?? [];
-		clips.push(clip); byTrack.set(clip.trackId, clips);
-	}
+	const direction = next ? 1 : -1;
 	let found: ProjectedAudioClipCandidate | null = null;
-	for (const clips of byTrack.values()) {
-		clips.sort((a, b) => a.startFrame - b.startFrame || a.documentIndex - b.documentIndex);
-		const sameStart = clips.find(clip => clip.startFrame === start);
-		let candidate = sameStart && (next ? sameStart.endFrame > end : sameStart.endFrame < end) ? sameStart : undefined;
-		if (!candidate && next) candidate = clips.find(clip => clip.startFrame > start);
-		else if (!candidate) for (const clip of clips) {
-			if (clip.startFrame >= start) break;
-			candidate = clip;
-		}
-		if (candidate && (!found || (next ? candidate.startFrame < found.startFrame : candidate.startFrame > found.startFrame)
-			|| (candidate.startFrame === found.startFrame && (next ? candidate.endFrame < found.endFrame : candidate.endFrame > found.endFrame)))) found = candidate;
+	for (const clip of projectedAudioClips(project, selection, true)) {
+		const fromSelection = clip.startFrame - start || clip.endFrame - end;
+		if (fromSelection * direction <= 0) continue;
+		if (!found || (clip.startFrame - found.startFrame || clip.endFrame - found.endFrame) * direction < 0) found = clip;
 	}
 	return found ? { startFrame: found.startFrame, endFrame: found.endFrame } : null;
 }

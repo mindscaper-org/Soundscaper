@@ -24,17 +24,21 @@ export function rememberLocaleProjectHandoff(resources: LocaleProjectHandoffReso
 	const pathname = new URL(destination, href).pathname;
 	const key = productId === 'soundscaper' ? LOCALE_PROJECT_HANDOFF_SETTING
 		: `${productId}:${LOCALE_PROJECT_HANDOFF_SETTING}`;
-	storage.setItem(key, JSON.stringify({ projectId, pathname, expiresAt: resources.now() + HANDOFF_LIFETIME_MS }));
+	try {
+		storage.setItem(key, JSON.stringify({ projectId, pathname, expiresAt: resources.now() + HANDOFF_LIFETIME_MS }));
+	} catch {
+		// Language navigation can continue with the normal project startup policy.
+	}
 }
 
 /** The handoff affects this one navigation, never the saved next-session policy. */
 export function consumeLocaleProjectHandoff(resources: LocaleProjectHandoffResources, key: string): string | null {
 	const storage = tabStorage(resources);
 	if (!storage) return null;
-	const encoded = storage.getItem(key);
-	if (encoded === null) return null;
-	storage.removeItem(key);
 	try {
+		const encoded = storage.getItem(key);
+		if (encoded === null) return null;
+		storage.removeItem(key);
 		const value: unknown = JSON.parse(encoded);
 		if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
 		const request = value as Readonly<Record<string, unknown>>;

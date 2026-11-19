@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { reviewMusicTranscriptionV1 } from '../../../src/common/editor/assistance/music-transcription-v1.ts';
 
 import assert from 'node:assert/strict';
 import { reviewAssistanceEmbeddingMatrixV1 } from '../../../src/common/editor/assistance/binary-formats-v1.ts';
@@ -45,6 +46,16 @@ export function validateModelOutput(validation, bytes, input) {
 		return { rows: matrix.rowCount, dimensions: matrix.dimensions };
 	}
 	const value = JSON.parse(Buffer.from(bytes).toString('utf8'));
+	if (validation === 'midi-notes') {
+		const result = reviewMusicTranscriptionV1(value);
+		assert.equal(result.sampleRate, input.sampleRate);
+		assert.equal(result.sampleCount, input.frameCount);
+		for (const [pitch, seconds] of [[69, 0.2], [72, 2.1], [60, 4.1], [64, 4.1], [67, 4.1]]) {
+			assert.ok(result.notes.some(note => note.pitch === pitch && Math.abs(note.startSample / result.sampleRate - seconds) < 0.3),
+				`Missing fixture MIDI pitch ${pitch} near ${seconds}s.`);
+		}
+		return { notes: result.notes.length };
+	}
 	if (validation === 'word-alignment') {
 		const result = reviewAssistanceWordAlignmentV1(value);
 		assert.deepEqual(result.words.map(({ text }) => text), input.expectedWords, 'Alignment changed or omitted transcript words.');

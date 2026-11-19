@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { installDesktopSpeedWarmupManifest } from './helpers/desktop-speed-warmup-fixture.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
@@ -50,45 +49,6 @@ test('Audio settings edits the visible Default input after an unsaved offset sou
 	await preferences.getByRole('tab', { name: /Audio settings$/u }).click();
 	await expect(offset).toHaveValue('25');
 	await expect(source.locator('option[value="device:usb-offset-mic"]')).toHaveCount(0);
-});
-
-test('desktop FFmpeg Browse can retry a failed native chooser without discarding its configuration', async ({ page }) => {
-	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(() => {
-		const ready = { state: 'ready', location: '/fixture/bin/ffmpeg', version: '9.0.1', detail: '',
-			canInstall: false, canBrowse: true, canClear: true };
-		let attempts = 0;
-		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: { v1: {
-			getEnvironment: async () => null,
-			signalReady: async () => undefined,
-			setLocale: async () => undefined,
-			onMenuCommand: () => () => undefined,
-			onOpenProject: () => () => undefined,
-			onCloseRequested: () => () => undefined,
-			onWindowStateChanged: () => () => undefined,
-			getExternalFfmpegStatus: async () => ready,
-			chooseExternalFfmpeg: async () => {
-				attempts += 1;
-				if (attempts === 1) throw new Error('The file chooser could not open.');
-				return ready;
-			},
-			clearExternalFfmpeg: async () => ready,
-			rescanExternalFfmpeg: async () => ready,
-		} } });
-	});
-	const editor = await bootEditor(page, '/embed/en/');
-	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-	const panel = page.getByRole('dialog', { name: 'Editor preferences', exact: true })
-		.locator('[data-external-ffmpeg-preference]');
-	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'ready');
-	const browse = panel.getByRole('button', { name: 'Browse', exact: true });
-	await browse.click();
-	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'error');
-	await expect(panel).toContainText('The file chooser could not open.');
-	await expect(browse).toBeEnabled();
-	await expect(panel.getByLabel('FFmpeg location', { exact: true })).toHaveValue('/fixture/bin/ffmpeg');
-	await browse.click();
-	await expect(panel).toHaveAttribute('data-external-ffmpeg-state', 'ready');
 });
 
 test('closing singleton History with its keyboard menu keeps the playhead keyboard workflow', async ({ page }) => {

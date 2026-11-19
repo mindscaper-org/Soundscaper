@@ -7,7 +7,7 @@ import { installOscillatorMicrophone } from './helpers/complex-editing-workflows
 test.use({ browserCoverage: false });
 for (const gesture of ['ruler', 'space', 'panel-space', 'ruler-key']) test(`source preview ${gesture} honors recording admission`, async ({ page }) => {
 	await installOscillatorMicrophone(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'audition.wav', duration: 8, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const properties = await openSourceMonitor(page, editor, clipByName(editor, file.name));

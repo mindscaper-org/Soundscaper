@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
+import { EditorProjectChangedError, type EditorProjectToken } from '../common/editor/controller/shared/lifecycle.ts';
 import {
 	bindFramescaperCandidateAuthoringActionRuntime,
 	createFramescaperCandidateAuthoringActionSubsetRuntime,
@@ -31,6 +32,8 @@ type FramescaperSelectedAuthoringSurface =
 
 export interface FramescaperSelectedAuthoringController {
 	readonly project: unknown;
+	readonly captureProjectGeneration?: () => EditorProjectToken;
+	readonly assertProjectGeneration?: (token: EditorProjectToken) => void;
 	readonly getSnapshot: () => Readonly<{ readonly selectedClipId?: unknown }>;
 	readonly getTelemetrySnapshot: () => Readonly<{ readonly positionFrame?: unknown }>;
 	readonly actions: Readonly<{
@@ -83,18 +86,29 @@ export function bindFramescaperSelectedAuthoringController(options: Readonly<{
 		tail = result.then(() => undefined, () => undefined);
 		return result;
 	};
-	const serialized = (surface: FramescaperSelectedAuthoringSurface): Promise<void> => enqueue(async () => {
+	const serialized = async (surface: FramescaperSelectedAuthoringSurface): Promise<void> => {
 		if (DIALOG_SURFACES.has(surface)) {
 			throw new Error('Selected visual authoring requires its menu-opened dialog.');
 		}
-		const project = currentProject(controller.project);
-		const workflow = await import('./editor-selected-finishing-authoring-workflows.ts');
-		const prepared = await workflow.prepareFramescaperSelectedAuthoringFinishing(
-			surface as FramescaperSelectedGeneratorAuthoringSurface,
-			project,
-		);
-		await commitWithRollback(controller, prepared);
-	});
+		const activation = controller.captureProjectGeneration?.();
+		const projectId = activation?.projectId ?? (controller.project as Readonly<{ id?: unknown }> | null)?.id;
+		const assertCurrent = (): void => {
+			if (activation && controller.assertProjectGeneration) controller.assertProjectGeneration(activation);
+			else if (typeof projectId !== 'string' || (controller.project as Readonly<{ id?: unknown }> | null)?.id !== projectId) {
+				throw new EditorProjectChangedError();
+			}
+		};
+		await enqueue(async () => {
+			assertCurrent();
+			const project = currentProject(controller.project);
+			const workflow = await import('./editor-selected-finishing-authoring-workflows.ts');
+			const prepared = await workflow.prepareFramescaperSelectedAuthoringFinishing(
+				surface as FramescaperSelectedGeneratorAuthoringSurface,
+				project,
+			);
+			await commitWithRollback(controller, prepared, assertCurrent);
+		});
+	};
 	const visualRuntime: FramescaperSelectedVisualAuthoringRuntime = Object.freeze({
 		run(
 			surface: FramescaperSelectedVisualAuthoringSurface,
@@ -103,11 +117,13 @@ export function bindFramescaperSelectedAuthoringController(options: Readonly<{
 			return enqueue(async () => {
 				const model = await import('./editor-selected-finishing-visual-authoring-model.ts');
 				const state = runtimeState(controller);
+				const requiresPlayhead = surface === 'video-freeze';
 				model.assertFramescaperSelectedVisualAuthoringRuntimeFenceFinishing({
 					project: state.project,
 					fence: request.fence,
 					selectedClipId: state.selectedClipId,
 					playheadSample: state.playheadSample,
+					requiresPlayhead,
 				});
 				const commands = await import('./editor-selected-finishing-visual-authoring-commands.ts');
 				const captures = await import('./editor-selected-finishing-freeze-capture.ts');
@@ -128,6 +144,7 @@ export function bindFramescaperSelectedAuthoringController(options: Readonly<{
 						fence: request.fence,
 						selectedClipId: current.selectedClipId,
 						playheadSample: current.playheadSample,
+						requiresPlayhead,
 					});
 				});
 			});

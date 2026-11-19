@@ -7,6 +7,33 @@ optimization. The [quality diagnostics](quality-diagnostics.md) guide owns
 performance observations and correctness thresholds; build and coverage
 budgets remain in their machine-readable registers.
 
+## Desktop CPU profiling
+
+**Help → CPU profiling**, beside **Debug storage**, opens an opt-in, modeless
+panel. Start or restart playback after opening it so the next graph includes
+per-effect instrumentation. It samples for one second at a time. Closing the
+panel immediately disables markers and cancels the capture; the next playback
+graph omits the instrumentation. The ordinary browser Help menu omits this
+command because the required Chromium tracing transport is desktop-only.
+
+Conventional graphs use transparent AudioWorklet boundaries around each active
+rack slot, including native Web Audio nodes. Parallel stacks mark their actual
+worker DSP calls. Chromium's thread timestamps measure CPU time; elapsed time
+is shown separately because scheduling delays are not CPU usage. Nested
+sidechain intervals are attributed exclusively. Each rack location and effect
+instance has a separate row. Bypassed slots remain visible, and unavailable or
+unsampled values are shown as a dash rather than zero.
+
+One hundred percent is one CPU core. Basic editor is the cumulative CPU delta
+of the application and editor processes less measured effect CPU. It includes
+mixing, UI rendering, and tracing overhead. GPU and external helper processes
+are excluded. Native plug-in rows measure the renderer bridge only and say so;
+the isolated native host's DSP cost is not available through this trace.
+Developer Tools and another debugger cannot share the profiler's session.
+Captures stay in memory, have bounded attribution state, and are discarded on
+close. These diagnostic measurements include instrumentation overhead and are
+not a throughput qualification.
+
 ## Scaling contracts
 
 | Area | Contract | Focused regressions |
@@ -15,6 +42,7 @@ budgets remain in their machine-readable registers.
 | Label geometry | Reuse weakly owned immutable ordering and bounded text measurements; calculate track heights without full presentation maps. Font completion invalidates both heights and visible rows; retired project records remain collectible. | [Layout work](../../tests/audio-editor-label-layout-performance.test.ts), [font publication](../../tests/audio-editor-label-layout-react.test.tsx) |
 | Track row selection | Check unchanged native selections through the smaller row membership. Changed intersections preserve source order; mutable selections, incoming drags, and custom traversal remain live. | [Row selection work](../../tests/audio-editor-track-row-selection-work.test.ts) |
 | Playhead painting | Read follow geometry before style writes and publish position directly to the playhead paint owners. The registered position property does not inherit through the timeline; newly mounted paused owners receive the current position. | [Projection work](../../tests/audio-editor-timeline-playhead-projection-work.test.ts), [browser following](../../tests/browser/audio-editor-playback-follow.spec.js) |
+| Video preview source membership | Index stable source IDs once per preview preparation. Mutable inventories, accessors and custom membership methods retain live reads. | [Source membership work and availability](../../tests/framescaper-video-preview-source-work.test.ts) |
 | Video overlap presentation | Bound retained pair geometry and use viewport-only generation for dense overlaps. Preserve visible pairs and invalid clip IDs. | [Overlap presentation](../../tests/audio-editor-video-overlap-presentation.test.ts) |
 | DSP | Share channel-independent work while preserving PCM, rounding, telemetry, and state across chunks. Retained history owns its buffers; transferred packets must not expose borrowed storage. | [Sinc kernels](../../tests/audio-editor-streaming-resample-kernel.test.ts), [frequency peaks](../../tests/audio-editor-frequency-waveform-band-peaks.test.ts), [live dynamics](../../tests/audio-editor-live-dynamics-gain-work.test.ts), [borrowed input](../../tests/audio-editor-resample-borrowed-input.test.ts) |
 | MIDI | Normalize bulk note edits once per gesture, compile source synthesis once per publication, reuse unchanged piano-roll projections, and prepare interchange ordering once per clip. Preserve sequential edit validation, exact PCM, and loop/warp timing. | [Bulk edits](../../tests/audio-editor-midi-bulk-edit.test.ts), [source rendering](../../tests/audio-editor-midi-render-work.test.ts), [piano roll](../../tests/audio-editor-midi-panel-performance.test.tsx), [interchange](../../tests/audio-editor-midi-interchange-work.test.ts) |
@@ -25,6 +53,15 @@ budgets remain in their machine-readable registers.
 | Command preparation | Reuse privately owned immutable projections and invocation-local indexes. Preserve authored order, duplicate-reference authority, validation, and missing-reference errors. Arbitrary mutable inputs retain uncached admission. | [Project Bin](../../tests/audio-editor-command-project-bin-performance.test.ts), [paste collisions](../../tests/audio-editor-paste-existing-clip-index.test.ts), [snapshot equality](../../tests/audio-editor-project-snapshot-equality.test.ts) |
 | Command and media search | Normalize owned search text lazily, bounded to 16,384 entries and 4,194,304 characters per prepared batch. Reuse unchanged media inventories across menu refreshes; excess and mutable entries retain uncached scoring. | [Search preparation](../../tests/audio-editor-search-preparation.test.tsx) |
 | Startup | Keep optional UI and processing engines in their deferred feature owners. Batch independent settings reads while preserving fallback and disposal behavior. | [Deferred ownership](../../tests/audio-editor-deferred-startup-ownership.test.ts), [bootstrap](../../tests/audio-editor-project-bootstrap-concurrency.test.ts), [browser loading](../../tests/browser/editor-startup-progress.spec.js) |
+
+Framescaper loads native render-input production only when the existing render-queue
+workflow requests it. First-use requests snapshot their values and retain a controller
+generation lease across module loading; stale or canceled requests release that lease
+without beginning production. Failed loads can be retried. Offline video encoding and
+repeated-sound FFT execution also remain behind their existing actions. The
+[loading regressions](../../tests/framescaper-native-render-input-deferred.test.ts) and
+[startup browser workflow](../../tests/browser/framescaper-startup-deferred-rendering.spec.js)
+cover these boundaries.
 
 Further optimizations must preserve the [editing performance boundaries](editing-performance-opportunities.md).
 [Smaller candidates](performance-candidates.md) need current profiles before

@@ -4,10 +4,12 @@ import { useRef, useState } from 'react';
 import { Flyout } from '@soundscaper/design-system/Flyout';
 import { Icon } from '@soundscaper/design-system/Icon';
 
+import LeadInTimeControl from './LeadInTimeControl.tsx';
 import SoundActivationSettings from '../SoundActivationSettings.tsx';
 import { createTakeCycleRecordingMenuItems } from '../take-cycle-recording-menu.ts';
 
 import '../audio-editor-design-system/20a-record-flyout.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /** The microphone menu groups actions and persistent recording choices. */
 export default function RecordFlyout({
@@ -97,28 +99,29 @@ export default function RecordFlyout({
 					</div>
 				</Flyout>
 			</div> : <span />}
-			<label className="kw-audio-editor__record-flyout-check">
-				<input type="checkbox" checked={Boolean(snapshot.recordingOptions?.leadIn)}
-					disabled={recordingInputBlocked}
-					onChange={() => run(() => controller.actions.recording.toggleLeadIn())} />
-				<span>{copy.leadInTimeOption}</span>
-			</label>
+			<LeadInTimeControl copy={copy} snapshot={snapshot} controller={controller}
+				disabled={Boolean(recordingInputBlocked || snapshot.readOnly)} run={run} />
 			<label className="kw-audio-editor__record-flyout-check">
 				<input type="checkbox" checked={Boolean(snapshot.monitor?.enabled)}
 					disabled={recoveryBlocked || snapshot.recordingStarting}
 					onChange={() => run(() => controller.actions.recording.setMonitoring(!snapshot.monitor?.enabled))} />
-				<span>{copy.monitor}</span>
+				<EditorControlLabel>{copy.monitor}</EditorControlLabel>
 			</label>
 		</div>
+		<RecordAction label={copy.punchAgain} tooltipKey="recording-punch-again"
+			disabled={!snapshot.recordingOptions?.canPunchAgain || snapshot.readOnly || snapshot.importing || snapshot.exporting
+				|| recoveryBlocked || snapshot.recordingStarting || snapshot.recordingScheduling || snapshot.scheduledRecording
+				|| snapshot.recording && snapshot.recordingKind !== 'ordinary'}
+			onClick={() => act(() => run(() => controller.actions.recording.punchAgain()))} />
 		{takeCycleItems[1] && <RecordAction label={takeCycleItems[1].label}
 			disabled={takeCycleItems[1].disabled}
 			onClick={() => act(takeCycleItems[1].onClick)} />}
 	</div>;
 }
 
-function RecordAction({ label, disabled, onClick }) {
+function RecordAction({ label, disabled, onClick, tooltipKey }) {
 	return <button type="button" className="kw-audio-editor__record-flyout-action"
-		aria-disabled={Boolean(disabled)} disabled={disabled} onClick={onClick}>
+		aria-disabled={Boolean(disabled)} disabled={disabled} onClick={onClick} data-menu-tooltip-id={tooltipKey}>
 		<span>{label}</span>
 	</button>;
 }

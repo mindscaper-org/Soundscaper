@@ -4,7 +4,10 @@ import { useTheme } from '@soundscaper/design-system/ThemeProvider';
 
 import { EditorComponentCopyProvider } from './EditorComponentCopyProvider.tsx';
 import { EditorSkinProvider, useEditorSkin } from './skins/EditorSkinProvider.tsx';
+import { EditorNotificationProvider } from './EditorNotificationProvider.tsx';
+import { EditorStatusHelpProvider } from './EditorStatusHelpProvider.tsx';
 import EditorMusicalTimeCodeProvider from './EditorMusicalTimeCodeProvider.tsx';
+import { EditorMenuTooltips } from './EditorMenuTooltips.tsx';
 
 import { wcagContrastRatio } from './theme-contrast.ts';
 export { useElementSize, retainElementSize } from './use-element-size.ts';
@@ -25,7 +28,7 @@ export function DesignSystemProviders({ children, copy, locale = 'en', controlle
 	return (
 		<EditorComponentCopyProvider copy={copy} locale={locale}><AccessibilityProfileProvider initialProfileId={accessibilityProfile}>
 			<EditorSkinProvider controller={controller} mode={theme}>
-				<EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider>
+				<EditorMenuTooltips copy={copy} controller={controller}><EditorStatusHelpProvider><EditorNotificationProvider><EditorMusicalTimeCodeProvider controller={controller}>{children}</EditorMusicalTimeCodeProvider></EditorNotificationProvider></EditorStatusHelpProvider></EditorMenuTooltips>
 			</EditorSkinProvider>
 		</AccessibilityProfileProvider></EditorComponentCopyProvider>
 	);
@@ -138,7 +141,7 @@ export function useAudioEditorThemeVariables() {
 			'--text': mode === 'dark' ? '#ffffff' : '#000000',
 			'--muted': mode === 'dark' ? '#eeeeee' : '#222222',
 			'--stage': '#000000',
-			'--stage-raised': mode === 'dark' ? '#000000' : '#111111',
+			'--stage-raised': mode === 'dark' ? '#000000' : '#ffffff',
 		} : {}),
 		colorScheme: mode,
 	}), [theme, mode, skin]);

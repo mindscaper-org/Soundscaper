@@ -6,6 +6,47 @@ limitations.
 
 ## Implemented backend
 
+**Edit → Preferences → Advanced → Suspend idle effect processing** defaults on
+for realtime playback in both products. Each eligible worklet or worker effect
+checks every input channel, including sidechains, on the audio thread. Only exact
+digital silence counts as idle input; output must stay below -120 dBFS for at
+least 250 ms and the effect's conservative latency/release reserve. The reserve
+also follows useful output, preserving gaps between feedback repeats. A sleeping
+processor clears its output and skips DSP, keeps its Web Audio lifetime, and
+wakes in the first block containing input. Live controls wake it as well.
+
+This application preference stays outside project state and undo history. Live
+worklets receive preference messages; the parallel workers poll a shared control
+word, including changes made after their blocking schedulers start. Persistence
+rollback restores the running setting. Offline and separate export contexts do
+not inherit playback suspension. Browser-owned stock nodes retain their native
+silence handling. Native plug-ins use host silence detection: exact-silent input
+and output below -120 dBFS for five seconds, extended to cover reported latency. Pending control
+requests and an open vendor editor keep DSP running. The message pipeline drains
+normally and resumes with its existing latency; state is retained. Offline
+rendering always processes every block. Silence detection cannot predict an
+unknown future echo or preserve a plug-in's free-running clock, so users can
+turn Auto-idle off for affected plug-ins. Built-in free-running oscillators/RNGs,
+adaptive processors, pitched streaming processors, and spectral window clocks
+keep their existing continuous-processing safeguards.
+
+Every audio effect header uses the shared preset bar: realtime effects also
+have the power/bypass control. Nyquist, Vamp analyzers, audio generators, and
+all hosted native formats use that header with format-specific state adapters.
+Offline-only processors show Auto-idle unavailable. Native presets carry bounded
+opaque state bytes, format, stable plug-in ID, and binary digest; they never
+store runtime instance IDs or depend on project-body retention. Restoring a
+native preset requires the matching plug-in binary and uses the serial,
+project-fenced state service before publishing its authenticated project state.
+
+The header's **More options → Auto-idle** initially inherits the global
+preference. A user choice creates an application preference keyed by effect
+type, or native format plus stable plug-in ID; it applies across instances and
+projects, independently of preset values. Overrides appear below the global
+preference, where **Use global preference** removes an override. Preference
+load, live edits, persistence rollback, and factory reset update running
+worklets and the per-type shared control words used by parallel workers.
+
 Enable **Edit → Preferences → Advanced → Processing → Parallel effect
 stacks** while stopped. Both editions require cross-origin isolation,
 SharedArrayBuffer, dedicated Workers, and AudioWorklet support. The setting

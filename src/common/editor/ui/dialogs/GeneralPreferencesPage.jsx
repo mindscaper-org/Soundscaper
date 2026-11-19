@@ -10,7 +10,9 @@ import { productHref } from '../../../product-web-links.js';
 import { AUDIO_EDITOR_DEFAULT_STARTUP_MODE } from '../../startup-preferences.ts';
 import { rememberLocaleProjectHandoff } from '../../controller/document/locale-project-handoff.ts';
 import DesktopFfmpegPreferencePanel from './DesktopFfmpegPreferencePanel.tsx';
+import DesktopUpdatePreferencesPanel from './DesktopUpdatePreferencesPanel.tsx';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const STARTUP_RADIO_GROUP_NAME = 'audio-editor-program-start';
 const DEFAULT_STARTUP = Object.freeze({ mode: AUDIO_EDITOR_DEFAULT_STARTUP_MODE, projectId: '' });
@@ -126,7 +128,7 @@ export default function GeneralPreferencesPage({
 									disabled={mode.disabled}
 									onChange={() => updateStartup({ mode: mode.id, projectId: startupProjectId })}
 								/>
-								<span>{mode.label}</span>
+								<EditorControlLabel>{mode.label}</EditorControlLabel>
 							</label>
 							{mode.id === 'project' && projects.length > 0 && (
 								<PreferenceDropdownField
@@ -145,6 +147,8 @@ export default function GeneralPreferencesPage({
 			<SavingPreferencesPanel controller={controller} preferences={snapshot.preferences.saving} copy={copy} desktop={fileService.isDesktop} run={run} />
 			{fileService.isDesktop && (
 				<>
+					<Separator />
+					<DesktopUpdatePreferencesPanel fileService={fileService} copy={copy} run={run} />
 					<Separator />
 					<DesktopFfmpegPreferencePanel fileService={fileService} copy={copy} />
 				</>

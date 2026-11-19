@@ -72,7 +72,7 @@ test('Sherpa source-build identity binds the canonical pinned recipe and native 
 	assert.deepEqual(recipe.sources.map(({ id }) => id), [
 		'sherpa-source', 'kaldi-native-fbank', 'kaldi-decoder', 'kaldifst', 'openfst',
 		'kissfft', 'eigen', 'simple-sentencepiece', 'json', 'hclust-cpp',
-		'node-addon-api', 'node-headers', 'node-arm64-lib', 'node-x64-lib',
+		'utf8proc', 'node-addon-api', 'node-headers', 'node-arm64-lib', 'node-x64-lib',
 		'node-delay-hook', 'node-gyp-license', 'node-license',
 	]);
 	for (const source of recipe.sources) {
@@ -120,7 +120,7 @@ test('Sherpa receipts require exact GPU runtime libraries, source proof, and per
 		files['build-provenance.json'] = fingerprint(Buffer.from(`${JSON.stringify(provenance, null, '\t')}\n`));
 		const manifest = structuredClone(native);
 		const target = { status: 'built', executionProviders: plan.executionProviders, package: {
-			name: `sherpa-onnx-${targetId === 'mac-arm64' ? 'darwin-arm64' : targetId}`, version: '1.13.5',
+			name: `sherpa-onnx-${targetId === 'mac-arm64' ? 'darwin-arm64' : targetId}`, version: '2.0.1',
 			sourceUrl: recipe.sources[0]!.url, integrity: recipe.sources[0]!.integrity,
 			sourceBuild: desktopSherpaGpuRecipeSourceBuild(), files,
 		} };

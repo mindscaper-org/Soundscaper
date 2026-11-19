@@ -46,10 +46,24 @@ for (const product of ['soundscaper', 'framescaper']) {
 
 test('the generic direct-download endpoint resolves the Windows installer', async () => {
 	const response = await download('', [release('soundscaper', '1.0.0-rc.1', ['win-x64.zip', 'win-x64.exe'])],
-		{ 'User-Agent': WINDOWS });
+		{ 'User-Agent': WINDOWS, 'Sec-CH-UA-Arch': '"x86"', 'Sec-CH-UA-Bitness': '"64"' });
 	assert.equal(response.headers.get('location'),
 		`${RELEASES}/download/soundscaper-v1.0.0-rc.1/Soundscaper-1.0.0-rc.1-win-x64.exe`);
 	assert.ok(response.headers.get('vary')?.includes('User-Agent'));
+});
+
+test('the reduced Chrome user agent without processor hints does not trigger an architecture-specific download', async () => {
+	const published = release('soundscaper', '1.0.0-rc.1', ['win-x64.exe', 'win-arm64.exe', 'linux-x64.AppImage', 'linux-arm64.AppImage']);
+	for (const userAgent of [WINDOWS, WINDOWS.replace('Windows NT 10.0; Win64; x64', 'X11; Linux x86_64')]) {
+		const response = await download('', [published], { 'User-Agent': userAgent });
+		assert.equal(response.headers.get('location'), `${RELEASES}/tag/${published.tag_name}`);
+	}
+});
+
+test('a release containing only an uploaded enterprise MSI is still linked for a generic download', async () => {
+	const published = release('soundscaper', '1.0.0-rc.1', ['win-x64.msi']);
+	const response = await download('', [published]);
+	assert.equal(response.headers.get('location'), `${RELEASES}/tag/${published.tag_name}`);
 });
 
 test('desktop platform selection honors architecture hints and avoids mobile or unsupported architectures', async () => {

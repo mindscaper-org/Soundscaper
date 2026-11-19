@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { sessionSnapshotProjects } from '../src/common/editor/session-snapshots.ts';
+import { normalizeSoundscaperNativePluginStates } from '../src/soundscaper/editor-native-plugin-state.ts';
 
 import { createHash } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
@@ -120,7 +122,9 @@ function referencedProjectStateBodyIds(database: DatabaseSync): ReadonlySet<stri
 			throw new TypeError('A retained Soundscaper project document is invalid.', { cause: error })
 		}
 		const project = validateSoundscaperDesktopCurrentProject(parsed)
-		for (const state of project.nativePluginStates) referenced.add(state.stateBody.bodyId)
+		for (const view of [project, ...sessionSnapshotProjects(project)]) {
+			for (const state of normalizeSoundscaperNativePluginStates(view.nativePluginStates)) referenced.add(state.stateBody.bodyId)
+		}
 	}
 	return referenced
 }

@@ -13,7 +13,7 @@ test('Invert on a time range retains the unbaked native gain automation in expor
 		const writer = await store.beginSourceWrite(source.storageKey, source);
 		await writer.write([samples]); await writer.commit(); blob = (await exportScapeProject(project, store)).blob;
 	} finally { await store.close(); }
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await editor.locator('[data-aup4-input]').setInputFiles({ name: 'Automation.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', project.id);
 	const before = await exportSamples(page, editor);

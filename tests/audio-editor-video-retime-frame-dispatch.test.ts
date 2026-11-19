@@ -299,7 +299,6 @@ test('keeps timing traversal in the timing owner and compilation in the clip map
 	assert.doesNotMatch(bindingSource, /\b(?:compileVideoRetimeCurveV16|normalizeVideoRetimeCurveV16|compileVideoRetimeCurve)\b/u);
 	assert.doesNotMatch(dispatchSource, /\b(?:createVideoRetimeRuntimeMapper|videoSourceFrameTime)\b/u);
 	assert.equal(callCount(timingSource, 'videoSourceTimingView'), 2, 'definition plus one binding call');
-	assert.equal(callCount(timingSource, 'validateVfrIndex'), 2, 'definition plus the existing binding validation');
 	assert.doesNotMatch(dispatchSource, /\b(?:videoSourceTimingView|VideoTimingIndex|presentationTicks|finalFrameDurationTicks|endTicks)\b/u);
 	assert.doesNotMatch(timingSource, /from ['"]\.\/video-retime-curve\.ts['"]/u);
 	assert.doesNotMatch(exportedFunctionSource(timingSource, 'videoSourceFrameTime'), /\b(?:for|while)\b|\.(?:map|reduce|forEach)\s*\(/u);

@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('Analyze selection includes the ending true peak of an ordinary Fade In', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'high frequency recording.wav', sampleRate: 48_000,
 		frequency: 12_000, duration: 1, channelCount: 1, channelAmplitudes: [.5] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

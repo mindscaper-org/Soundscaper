@@ -49,7 +49,7 @@ export async function assertFiniteVideoKeyframeContainerFile(
 	}
 	const evidence = await captureFileEvidence(source, path, stat.size, options);
 	const reader = createReader(source, path, evidence, options);
-	if (format === 'mp4') await assertMp4(reader, stat.size);
+	if (format === 'mp4' || format === 'mov') await assertMp4(reader, stat.size);
 	else await assertWebm(reader, stat.size);
 	assertReady(options);
 	CONTAINER_FILE_EVIDENCE.add(evidence);

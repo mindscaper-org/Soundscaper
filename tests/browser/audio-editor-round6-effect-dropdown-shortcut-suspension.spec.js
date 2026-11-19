@@ -4,7 +4,7 @@ import { expect, monoTone, test } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 test('an ordinary effect choice popup retains its window shortcut suspension', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const panel = await openEffectsForTrack(editor, 1);
 	await addRackEffect(page, panel, 'track', 'Tremolo');

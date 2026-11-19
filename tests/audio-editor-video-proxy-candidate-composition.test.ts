@@ -1,3 +1,4 @@
+import { videoRetimePreviewMedia } from './browser/fixtures/video-retime-preview-media.js';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
@@ -103,7 +104,7 @@ test('the composed observer encodes through the shipped recipe', async () => {
 		runOperation: host.runtime.runProxyMediaOperation,
 	});
 	await generator.generate(
-		new Blob([new Uint8Array([1, 2, 3, 4])]),
+		new Blob([videoRetimePreviewMedia.file.buffer]),
 		{
 			authority: 'owned', projectId: 'p', sourceId: 's', storageKey: 's',
 			mimeType: 'video/mp4', byteLength: 4, sha256: 'a'.repeat(64), generationToken: 'g',
@@ -114,7 +115,7 @@ test('the composed observer encodes through the shipped recipe', async () => {
 	assert.deepEqual(
 		host.runs[0],
 		buildVideoProxyGenerationArgs({
-			inputPath: 'editor-proxy-1', outputPath: 'editor-proxy-1-proxy.mp4',
+			inputPath: 'editor-proxy-1', outputPath: 'editor-proxy-1-proxy.mp4', timescale: 1000, finalFrameDurationTicks: 70n,
 		}),
 	);
 });

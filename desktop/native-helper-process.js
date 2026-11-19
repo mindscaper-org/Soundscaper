@@ -56,6 +56,14 @@ export const NATIVE_AUDIO_INVENTORY_BOUNDS = Object.freeze({
 	detailBytes: 1_024,
 });
 
+// The professional addon's native status names differ from the inventory wire contract.
+const PROFESSIONAL_AUDIO_INVENTORY_STATUSES = new Map([
+	['ok', 'available'],
+	['backend-unavailable', 'backend-absent'],
+	['server-unavailable', 'server-absent'],
+	['unsupported', 'unsupported-platform'],
+]);
+
 export const SYNTHETIC_ENGINE_MODES = Object.freeze({
 	passthrough: 0,
 	gain: 1,
@@ -233,10 +241,12 @@ function describeBackendInventory(addon, backend) {
 		// name that would never reopen it.
 		if (handle === '' || wireTextBytes(handle) > NATIVE_AUDIO_INVENTORY_BOUNDS.textBytes) continue;
 		const label = typeof device.label === 'string' && device.label !== '' ? device.label : handle;
+		const isDefault = backend === 'alsa' && handle === 'default' ? true : device.isDefault;
 		const described = {
 			handle,
 			label: clampWireText(label, NATIVE_AUDIO_INVENTORY_BOUNDS.textBytes),
 			direction: device.direction,
+			...(typeof isDefault === 'boolean' ? { isDefault } : {}),
 		};
 		devices.push(Number.isSafeInteger(device.channelCount) && device.channelCount > 0
 			? { ...described, channelCount: device.channelCount }
@@ -244,7 +254,7 @@ function describeBackendInventory(addon, backend) {
 	}
 	return {
 		backend,
-		status: entry.status,
+		status: PROFESSIONAL_AUDIO_INVENTORY_STATUSES.get(entry.status) ?? entry.status,
 		detail: devices.length === offered.length
 			? clampWireText(entry.detail ?? '', NATIVE_AUDIO_INVENTORY_BOUNDS.detailBytes)
 			: `Only ${String(devices.length)} of ${String(offered.length)} devices fit one inventory answer.`,
@@ -288,7 +298,7 @@ if (parentPort && typeof parentPort.on === 'function') {
 	nativeHelperRole(role);
 	const { createHash } = await import('node:crypto');
 	const addonSeams = config.payloadKind === 'professional'
-		? await createProfessionalNativeHelperRoleSeams(config.location, role)
+		? await createProfessionalNativeHelperRoleSeams(config.location, role, {}, config.wine)
 		: { addonPath: config.addonPath, addonSha256: config.addonSha256, loadAddon: loadVerifiedNativeAddon };
 	const hashFile = authenticatePluginCandidate;
 	let runJob;
@@ -316,9 +326,10 @@ if (parentPort && typeof parentPort.on === 'function') {
 	parentPort.on('message', (event) => worker.handleMessage(event.data, event.ports ?? []));
 }
 
-export async function createProfessionalNativeHelperRoleSeams(location, role, ports = {}) {
+export async function createProfessionalNativeHelperRoleSeams(location, role, ports = {}, wine = null) {
 	const { createSoundscaperProfessionalNativeVerifier } = await import('./soundscaper-professional-native-payload.mjs');
-	const descriptor = await (ports.verifyPayload ?? createSoundscaperProfessionalNativeVerifier(location))();
+	const descriptor = await (ports.verifyPayload ?? createSoundscaperProfessionalNativeVerifier({ ...location,
+		instrumentResources: role === 'plugin-host' || role === 'plugin-scanner' }))();
 	if (role === 'audio') {
 		return { addonPath: descriptor.path, addonSha256: descriptor.sha256, loadAddon: loadVerifiedNativeAddon };
 	}
@@ -376,17 +387,31 @@ export async function createProfessionalNativeHelperRoleSeams(location, role, po
 		const createPeer = ports.createPeer ?? (await import(
 			'./project-library-runtime/desktop/soundscaper-professional-plugin-peer.js'
 		)).createSoundscaperProfessionalPluginPeer;
+		const { bundledPluginFactoryDirectory, withBundledPluginFactoryData } = await import('#desktop-runtime/bundled-plugin-factory-data');
+		const factoryData = await bundledPluginFactoryDirectory(descriptor);
 		const formats = descriptor.target.startsWith('mac-') ? ['vst3', 'vst2', 'clap', 'au']
 			: descriptor.target.startsWith('linux-') ? ['vst3', 'vst2', 'clap', 'lv2', 'ladspa'] : ['vst3', 'vst2', 'clap'];
-		const effectPeer = createPeer({
-			launcher: descriptor.target.startsWith('win-')
+		let effectPeer = createPeer({
+			launcher: withBundledPluginFactoryData(descriptor.target.startsWith('win-')
 				? (ports.createPluginLauncher ?? (await import('./project-library-runtime/desktop/native-plugin-process-launcher.js'))
-					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer,
+					.createNativePluginProcessLauncher)({ target: descriptor.target, peerExecutable: descriptor.pluginPeer, factoryData,
 					artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
-						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher,
+						brokerPolicy: descriptor.isolation.brokerPolicy } }) : launcher, factoryData),
 			peerExecutable: descriptor.pluginPeer, entryExecutable, entryArguments,
-			runtimeReadExecute: runtimeClosure, pluginFormats: formats,
+			runtimeReadExecute: descriptor.target.startsWith('win-') ? [] : runtimeClosure, pluginFormats: formats,
 		});
+		if (descriptor.target === 'win-x64' && runtimeClosure.some(({ path }) => path.replaceAll('\\', '/').endsWith('/runtime/soundscaper_vst2_x86_peer.exe'))) {
+			const { attachWindowsVst2Bridge } = await import('./project-library-runtime/desktop/windows-vst2-bridge-runtime.js');
+			effectPeer = attachWindowsVst2Bridge({ target: descriptor.target, nativePeer: effectPeer,
+				nativeExecutable: descriptor.pluginPeer, runtimeClosure,
+				artifacts: { launcher: descriptor.isolation.launcher, sandboxProfile: descriptor.isolation.sandboxProfile,
+					brokerPolicy: descriptor.isolation.brokerPolicy } });
+		}
+		if (descriptor.target === 'linux-x64' && wine) {
+			const { attachWineVst3Bridge } = await import('./project-library-runtime/desktop/wine-vst3-runtime.js');
+			effectPeer = await attachWineVst3Bridge({ nativePeer: effectPeer, peerExecutable: descriptor.pluginPeer,
+				entryExecutable, entryArguments, runtimeClosure, configuration: wine });
+		}
 		if (role === 'plugin-scanner') {
 			const createVampPeer = ports.createVampPeer ?? (await import(
 				'./project-library-runtime/desktop/soundscaper-professional-vamp-peer.js'

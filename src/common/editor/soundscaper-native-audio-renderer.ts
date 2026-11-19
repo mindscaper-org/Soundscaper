@@ -35,6 +35,7 @@ interface PreparedSession {
 }
 
 const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
+const GUARDED_OUTPUTS = new WeakMap<BaseAudioContext, GainNode | null>();
 const OUTPUT_FAILURES = new WeakMap<BaseAudioContext, Error>();
 const routeListeners = new Set<(context: BaseAudioContext) => void>();
 
@@ -48,9 +49,35 @@ function publishOutputRoute(context: BaseAudioContext): void {
 	for (const listener of routeListeners) listener(context);
 }
 
-/** Live project graphs consult this only for output/duplex sessions. */
+/** Keep programme on the selected native backend through a loss or replacement. */
+export function guardSoundscaperNativeAudioOutput(context: BaseAudioContext): void {
+	if (!GUARDED_OUTPUTS.has(context)) GUARDED_OUTPUTS.set(context, null);
+}
+
+/** An explicit Electron selection also unmutes any graph built while the native output was unavailable. */
+export function selectSoundscaperBrowserAudioOutput(context: BaseAudioContext): void {
+	const mute = GUARDED_OUTPUTS.get(context);
+	GUARDED_OUTPUTS.delete(context);
+	if (mute) mute.gain.value = 1;
+}
+
+/** Source auditions require a bound output before borrowing its context. */
+export function soundscaperBoundNativeAudioDestination(context: BaseAudioContext): AudioNode | null {
+	return ROUTES.get(context)?.node ?? null;
+}
+
+/** During replacement keep the playback graph running through a silent sink. */
 export function soundscaperNativeAudioDestination(context: BaseAudioContext, fallback: AudioNode): AudioNode {
-	return ROUTES.get(context)?.node ?? fallback;
+	const route = soundscaperBoundNativeAudioDestination(context);
+	if (route) return route;
+	const guarded = GUARDED_OUTPUTS.get(context);
+	if (guarded === undefined) return fallback;
+	if (guarded) return guarded;
+	const mute = context.createGain();
+	mute.gain.value = 0;
+	mute.connect(fallback);
+	GUARDED_OUTPUTS.set(context, mute);
+	return mute;
 }
 
 /** The attached output request owns physical width; intermediary GainNodes do not. */
@@ -70,7 +97,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 	onTransfer?: (sessionId: string, value: Readonly<{
 		framesTransferred: number; lostFrames: number;
 	}>) => void;
-	onDeviceLoss?: (sessionId: string, reason: string) => Promise<void> | void;
+	onDeviceLoss?: (sessionId: string, reason: string, direction: NativeAudioSessionOpenRequestV1['direction']) => Promise<void> | void;
 }>) {
 	const windowValue = options.windowValue ?? (typeof window === 'undefined' ? null : window);
 	const createNode = options.createNode ?? createNativeDeviceIoWorkletNode;
@@ -115,6 +142,8 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			session.attachment.resolve();
 			if (session.direction !== 'input') {
 				ROUTES.set(session.context, Object.freeze({ node: session.node, channelCount: session.channelCount }));
+				GUARDED_OUTPUTS.get(session.context)?.disconnect();
+				GUARDED_OUTPUTS.delete(session.context);
 				publishOutputRoute(session.context);
 				void restartIfPlaying(options.engine).catch(() => undefined);
 			}
@@ -196,12 +225,13 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			if (!prepared.has(sessionId)) return;
 			const reason = nativeAudioLossReason(value.reason, fallback);
 			if (request.direction !== 'input' && directionGenerations.get('output') === generation) {
+				guardSoundscaperNativeAudioOutput(context);
 				OUTPUT_FAILURES.set(context, new Error('The selected audio output is unavailable.', { cause: reason }));
 				publishOutputRoute(context);
 			}
 			capture?.revoke(String(value.reason || fallback));
 			void (async () => {
-				try { await options.onDeviceLoss?.(sessionId, reason); }
+				try { await options.onDeviceLoss?.(sessionId, reason, request.direction); }
 				finally { await release(sessionId); }
 			})().catch(() => undefined);
 		};

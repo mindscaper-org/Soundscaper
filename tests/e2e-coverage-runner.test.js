@@ -249,6 +249,8 @@ test('complementary raw V8 observations union before coverage-dependent branch m
 		artifactRoot: fixture.artifactRoot,
 		reportRoot: join(fixture.workspace, 'gate-report'),
 		configuration: fixture.configuration,
+		layerPolicy: { schemaVersion: 1, kind: 'soundscaper-coverage-test-layers', defaultLayer: 'native',
+			thresholds: { lines: 100, statements: 100, functions: 100, branches: 100 }, sources: [] },
 		expectedRevision: REVISION,
 	});
 	assert.deepEqual(gated.failures, []);

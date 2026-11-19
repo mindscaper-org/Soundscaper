@@ -1,0 +1,272 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import type { EnginePublicApi, EngineRenderToSinkOptions } from '../../../../engine/public-api.ts';
+import type { EngineProject } from '../../../../engine/types.ts';
+import { projectEffectTailFrames } from '../../../../effects.js';
+import { scaleSampleFrame } from '../../../../timeline-time.ts';
+import { createStoredChunkProvider, createCoalescingSourceWriter, type StoredSourceReader, type StoredSourceMetadata } from '../../../source/source-audio.ts';
+import type { OwnedAudioSourceWriter } from '../../../../storage/source-write-repository.ts';
+import type { StorageRecord } from '../../../../storage/media-records.ts';
+import { projectTrackFolderMediaStateV12 } from '../../../../track-folder-media-runtime.ts';
+import { audioBufferChannels } from '../../../../rendered-audio-channels.ts';
+import { resampleChannelsWindowedSinc } from '../../../source/source-audio.ts';
+import { SOURCE_CHUNK_FRAMES } from '../../../../source-pcm-contract.ts';
+import { createAudioSource } from '../../../../project-media-factory.ts';
+import { isAudioMediaKind } from '../../../../audio-media-kind.ts';
+import { subprojectContentDigest } from '../../../../subprojects.ts';
+import { applyMediaChannelMapping } from '../../../../media-export.js';
+import { defaultMixerChannelMapV21 } from '../../../../mixer-graph-v21.ts';
+import type { SubprojectDocument, SubprojectGeometry, SubprojectRenderedSource } from '../../subproject-actions.ts';
+import type { ResolvedSubprojectNode } from './subproject-graph.ts';
+import { prepareSubprojectTimePitchSources } from './subproject-time-pitch.ts';
+
+export class SubprojectRenderUnavailableError extends RangeError {}
+
+export interface SubprojectRenderStore extends StoredSourceReader {
+	getSourceMetadata(id: string): Promise<StoredSourceMetadata | null>;
+	beginSourceWrite(id: string, metadata: Record<string, unknown>): Promise<OwnedAudioSourceWriter>;
+	readonly sourceRepository: { discardIfCurrent(source: StorageRecord): Promise<boolean> };
+}
+export interface SubprojectRendererRuntime {
+	readonly store: SubprojectRenderStore;
+	createId(prefix: string): string;
+	createEngine(): Pick<EnginePublicApi, 'renderMixToSink'> & {
+		readonly renderMix?: EnginePublicApi['renderMix'];
+		readonly setSourceResolver?: EnginePublicApi['setSourceResolver'];
+		loadProject(...args: Parameters<EnginePublicApi['loadProject']>): unknown;
+		dispose(): PromiseLike<void> | void;
+	};
+	projectForRuntimeConsumers(project: SubprojectDocument): Readonly<Record<string, unknown>>;
+	preflight(bytes: number): Promise<unknown>;
+}
+
+/** Bounded chunk readers and the ordinary mixer renderer keep output off the JS heap. */
+export function createSubprojectRenderer(runtime: SubprojectRendererRuntime) {
+	function plan(project: SubprojectDocument, sampleRate: number): SubprojectGeometry {
+		const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(project));
+		const clips = projected.clips as readonly { kind?: string; timelineStartFrame: number; durationFrames: number }[];
+		const end = clips.filter(clip => isAudioMediaKind(clip.kind))
+			.reduce((maximum, clip) => Math.max(maximum, clip.timelineStartFrame + clip.durationFrames), 0);
+		if (!end) throw new RangeError('The subproject has no audio to publish.');
+		const tail = projectEffectTailFrames(projected, { includeMaster: true });
+		const frameCount = scaleSampleFrame(end + tail, project.sampleRate, sampleRate, 'enclosingEnd');
+		const channelCount = Number(project.masterChannels ?? 2);
+		if (!Number.isSafeInteger(frameCount) || frameCount < 1 || channelCount < 1 || channelCount > 64) throw new RangeError('Invalid subproject publication range.');
+		return { sampleRate, channelCount, frameCount };
+	}
+	async function retainUnavailableDescendants(node: ResolvedSubprojectNode, signal?: AbortSignal): Promise<ResolvedSubprojectNode> {
+		const children: ResolvedSubprojectNode['children'][number][] = [];
+		for (const entry of node.children) {
+			signal?.throwIfAborted();
+			if (!entry.node || entry.node.digest === entry.link.contentDigest) {
+				children.push(entry);
+				continue;
+			}
+			try {
+				const child = await retainUnavailableDescendants(entry.node, signal);
+				if (child.digest !== entry.link.contentDigest) {
+					const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(child.project));
+					assertBackgroundRackSupport(projected);
+					const replacements = new Set(child.children.filter(({ link, node }) => node && node.digest !== link.contentDigest)
+						.map(({ link }) => link.sourceId));
+					for (const source of subprojectRenderSources(child.project, projected, replacements)) {
+						signal?.throwIfAborted();
+						await requireSourceMetadata(source);
+					}
+				}
+				children.push({ link: entry.link, node: child });
+			} catch (error) {
+				if (!(error instanceof SubprojectRenderUnavailableError)) throw error;
+				children.push({ link: entry.link, node: null });
+			}
+		}
+		if (children.every(({ node: child }, index) => child?.digest === node.children[index]?.node?.digest)) return node;
+		const digests = children.map(({ link, node }) => node?.digest ?? link.contentDigest);
+		return { ...node, children, digest: subprojectContentDigest(node.project, digests) };
+	}
+	async function requireSourceMetadata(source: SubprojectRenderSource): Promise<StoredSourceMetadata> {
+		const metadata = await runtime.store.getSourceMetadata(source.storageKey);
+		if (!metadata || metadata.frameCount !== source.frameCount || metadata.channelCount !== source.channelCount || metadata.sampleRate !== source.sampleRate) {
+			throw new SubprojectRenderUnavailableError('Subproject source media is missing or has changed.');
+		}
+		return metadata;
+	}
+	async function render(node: ResolvedSubprojectNode, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
+		const temporary = new Map<string, SubprojectRenderedSource>();
+		let result: SubprojectRenderedSource | undefined;
+		let failure: RenderFailure | undefined;
+		try {
+			async function visit(current: ResolvedSubprojectNode, output: SubprojectGeometry): Promise<SubprojectRenderedSource> {
+				signal?.throwIfAborted();
+				const project = structuredClone(current.project) as unknown as Record<string, unknown>;
+				const sources = project.sources as Record<string, unknown>[];
+				for (const { link, node: child } of current.children) {
+					if (!child || child.digest === link.contentDigest) continue;
+					const key = JSON.stringify([child.project.id, child.digest, link.sampleRate, link.channelCount, link.frameCount]);
+					let rendered = temporary.get(key);
+					if (!rendered) {
+						rendered = await visit(child, link);
+						temporary.set(key, rendered);
+					}
+					const index = sources.findIndex(source => source.id === link.sourceId);
+					if (index < 0) throw new ReferenceError('The nested subproject proxy is missing.');
+					sources[index] = createAudioSource({ ...rendered.source, id: link.sourceId });
+				}
+				return await renderOne(project as unknown as SubprojectDocument, output, signal);
+			}
+			result = await visit(node, geometry);
+			return result;
+		} catch (error) {
+			failure = { error };
+			throw error;
+		} finally {
+			await settleSubprojectRender(result, failure, [...temporary.values()].reverse().map(source => () => source.discard()));
+		}
+	}
+	async function renderOne(project: SubprojectDocument, geometry: SubprojectGeometry, signal?: AbortSignal): Promise<SubprojectRenderedSource> {
+		signal?.throwIfAborted();
+		const projected = projectTrackFolderMediaStateV12(runtime.projectForRuntimeConsumers(project));
+		assertBackgroundRackSupport(projected);
+		const renderChannels = Number(projected.masterChannels ?? 2);
+		await runtime.preflight(geometry.frameCount * geometry.channelCount * 4);
+		signal?.throwIfAborted();
+		const providers = new Map<string, ReturnType<typeof createStoredChunkProvider>>();
+		let engine: ReturnType<SubprojectRendererRuntime['createEngine']> | null = null;
+		let pitch: Awaited<ReturnType<typeof prepareSubprojectTimePitchSources>> | null = null;
+		let writer: OwnedAudioSourceWriter | null = null;
+		let rendered: SubprojectRenderedSource | undefined;
+		let failure: RenderFailure | undefined;
+		try {
+			for (const source of subprojectRenderSources(project, projected)) {
+				providers.set(source.id, createStoredChunkProvider(runtime.store, source, await requireSourceMetadata(source)));
+			}
+			const id = runtime.createId('subproject-audio');
+			writer = await runtime.store.beginSourceWrite(id, { sampleRate: geometry.sampleRate, channelCount: geometry.channelCount, chunkFrames: SOURCE_CHUNK_FRAMES });
+			const output = createCoalescingSourceWriter(writer);
+			let frames = 0;
+			const options: EngineRenderToSinkOptions = { startFrame: 0,
+				endFrame: scaleSampleFrame(geometry.frameCount, geometry.sampleRate, project.sampleRate, 'enclosingEnd'),
+				includeTail: false, includeMaster: true, respectMuteSolo: true,
+				sampleRate: geometry.sampleRate, outputFrames: geometry.frameCount, chunkFrames: 8192, maximumPendingChunks: 8,
+				suspendForBackpressure: false,
+				preferBoundedOffline: true, signal, sink: async (channels, metadata) => {
+					signal?.throwIfAborted();
+					const length = channels[0]?.length ?? 0;
+					if (metadata.sampleRate !== geometry.sampleRate || channels.length !== renderChannels
+						|| !length || length > 65_536 || channels.some(channel => channel.length !== length) || frames + length > geometry.frameCount) {
+						throw new RangeError('The subproject renderer changed the published output geometry.');
+					}
+					const publishedChannels = subprojectOutputChannels(channels, geometry.channelCount);
+					// The coalescer copies into owned storage before the awaited sink returns.
+					await output.write([...publishedChannels]); frames += length;
+				},
+			};
+			pitch = await prepareSubprojectTimePitchSources(projected as EngineProject, runtime.store, signal);
+			engine = runtime.createEngine();
+			if (pitch.resolve && !engine.setSourceResolver) throw new TypeError('The subproject engine cannot resolve processed clips.');
+			engine.setSourceResolver?.(pitch.resolve);
+			engine.loadProject(projected as EngineProject, new Map(), { chunkSources: providers });
+			const nativeFrames = options.endFrame!;
+			const maximumOfflineBytes = 64 * 1024 * 1024;
+			let result;
+			if (engine.renderMix && Math.max(nativeFrames, geometry.frameCount) * Math.max(renderChannels, geometry.channelCount) * 4 <= maximumOfflineBytes) {
+				// Use the ordinary offline mixer within its existing admission ceiling.
+				// Longer publications retain the bounded, continuous-clock sink path.
+				const audio = await engine.renderMix({ startFrame: 0, endFrame: nativeFrames, outputFrames: nativeFrames,
+					includeTail: false, includeMaster: true, respectMuteSolo: true, signal });
+				const input = audioBufferChannels(audio);
+				const channels = project.sampleRate === geometry.sampleRate ? input
+					: resampleChannelsWindowedSinc([...input], project.sampleRate, geometry.sampleRate, geometry.frameCount);
+				for (let offset = 0; offset < (channels[0]?.length ?? 0); offset += 8192) {
+					if (typeof options.sink === 'function') await options.sink(channels.map(channel => channel.subarray(offset, offset + 8192)), { sampleRate: geometry.sampleRate });
+				}
+				result = { sampleRate: geometry.sampleRate, channelCount: channels.length, frameCount: frames };
+			} else result = await engine.renderMixToSink(options);
+			if (result.sampleRate !== geometry.sampleRate || result.channelCount !== renderChannels || result.frameCount !== frames) {
+				throw new RangeError('The subproject renderer returned inconsistent audio.');
+			}
+			while (frames < geometry.frameCount) {
+				signal?.throwIfAborted();
+				const count = Math.min(65_536, geometry.frameCount - frames);
+				await output.write(Array.from({ length: geometry.channelCount }, () => new Float32Array(count))); frames += count;
+			}
+			signal?.throwIfAborted();
+			const stored = await output.commit();
+			rendered = { source: { id, kind: 'audio', name: project.title, storageKey: id,
+				frameCount: geometry.frameCount, channelCount: geometry.channelCount, sampleRate: geometry.sampleRate },
+				discard: async () => {
+					try { await runtime.store.sourceRepository.discardIfCurrent(stored); }
+					catch (error) {
+						// Another editor's retention fence can defer reclamation until the
+						// pending-source grace expires. It must not fail a valid render.
+						if (!(error instanceof Error) || !error.message.includes('retained by another open editor session')) throw error;
+					}
+				} };
+			return rendered;
+		} catch (error) {
+			failure = { error };
+			throw error;
+		} finally {
+			await settleSubprojectRender(rendered, failure, [
+				() => rendered ? undefined : writer?.abort(),
+				() => engine?.dispose(),
+				...[...providers.values()].map(provider => () => provider.dispose()),
+				() => pitch?.close(),
+			]);
+		}
+	}
+	return Object.freeze({ plan, render, retainUnavailableDescendants });
+}
+
+interface RenderFailure { readonly error: unknown }
+interface SubprojectRenderSource extends SubprojectGeometry { readonly id: string; readonly storageKey: string }
+
+function* subprojectRenderSources(project: SubprojectDocument, projected: Readonly<Record<string, unknown>>,
+	replacements?: ReadonlySet<string>): Generator<SubprojectRenderSource> {
+	const used = new Set((projected.clips as readonly { kind?: string; sourceId: string }[])
+		.filter(clip => clip.kind === 'audio').map(clip => clip.sourceId));
+	for (const value of project.sources) {
+		const id = String(value.id);
+		if (!used.has(id) || replacements?.has(id)) continue;
+		if (value.kind !== 'audio') throw new RangeError('Audio subprojects require rendered audio sources.');
+		yield { id, storageKey: String(value.storageKey || id), frameCount: Number(value.frameCount),
+			channelCount: Number(value.channelCount), sampleRate: Number(value.sampleRate) };
+	}
+}
+
+async function settleSubprojectRender(
+	output: SubprojectRenderedSource | undefined,
+	failure: RenderFailure | undefined,
+	cleanup: readonly (() => PromiseLike<void> | void)[],
+): Promise<void> {
+	const errors: unknown[] = [];
+	for (const operation of cleanup) {
+		try { await operation(); }
+		catch (error) { errors.push(error); }
+	}
+	if (!errors.length) return;
+	try { await output?.discard(); }
+	catch (error) { errors.push(error); }
+	if (failure) errors.unshift(failure.error);
+	if (errors.length === 1) throw errors[0];
+	throw new AggregateError(errors, 'Subproject render cleanup failed.', { cause: errors[0] });
+}
+
+function subprojectOutputChannels(channels: readonly Float32Array[], width: number): readonly Float32Array[] {
+	if (channels.length === width) return channels;
+	if (width <= 2) return applyMediaChannelMapping(channels, width === 1 ? 'mono' : 'stereo');
+	return defaultMixerChannelMapV21(channels.length, width).map(channel => channel < 0
+		? new Float32Array(channels[0]!.length) : channels[channel]!);
+}
+
+function assertBackgroundRackSupport(project: Readonly<Record<string, unknown>>): void {
+	const mixer = project.mixer as Record<string, unknown>;
+	const owners = [...project.tracks as unknown[], ...project.clips as unknown[], project.master,
+		...['groups', 'sends', 'cues'].flatMap(key => Array.isArray(mixer?.[key]) ? mixer[key] as unknown[] : [])];
+	for (const value of owners) {
+		const owner = value as { effects?: readonly { type?: string; enabled?: boolean; bypassed?: boolean }[]; effectsActive?: boolean };
+		if (owner?.effectsActive === false) continue;
+		if (owner?.effects?.some(effect => effect.type === 'native-plugin' && effect.enabled !== false && !effect.bypassed)) {
+			throw new SubprojectRenderUnavailableError('Render or commit native plug-in tracks before using this project as an audio subproject.');
+		}
+	}
+}

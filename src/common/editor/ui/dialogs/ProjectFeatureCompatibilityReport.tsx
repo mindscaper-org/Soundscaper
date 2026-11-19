@@ -282,6 +282,7 @@ function audioEffectOwnerLabel(
 	copy: ProjectFeatureCompatibilityNoticeCopy,
 ): string {
 	if (placeholder.scope === 'master') return copy.master;
+	if (placeholder.scope === 'clip') return lookup('timeline', placeholder.ownerId)?.title?.trim() || copy.clip;
 	const ownerName = lookup(placeholder.scope, placeholder.ownerId)?.name?.trim();
 	const scopeLabel = placeholder.scope === 'track'
 		? copy.track

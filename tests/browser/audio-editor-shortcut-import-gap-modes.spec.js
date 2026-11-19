@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, importFiles, clipByName, openClipPrope
 // Node persists and executes every native alias through the actual action handler.
 for (const [command, expectedStart] of [['Cut', 0.2], ['SplitCut', 0.4]]) {
 	test(`native ${command} import retains its fixed gap behavior for an ordinary selected range`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/'); await importFiles(editor, [toneA]);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		for (const [name, frame] of [['Selection start', 9600], ['Selection end', 19200]]) {
 			const control = editor.getByRole('group', { name, exact: true });

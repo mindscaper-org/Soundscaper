@@ -13,6 +13,14 @@ Var ffmpegSuccessEvent
 Var ffmpegFailureEvent
 
 !macro customInit
+	SetRegView 64
+	ReadRegDWORD $0 HKLM "Software\Mindscaper\${PRODUCT_NAME}\Installation" "ManagedByWindowsInstaller"
+	${If} $0 == 1
+		IfSilent +2
+		MessageBox MB_OK|MB_ICONSTOP "${PRODUCT_NAME} is managed by Windows Installer. Use the MSI package to update it."
+		SetErrorLevel 1638
+		Quit
+	${EndIf}
 	StrCpy $ffmpegSelected ${BST_UNCHECKED}
 !macroend
 

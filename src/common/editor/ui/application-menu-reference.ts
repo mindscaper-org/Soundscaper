@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { JUCE_EFFECTS } from '../juce-effects/catalog.ts';
 
 export type ApplicationMenuReferenceProduct = 'soundscaper' | 'framescaper';
 export type ApplicationMenuReferenceKind = 'command' | 'setting' | 'link';
@@ -24,14 +25,19 @@ const FRAMESCAPER = Object.freeze(['framescaper'] as const);
 const BOTH = Object.freeze(['soundscaper', 'framescaper'] as const);
 
 const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
+	['match-eq', 'Match EQ', 'Effect > EQ and filters', SOUNDSCAPER],
+	['align-dialogue', 'Align dialogue', 'Edit > Audio clips', SOUNDSCAPER],
+	['timecode-sync', 'Timecode synchronization', 'Tools', SOUNDSCAPER],
 	// File: local project lifecycle, delivery, interchange, and native media.
 	['claim-project-lock', 'Edit here', 'File', BOTH],
 	['recent-project', 'Recent project', 'File > Open recent', BOTH],
+	['session-snapshots', 'Session snapshots', 'File', SOUNDSCAPER],
 	['switch-product-to-framescaper', 'Edit in Framescaper', 'File', SOUNDSCAPER],
 	['switch-product-to-soundscaper', 'Edit in Soundscaper', 'File', FRAMESCAPER],
 	['cancel-switch-product-to-framescaper', 'Cancel: Edit in Framescaper', 'File', SOUNDSCAPER],
 	['cancel-switch-product-to-soundscaper', 'Cancel: Edit in Soundscaper', 'File', FRAMESCAPER],
 	['delivery-queue', 'Delivery queue', 'File', BOTH],
+	['subprojects', 'Subprojects', 'File', SOUNDSCAPER],
 	['delivery-report', 'Delivery Report', 'File', BOTH],
 	['overwrite-original-file', 'Overwrite original file', 'File', BOTH],
 	['save-aup3', 'Export AUP3', 'File > Export other', SOUNDSCAPER],
@@ -40,8 +46,12 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['midi-export-file', 'Export MIDI (beta)', 'File > Export other', SOUNDSCAPER],
 	['allegro-export-file', 'Export Allegro (beta)', 'File > Export other', SOUNDSCAPER],
 	['new-midi-track', 'MIDI track (beta)', 'Tracks > Add new track', SOUNDSCAPER],
+	['track-playlists', 'Track playlists', 'Tracks', SOUNDSCAPER],
 	['export-otio', 'Export OpenTimelineIO', 'File > Export other', BOTH],
 	['export-fcpxml', 'Export FCPXML', 'File > Export other', BOTH],
+	['export-adl', 'Export AES31 ADL', 'File > Export other', BOTH],
+	['export-aaf', 'Export AAF', 'File > Export other', BOTH],
+	['export-omf', 'Export OMF', 'File > Export other', BOTH],
 	['export-dawproject', 'Export DAWproject', 'File > Export other', BOTH],
 	['framescaper-import-image-sequence', 'Image sequence', 'File', FRAMESCAPER],
 	['framescaper-add-to-render-queue', 'Add to render queue', 'File > Export other', FRAMESCAPER],
@@ -87,6 +97,8 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['panel-markers', 'Markers', 'Window', BOTH, 'setting'],
 	['panel-metadata', 'Metadata', 'Window', BOTH, 'setting'],
 	['panel-recording-notes', 'Recording notes', 'Window', BOTH, 'setting'],
+	['transcript-based-editing', 'Transcript-based editing', 'Edit', BOTH, 'setting'],
+	['panel-transcript-editing', 'Transcript-based editing', 'Window', BOTH, 'setting'],
 	['panel-freesound', 'Freesound', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-audiocom', 'audio.com', 'Window', SOUNDSCAPER, 'setting'],
 	['panel-mixer', 'Mixer', 'Window', BOTH, 'setting'],
@@ -173,6 +185,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 
 	// Soundscaper native effects and destructive selection effects.
 	['native-effect-manage', 'Plugin Manager', 'Effect', SOUNDSCAPER],
+	...JUCE_EFFECTS.map((effect): ReferenceSeed => [effect.menuId, effect.label, 'Effect > JUCE', SOUNDSCAPER]),
 	['nyquist-get-effects', 'Get effects', 'Effect > Nyquist', SOUNDSCAPER],
 	['audacity-amplify', 'Amplify', 'Effect > Volume and compression', SOUNDSCAPER],
 	['audacity-auto-duck', 'Auto Duck', 'Effect > Volume and compression', SOUNDSCAPER],
@@ -193,7 +206,10 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['audacity-filter-curve-eq', 'Filter Curve EQ', 'Effect > EQ and filters', SOUNDSCAPER],
 	['audacity-graphic-eq', 'Graphic EQ', 'Effect > EQ and filters', SOUNDSCAPER],
 	['deesser', 'De-esser', 'Effect > Noise removal and repair', SOUNDSCAPER],
+	['automatic-phase-correction', 'Automatic phase correction', 'Effect > Noise removal and repair', SOUNDSCAPER],
+	['automatic-microphone-bleed-reduction', 'Automatic microphone-bleed reduction', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['noise-gate', 'Noise gate', 'Effect > Noise removal and repair', SOUNDSCAPER],
+	['hum-removal', 'Hum removal', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['audacity-click-removal', 'Click Removal', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['audacity-noise-reduction', 'Noise Reduction', 'Effect > Noise removal and repair', SOUNDSCAPER],
 	['audacity-repair', 'Repair', 'Effect > Noise removal and repair', SOUNDSCAPER],
@@ -204,6 +220,7 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['bitcrusher', 'Bitcrusher', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['tremolo', 'Tremolo', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['vocoder', 'Vocoder', 'Effect > Distortion and modulation', SOUNDSCAPER],
+	['auto-tune', 'Automatic pitch correction', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-phaser', 'Phaser', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-wahwah', 'Wahwah', 'Effect > Distortion and modulation', SOUNDSCAPER],
 	['audacity-invert', 'Invert', 'Effect > Special', SOUNDSCAPER],
@@ -240,6 +257,8 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	// Live analysis panel and selected-range analysis commands.
 	['analysis', 'Analysis', 'Analyze', SOUNDSCAPER, 'setting'],
 	['analyze-selection', 'Analyze selection', 'Analyze', SOUNDSCAPER],
+	['find-repeated-sound', 'Find repeated sound', 'Analyze', SOUNDSCAPER],
+	['macro-apply-files', 'Apply to files', 'Tools > Macros', SOUNDSCAPER],
 	['measure-loudness', 'Measure loudness', 'Analyze', SOUNDSCAPER],
 	['native-analyzer-use', 'Vamp Plugins', 'Analyze', SOUNDSCAPER],
 	['framescaper-motion-tracking', 'Motion Tracking', 'Analyze', FRAMESCAPER],
@@ -266,18 +285,17 @@ const REFERENCE_SEEDS: readonly ReferenceSeed[] = Object.freeze([
 	['framescaper-proxy-attach', 'Attach', 'Tools > Proxies', FRAMESCAPER],
 	['framescaper-proxy-detach', 'Detach', 'Tools > Proxies', FRAMESCAPER],
 	['framescaper-proxy-relink', 'Relink', 'Tools > Proxies', FRAMESCAPER],
-	['framescaper-native-media-preferences', 'Native media and scratch', 'Edit > Preferences > Media', FRAMESCAPER, 'setting'],
-	['desktop-use-native-probe-helper', 'Use Native Probe Helper', 'Edit > Preferences > Media', BOTH, 'setting'],
-	['desktop-clear-probe-helper-quarantine', 'Clear Probe Helper Quarantine', 'Edit > Preferences > Media', BOTH],
+	['framescaper-native-media-preferences', 'Native media and scratch', 'Edit > Preferences > Advanced', FRAMESCAPER, 'setting'],
 	['desktop-clear-audio-helper-quarantine', 'Clear Audio Helper Quarantine', 'Edit > Preferences > Audio settings', BOTH],
 	['desktop-discover-native-effects', 'Discover Native Effects', 'Edit > Preferences > Effects', BOTH, 'setting'],
 
 	// Help: local surfaces, install affordance, and desktop links.
-	['privacy-policy', 'Privacy policy', 'Help', BOTH, 'link'],
+	['privacy-policy', 'Privacy & Code signing policy', 'Help', BOTH, 'link'],
 	['community-translations', 'Contribute translations', 'Help', BOTH, 'link'],
 	['install-soundscaper', 'Install Soundscaper', 'Help', SOUNDSCAPER],
 	['install-framescaper', 'Install Framescaper', 'Help', FRAMESCAPER],
 	['download-desktop-version', 'Download desktop version', 'Help', BOTH, 'link'],
+	['cpu-profiling', 'CPU profiling', 'Help', BOTH],
 	['debug-storage', 'Debug storage', 'Help', BOTH, 'setting'],
 	['desktop-product-help-soundscaper', 'Soundscaper Help', 'Help', SOUNDSCAPER, 'link'],
 	['desktop-product-help-framescaper', 'Framescaper Help', 'Help', FRAMESCAPER, 'link'],

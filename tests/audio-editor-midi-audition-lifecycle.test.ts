@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import { COPY, createAudioEditorController, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 import { MidiPreviewContext, midiPreviewEngine } from './helpers/midi-preview-context.ts';
-import { deferred, settle, waitFor } from './helpers/async-test-control.ts';
+import { deferred, settle } from './helpers/async-test-control.ts';
 import { MockNode } from './helpers/mock-audio-context.js';
 import { createMockAudioWorkletNodeClass } from './helpers/mock-audio-worklet-node.js';
+import { installNodeEditorWorkers } from './helpers/node-editor-workers.ts';
 
 async function fixture(t: TestContext) {
+	installNodeEditorWorkers(t);
 	const previousWorklet = Object.getOwnPropertyDescriptor(globalThis, 'AudioWorkletNode');
 	Object.defineProperty(globalThis, 'AudioWorkletNode', { configurable: true, value: createMockAudioWorkletNodeClass(MockNode) });
 	t.after(() => {
@@ -35,10 +37,11 @@ for (const transition of ['project', 'dispose'] as const) {
 		assert.equal(f.context.bufferSources.length, 0);
 	});
 
-	test(`active piano audition stops on ${transition} replacement`, async t => {
+	test(`active piano audition stops on ${transition} replacement`, { timeout: 10_000 }, async t => {
 		const f = await fixture(t);
 		const preview = f.controller.actions.midi.previewNote(60, 'sine');
-		await waitFor(() => f.context.bufferSources.length === 1, 'piano voice');
+		void preview.catch(() => {});
+		await f.context.waitForVoices(1, t.signal);
 		const voice = f.context.bufferSources[0]!;
 		if (transition === 'project') await f.controller.actions.project.create();
 		else await f.controller.dispose();
@@ -47,14 +50,16 @@ for (const transition of ['project', 'dispose'] as const) {
 	});
 }
 
-test('selection and ordinary timeline playback preserve overlapping same-project piano voices', async t => {
+test('selection and ordinary timeline playback preserve overlapping same-project piano voices', { timeout: 10_000 }, async t => {
 	const f = await fixture(t);
 	const { clipId } = await f.controller.actions.midi.addTrack();
 	const first = f.controller.actions.midi.previewNote(60, 'sine');
-	await waitFor(() => f.context.bufferSources.length === 1, 'first voice');
+	void first.catch(() => {});
+	await f.context.waitForVoices(1, t.signal);
 	f.controller.actions.timeline.selectClip(clipId);
 	const second = f.controller.actions.midi.previewNote(64, 'triangle');
-	await waitFor(() => f.context.bufferSources.length === 2, 'second voice');
+	void second.catch(() => {});
+	await f.context.waitForVoices(2, t.signal);
 	await f.controller.actions.transport.playPause();
 	assert.equal(f.engine.getState().state, 'playing');
 	for (const voice of f.context.bufferSources.slice(0, 2)) assert.notEqual(voice.stopped, true);
@@ -62,13 +67,14 @@ test('selection and ordinary timeline playback preserve overlapping same-project
 	for (const voice of f.context.bufferSources.slice(0, 2)) assert.equal(voice.disconnected, true);
 });
 
-test('a genuine current audition readiness failure remains visible and does not poison the next preview', async t => {
+test('a genuine current audition readiness failure remains visible and does not poison the next preview', { timeout: 10_000 }, async t => {
 	const f = await fixture(t);
 	f.context.resume = async () => { throw new Error('The selected output is unavailable.'); };
 	await assert.rejects(f.controller.actions.midi.previewNote(60), /selected output is unavailable/u);
 	assert.equal(f.context.bufferSources.length, 0);
 	f.context.resume = async () => { f.context.state = 'running'; };
 	const healthy = f.controller.actions.midi.previewNote(60);
-	await waitFor(() => f.context.bufferSources.length === 1, 'replacement audition');
+	void healthy.catch(() => {});
+	await f.context.waitForVoices(1, t.signal);
 	f.context.endVoices(); await healthy;
 });

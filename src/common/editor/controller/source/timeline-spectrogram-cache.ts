@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createBoundedWorkQueue } from './internal/bounded-work-queue.ts';
+import { createBoundedWorkQueue } from '../shared/bounded-work-queue.ts';
 import { createSpectrogramColumnCache } from './internal/spectrogram-column-cache.ts';
 
 export type { SpectrogramColumnCacheView } from './internal/spectrogram-column-cache.ts';

@@ -8,7 +8,10 @@ import { MusicalTimelineControls } from '../src/common/editor/ui/toolbar/Musical
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const key of ['Enter', 'Escape']) test(`musical numeric drafts retain native composing ${key}`, async () => {
+for (const field of [
+	{ name: 'tempo', selector: '[data-action-id="playback-bpm"]', saved: '120', draft: '130', next: '140', change: { bpm: { num: 130, den: 1 } } },
+	{ name: 'signature numerator', selector: '[data-action-id="playback-time-signature"]', saved: '4', draft: '5', next: '7', change: { numerator: 5 } },
+] as const) for (const key of ['Enter', 'Escape']) test(`musical ${field.name} drafts retain native composing ${key}`, async () => {
 	const dom = installReactTestDom();
 	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
 	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
@@ -27,25 +30,25 @@ for (const key of ['Enter', 'Escape']) test(`musical numeric drafts retain nativ
 	try {
 		await act(async () => { root.render(<MusicalTimelineControls project={project} snapshot={{ readOnly: false, recording: false }}
 			controller={controller} copy={ENGLISH_COPY} run={(command: () => unknown) => command()} />); });
-		const input = dom.one('[data-action-id="playback-bpm"]').querySelector('input');
+		const input = dom.one(field.selector).querySelector('input');
 		assert.ok(input);
 		input.focus();
-		input.value = '130';
+		input.value = field.draft;
 		let prevented = false;
 		await act(async () => { reactProps(input).onKeyDown({ key, currentTarget: input, nativeEvent: { isComposing: true },
 			preventDefault: () => { prevented = true; } }); });
-		assert.equal(input.value, '130');
+		assert.equal(input.value, field.draft);
 		assert.deepEqual(commits, []);
 		assert.equal(prevented, false);
 		assert.equal(dom.container.ownerDocument.activeElement, input);
 		await act(async () => { reactProps(input).onKeyDown({ key: 'Enter', currentTarget: input, nativeEvent: { isComposing: false },
 			preventDefault: () => { prevented = true; } }); });
-		assert.deepEqual(commits, [{ bpm: { num: 130, den: 1 } }]);
+		assert.deepEqual(commits, [field.change]);
 		assert.equal(prevented, true);
-		input.value = '140';
+		input.value = field.next;
 		await act(async () => { reactProps(input).onKeyDown({ key: 'Escape', currentTarget: input, nativeEvent: { isComposing: false },
 			preventDefault: () => undefined }); });
-		assert.equal(input.value, '120', 'ordinary Escape retains the existing authoritative value');
+		assert.equal(input.value, field.saved, 'ordinary Escape retains the existing authoritative value');
 		assert.equal(commits.length, 1);
 	} finally {
 		await act(async () => { root.unmount(); });

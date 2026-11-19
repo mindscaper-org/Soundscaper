@@ -113,6 +113,9 @@ export function configureSoundscaperCaptureSessionSecurityV1(
 		if (permission === 'fullscreen') return true;
 		if (permission === 'display-capture') return seams.platform === 'win32';
 		if (permission === 'speaker-selection') return true;
+		if (permission === 'midi' || permission === 'midiSysex') {
+			return details.securityOrigin === undefined || sameOrigin(details.securityOrigin, seams.trustedOrigin);
+		}
 		if (permission !== 'media'
 			|| (details.securityOrigin !== undefined
 				&& !sameOrigin(details.securityOrigin, seams.trustedOrigin))) return false;

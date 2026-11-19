@@ -19,13 +19,13 @@ test('a macro effect preserves recording frequencies outside its authored spectr
 	const before = await exportSamples(page, editor);
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	await runSpectralRange(page, editor, { minimum: 900, maximum: 1100, operation: 'select' });
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const palette = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const palette = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await palette.getByRole('button', { name: 'New program', exact: true }).click();
 	await palette.getByRole('textbox', { name: 'Program', exact: true }).fill(
 		"await sound.effect('audacity-amplify', {gainDb:-12, allowClipping:true});",
 	);
-	await palette.getByRole('button', { name: 'Run program', exact: true }).click();
+	await palette.getByRole('button', { name: 'Run macro', exact: true }).click();
 	await expect(palette.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed');
 	await palette.getByRole('button', { name: 'Close', exact: true }).click();
 	const after = await exportSamples(page, editor);

@@ -76,6 +76,13 @@ test('a cut rejection still deletes the partially written output path', async ()
 	assert.equal(runtime.deleted.some((path) => path.includes('.part-0.')), true);
 });
 
+test('a reordered copy with a substituted picture is refused before returning any media', async () => {
+	const runtime = createRuntime({ reordered: true, wrongPicture: true });
+	await assert.rejects(executeTrimMediaCopy(runtime.value, request()), /trimmed video picture 7 differs/u);
+	assert.deepEqual(runtime.commands, ['probe', 'cut:10:10', 'cut:40:10', 'concat', 'verify']);
+	assert.deepEqual(runtime.remaining(), []);
+});
+
 test('a clean run whose cleanup fails still reports the leak', async () => {
 	const runtime = createRuntime({ deleteFails: true });
 	await assert.rejects(executeTrimMediaCopy(runtime.value, request()), (error: unknown) => {
@@ -113,6 +120,8 @@ function createRuntime(options: {
 	cutThrows?: boolean;
 	keyframes?: readonly number[];
 	deleteFails?: boolean;
+	reordered?: boolean;
+	wrongPicture?: boolean;
 } = {}) {
 	const keyframes = options.keyframes ?? [0, 10, 20, 30, 40, 50];
 	const paths = new Set<string>();
@@ -125,12 +134,15 @@ function createRuntime(options: {
 		async exec(args) {
 			executed.push(args);
 			if (args.includes('showinfo')) {
-				commands.push('probe');
+				const verifying = args.some((argument) => argument.endsWith('.trimmed.mp4'));
+				commands.push(verifying ? 'verify' : 'probe');
+				const count = verifying ? 20 : 60;
 				return {
 					exitCode: options.probeExit ?? 0,
-					logs: Array.from({ length: 60 }, (_value, index) => (
+					logs: Array.from({ length: count }, (_value, index) => (
 						`[Parsed_showinfo_0 @ 0x1] n:${String(index).padStart(4)} pts:${index * 1024}`
 						+ ` iskey:${keyframes.includes(index) ? 1 : 0}`
+						+ (options.reordered ? ` type:B plane_checksum:[${pictureChecksum(index, verifying, options.wrongPicture)}]` : '')
 					)),
 				};
 			}
@@ -154,6 +166,12 @@ function createRuntime(options: {
 		},
 	};
 	return { value, deleted, executed, commands, remaining: () => [...paths] };
+}
+
+function pictureChecksum(ordinal: number, verifying: boolean, wrongPicture: boolean | undefined): string {
+	const original = !verifying ? ordinal : ordinal + (ordinal < 10 ? 10 : 30);
+	const picture = verifying && wrongPicture && ordinal === 7 ? original + 1 : original;
+	return picture.toString(16).padStart(8, '0');
 }
 
 /** Recover the frame a seek names, so the test reads cuts the way FFmpeg does. */

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AUDIO_EDITOR_COMMAND_TYPES } from '../src/common/editor/commands/protocol.ts';
 import { createSoundscaperDesktopMcpPort } from '../src/common/editor/desktop-mcp-port.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
 
 function fixture(metadataNote = 'safe') {
@@ -170,4 +171,34 @@ test('desktop MCP snapshots valid command batches before normal commit', async (
 	assert.equal(f.commits.length, 1);
 	assert.notEqual(f.commits[0], command);
 	f.port.dispose();
+});
+
+test('desktop MCP awaits asynchronous command publication and reports its failure', async () => {
+	for (const reject of [false, true]) {
+		let project = { id: 'project', title: 'Project', revision: 2 };
+		const pending = deferred<void>();
+		const responses: Array<{ success: boolean; result?: unknown; error?: string }> = [];
+		let listener: ((request: { requestId: string; operation: string; args: unknown }) => void) | undefined;
+		const port = createSoundscaperDesktopMcpPort({
+			controller: { getSnapshot: () => ({ project, readOnly: false, selectedTrackId: null, selectedClipId: null, selectedAnnotationId: null }),
+				actions: { edit: { commit: async () => { await pending.promise; project = { ...project, revision: 3 }; } } } },
+			fileService: { onMcpRequest: next => { listener = next; return () => { listener = undefined; }; },
+				respondMcpRequest: response => { responses.push(response); } },
+		});
+		const send = (args: unknown): void => { listener?.({ requestId: 'move', operation: 'execute_editor_command', args }); };
+		try {
+			send({ projectId: 'project', expectedRevision: 2,
+				command: { type: 'clip/move', clipId: 'midi', trackId: 'different-instrument', timelineStartFrame: 0 } });
+			await new Promise(resolve => setImmediate(resolve));
+			assert.deepEqual(responses, []);
+			if (reject) pending.reject(new Error('MIDI rendering failed'));
+			else pending.resolve(undefined);
+			await new Promise(resolve => setImmediate(resolve));
+			if (reject) assert.deepEqual(responses, [{ requestId: 'move', success: false, error: 'MIDI rendering failed' }]);
+			else assert.deepEqual(responses, [{ requestId: 'move', success: true, result: { projectId: 'project', revision: 3 } }]);
+		} finally {
+			pending.resolve(undefined);
+			port.dispose();
+		}
+	}
 });

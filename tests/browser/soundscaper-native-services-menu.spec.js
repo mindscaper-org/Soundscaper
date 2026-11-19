@@ -113,12 +113,16 @@ test('Plugin Manager filters installed rows and allows only the selected install
 	await chooseCommandAction(page, editor, 'Effect', 'Plugin Manager');
 	const dialog = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	const search = dialog.getByRole('textbox', { name: 'Search plugins' });
-	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(2);
-	await dialog.getByRole('button', { name: 'Status', exact: true }).click();
-	await page.getByRole('option', { name: 'Needs attention', exact: true }).click();
+	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(3);
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
+	await page.getByRole('option', { name: 'Incompatible', exact: true }).click();
+	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
+	await expect(dialog.getByRole('row', { name: 'Broken Fixture VST2 Incompatible', exact: true })).toBeVisible();
+	await dialog.getByRole('button', { name: /^Status(?::|$)/u }).click();
+	await page.getByRole('option', { name: 'Disabled', exact: true }).click();
 	await expect(dialog.locator('[data-native-plugin-entry]')).toHaveCount(1);
 	await dialog.getByRole('button', { name: 'Echo', exact: true }).click();
-	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toContainText('Allow this installation before use.');
+	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toContainText('Allow this version');
 	await search.fill('absent');
 	await expect(dialog.getByRole('region', { name: 'Plugin details' })).toHaveCount(0);
 	await expect(dialog.getByText('No plugins match these filters.', { exact: true })).toBeVisible();
@@ -195,11 +199,78 @@ test('Effects preferences manages supported plugin folders without format switch
 	expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
 
+
+test('Windows x64 bridge defaults on, can be disabled, and is restored by factory reset', async ({ page }) => {
+	await installNativeServicesFixture(page, false, false, true, { bridge: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	const bridge = preferences.getByRole('checkbox', { name: 'Enable 32-bit VST2 plugins', exact: true });
+	await expect(bridge).toBeChecked();
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	await expect(bridge).not.toBeChecked();
+	await bridge.click(); await expect(bridge).toBeChecked();
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
+		.toEqual(['consent:vst2:disable-x86-vst2:', 'consent:vst2:enable-x86-vst2:', 'consent:vst2:disable-x86-vst2:']);
+	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Help', 'Revert to factory settings');
+	const confirm = page.getByRole('dialog', { name: 'Revert to factory settings', exact: true });
+	await confirm.getByRole('button', { name: 'Revert settings', exact: true }).click();
+	await expect(confirm).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	await expect(bridge).toBeChecked();
+});
+
+test('Linux Windows VST3 hosting is opt-in and Wine can be rescanned or selected in Effects preferences', async ({ page }) => {
+	await installNativeServicesFixture(page, false, false, true, { wine: true });
+	const editor = await bootEditor(page, '/embed/en/');
+	await expect(editor.getByRole('checkbox', { name: 'Enable Windows VST3 plugins with Wine', exact: true })).toHaveCount(0);
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
+	const bridge = preferences.getByRole('checkbox', { name: 'Enable Windows VST3 plugins with Wine', exact: true });
+	const wine = preferences.getByRole('status', { name: 'Wine installation', exact: true });
+	await expect(bridge).not.toBeChecked();
+	await expect(wine).toContainText('Wine was not found.');
+	await preferences.getByRole('button', { name: 'Rescan Wine', exact: true }).click();
+	await expect(wine).toContainText('/usr/bin/wine');
+	await bridge.click(); await expect(bridge).toBeChecked();
+	await preferences.getByRole('button', { name: 'Browse for Wine', exact: true }).click();
+	await expect(wine).toContainText('/opt/custom/wine');
+	await preferences.getByRole('button', { name: 'Use automatic Wine detection', exact: true }).click();
+	await expect(wine).toContainText('/usr/bin/wine');
+	await bridge.click(); await expect(bridge).not.toBeChecked();
+	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls)).toEqual([
+		'consent:vst3:rescan-wine:', 'consent:vst3:enable-wine-vst3:', 'consent:vst3:browse-wine:',
+		'consent:vst3:clear-wine:', 'consent:vst3:disable-wine-vst3:',
+	]);
+});
+
 test('desktop startup scans in the background with a progress toast and a preferences cancellation link', async ({ page }) => {
 	await installNativeServicesFixture(page, false, false, true, { startup: true });
 	const editor = await bootEditor(page, '/embed/en/');
 	const toast = editor.getByRole('region', { name: 'Scanning for plugins', exact: true });
 	await expect(toast).toBeVisible();
+	const progressCopy = toast.getByText('0%', { exact: true });
+	await expect(progressCopy).toBeVisible();
+	for (const theme of ['dark', 'light']) {
+		await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+		expect(await progressCopy.evaluate(element => getComputedStyle(element).color))
+			.toBe(await toast.evaluate(element => {
+				const probe = document.createElement('span');
+				probe.style.color = 'var(--muted)';
+				element.append(probe);
+				const color = getComputedStyle(probe).color;
+				probe.remove();
+				return color;
+			}));
+	}
 	await expect(page.getByRole('dialog')).toHaveCount(0);
 	await expect(toast.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
 	await page.evaluate(() => globalThis.__setSoundscaperPluginScanProgress(0.5));
@@ -238,7 +309,9 @@ test('startup scan continues after closing preferences and reports completion', 
 	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls))
 		.toEqual(['scan:vst3:system-vst3', 'scan:vst3:custom-vst3']);
 	await page.evaluate(() => globalThis.__completeSoundscaperPluginScan());
-	await expect(editor.getByRole('region', { name: 'Plugin scan complete', exact: true })).toBeVisible();
+	const complete = editor.getByRole('region', { name: 'Plugin scan complete', exact: true });
+	await complete.getByRole('link', { name: 'Open Plugin Manager', exact: true }).click();
+	await expect(page.getByRole('dialog', { name: 'Plugin Manager', exact: true })).toBeVisible();
 });
 
 test('a saved disabled desktop startup setting starts no scan or toast', async ({ page }) => {
@@ -259,17 +332,21 @@ test('failed scans remain visible in preferences and the manager, with a retry a
 	await page.evaluate(() => globalThis.__failSoundscaperPluginScan());
 	await expect.poll(() => page.evaluate(() => globalThis.__soundscaperNativeRuntimeCalls.length)).toBe(2);
 	await page.evaluate(() => globalThis.__completeSoundscaperPluginScan());
-	const toast = editor.getByRole('region', { name: 'Plugin scan needs attention', exact: true });
+	const toast = editor.getByRole('region', { name: 'Plugin scan completed with errors', exact: true });
 	await expect(toast).toContainText('System VST3 folder: The scanner crashed.');
-	await toast.getByRole('link', { name: 'Scanning preferences', exact: true }).click();
+	await toast.getByRole('link', { name: 'Open Plugin Manager', exact: true }).click();
+	const manager = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
+	await expect(manager.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
+	await manager.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Effects$/u }).click();
 	await expect(preferences.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
 	await expect(preferences.getByRole('button', { name: 'Scan for plugins', exact: true })).toBeEnabled();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).filter({ hasText: /^Close$/u }).click();
 	const effects = await openNestedCommandMenu(page, editor, 'Effect', []);
 	await expect(getMenuItem(effects, 'Audio Plugins')).toHaveCount(0);
 	await getMenuItem(effects, 'Plugin Manager').click();
-	const manager = page.getByRole('dialog', { name: 'Plugin Manager', exact: true });
 	await expect(manager.getByRole('alert')).toContainText('System VST3 folder: The scanner crashed.');
 	await expect(manager.getByRole('button', { name: 'Scan for plugins', exact: true })).toBeEnabled();
 	await manager.getByRole('button', { name: /^Clear and rescan:/u }).click();
@@ -299,7 +376,7 @@ test('factory settings restore plugin scanning and common folders', async ({ pag
 
 async function installNativeServicesFixture(page, withPlugins = false, withNativeAudio = false, withPluginFolders = false, startupOptions = {}) {
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled }) => {
+	await page.addInitScript(({ includePlugins, includeNativeAudio, includePluginFolders, startup, startupDisabled, bridgeSupported, wineSupported }) => {
 		// The desktop grants microphone access automatically. This host-picker
 		// fixture never records; avoid waiting for a browser permission prompt.
 		if (includeNativeAudio) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
@@ -324,7 +401,8 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			enabled: startup && !startupDisabled, quarantined: false,
 			payload: Object.freeze(includePluginFolders ? { status: 'available', reason: null } : { status: 'unavailable', reason: 'not-built' }),
 			formats: Object.freeze([]),
-			consent: Object.freeze({ scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
+			consent: Object.freeze({ ...(wineSupported ? { linuxWineVst3: { supported: true, enabled: false,
+				bridgeAvailable: true, state: 'unavailable', location: null, version: null } } : {}), ...(bridgeSupported ? { windowsX86Vst2: { supported: true, enabled: true } } : {}), scanningEnabled: false, formats: Object.freeze(includePluginFolders ? [
 				{ format: 'vst3', supported: true, granted: startup, roots: [
 					{ rootId: 'system-vst3', origin: 'standard', name: 'System VST3 folder', admitted: startup },
 					...(startup ? [{ rootId: 'custom-vst3', origin: 'custom', name: 'Custom VST3 folder', admitted: true }] : []),
@@ -343,11 +421,14 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		globalThis.__completeSoundscaperPluginScan = () => { finishScan?.({ status: 'described', scan: { format: 'vst3', status: 'scanned', detail: '', entries: [] } }); };
 		let registry = { entries: includePlugins ? [
 			{ entryId: 'echo', format: 'VST3', name: 'Echo', vendor: 'Fixture', eligible: false,
-				ineligibleReason: 'Allow this installation before use.', installations: [{ installationId: 'echo-install',
+				ineligibleReason: 'allowance-required', installations: [{ installationId: 'echo-install',
 					version: '1.0', allowed: false, selected: true, quarantined: false }] },
 			{ entryId: 'gain', format: 'LV2', name: 'Gain', vendor: 'Fixture', eligible: true,
 				ineligibleReason: null, installations: [{ installationId: 'gain-install',
 					version: '2.0', allowed: true, selected: true, quarantined: false }] },
+			{ entryId: 'broken', format: 'VST2', name: 'Broken', vendor: 'Fixture', eligible: false,
+				ineligibleReason: 'incompatible', installations: [{ installationId: 'broken-install',
+					version: '0', allowed: false, selected: true, quarantined: false }] },
 		] : [] };
 		const refused = async (name) => {
 			runtimeCalls.push(name);
@@ -408,6 +489,20 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 			setNativePluginConsent: async ({ format, action, rootId = '' }) => {
 				if (!includePluginFolders) return refused('setNativePluginConsent');
 				runtimeCalls.push(`consent:${format}:${action}:${rootId}`);
+				if (wineSupported && ['enable-wine-vst3', 'disable-wine-vst3', 'rescan-wine', 'browse-wine', 'clear-wine'].includes(action)) {
+					const wine = plugins.consent.linuxWineVst3;
+					plugins = { ...plugins, consent: { ...plugins.consent, linuxWineVst3: {
+						...wine, enabled: action === 'enable-wine-vst3' ? true : action === 'disable-wine-vst3' ? false : wine.enabled,
+						...(['rescan-wine', 'browse-wine', 'clear-wine'].includes(action) ? {
+							state: 'ready', location: action === 'browse-wine' ? '/opt/custom/wine' : '/usr/bin/wine', version: '11.22.0',
+						} : {}),
+					} } };
+					return;
+				}
+				if (action === 'enable-x86-vst2' || action === 'disable-x86-vst2') {
+					plugins = { ...plugins, consent: { ...plugins.consent, windowsX86Vst2: { supported: true, enabled: action === 'enable-x86-vst2' } } };
+					return;
+				}
 				const formats = plugins.consent.formats.map((entry) => {
 					if (entry.format !== format) return entry;
 					if (action === 'grant') return { ...entry, granted: true };
@@ -416,7 +511,7 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 					return { ...entry, roots: entry.roots.flatMap((root) => root.rootId !== rootId ? [root]
 						: action === 'remove-root' && root.origin === 'custom' ? [] : [{ ...root, admitted: action === 'add-standard-root' }]) };
 				});
-				plugins = { ...plugins, consent: { formats, scanningEnabled: formats.some((entry) => entry.granted && entry.roots.some((root) => root.admitted)) } };
+				plugins = { ...plugins, consent: { ...plugins.consent, formats, scanningEnabled: formats.some((entry) => entry.granted && entry.roots.some((root) => root.admitted)) } };
 			},
 			scanNativePlugins: async ({ format, rootId }) => {
 				if (!includePluginFolders) return refused('scanNativePlugins');
@@ -463,5 +558,5 @@ async function installNativeServicesFixture(page, withPlugins = false, withNativ
 		const surface = Object.freeze({ v1: bridge });
 		Object.defineProperty(globalThis, 'soundscaperDesktop', { configurable: true, value: surface });
 	}, { includePlugins: withPlugins, includeNativeAudio: withNativeAudio, includePluginFolders: withPluginFolders,
-		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true });
+		startup: startupOptions.startup === true, startupDisabled: startupOptions.disabled === true, bridgeSupported: startupOptions.bridge === true, wineSupported: startupOptions.wine === true });
 }

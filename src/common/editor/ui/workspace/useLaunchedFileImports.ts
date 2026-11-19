@@ -31,10 +31,11 @@ import {
 } from '../../../offline/file-handler-launch.ts';
 import { collectSharedFiles } from '../../../offline/share-target-launch.ts';
 import { markWebFileLoadLimitFailure } from '../../web-file-limit-failure.ts';
+import { waitForWorkspaceFileAdmission, type WorkspaceFileAdmissionController } from './workspace-file-admission.ts';
 
 export interface LaunchedFileImportsInput {
 	/** Waited on before the files are routed, because a launch beats the controller to readiness. */
-	readonly controller: { readonly ready?: PromiseLike<unknown> | null } | null;
+	readonly controller: WorkspaceFileAdmissionController | null;
 	/** The workspace's own routed import, which a dropped batch also goes through. */
 	readonly importFiles: (files: readonly File[]) => unknown;
 	readonly onError: (error: unknown) => void;
@@ -64,35 +65,40 @@ export function useLaunchedFileImports({
 	// changes; the subscription is not, so a launch in flight is never handed to
 	// a closure that has just been replaced.
 	const importRef = useRef(importFiles);
-	const pendingImports = useRef<Promise<unknown>>(Promise.resolve());
-	useEffect(() => { importRef.current = importFiles; }, [importFiles]);
+	const errorRef = useRef(onError);
+	useEffect(() => { importRef.current = importFiles; errorRef.current = onError; }, [importFiles, onError]);
 	useEffect(() => {
+		const lifetime = new AbortController();
+		const { signal } = lifetime;
+		let pendingImports: Promise<unknown> = Promise.resolve();
+		const report = (error: unknown): void => { errorRef.current(error); };
 		// Claiming is idempotent, so a remount re-subscribes without disturbing the
 		// consumer the first mount installed.
-		claim({ desktop, onError });
+		claim({ desktop, onError: report });
 		// Collecting is idempotent too: the token is stripped from the address
 		// before the first collection reads a byte, so a remount finds nothing
 		// left to replay. The files land in the same buffer a launch does, which
 		// is drained by the subscription installed just below.
 		const reportCollectionError = (error: unknown): void => {
-			onError(desktop ? error : markWebFileLoadLimitFailure(error));
+			report(desktop ? error : markWebFileLoadLimitFailure(error));
 		};
 		void Promise.resolve(collect({ desktop, onError: reportCollectionError })).catch(reportCollectionError);
 		const unsubscribe = subscribe((launch: LaunchedFiles) => {
 			const files = [...(launch?.files ?? [])];
 			if (files.length === 0) return;
-			const importing = pendingImports.current.then(async () => {
+			const importing = pendingImports.then(async () => {
 				// The launch is delivered while the editor is still booting, so the
 				// files wait for the controller rather than being routed at an
 				// engine that cannot open them yet.
-				await controller?.ready;
+				await waitForWorkspaceFileAdmission(controller, signal);
+				signal.throwIfAborted();
 				await importRef.current(files);
-			}).catch(onError);
-			pendingImports.current = importing;
+			}).catch((error: unknown) => { if (!signal.aborted) report(error); });
+			pendingImports = importing;
 			return importing;
 		});
 		// A launch that arrives while nothing is subscribed goes back to the
 		// buffer, so tearing this down between renders costs nothing but delay.
-		return unsubscribe;
-	}, [claim, collect, controller, desktop, onError, subscribe]);
+		return () => { unsubscribe(); lifetime.abort(); };
+	}, [claim, collect, controller, desktop, subscribe]);
 }

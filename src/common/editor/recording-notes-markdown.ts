@@ -39,6 +39,14 @@ function formatInline(value: string, start: number, end: number, marker: string,
 	placeholder: string): RecordingNotesSelection {
 	const selected = value.slice(start, end);
 	if (selected.includes('\n')) return formatMultilineInline(value, start, end, marker, placeholder);
+	if (selected && (start === 0 || value[start - 1] === '\n')) {
+		const { indent, prefix } = blockPrefix(selected);
+		if (prefix) {
+			const contentStart = start + indent.length + prefix.length;
+			return contentStart < end ? formatInline(value, contentStart, end, marker, placeholder)
+				: { value, selectionStart: start, selectionEnd: end };
+		}
+	}
 	if (marker === '`') return formatRecordingNotesCode(value, start, end, placeholder);
 	if (marker !== '`' && selected) {
 		const leading = /^\s*/u.exec(selected)?.[0].length ?? 0;
@@ -150,7 +158,8 @@ function formatLines(value: string, start: number, end: number,
 		const content = line.content || (!remove && start === end && lines.length === 1 ? placeholder : '');
 		const prefix = remove || !content ? '' : format === 'heading' ? '# '
 			: format === 'bullets' ? '- ' : `${++itemNumber}. `;
-		return { original: line, prefix, text: line.indent + prefix + content };
+		const indent = prefix ? /^ {0,3}/u.exec(line.indent)?.[0] ?? '' : line.indent;
+		return { original: line, indent, prefix, text: indent + prefix + content };
 	});
 	const mapOffset = (offset: number): number => {
 		let originalPosition = first;
@@ -159,7 +168,7 @@ function formatLines(value: string, start: number, end: number,
 			const oldLength = line.original.indent.length + line.original.prefix.length + line.original.content.length;
 			if (offset <= originalPosition + oldLength) {
 				const prefixEnd = line.original.indent.length + line.original.prefix.length;
-				return replacementPosition + line.original.indent.length + line.prefix.length
+				return replacementPosition + line.indent.length + line.prefix.length
 					+ Math.max(0, offset - originalPosition - prefixEnd);
 			}
 			originalPosition += oldLength + 1;

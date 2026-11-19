@@ -3,7 +3,9 @@
 import { createLocalizedError } from '../../../i18n/presentation-message.ts'; import type { FramescaperCaptureAdminInterlockLease } from '../capture/framescaper-capture-admin-interlock.ts'; import { publishedCopyFor } from '../shared/presentation-localization.ts';
 import type { AdminProject, AdminHistory, AdminSessionTab, AdminCloseOptions, ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 import { sameProjectSnapshot } from '../../storage/project-snapshot-equality.ts';
+import { EditorStoreClearInUseError } from '../../storage/status.ts';
 import { preserveDeletedProjectClipboardMedia } from './internal/project/deleted-project-clipboard-media.ts';
+import { publishProjectView } from './document-snapshot.ts';
 export type { ProjectAdminServiceRuntime } from './internal/project/project-admin-runtime.ts';
 
 export interface ProjectHandoffExpectation {
@@ -33,12 +35,12 @@ export function createProjectAdminService<
 	let sourceGarbageCollectionGeneration = 0;
 	let projectListRequest = 0;
 
-	async function listProjects() {
+	async function listProjects({ flush = true } = {}) {
 		const request = ++projectListRequest;
 		const projectAtStart = getProject();
-		await saveNow();
+		if (flush) await saveNow();
 		const projects = await store.listProjects();
-		if (request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
+		if (state.disposed || request !== projectListRequest || getProject() !== projectAtStart) return state.projects;
 		state.projects = Object.freeze(projects);
 		publishDocumentSnapshot();
 		return state.projects;
@@ -70,13 +72,16 @@ export function createProjectAdminService<
 
 	async function prepareProjectHandoff(expected?: Readonly<ProjectHandoffExpectation>) {
 		const { project, featureRequirementReadOnly } = projectHandoffPreflight(expected);
+		const generation = projectGeneration.capture?.(project.id);
 		const interlock = beginCaptureInterlockedAdminOperation?.({ kind: 'handoff', projectId: project.id });
 		try {
 			if (!featureRequirementReadOnly) await flushProject();
 			if (getProject() !== project) throw createLocalizedError(Error, copy, 'projectNotFound');
+			if (generation) projectGeneration.assertCurrent?.(generation);
 			assertExpectedHandoffProject(project, expected);
 			await store.prepareProjectHandoff?.(project);
 			if (getProject() !== project) throw createLocalizedError(Error, copy, 'projectNotFound');
+			if (generation) projectGeneration.assertCurrent?.(generation);
 			assertExpectedHandoffProject(project, expected);
 			interlock?.assertCurrent();
 			await releaseProjectLock();
@@ -212,8 +217,12 @@ export function createProjectAdminService<
 			projectSaveService.getPersistedSnapshot?.(project.id), project,
 		)) return null;
 		const title = String(requestedTitle || `${project.title} ${publishedCopyFor(copy).projectCopySuffix}`).trim();
+		const assertOrigin = () => {
+			if (state.disposed || getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError');
+			if (generation) projectGeneration.assertCurrent?.(generation);
+		};
 		const duplicated = await store.duplicateProject(project.id, { title, confirmFileSizeWarning: runtime.confirmFileSizeWarning,
-			assertCurrent: () => { if (getProject() !== project) throw new DOMException('The project changed during duplication.', 'AbortError'); } });
+			assertCurrent: assertOrigin });
 		try {
 			await persistSetting(recordingRoutingSettingKey(duplicated.id), recordingRouting, { policy: 'required' });
 		} catch (error) {
@@ -224,31 +233,34 @@ export function createProjectAdminService<
 			}
 			throw error;
 		}
-		if (getProject() !== project) {
-			state.projects = Object.freeze(await store.listProjects());
-			publishDocumentSnapshot();
+		try { assertOrigin(); }
+		catch {
+			await listProjects({ flush: false });
 			return duplicated;
 		}
 		await openProject(duplicated);
 		return duplicated;
 	}
 
-	async function deleteProject() {
+	async function deleteProject(projectId?: string, unused?: Readonly<{ project: object; restoreProjectId?: string }>) {
 		const project = getProject();
 		if (!project || state.readOnly || recoveryBlocked()) return;
+		if ((projectId && project.id !== projectId) || (unused && publishProjectView(project) !== unused.project)) return;
 		const interlock = beginCaptureInterlockedAdminOperation?.({ kind: 'delete', projectId: project.id });
-		try { return await deleteProjectReserved(project, interlock); }
+		try { return await deleteProjectReserved(project, interlock, unused?.restoreProjectId); }
 		finally { interlock?.release(); }
 	}
 
 	async function deleteProjectReserved(
 		project: Project,
 		interlock: Readonly<FramescaperCaptureAdminInterlockLease> | undefined,
+		restoreProjectId?: string,
 	) {
 		await stopRecording();
 		if (getProject() !== project) return null;
 		interlock?.assertCurrent();
 		const id = project.id;
+		const deletionLock = state.projectLock;
 		const historyCapture = sessionController.captureProjectHistory(id);
 		const activation = sessionController.beginProjectActivation(id, {
 			expectedHistoryToken: historyCapture.token,
@@ -259,6 +271,9 @@ export function createProjectAdminService<
 		};
 		let deleteAttempted = false;
 		let deleteResolved = false;
+		let exactDeleteAttempted = false;
+		let retainSession = false;
+		let restoredSession = false;
 		let saveSuspended = false;
 		try {
 			const clipboard = sessionController.clipboardForProject?.(id);
@@ -276,6 +291,7 @@ export function createProjectAdminService<
 			};
 			await preserveDeletedProjectClipboardMedia(id, clipboard, store, assertCurrent);
 			assertCurrent();
+			projectSessionService.persistActiveSessionUiState?.();
 			// These synchronous operations close mutation, project-token, and save
 			// admission before the first drain await. The exact-history reservation
 			// prevents a competing tab activation from replacing that ownership.
@@ -286,7 +302,6 @@ export function createProjectAdminService<
 			setProject(null);
 			try {
 				await projectSaveService.drain();
-				await releaseProjectLock();
 				await revokeVideoVisuals();
 				engine.stop();
 				await stopProjectBinPreview({ dispose: true });
@@ -294,11 +309,36 @@ export function createProjectAdminService<
 				sourceChunkProviders.clear();
 				await sourceChunkProviders.drain?.();
 				interlock?.assertCurrent();
+				if (deletionLock && (state.projectLock !== deletionLock || deletionLock.projectId !== id || deletionLock.readOnly)) {
+					throw createLocalizedError(Error, copy, 'projectReadOnly');
+				}
 				deleteAttempted = true;
-				await store.deleteProject(id);
+				const expected = projectSaveService.getPersistedSnapshot?.(id);
+				if (expected && store.deleteProjectSnapshot) {
+					exactDeleteAttempted = true;
+					if (!await store.deleteProjectSnapshot(expected)) {
+						retainSession = true;
+						throw createLocalizedError(Error, copy, 'projectReadOnly');
+					}
+				} else await store.deleteProject(id);
 				deleteResolved = true;
 			} catch (error) {
 				failures.push(error);
+				if (exactDeleteAttempted && !retainSession) {
+					// A rejected deletion may have rolled back or failed after commit.
+					await attempt(async () => { retainSession = (await store.listProjects()).some(entry => entry.id === id); });
+				}
+			} finally {
+				await attempt(() => releaseProjectLock());
+			}
+			if (retainSession) {
+				activation.release();
+				await attempt(async () => {
+					await switchProject(project, { skipFlush: true });
+					restoredSession = true;
+				});
+				throwProjectDeletionFailures(failures);
+				return;
 			}
 			if (deleteResolved) {
 				await attempt(() => persistSetting(recordingRoutingSettingKey(id), null, { policy: 'required' }));
@@ -307,9 +347,12 @@ export function createProjectAdminService<
 			// Queue the replacement synchronously after releasing and closing the
 			// old tab, so later activation requests serialize behind this one.
 			activation.release();
+			let successor: Project | undefined;
 			try {
 				const result = sessionController.closeProject(id, { force: true });
 				if (result?.closed === false) throw new Error('The deleted project session could not be closed.');
+				const restore = restoreProjectId ? sessionTab(restoreProjectId) : null;
+				successor = restore?.history.present ?? (result.activeProjectId ? sessionTab(result.activeProjectId)?.history.present : undefined);
 				projectSaveService.forgetPersistedSnapshot?.(id);
 			} catch (error) {
 				failures.push(error);
@@ -322,7 +365,7 @@ export function createProjectAdminService<
 			let nextProject: unknown;
 			let nextProjectStarted = false;
 			try {
-				nextProject = newProject({ skipFlush: true });
+				nextProject = successor ? switchProject(successor, { skipFlush: true }) : newProject({ skipFlush: true });
 				nextProjectStarted = true;
 			} catch (error) {
 				failures.push(error);
@@ -341,6 +384,7 @@ export function createProjectAdminService<
 		} finally {
 			activation.release();
 			if (saveSuspended) projectSaveService.resume();
+			if (restoredSession && getProject()?.id === id && !state.readOnly && sessionTab(id)?.dirty) projectSaveService.scheduleAutosave?.();
 		}
 		throwProjectDeletionFailures(failures);
 	}
@@ -455,7 +499,7 @@ export function createProjectAdminService<
 			state.projects = Object.freeze(store.preservesProjectsOnClear?.() ? await store.listProjects() : []);
 			publishDocumentSnapshot();
 		} catch (error) {
-			if (!storageClearStarted && !originRestorable && originProject && !getProject()) {
+			if ((!storageClearStarted || error instanceof EditorStoreClearInUseError) && !originRestorable && originProject && !getProject()) {
 				const failures = [error];
 				try { await switchProject(originProject, { skipFlush: true }); }
 				catch (recoveryError) { failures.push(recoveryError); }

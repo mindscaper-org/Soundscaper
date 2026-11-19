@@ -2,6 +2,7 @@
 
 import { FreesoundOAuthContractError } from './oauth-contracts.ts';
 import type { D1DatabaseLike } from './oauth-repository.ts';
+import { isFreesoundPagesHost } from './pages-host.ts';
 
 export type FreesoundOAuthEnv = Readonly<{
 	FREESOUND_OAUTH_DB?: D1DatabaseLike;
@@ -68,7 +69,7 @@ export async function handleOAuthEndpoint(
 export function assertAllowedHost(url: URL, env: FreesoundOAuthEnv): void {
 	const production = url.protocol === 'https:' && url.hostname === 'soundscaper.org' && url.port === '';
 	const preview = url.protocol === 'https:'
-		&& (url.hostname === 'soundscaper.pages.dev' || url.hostname.endsWith('.soundscaper.pages.dev'))
+		&& isFreesoundPagesHost(url.hostname)
 		&& url.port === '';
 	const local = env.FREESOUND_LOCAL_DEVELOPMENT === '1'
 		&& url.protocol === 'http:'

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readMidiClip, readMidiTrack, withMidiClipData, withMidiTrackData } from '../midi-model.ts';
+import { replaceMidiPlaylistSources } from '../midi-playlist-sources.ts';
 import {
 	assertClipSourceBounds,
 	normalizeClipForProject,
@@ -24,6 +25,7 @@ function setMidiTrack(projectValue: EditorCommandProject, command: Extract<Audio
 	const track = project.tracks.find(candidate => candidate.id === command.trackId);
 	if (!track || !readMidiTrack(track)) throw new ReferenceError(`MIDI track ${command.trackId} is missing.`);
 	assertUnlocked(track);
+	replaceMidiPlaylistSources(project, command.trackId, command.playlistSources);
 	Object.assign(track, withMidiTrackData(track, command.data));
 }
 

@@ -17,7 +17,7 @@ interface Namespace {
 interface Entry {
 	readonly namespace: Namespace;
 	readonly centerFrame: number;
-	readonly column: SpectrogramColumn;
+	column: SpectrogramColumn;
 	readonly bytes: number;
 }
 
@@ -25,7 +25,7 @@ interface Entry {
 export function createSpectrogramColumnCache(budget: number) {
 	if (!Number.isSafeInteger(budget) || budget < 0) throw new RangeError('Invalid spectral column cache budget.');
 	const namespaces = new Map<string, Namespace>();
-	const recent = new Map<Entry, true>();
+	const recent = new Set<Entry>();
 	let bytes = 0;
 	const remove = (entry: Entry): void => {
 		recent.delete(entry);
@@ -38,27 +38,40 @@ export function createSpectrogramColumnCache(budget: number) {
 	};
 	return {
 		forKey(key: string): SpectrogramColumnCacheView {
+			const namespaceBytes = 64 + key.length * 2;
 			return {
 				read(centerFrame) {
 					const entry = namespaces.get(key)?.entries.get(centerFrame);
 					if (!entry) return null;
 					recent.delete(entry);
-					recent.set(entry, true);
+					recent.add(entry);
 					return entry.column;
 				},
 				write(centerFrame, column) {
 					if (!Number.isSafeInteger(centerFrame) || centerFrame < 0) return;
 					const entryBytes = 64 + 32 + column.reduce((sum, bands) => sum + 32 + bands.length * 8, 0);
-					const namespaceBytes = 64 + key.length * 2;
 					if (!Number.isSafeInteger(entryBytes) || entryBytes + namespaceBytes > budget) return;
-					const previous = namespaces.get(key)?.entries.get(centerFrame);
-					if (previous) remove(previous);
-					while (bytes + entryBytes + (namespaces.has(key) ? 0 : namespaceBytes) > budget) {
-						const oldest = recent.keys().next().value;
-						if (!oldest) break;
-						remove(oldest);
-					}
 					let namespace = namespaces.get(key);
+					const previous = namespace?.entries.get(centerFrame);
+					if (previous?.bytes === entryBytes) {
+						previous.column = column;
+						recent.delete(previous);
+						recent.add(previous);
+						return;
+					}
+					if (previous) {
+						remove(previous);
+						if (namespace?.entries.size === 0) namespace = undefined;
+					}
+					let addedBytes = entryBytes + (namespace ? 0 : namespaceBytes);
+					if (bytes + addedBytes > budget) for (const oldest of recent) {
+						remove(oldest);
+						if (namespace === oldest.namespace && namespace.entries.size === 0) {
+							namespace = undefined;
+							addedBytes += namespaceBytes;
+						}
+						if (bytes + addedBytes <= budget) break;
+					}
 					if (!namespace) {
 						namespace = { key, bytes: namespaceBytes, entries: new Map() };
 						namespaces.set(key, namespace);
@@ -66,7 +79,7 @@ export function createSpectrogramColumnCache(budget: number) {
 					}
 					const entry: Entry = { namespace, centerFrame, column, bytes: entryBytes };
 					namespace.entries.set(centerFrame, entry);
-					recent.set(entry, true);
+					recent.add(entry);
 					bytes += entryBytes;
 				},
 			};

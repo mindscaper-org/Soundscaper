@@ -49,8 +49,9 @@ for (const width of [1, 2, 4, 6, 32]) for (const kind of ['clip', 'range', 'macr
 					captures.push(capture);
 					assert.equal(capture.tracks?.length, 1);
 					assert.equal(capture.tracks[0]?.gain, 1, 'the dry capture excludes listening gain');
-					const channels = Array.from({ length: Number(capture.masterChannels) },
-						(_, channel) => (input[channel] ?? input[0]!).slice(Number(captureStartFrame) - 100, Number(endFrame) - 100));
+					const start = Number(captureStartFrame);
+					const channels = Array.from({ length: Number(capture.masterChannels) }, (_, channel) =>
+						Float32Array.from({ length: Number(endFrame) - start }, (_, frame) => (input[channel] ?? input[0]!)[start + frame - 100] ?? 0));
 					return { sampleRate: Number(sampleRate), channels: capture.tracks[0]?.effects?.some(effect => effect.type === 'audacity-invert')
 						? await applyAudioSelectionEffectAsync('audacity-invert', channels, Number(sampleRate)) : channels };
 				},

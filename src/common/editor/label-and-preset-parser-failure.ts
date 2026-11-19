@@ -6,7 +6,7 @@ const labelReasons: Readonly<Record<string, keyof typeof FORMAT_FILE_FAILURE_COP
 	INVALID_UTF8: 'labelEncoding', INVALID_CHARACTER: 'labelCharacter', INVALID_TXT_ROW: 'labelTxtRow',
 	MISSING_WEBVTT_HEADER: 'labelVttHeader', MISSING_CUE_TIMING: 'labelCueTiming', INVALID_CUE_TIMING: 'labelCueTiming',
 	INVALID_TIMESTAMP: 'labelTimestamp', INVALID_TIME: 'labelTimestamp', TIME_RANGE: 'labelTimestamp',
-	REVERSED_RANGE: 'labelReversed', DUPLICATE_LABEL_ID: 'labelDuplicateId',
+	REVERSED_RANGE: 'labelReversed', DUPLICATE_LABEL_ID: 'labelDuplicateId', UNREPRESENTABLE_TEXT: 'labelSubRipLiteral',
 };
 export function annotateLabelParserFailure(error: Error, code: string, details: Readonly<Record<string, unknown>>): void {
 	const key = labelReasons[code] ?? (code.endsWith('_LIMIT') ? 'labelLimit' : 'labelInvalid');

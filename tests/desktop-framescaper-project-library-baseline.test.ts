@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -23,6 +23,7 @@ import { registerFramescaperDesktopProjectLibraryMainIpc } from
 	'../desktop/framescaper-project-library-main-ipc.ts';
 import { FramescaperDesktopProjectLibraryMain } from
 	'../desktop/framescaper-project-library-main.ts';
+import { withProjectLibraryRelocation } from '../desktop/project-library-directory-lock.ts';
 
 test('Framescaper desktop baseline handshake is the exact family-qualified tuple', () => {
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
@@ -96,6 +97,27 @@ test('Framescaper desktop baseline leaves every pre-release library root untouch
 	}
 });
 
+test('Framescaper refuses a library open during a move and a move while its host is open', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'framescaper-library-relocation-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const source = join(root, 'source'), destination = join(root, 'destination');
+	const begin = () => FramescaperDesktopProjectLibraryMain.start({
+		appDataPath: destination, owner: { product: 'framescaper', processId: process.pid, instanceId: 'relocation-profile' },
+		handshake: createFramescaperDesktopProjectLibraryHandshake(), onLeaseLost: () => undefined, testControl: null,
+	});
+	await withProjectLibraryRelocation([source, destination], 'Framescaper', async () => {
+		await assert.rejects(begin(), /project library is in use/iu);
+		await assert.rejects(lstat(createFramescaperDesktopProjectLibraryPaths(destination).databasePath), { code: 'ENOENT' });
+	});
+	const host = await begin();
+	try {
+		await assert.rejects(withProjectLibraryRelocation([source, destination], 'Framescaper', async () => {
+			assert.fail('A relocation ran with its destination still open');
+		}), /project library is in use/iu);
+	} finally { await host.close(); }
+	assert.equal(await withProjectLibraryRelocation([source, destination], 'Framescaper', async () => 'ready'), 'ready');
+});
+
 test('Framescaper fresh SQLite baseline has exact v1 identity and no migration marker', () => {
 	const database = new DatabaseSync(':memory:');
 	initializeFramescaperDesktopProjectLibraryExactGenerationDatabase(database, {
@@ -136,7 +158,6 @@ test('Framescaper baseline IPC namespace is unique and complete', () => {
 
 test('Framescaper baseline registers its exact static channels and refuses foreign renderer handshakes', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-baseline-ipc-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'framescaper', processId: 933, instanceId: 'baseline-owner' },
@@ -144,7 +165,7 @@ test('Framescaper baseline registers its exact static channels and refuses forei
 		onLeaseLost: () => undefined,
 		testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => { await main.close(); await rm(root, { recursive: true, force: true }); });
 	const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>();
 	const renderer = {};
 	const registration = registerFramescaperDesktopProjectLibraryMainIpc({

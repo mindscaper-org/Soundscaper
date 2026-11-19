@@ -6,28 +6,33 @@ import { asRecord } from './project-repository-support.ts';
 
 const SOURCE_PUBLICATION_BATCH_SIZE = 16;
 
+export type StagedMediaAssertions = ReadonlyMap<string, (row: unknown) => void>;
+
 /** Clear staged-source retention inside the transaction that publishes its project. */
 export async function publishProjectSources(
 	stores: Readonly<{ sources: IDBObjectStore; mediaAssets: IDBObjectStore }>,
 	sourceIds: Iterable<string>,
+	assertions?: StagedMediaAssertions,
 ): Promise<void> {
 	let batch: string[] = [];
 	for (const sourceId of sourceIds) {
 		batch.push(sourceId);
 		if (batch.length === SOURCE_PUBLICATION_BATCH_SIZE) {
-			await publishBatch(stores, batch);
+			await publishBatch(stores, batch, assertions);
 			batch = [];
 		}
 	}
-	if (batch.length) await publishBatch(stores, batch);
+	if (batch.length) await publishBatch(stores, batch, assertions);
 }
 
 async function publishBatch(
 	{ sources, mediaAssets }: Readonly<{ sources: IDBObjectStore; mediaAssets: IDBObjectStore }>,
 	sourceIds: readonly string[],
+	assertions?: StagedMediaAssertions,
 ): Promise<void> {
 	await Promise.all(sourceIds.map(async (sourceId) => {
 		const [source, media] = await Promise.all([read(sources, sourceId), read(mediaAssets, sourceId)]);
+		assertions?.get(sourceId)?.(media);
 		await Promise.all([publish(sources, source), publish(mediaAssets, media)]);
 	}));
 }

@@ -48,7 +48,7 @@ export interface TransferView {
 	note(text: string): void;
 	status(text: string, tone?: 'info' | 'error'): void;
 	action(label: string, run: () => Promise<void>): HTMLButtonElement;
-	files(label: string, accept: string, run: (files: readonly TransferArchiveSource[]) => Promise<void>): void;
+	files(label: string, accept: string, run: (files: readonly TransferArchiveSource[]) => Promise<void>): HTMLInputElement;
 	choices(rows: readonly TransferChoiceRow[]): TransferChoiceHandle;
 	confirm(confirmation: TransferConfirmation | null): void;
 	list(rows: readonly TransferResultRow[]): void;
@@ -152,12 +152,16 @@ export function createTransferView(document: Document, title: string, summary: s
 				// dropped, and the page looks dead. The chosen files are already
 				// captured above, so clearing the control costs the import nothing.
 				input.value = '';
-				if (!files.length) return;
-				run(files).catch((error) => view.status(describeTransferError(error), 'error'));
+				if (input.disabled || !files.length) return;
+				input.disabled = true;
+				void run(files)
+					.catch((error) => view.status(describeTransferError(error), 'error'))
+					.finally(() => { input.disabled = false; });
 			});
 			caption.append(input);
 			wrapper.append(caption);
 			root.insertBefore(wrapper, chooser);
+			return input;
 		},
 		choices(rows) {
 			const boxes: HTMLInputElement[] = [];

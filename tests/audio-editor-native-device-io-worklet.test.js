@@ -29,7 +29,7 @@ test('native device worklet closes on device loss and every short transfer', asy
 		if (fault.direction === 'output') {
 			processor.process([[new Float32Array(128), new Float32Array(128)]], [[]]);
 		}
-		const outbound = peer.posted.find((message) => ['capture-credit', 'audio'].includes(message.kind));
+		const outbound = peer.posted.find((message) => ['capture-credit', 'audio'].includes(message?.kind));
 		assert.ok(outbound);
 		peer.onmessage({ data: {
 			...outbound,
@@ -159,6 +159,97 @@ test('capture silence before attachment does not report phantom frame loss', asy
 	assert.deepEqual(processor.port.posted, []);
 });
 
+test('native capture marks its graph output only after terminal device loss', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const processor = new NativeDeviceIoProcessor({ processorOptions: {
+		direction: 'input', channelCount: 1, periodFrames: 128, queueCapacity: 2,
+	} });
+	const peer = messagePort();
+	const pcm = new Float32Array(128), ended = new Float32Array(128);
+	const render = () => processor.process([], [[pcm], [ended]]);
+	render();
+	assert.equal(ended[0], 0);
+	processor.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	render();
+	assert.equal(ended[0], 0, 'waiting for an input packet is separate from terminal loss');
+	const credit = peer.posted[0];
+	credit.channels[0].fill(.25);
+	peer.onmessage({ data: { ...credit, kind: 'audio', status: 'ok', framesTransferred: 128 } });
+	render();
+	assert.equal(pcm[0], .25);
+	assert.equal(ended[0], 0);
+	peer.onclose();
+	render();
+	assert.equal(pcm[0], 0);
+	assert.equal(ended[0], 1);
+});
+
+test('native device loss drains admitted capture into the recorder including a partial final quantum', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const { StreamingRecorderProcessor } = await import('../src/common/editor/recording-worklet.js');
+	const device = new NativeDeviceIoProcessor({ processorOptions: { direction: 'input', channelCount: 1, periodFrames: 192, queueCapacity: 2 } });
+	const recorder = new StreamingRecorderProcessor({ processorOptions: { channelCount: 1, chunkFrames: 256 } });
+	const recorded = [], statuses = [];
+	recorder.port.postMessage = ({ type, channels }) => {
+		statuses.push(type);
+		if (type === 'audio-chunk') recorded.push(...channels[0]);
+	};
+	recorder.port.onmessage({ data: { type: 'start' } });
+	const peer = messagePort();
+	device.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	const [first, second] = peer.posted;
+	for (let frame = 0; frame < 192; frame++) first.channels[0][frame] = (frame + 1) / 256;
+	peer.onmessage({ data: { ...first, kind: 'audio', status: 'ok', framesTransferred: 192 } });
+	peer.onmessage({ data: { ...second, kind: 'audio', status: 'device-unavailable', framesTransferred: 0 } });
+	peer.onclose();
+	const pcm = new Float32Array(128), ended = new Float32Array(128);
+	for (let quantum = 0; quantum < 3; quantum++) {
+		device.process([], [[pcm], [ended]]);
+		recorder.process([[pcm], [ended]], [[new Float32Array(128)]]);
+	}
+	assert.deepEqual(recorded, Array.from({ length: 192 }, (_, frame) => (frame + 1) / 256));
+	assert.equal(peer.posted.filter(message => message.kind === 'capture-credit').length, 2);
+	assert.equal(statuses.filter(type => type === 'input-lost').length, 1);
+	assert.equal(statuses.filter(type => type === 'stopped').length, 1);
+});
+
+test('native playback keeps contiguous packets across a disconnected programme input', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const processor = new NativeDeviceIoProcessor({ processorOptions: {
+		direction: 'output', channelCount: 2, periodFrames: 256, queueCapacity: 2,
+	} });
+	const peer = messagePort();
+	processor.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	const output = [[new Float32Array(128), new Float32Array(128)]];
+	const program = [[new Float32Array(128).fill(.25), new Float32Array(128).fill(-.25)]];
+	const histories = [];
+	const receive = () => {
+		const block = peer.posted.shift();
+		assert.equal(block?.kind, 'audio');
+		histories.push([block.sequence, block.startFrame]);
+		const samples = block.channels.map(channel => [...channel]);
+		peer.onmessage({ data: { ...block, kind: 'return', status: 'ok', framesTransferred: 256 } });
+		return samples;
+	};
+	processor.process([[]], output);
+	processor.process([[]], output);
+	assert.deepEqual(peer.posted, [], 'the unused route need not start the device');
+	processor.process(program, output);
+	processor.process([[]], output);
+	for (const [channel, samples] of receive().entries()) {
+		assert.equal(samples[0], channel === 0 ? .25 : -.25);
+		assert.ok(samples.slice(128).every(sample => sample === 0));
+	}
+	processor.process([[]], output);
+	processor.process([[]], output);
+	assert.ok(receive().flat().every(sample => sample === 0), 'reused packet planes carry silence during pause');
+	processor.process(program, output);
+	processor.process(program, output);
+	assert.deepEqual(receive().map(channel => [channel[0], channel.at(-1)]), [[.25, .25], [-.25, -.25]]);
+	assert.deepEqual(histories, [[0, 0], [1, 256], [2, 512]]);
+	assert.equal(peer.closed, false);
+});
+
 test('duplex calibration injects one bounded impulse and reports only its frame offset', async (context) => {
 	const original = globalThis.AudioWorkletProcessor;
 	class ProcessorBase {
@@ -261,6 +352,10 @@ test('calibration is duplex-only, cancellable and bounded by captured frames', a
 function messagePort() {
 	return {
 		posted: [], onmessage: null, onmessageerror: null, closed: false,
-		postMessage(value) { this.posted.push(value); }, start() {}, close() { this.closed = true; },
+		postMessage(value, transfer = []) {
+			// Electron's utility MessagePortMain cannot deserialize the worklet's transferred buffers.
+			this.posted.push(transfer.length ? null : structuredClone(value));
+		},
+		start() {}, close() { this.closed = true; },
 	};
 }

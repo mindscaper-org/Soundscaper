@@ -40,8 +40,9 @@ for (const [channelCount, channelMask] of [[2, 5], [2, 9], [2, 0x30], [1, 1], [2
 		const required = new Set(['chooseFiles', 'releaseRead', 'releaseOriginalFile', 'prepareOriginalOverwrite', 'releaseSaveTarget', 'beginWrite', 'writeChunk', 'patchFinalPrefix', 'finishWrite', 'abortWrite']);
 		const service = createAudioEditorFileService({ bridge: Object.fromEntries(Object.entries(native.bridge).filter(([key]) => required.has(key))), fetch: native.fetch });
 		type Options = NonNullable<Parameters<typeof controllerSession>[1]>;
+		const pannerSide = Float32Array.from(channels[0]!, sample => sample * Math.SQRT1_2);
 		const { controller } = await controllerSession(context, { fileService: service, engineFactory: (() => ({ ...createMemoryRenderEngine(),
-			renderMix: async () => audioBuffer(channelCount === 1 ? [channels[0]!, new Float32Array(2400)] : channels, 48_000),
+			renderMix: async () => audioBuffer(channelCount === 1 ? [pannerSide, pannerSide] : channels, 48_000),
 		})) as unknown as Options['engineFactory'] });
 		const descriptors = await service.chooseFiles({ purpose: 'audio', multiple: false });
 		await service.withReadDescriptors(descriptors, {}, async (files: readonly File[]) => { await controller.actions.project.importFiles(files); });
@@ -57,7 +58,7 @@ for (const [channelCount, channelMask] of [[2, 5], [2, 9], [2, 0x30], [1, 1], [2
 		assert.equal(descriptor.channelMask, admitted && channelMask === 0 ? (channelCount === 1 ? 4 : 3) : channelMask); assert.equal(descriptor.frameCount, 2400); assert.equal(descriptor.channelCount, channelCount);
 		const chunk = await createWavBlobPcmChunkReader(output, { descriptor }).readChunk(0);
 		for (let channel = 0; channel < channelCount; channel++) {
-			const expected = (channel ? -.0625 : .125) * (admitted && channelCount === 1 ? .5 : 1);
+			const expected = channel ? -.0625 : .125;
 			assert.ok(chunk.channels[channel]?.every(sample => Math.abs(sample - expected) < .00001), JSON.stringify({ sample: chunk.channels[channel]?.[1200], first: chunk.channels[channel]?.[0], last: chunk.channels[channel]?.[2399], expected }));
 		}
 	});

@@ -4,6 +4,7 @@ import { addDeliveryReportItem, createDeliveryReport, sealDeliveryReport, type D
 import { createInterchangeVisibility } from '../../../interchange-track-visibility.ts';
 import { createMixerSignalTopologyV21 } from '../../../mixer-signal-topology-v21.ts';
 import { isMixerGraphV21Surface } from '../../../mixer-graph-surface-v21.ts';
+import { reportInterchangeMixOmissions } from '../../../interchange-mix-omissions.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -26,9 +27,10 @@ export function reportInterchangeAudioOmissions(report: DeliveryReport, project:
 		...(kind === 'track' ? automationFields(owner) : {}),
 	} }))
 		.filter(({ fields }) => Object.keys(fields).length > 0);
-	if (!omissions.length) return report;
 	const draft = createDeliveryReport(report.subject);
 	for (const item of report.items) addDeliveryReportItem(draft, item);
+	const mixOmitted = reportInterchangeMixOmissions(draft, project, { trackAutomationReported: true });
+	if (!omissions.length && !mixOmitted) return report;
 	for (const { kind, owner, fields } of omissions) {
 		addDeliveryReportItem(draft, {
 			code: `${report.subject.format}.audio-processing-omitted`,
@@ -50,8 +52,9 @@ function processingFields(owner: DataRecord, clip: boolean): DataRecord {
 			if (typeof owner[name] === 'number' && owner[name] !== 0) fields[name] = owner[name];
 		}
 		for (const name of ['reversed', 'inverted'] as const) if (owner[name] === true) fields[name] = true;
-	} else if (owner.effectsActive !== false) {
-		const effects = records(owner.effects).filter(effect => effect.enabled !== false);
+	}
+	if (owner.effectsActive !== false) {
+		const effects = records(owner.effects).filter(effect => effect.enabled !== false && effect.bypassed !== true);
 		if (effects.length) fields.effects = effects.map(effect => String(effect.type));
 	}
 	return fields;

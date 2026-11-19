@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { midiPlaylistSourceClips, type MidiPlaylistSourceReplacement } from '../../midi-playlist-sources.ts';
 import { createMidiClip, createMidiTrack } from '../../midi-factory.ts';
 import { EditorProjectChangedError } from '../shared/lifecycle.ts';
 import {
 	addMidiNoteData, readMidiClip, readMidiTrack, removeMidiNoteData, updateMidiNotesData,
-	normalizeMidiTrackData, withMidiTrackData, type MidiClipData, type MidiInstrument,
+	hasCompactMidiScore, normalizeMidiTrackData, serializeMidiClipData, withMidiTrackData, type MidiClipData, type MidiInstrument,
 } from '../../midi-model.ts';
+import { needsCompactMidiScore } from '../../midi-compact-score.ts';
 import { midiDocumentFromProject } from '../../midi-project-interchange.ts';
 import { midiProjectTiming } from '../../midi-project-timing.ts';
 import { midiInitialTimingEvent } from '../../midi-initial-timing.ts';
@@ -20,10 +22,10 @@ import { clipLoopUpdateFields, readClipLoop } from '../../audio-clip-loop.ts';
 import { publishMidiSource } from './internal/midi-source-publication.ts';
 import { retainedMidiSourceFrames } from './internal/midi-source-retention.ts';
 import { midiTransferExtensions } from '../../commands/midi-transfer-context.ts';
-import { routeMidiImportControls } from './internal/midi-import-channel-routing.ts';
 import { prepareMidiTransferPublication } from './internal/midi-transfer-publication.ts';
 import { midiWarpNoteGrowth } from './internal/midi-warp-note-growth.ts';
 import { deliverMidiFile } from './internal/midi-file-delivery.ts';
+import { midiPreviewData } from './internal/midi-preview-data.ts';
 import type { MidiProject, MidiService, MidiServiceDependencies } from './midi-service-types.ts';
 
 type ImportedMidiTrack = Readonly<{ name: string; data: MidiClipData; program?: number; durationFrames?: number }>;
@@ -96,7 +98,8 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				const sourceStartFrame = warped?.sourceStartFrame ?? loopFields?.sourceStartFrame ?? detached.sourceStartFrame;
 				await publishEdit(project, clip, data, trackData.instrument,
 					Math.max(Number(clip.sourceStartFrame) + Number(clip.sourceDurationFrames), sourceStartFrame + sourceDurationFrames), source => [
-						{ type: 'midi/clip-set', clipId, data, sourceId: source.id, sourceDurationFrames: Number(clip.sourceDurationFrames) },
+						{ type: 'midi/clip-set', clipId, data: serializeMidiClipData(data, hasCompactMidiScore(clip)),
+							sourceId: source.id, sourceDurationFrames: Number(clip.sourceDurationFrames) },
 						{ type: 'clip/trim', clipId, ...detached, sourceStartFrame, sourceDurationFrames },
 						...(loopChange ? [{ type: 'clip/update' as const, clipId, changes: { loop: loopChange } }] : []),
 					]);
@@ -109,26 +112,32 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			if (track.locked) throw new RangeError('The MIDI track is locked.');
 			const next = normalizeMidiTrackData({ ...oldData, instrument });
 			const sources: AudioSourceLeaf[] = [];
-			const commands: AudioEditorCommand[] = [{ type: 'midi/track-set', trackId, data: next }];
+			const commands: AudioEditorCommand[] = [], playlistSources: MidiPlaylistSourceReplacement[] = [];
+			const clips = [...project.clips.filter(candidate => Array.isArray(track.clipIds) && track.clipIds.includes(candidate.id))
+				.map(clip => ({ clip, playlistId: null })), ...midiPlaylistSourceClips(project, trackId)];
 			try {
-				for (const clip of project.clips.filter(candidate => Array.isArray(track.clipIds) && track.clipIds.includes(candidate.id))) {
+				for (const { clip, playlistId } of clips) {
 					const data = readMidiClip(clip);
 					if (!data) continue;
 					const source = await publishMidiSource(dependencies, data, next.instrument, sourceSampleRate(project, clip),
 						retainedMidiSourceFrames(project.sources?.find(source => source.id === clip.sourceId),
 							Number(clip.sourceStartFrame) + Number(clip.sourceDurationFrames)), () => assertCurrent(project));
 					sources.push(source);
-					commands.push(createAddSourceCommand({ ...source }), { type: 'midi/clip-set', clipId: String(clip.id), data,
+					commands.push(createAddSourceCommand({ ...source }));
+					if (playlistId !== null) playlistSources.push({ playlistId, clipId: String(clip.id), previousSourceId: String(clip.sourceId), sourceId: source.id });
+					else commands.push({ type: 'midi/clip-set', clipId: String(clip.id), data: serializeMidiClipData(data, hasCompactMidiScore(clip)),
 						sourceId: source.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });
 				}
 				assertCurrent(project);
+				commands.push({ type: 'midi/track-set', trackId, data: next, playlistSources });
 				commitOwned({ type: 'batch', commands });
 			} catch (error) { await rollbackSources(sources, error); }
 		}),
-		previewNote: async (pitch, instrument = 'triangle', signal) => {
+		previewNote: async (pitch, instrument = 'triangle', signal, target) => {
 			signal?.throwIfAborted();
 			if (!Number.isSafeInteger(pitch) || pitch < 0 || pitch > 127) throw new RangeError('Invalid MIDI preview pitch.');
-			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument, signal);
+			await dependencies.previewNote(pitch, normalizeMidiTrackData({ version: 1, instrument }).instrument, signal,
+				target ? midiPreviewData(requireProject().clips, target, pitch) : undefined);
 		},
 		importDocument: (document, options = {}) => {
 			const detached = structuredClone(document);
@@ -137,29 +146,26 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				if (detached.sampleRate !== project.sampleRate) throw new RangeError('MIDI import sample rate differs from the project.');
 				const offset = options.timelineStartFrame ?? 0;
 				if (!Number.isSafeInteger(offset) || offset < 0) throw new RangeError('Invalid MIDI import position.');
-				const routed = routeMidiImportControls(detached.tracks);
-				const authored = routed.filter((track, index) => track.notes.length || track.events?.length
-					|| !track.conductorOnly && !detached.tracks[index]?.events?.length);
-				const tracks = authored.length ? authored : routed.slice(0, 1);
-				const emptyTrackEnd = routed.filter(track => !tracks.includes(track))
-					.reduce((end, track) => Math.max(end, track.durationFrames ?? 0), 0);
+				const { midiFileImportTracks } = await import('../../midi-file-import-tracks.ts');
+				const tracks = midiFileImportTracks(detached);
 				const prepared = tracks.map(track => ({ name: track.name || dependencies.trackName(), program: track.program,
 					durationFrames: track.durationFrames,
 					data: { version: 1 as const, notes: track.notes, interchange: { events: track.events ?? [], tempos: detached.tempos, signatures: detached.signatures } } }));
-				const minimumFrames = Math.max(1, emptyTrackEnd);
-				return options.destination === 'project-bin' ? importBinTracks(project, prepared, minimumFrames, options.signal)
-					: importTracks(project, prepared, offset, minimumFrames, options.signal);
+				const compactScore = needsCompactMidiScore(prepared.map(track => track.data));
+				return options.destination === 'project-bin' ? importBinTracks(project, prepared, compactScore, options.signal)
+					: importTracks(project, prepared, offset, 1, options.signal, compactScore);
 			});
 		},
-		exportFile: async format => {
+		exportFile: async (format, isOriginCurrent = () => true) => {
 			const requested = requireProject();
 			await pending;
 			const project = requireProject();
-			if (project.id !== requested.id) throw new EditorProjectChangedError();
+			if (project.id !== requested.id || !isOriginCurrent()) throw new EditorProjectChangedError();
 			const document = midiDocumentFromProject(project);
 			const name = project.title.replace(/[\\/:*?"<>|]/gu, '_') || 'MIDI';
 			const waiter = { expected: project }; deliveries.add(waiter);
-			try { return await deliverMidiFile(dependencies, document, format, name, () => dependencies.getProject() === waiter.expected, project); }
+			const isCurrent = () => isOriginCurrent() && dependencies.getProject() === waiter.expected;
+			try { return await deliverMidiFile(dependencies, document, format, name, isCurrent, project); }
 			finally { deliveries.delete(waiter); }
 		},
 	};
@@ -226,7 +232,8 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				BigInt(loop.offsetFrames) * BigInt(periodFrames) * BigInt(Number(clip.sourceDurationFrames)),
 				BigInt(loop.periodFrames) * BigInt(sourceFrames), 'point')) : 0;
 			await publishEdit(project, clip, next, trackData.instrument, Number(clip.sourceStartFrame) + sourceFrames, source => [
-				{ type: 'midi/clip-set', clipId, data: next, sourceId: source.id, sourceDurationFrames: sourceFrames, durationFrames, ...warpedGrowth },
+				{ type: 'midi/clip-set', clipId, data: serializeMidiClipData(next, hasCompactMidiScore(clip)),
+					sourceId: source.id, sourceDurationFrames: sourceFrames, durationFrames, ...warpedGrowth },
 				...(loop && sourceFrames !== Number(clip.sourceDurationFrames) ? [{ type: 'clip/update' as const, clipId, changes: { loop: {
 					periodFrames, offsetFrames, durationFrames,
 				} } }] : []),
@@ -248,7 +255,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 		} catch (error) { await rollbackSources([source], error); }
 	}
 	async function importTracks(project: MidiProject,
-		tracks: readonly ImportedMidiTrack[], offset: number, minimumFrames: number, signal?: AbortSignal) {
+		tracks: readonly ImportedMidiTrack[], offset: number, minimumFrames: number, signal?: AbortSignal, compactScore = false) {
 		const sources: AudioSourceLeaf[] = [];
 		const commands: AudioEditorCommand[] = [];
 		const importedTiming = tracks[0]?.data.interchange;
@@ -272,7 +279,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 				const track = createMidiTrack({ id: trackId, name: imported.name, program: imported.program }, project.sampleRate);
 				const clip = createMidiClip({ id: clipId, sourceId: source.id, title: imported.name,
 					timelineStartFrame: offset, sourceStartFrame: 0, sourceDurationFrames: source.frameCount, durationFrames: source.frameCount,
-					notes: imported.data.notes, interchange: imported.data.interchange });
+					notes: imported.data.notes, interchange: imported.data.interchange, compactScore });
 				commands.push(createAddSourceCommand({ ...source }), createAddTrackCommand({ ...track }, project.sampleRate), createAddClipCommand(trackId, { ...clip }));
 				created.push({ trackId, clipId });
 			}
@@ -282,7 +289,7 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			return created;
 		} catch (error) { return rollbackSources(sources, error); }
 	}
-	async function importBinTracks(project: MidiProject, tracks: readonly ImportedMidiTrack[], minimumFrames: number, signal?: AbortSignal) {
+	async function importBinTracks(project: MidiProject, tracks: readonly ImportedMidiTrack[], compactScore: boolean, signal?: AbortSignal) {
 		const sources: AudioSourceLeaf[] = [];
 		const commands: AudioEditorCommand[] = [];
 		const created: { trackId: null; clipId: string }[] = [];
@@ -291,11 +298,11 @@ export function createMidiService(dependencies: MidiServiceDependencies): Readon
 			for (const imported of tracks) {
 				current();
 				const source = await publishMidiSource(dependencies, imported.data, 'triangle', project.sampleRate,
-					Math.max(minimumFrames, imported.durationFrames ?? 0), current);
+					Math.max(1, imported.durationFrames ?? 0), current);
 				sources.push(source);
 				const clipId = dependencies.createId('midi-clip');
 				const clip = createMidiClip({ id: clipId, sourceId: source.id, title: imported.name,
-					durationFrames: source.frameCount, notes: imported.data.notes, interchange: imported.data.interchange });
+					durationFrames: source.frameCount, notes: imported.data.notes, interchange: imported.data.interchange, compactScore });
 				const context = withMidiTrackData({ type: 'audio' }, { version: 1, instrument: 'triangle', program: imported.program });
 				commands.push(createAddSourceCommand({ ...source }), { type: 'project-bin/add', clip: {
 					...clip, opaqueExtensions: midiTransferExtensions({ ...clip }, context),

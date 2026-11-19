@@ -11,6 +11,8 @@ export interface UnifiedExactLinearSourceFrame {
 	readonly pixels: Float32Array<ArrayBuffer>;
 }
 
+const opacityByByte = Float32Array.from({ length: 256 }, (_, byte) => byte / 255);
+
 export function gradeUnifiedExactLinearSourceFrame(
 	prepared: PreparedManagedSdrGradeStackV1,
 	frame: Readonly<{ width: number; height: number; pixels: Uint8Array | Float32Array }>,
@@ -27,7 +29,7 @@ export function gradeUnifiedExactLinearSourceFrame(
 			pixels[offset] = palette[frame.pixels[offset]!]!;
 			pixels[offset + 1] = palette[frame.pixels[offset + 1]!]!;
 			pixels[offset + 2] = palette[frame.pixels[offset + 2]!]!;
-			pixels[offset + 3] = frame.pixels[offset + 3]! / 255;
+			pixels[offset + 3] = opacityByByte[frame.pixels[offset + 3]!]!;
 			continue;
 		}
 		const value = applyPreparedManagedSdrGradeStackLinearChannelsV1(prepared,

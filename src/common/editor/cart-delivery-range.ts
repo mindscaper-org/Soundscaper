@@ -27,5 +27,6 @@ export function cartForDeliveryRange(
 		// End-of-data cues can legitimately name the boundary at the file's end.
 		.filter(timer => timer.value >= range.startFrame && timer.value <= range.endFrame)
 		.map(timer => ({ usage: timer.usage, value: timer.value - range.startFrame }));
-	return cartForOutputPrecision(scaleCartPostTimers({ ...metadata, postTimers }, inputSampleRate, outputSampleRate), outputBitDepth);
+	const scaled = scaleCartPostTimers({ ...metadata, postTimers }, inputSampleRate, outputSampleRate, range.endFrame - range.startFrame);
+	return cartForOutputPrecision(scaled, outputBitDepth);
 }

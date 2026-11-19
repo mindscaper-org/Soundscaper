@@ -9,6 +9,7 @@ import {
 } from './desktop-audio-codec-capability-contract.ts';
 import {
 	assertDesktopAudioCodecRequest,
+	DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_INPUT_BYTES,
 	type DesktopAudioCodecRequest,
 } from './desktop-audio-codec-operation-contract.ts';
 import { DesktopAudioCodecIpcQueue } from './desktop-audio-codec-ipc-queue.ts';
@@ -53,7 +54,6 @@ const CHANNEL_FIELDS = Object.freeze([
 const REQUEST_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u;
 export const DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_OPERATIONS_PER_OWNER = 2;
 export const DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_OPERATIONS = 4;
-export const DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_INPUT_BYTES = 64 * 1_024 * 1_024;
 
 export function registerDesktopAudioCodecMainIpc<Owner extends object>(
 	options: DesktopAudioCodecMainIpcOptions<Owner>,

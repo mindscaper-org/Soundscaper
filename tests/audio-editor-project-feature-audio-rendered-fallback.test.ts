@@ -126,6 +126,7 @@ test('only eligible first-party audio capabilities can bind one whole-mix fallba
 		PROJECT_FEATURE_CAPABILITY_IDS.audioRecording,
 		PROJECT_FEATURE_CAPABILITY_IDS.audioGenerators,
 		PROJECT_FEATURE_CAPABILITY_IDS.audioEffects,
+		PROJECT_FEATURE_CAPABILITY_IDS.audioClipEffects,
 		PROJECT_FEATURE_CAPABILITY_IDS.audioSpectralEditing,
 		PROJECT_FEATURE_CAPABILITY_IDS.audioAnalysis,
 		PROJECT_FEATURE_CAPABILITY_IDS.audioMacros,

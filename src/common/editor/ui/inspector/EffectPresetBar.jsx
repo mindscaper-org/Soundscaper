@@ -14,6 +14,7 @@ import EffectAboutDialog from './EffectAboutDialog.tsx';
 import EffectPresetMenuPortal from './EffectPresetMenuPortal.tsx';
 import { usePresetDeletionFocus } from './usePresetDeletionFocus.ts';
 import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The preset bar Audacity 4 puts above every effect's controls.
@@ -30,7 +31,8 @@ import { useOperationFocusRecovery } from '../useOperationFocusRecovery.ts';
 export default function EffectPresetBar({
 	copy,
 	disabled = false,
-	automation = null,
+	automation = /** @type {null | {enabled: boolean, onToggle?: (enabled: boolean) => void}} */ (null),
+	autoIdle = /** @type {null | {enabled: boolean, disabled?: boolean, onChange: (enabled: boolean) => void}} */ (null),
 	presets,
 	selectedId = '',
 	unsaved = false,
@@ -179,19 +181,23 @@ export default function EffectPresetBar({
 				</ContextMenu>
 
 				<ContextMenu isOpen={Boolean(optionsMenu)} onClose={close} x={optionsMenu?.x || 0} y={optionsMenu?.y || 0}>
+
 					{onAdvancedSettings && <ContextMenuItem
 						label={canonicalCopyValue('effectAdvancedSettings', copy)}
 						disabled={disabled}
 						onClick={() => { close(); onAdvancedSettings(); }}
 					/>}
+					{autoIdle && <ContextMenuItem label={copy.effectAutoIdle} tooltipKey="plugin-auto-idle"
+						role="menuitemcheckbox" checked={autoIdle.enabled} disabled={disabled || autoIdle.disabled}
+						onClick={() => { close(); autoIdle.onChange(!autoIdle.enabled); }} />}
 					<ContextMenuItem
 						label={copy.importEffectPreset}
-						disabled={disabled}
+						disabled={disabled || !onImport}
 						onClick={() => { close(); optionsTriggerRef.current?.focus({ preventScroll: true }); fileRef.current?.click(); }}
 					/>
 					<ContextMenuItem
 						label={copy.exportEffectPreset}
-						disabled={disabled || !selectedId}
+						disabled={disabled || !selectedId || !onExport}
 						onClick={() => { close(); if (selectedId) onExport(); }}
 					/>
 					{hasAbout && <>
@@ -242,7 +248,7 @@ export default function EffectPresetBar({
 						event.preventDefault(); event.stopPropagation(); saveAs();
 					}}>
 						<label className="audio-editor-field">
-							<span>{copy.effectPresetName}</span>
+							<EditorControlLabel>{copy.effectPresetName}</EditorControlLabel>
 							<TextInput multiline={saveAsMultiline} disabled={nameSaving} value={saveAsName} onChange={setSaveAsName} width="100%" data-preset-name />
 						</label>
 					</form>

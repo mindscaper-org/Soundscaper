@@ -6,6 +6,60 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
 /** Source editor display and authoring share the owning project tempo and sample grid. */
 export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly FoundationTimeConversionSite[] = deepFreezeAuditSites([
 	{
+		id: 'aes31-export-timecode-origin',
+		file: 'src/common/editor/aes31-export.ts',
+		behavior: 'AES31 export resolves the project timecode origin to the nearest project sample before writing edit positions.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'soundcraft-import-timecode-origin',
+		file: 'src/common/editor/soundcraft-import.ts',
+		behavior: 'Soundcraft import rounds the exact rational session origin onto the project timecode frame grid.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'interchange-audio-fade-duration',
+		file: 'src/common/editor/timeline-interchange-audio-controls.ts',
+		behavior: 'Interchange fade durations resolve to nearest sample points before clamping to the clip duration; envelope points scale exactly from the interchange clock to nearest project samples.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }, { helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'realtime-encoded-loop-length',
+		file: 'src/common/editor/controller/export/internal/audio/audio-realtime-encoded-export.ts',
+		behavior: 'Realtime loop export converts the authored duration to the captured sample clock using the nearest sample point.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'timeline-interchange-video-source-extent',
+		file: 'src/common/editor/controller/import/internal/interchange/timeline-interchange-video.ts',
+		behavior: 'Decoded interchange video retains its exact native picture count and rounds the media duration to the nearest project sample for the source metadata sample clock.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'dawproject-midi-metadata-source-clock',
+		file: 'src/common/editor/dawproject-midi-metadata.ts',
+		behavior: 'DAWproject MIDI metadata maps each original note endpoint, stop and message position through the exact original-to-destination sample-rate ratio and rounds once to its nearest native source sample.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'timeline-interchange-import-clocks',
+		file: 'src/common/editor/timeline-interchange-project.ts',
+		behavior: 'Timeline imports round absolute clip endpoints and marker positions to nearest sequence and source frames; offline source extents round outward to enclose every referenced edit.',
+		conversions: [{ helper: 'roundRational', policies: ['point', 'enclosingEnd'] }, { helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'fcpxml-import-sequence-origin',
+		file: 'src/common/editor/timeline-interchange-fcpxml-import.ts',
+		behavior: 'FCPXML imports resolve the exact rational sequence timecode origin once to its nearest sequence frame before constructing the editable timeline.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'otio-import-sequence-origin',
+		file: 'src/common/editor/timeline-interchange-otio-import.ts',
+		behavior: 'OpenTimelineIO imports resolve the rational global start time once to its nearest sequence frame while retaining rational clip ranges for their owning source clocks.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
 		id: 'timed-id3-delivery-milliseconds',
 		file: 'src/common/editor/media-metadata.ts',
 		behavior: 'Timed ID3 lyric onsets retain exact source-millisecond coordinates through selected source windows and declared mastering segments, then round once to the nearest physical-file millisecond after subtracting the source origin and adding the delivered segment origin.',
@@ -76,5 +130,35 @@ export const FOUNDATION_TIME_CONVERSION_SOURCE_EDITOR_SITES: readonly Foundation
 		file: 'src/common/editor/ui/inspector/clip-source-stretch-feedback.ts',
 		behavior: 'Prepared source stretch feedback resolves each authored musical warp anchor once to its nearest project sample before computing adjacent source-to-output speed and editable marker bounds.',
 		conversions: [{ helper: 'beatToSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'subproject-render-output-extent',
+		file: 'src/common/editor/controller/document/internal/subprojects/subproject-renderer.ts',
+		behavior: 'Nested project renders enclose the complete source duration and effect tail at the delivery clock, then enclose the rendered media extent when returning to the project clock.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingEnd'] }],
+	},
+	{
+		id: 'interchange-midi-tick-clock',
+		file: 'src/common/editor/interchange-midi-clock.ts',
+		behavior: 'MIDI interchange resolves rational clock positions to nearest integer event ticks once before authoring the standard MIDI stream.',
+		conversions: [{ helper: 'roundRational', policies: ['point'] }],
+	},
+	{
+		id: 'reaper-marker-sample-clock',
+		file: 'src/common/editor/reaper-import.ts',
+		behavior: 'REAPER marker timestamps resolve to nearest interchange sample points while retaining their authored names and ordering.',
+		conversions: [{ helper: 'secondsToSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'timeline-interchange-midi-source-clock',
+		file: 'src/common/editor/timeline-interchange-midi.ts',
+		behavior: 'Imported MIDI encloses its synthesized source extent and resolves authored event positions to nearest samples at the project clock with exact integer products.',
+		conversions: [{ helper: 'roundRational', policies: ['enclosingEnd', 'point'] }],
+	},
+	{
+		id: 'timeline-interchange-mix-automation-clock',
+		file: 'src/common/editor/timeline-interchange-mix.ts',
+		behavior: 'Imported mixer automation scales each absolute authored sample position to the nearest project sample before unit conversion and native lane admission.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 ]);

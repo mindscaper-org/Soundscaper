@@ -71,6 +71,9 @@ test('applying a preset resets omitted preset-owned defaults instead of retainin
 		kind: 'audio', format: 'wav', settings: {},
 	});
 	assert.equal(dialogSettingsFromPreset(audio).loudnessNormalization, '');
+	assert.equal(dialogSettingsFromPreset(audio).dither, 'none');
+	assert.equal(dialogSettingsFromPreset(audio).includeTail, false);
+	assert.equal(dialogSettingsFromPreset(audio).renderAsLoop, false);
 
 	const video = validateDeliveryPreset({
 		schemaVersion: 1, id: 'video-defaults', label: 'Default video',

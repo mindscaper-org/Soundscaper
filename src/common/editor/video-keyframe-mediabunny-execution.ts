@@ -2,6 +2,7 @@
 
 import { confirmFileSizeWarning, type FileSizeWarningOptions } from './controller/shared/file-size-warning.ts';
 import { raceAbortablePromise } from '../foundation/abort-race.ts';
+import { BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE } from './browser-webcodecs-audio-profile.ts';
 import {
 	assertVideoKeyframeAudioInputSource,
 	type VideoKeyframeAudioInputSource,
@@ -15,7 +16,10 @@ import { admitVideoKeyframeWebCodecsEncode, type VideoKeyframeWebCodecsEncode } 
 import type {
 	VideoMediabunnyMuxer,
 	VideoMediabunnyMuxRequest,
+	VideoMediabunnyPcmChunk,
 } from './video-mediabunny-muxer.ts';
+import { scaleSampleFrame } from './timeline-time.ts';
+import { VIDEO_OPUS_PACKET_FRAMES, probeVideoOpusTail, videoOpusInputExtent, writeResampledVideoOpus } from './video-webm-opus-input.ts';
 import {
 	produceVideoWebCodecsChunks,
 	type VideoWebCodecsChunkProduceRequest,
@@ -83,6 +87,10 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 ): Promise<VideoKeyframeMediabunnyExecutionResult> {
 	request = { ...request, webCodecs: admitVideoKeyframeWebCodecsEncode(request.webCodecs) };
 	const { workload, frameSource, producer, webCodecs } = request;
+	const { format, extension, mimeType } = workload;
+	if (format === 'mov' || extension === '.mov' || mimeType === 'video/quicktime') {
+		throw new RangeError('MOV export requires desktop external FFmpeg.');
+	}
 	if (workload.videoEncoder !== 'webcodecs') {
 		throw new Error('Mediabunny execution requires a WebCodecs-admitted workload.');
 	}
@@ -117,7 +125,7 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 	try {
 		assertReady(request);
 		muxer = await dependencies.createMuxer({
-			format: workload.format,
+			format,
 			videoCodec: workload.format === 'mp4' ? 'h264' : 'vp9',
 			width: workload.width,
 			height: workload.height,
@@ -157,7 +165,7 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 				...(request.assertCurrent ? { assertCurrent: request.assertCurrent } : {}),
 			}));
 		const audioTask = audio
-			? writeAudio(request.audioSource!, activeMuxer, workload, {
+			? writeAudio(request.audioSource!, activeMuxer, workload, audio, {
 				signal: operationSignal,
 				...(request.assertCurrent ? { assertCurrent: request.assertCurrent } : {}),
 			})
@@ -190,9 +198,9 @@ export async function executeVideoKeyframeMediabunnyEncoder(
 				audioByteLength: request.audioSource.byteLength,
 				audioChunkCount: muxed.audioChunkCount,
 			} : {}),
-			format: workload.format,
-			extension: workload.extension,
-			mimeType: workload.mimeType,
+			format,
+			extension,
+			mimeType,
 			decoderConfigObserved: muxed.decoderConfigObserved,
 		});
 	} catch (error) {
@@ -227,7 +235,7 @@ function audioRequest(
 	}
 	return Object.freeze({
 		codec: request.workload.format === 'mp4' ? 'aac' : 'opus',
-		sampleRate: request.audioSource.sampleRate,
+		sampleRate: request.workload.format === 'webm' ? BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE : request.audioSource.sampleRate,
 		channelCount: request.audioSource.channelCount,
 		bitrate: positiveInteger(request.audioBitrate, 'audio bitrate'),
 	});
@@ -237,35 +245,43 @@ async function writeAudio(
 	source: VideoKeyframeAudioInputSource,
 	muxer: VideoMediabunnyMuxer,
 	workload: VideoKeyframeEncoderWorkload,
+	audio: NonNullable<VideoMediabunnyMuxRequest['audio']>,
 	request: Pick<VideoKeyframeMediabunnyExecutionRequest, 'signal' | 'assertCurrent'>,
 ): Promise<void> {
 	const data = await locateWavData(source, request);
-	const codecFrames = workload.format === 'mp4' ? 1_024 : 960;
-	const targetFrames = maximumSafeInteger(
-		source.frameCount,
-		ceilRationalFrames(workload.frameCount, source.sampleRate, workload.frameRate),
+	const opus = audio.codec === 'opus';
+	const codecFrames = opus ? VIDEO_OPUS_PACKET_FRAMES : 1_024;
+	const sourceFramesAtEncodeRate = scaleSampleFrame(source.frameCount, source.sampleRate, audio.sampleRate, 'enclosingEnd');
+	const authoredFrames = maximumSafeInteger(
+		sourceFramesAtEncodeRate,
+		ceilRationalFrames(workload.frameCount, audio.sampleRate, workload.frameRate),
 	);
+	const targetFrames = opus ? videoOpusInputExtent(authoredFrames, await probeVideoOpusTail(audio.channelCount, audio.bitrate, request.signal)) : authoredFrames;
+	const frameBytes = source.channelCount * PCM_SAMPLE_BYTES;
+	const read = (offset: number, frames: number) => readExact(source, data.offset + offset * frameBytes, frames * frameBytes, request);
+	const write = (chunk: VideoMediabunnyPcmChunk) => {
+		assertReady(request);
+		return raceAbortablePromise(muxer.addAudioPcm(chunk), request.signal, abortReason);
+	};
+	if (audio.sampleRate !== source.sampleRate) {
+		await writeResampledVideoOpus({ inputSampleRate: source.sampleRate, channelCount: source.channelCount,
+			sourceFrames: source.frameCount, resampledFrames: sourceFramesAtEncodeRate, encodeFrames: targetFrames, read, write });
+		return;
+	}
 	let frameOffset = 0;
 	while (frameOffset < targetFrames) {
 		assertReady(request);
 		const frameCount = Math.min(codecFrames, targetFrames - frameOffset);
 		const sourceFrames = Math.min(frameCount, Math.max(0, source.frameCount - frameOffset));
-		const bytes = new Uint8Array(frameCount * source.channelCount * PCM_SAMPLE_BYTES);
+		const bytes = new Uint8Array(frameCount * frameBytes);
 		if (sourceFrames > 0) {
-			const sourceBytes = sourceFrames * source.channelCount * PCM_SAMPLE_BYTES;
-			const part = await source.read(
-				data.offset + frameOffset * source.channelCount * PCM_SAMPLE_BYTES,
-				sourceBytes,
-				request.signal ? { signal: request.signal } : {},
-			);
-			if (part.byteLength !== sourceBytes) throw new Error('Canonical WAV audio returned a short PCM slice.');
-			bytes.set(part);
+			bytes.set(await read(frameOffset, sourceFrames));
 		}
-		await raceAbortablePromise(muxer.addAudioPcm({
+		await write({
 			data: bytes,
 			frameCount,
-			timestamp: frameOffset / source.sampleRate,
-		}), request.signal, abortReason);
+			timestamp: frameOffset / audio.sampleRate,
+		});
 		frameOffset += frameCount;
 	}
 }

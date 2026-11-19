@@ -34,6 +34,7 @@ export const NIGHTLY_BROWSER_MEDIA_INPUTS = Object.freeze([
 	'libsndfile-zero-based-cues.wav.base64',
 	'python-uncompressed.aif.base64',
 	'sox-comt-comment.aiff.base64',
+	'twolame-0.4.0-sine.mp2.base64',
 ].map(file => ({
 	source: `tests/fixtures/${file}`, destination: `tests/fixtures/${file}`,
 	kind: 'file', label: 'ordinary original media browser workflow support',

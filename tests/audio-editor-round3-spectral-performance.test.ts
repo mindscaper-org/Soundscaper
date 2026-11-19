@@ -29,14 +29,14 @@ test('Click Removal reuses one owned window and one three-array detector workspa
 
 test('Paulstretch shares overlap weights and bounds accumulation to its FFT window', (context) => {
 	const input = [round3Audio(3089), round3Audio(3089, 1), round3Audio(3089, 2)];
-	const outputFrames = Math.ceil(input[0]!.length * 2.3);
 	const Original = Float64Array;
 	const lengths: number[] = [];
 	context.mock.property(globalThis, 'Float64Array', new Proxy(Original, {
 		construct(target, args: [number]) { lengths.push(args[0]); return new target(...args); },
 	}));
 	applyAudacityPaulstretch(input, 8000, { stretchFactor: 2.3, timeResolution: .032 }, { seed: 71 });
-	assert.equal(lengths.filter(length => length === outputFrames).length, 1, 'one shared normalization, no full-length accumulation per channel');
+	assert.equal(lengths.filter(length => length === 128).length, 1, 'one shared hop-sized normalization');
+	assert.ok(lengths.every(length => length <= 256), 'every Float64 workspace fits within one FFT window');
 });
 
 test('Noise Reduction residue reuses rounded output instead of allocating another PCM result', (context) => {
@@ -52,7 +52,7 @@ test('Noise Reduction residue reuses rounded output instead of allocating anothe
 	assert.notEqual(output[0], input[0]);
 });
 
-test('Noise Reduction stores frame gains in one backing array rather than one allocation per FFT window', (context) => {
+test('Noise Reduction reuses a single gain buffer per channel across FFT windows', (context) => {
 	const input = [round3Audio(5099), round3Audio(5099, 1)];
 	const profile = captureAudacityNoiseProfile([round3Audio(4097)], 8000);
 	const Original = Float32Array;
@@ -61,7 +61,7 @@ test('Noise Reduction stores frame gains in one backing array rather than one al
 		construct(target, args: [number]) { if (args[0] === 1025) spectrumSizedArrays++; return new target(...args); },
 	}));
 	applyAudacityNoiseReduction(input, 8000, {}, profile);
-	assert.equal(spectrumSizedArrays, 10, 'five detector power slots per channel; frame gains need no individual buffers');
+	assert.equal(spectrumSizedArrays, 12, 'five detector power slots and one reusable gain buffer per channel');
 });
 
 test('spectral gain and replacement share channel-independent normalization and sequential FFT scratch', (context) => {

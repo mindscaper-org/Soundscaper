@@ -79,6 +79,13 @@ test('live playhead follows written frames during compacted recording and the en
 	}, enginePosition), 48_000);
 });
 
+test('continuous recording advances past the finite backing engine without losing smooth playback position', () => {
+	const recording = { transportState: 'recording', compactedRecording: false, positionFrame: 45 * 48_000 };
+	assert.equal(liveTimelinePositionFrame(recording, () => 30 * 48_000), 45 * 48_000);
+	assert.equal(liveTimelinePositionFrame(recording, () => 45 * 48_000 + 256), 45 * 48_000 + 256);
+	assert.equal(liveTimelinePositionFrame({ ...recording, transportState: 'playing' }, () => 100), 100);
+});
+
 test('scroll-to-playhead advances by a page only after the playhead reaches the right edge', () => {
 	assert.deepEqual(resolveTimelinePlaybackScroll({
 		mode: 'page', playheadX: 999, scrollX: 0, viewportWidth: 1_000, leadingInset: 12,

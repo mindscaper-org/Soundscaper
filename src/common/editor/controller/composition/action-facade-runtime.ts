@@ -29,6 +29,7 @@ function defineEditorActionFunctionNames<const Names extends readonly (keyof Edi
 }
 
 export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
+	'reduceMicrophoneBleed',
 	'setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow', 'readSelectionTargetLocked',
 	'addEffect',
 	'addLabelTrack',
@@ -120,6 +121,7 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'openAup4',
 	'openDawproject',
 	'openSesx',
+	'openInterchange',
 	'openProject',
 	'openScape',
 	'openScapeFile',
@@ -218,6 +220,8 @@ export const EDITOR_ACTION_FUNCTION_NAMES = defineEditorActionFunctionNames([
 	'switchProject',
 	'timelineDurationFrames',
 	'toggleLeadInRecording',
+	'punchAgain',
+	'setLeadInDurationSeconds',
 	'toggleMetronome',
 	'togglePinnedPlayhead',
 	'toggleRecordingPause',

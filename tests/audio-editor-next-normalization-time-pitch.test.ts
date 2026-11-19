@@ -3,8 +3,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderClipNormalizationAudio } from '../src/common/editor/controller/clip-video/internal/clip-normalization-render.ts';
+import { clipNormalizationControlProject } from '../src/common/editor/controller/clip-video/internal/clip-normalization-controls.ts';
 import type { ClipSourcePreviewResources } from '../src/common/editor/controller/clip-video/internal/clip-source-preview-service.ts';
 import type { ClipTransformProject } from '../src/common/editor/controller/clip-video/internal/clip/clip-domain-types.ts';
+import { createEffect } from '../src/common/editor/effects.js';
+import type { EngineProject } from '../src/common/editor/engine/types.ts';
+import type { EngineRenderMixOptions } from '../src/common/editor/engine/public-api.ts';
 
 function fixture(prepare: () => Promise<void> = async () => {}) {
 	const clip = { id: 'pitched', sourceId: 'source', kind: 'audio' as const, timelineStartFrame: 0,
@@ -54,4 +58,64 @@ test('failed committed processing leaves gain measurement and native allocation 
 	const f = fixture(async () => { throw error; });
 	await assert.rejects(renderClipNormalizationAudio(f.resources, f.project, f.clip, f.buffer, new AbortController().signal), error);
 	assert.deepEqual(f.counts(), { engines: 0, disposals: 0 });
+});
+
+test('normalization control project uses the resolved musical target start instead of its stale alias', () => {
+	const target = { id: 'target', sourceId: 'source', kind: 'audio' as const, anchor: 'musical', musicalExtent: 'beat',
+		musicalStartBeat: { num: 2, den: 1 }, musicalDurationBeats: { num: 1, den: 1 }, timelineStartFrame: 10,
+		sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 1_200, pitchCents: 0, speedRatio: 1,
+		effectsActive: true, effects: [createEffect('audacity-auto-duck', { context: { controlTrackId: 'guide' } })] };
+	const guide = { id: 'guide-clip', sourceId: 'guide-source', kind: 'audio' as const, anchor: 'sample', timelineStartFrame: 48_000,
+		sourceStartFrame: 0, sourceDurationFrames: 24_000, durationFrames: 24_000, pitchCents: 0, speedRatio: 1,
+		effectsActive: false, effects: [] };
+	const project = { id: 'project', schemaVersion: 23, sampleRate: 48_000,
+		tempoMap: { mode: 'musical' as const, events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] },
+		clips: [target, guide], tracks: [{ id: 'owner', type: 'audio', clipIds: ['target'] }, { id: 'guide', type: 'audio', clipIds: ['guide-clip'] }],
+		sources: [{ id: 'source', frameCount: 96_000, channelCount: 1, sampleRate: 48_000 }, { id: 'guide-source', frameCount: 96_000, channelCount: 1, sampleRate: 48_000 }] } as unknown as ClipTransformProject;
+	const measured = { sampleRate: 48_000, sources: project.sources, tracks: [], clips: [{ ...target, anchor: 'sample', musicalStartBeat: null,
+		musicalDurationBeats: null, musicalExtent: 'fixedSamples', durationFrames: 24_000, timelineStartFrame: 0 }] } as unknown as EngineProject;
+	const controlled = clipNormalizationControlProject(project, target, measured, 1);
+	assert.ok(controlled);
+	assert.equal(controlled.project.clips?.find(clip => clip.id === target.id)?.timelineStartFrame, 48_000);
+});
+
+test('normalization renders musical target ranges from projected geometry', async () => {
+	const renderRange = async (withControls: boolean) => {
+		const target = { id: 'target', sourceId: 'source', kind: 'audio' as const, anchor: 'musical', musicalExtent: 'beat',
+			musicalStartBeat: { num: 2, den: 1 }, musicalDurationBeats: { num: 1, den: 1 }, timelineStartFrame: 10,
+			sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 1_200, pitchCents: 0, speedRatio: 1,
+			effectsActive: withControls, effects: withControls
+				? [createEffect('audacity-auto-duck', { context: { controlTrackId: 'guide' } })] : [] };
+		const guide = { id: 'guide-clip', sourceId: 'guide-source', kind: 'audio' as const, anchor: 'sample', timelineStartFrame: 48_000,
+			sourceStartFrame: 0, sourceDurationFrames: 48_000, durationFrames: 48_000, pitchCents: 0, speedRatio: 1,
+			effectsActive: false, effects: [] };
+		const project = { id: 'project', schemaVersion: 23, sampleRate: 48_000,
+			tempoMap: { mode: 'musical' as const, events: [{ id: 'tempo', beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] },
+			clips: [target, guide], tracks: [{ id: 'owner', type: 'audio', clipIds: ['target'] }, { id: 'guide', type: 'audio', clipIds: ['guide-clip'] }],
+			sources: [{ id: 'source', frameCount: 96_000, channelCount: 1, sampleRate: 48_000 },
+				{ id: 'guide-source', frameCount: 96_000, channelCount: 1, sampleRate: 48_000 }] } as unknown as ClipTransformProject;
+		const rendered: EngineRenderMixOptions[] = [];
+		const resources = {
+			sourceChunkProviders: new Map(),
+			async prepare() {},
+			createEngine() {
+				return {
+					loadProject() {},
+					async renderMix(options: EngineRenderMixOptions) {
+						rendered.push(options);
+						return { channels: [new Float32Array(1)] };
+					},
+					async dispose() {},
+				};
+			},
+		} as unknown as Pick<ClipSourcePreviewResources, 'createEngine' | 'sourceChunkProviders' | 'prepare'>;
+		await renderClipNormalizationAudio(resources, project, target, null, new AbortController().signal);
+		assert.equal(rendered.length, 1);
+		return rendered[0]!;
+	};
+
+	const controlled = await renderRange(true);
+	assert.deepEqual([controlled.startFrame, controlled.endFrame], [48_000, 72_000]);
+	const standalone = await renderRange(false);
+	assert.deepEqual([standalone.startFrame, standalone.endFrame], [0, 24_000]);
 });

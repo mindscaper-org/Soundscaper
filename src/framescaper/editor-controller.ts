@@ -25,6 +25,8 @@ import {
 	assertFramescaperEditorProjectEnvironment,
 	type FramescaperEditorProjectEnvironment,
 } from './editor-project-environment.ts';
+import { framescaperProjectStoreAuthority } from './editor-project-store.ts';
+import { bindFramescaperProxyDetachSession } from './editor-session-video-proxy-detach.ts';
 import { createFramescaperMulticameraActionsSequence } from './editor-project-sequence-multicam-actions.ts';
 import { createFramescaperSequenceActionsSequence } from './editor-project-sequence-sequence-actions.ts';
 import { createFramescaperVideoRetimeActionsRetime } from './editor-project-retime-retime-actions.ts';
@@ -34,10 +36,8 @@ import { framescaperProjectTimelineImageFoundationShapeAssistance } from './edit
 import { materializeFramescaperSelectedMulticameraVisualPreviewProject } from
 	'./editor-selected-multicamera-visual-preview-project.ts';
 import { createFramescaperScapeNativeRuntime } from './editor-scape-native.ts';
-import { createFramescaperNativeRenderInputStreamProducer } from
-	'./editor-native-render-input-stream-producer.ts';
-import { FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA } from
-	'./editor-native-render-input-producer.ts';
+import { createDeferredFramescaperNativeRenderInputStreamProducer } from
+	'./editor-native-render-input-deferred.ts';
 import { createFramescaperNativeProResProxyCandidateObserver } from
 	'./editor-native-prores-proxy-candidate.ts';
 import { createFramescaperVideoExportStrategy } from './video-export-strategy.ts';
@@ -46,8 +46,11 @@ import type {
 	FramescaperVideoProxyActionRuntime,
 	FramescaperVideoProxyPreviewTrust,
 } from './editor-video-proxy-action-runtime.ts';
-import { createFramescaperVideoProxyPreviewMediaResolverNativeMedia, sameFramescaperVideoProxyAttachment } from
-	'./editor-video-proxy-preview-media-retime.ts';
+import {
+	createFramescaperProxyPreviewCapability,
+	createFramescaperVideoProxyPreviewMediaResolverNativeMedia,
+	sameFramescaperVideoProxyAttachment,
+} from './editor-video-proxy-preview-media-retime.ts';
 import {
 	bindFramescaperSelectedImageAuthoringControllerTimelineImage,
 	type FramescaperSelectedImageFileServiceTimelineImage,
@@ -97,13 +100,10 @@ export function createFramescaperAudioEditorController(
 	const openFxFrames = createFramescaperNativeOpenFxFrameRuntimeNativeMedia(nativeBridge);
 	const openFxExecute = openFxFrames?.execute.bind(openFxFrames);
 	const nativeRenderInputAuthority = createProductNativeRenderInputAuthorityBinding();
-	const prepareNativeRenderInputStream = createFramescaperNativeRenderInputStreamProducer(
+	const prepareNativeRenderInputStream = createDeferredFramescaperNativeRenderInputStreamProducer(
 		environment.runtime.profile,
 		{ authority: nativeRenderInputAuthority, store: environment.controllerStore },
-		openFxExecute ? Object.freeze({
-			...FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA,
-			openFxExecute,
-		}) : FRAMESCAPER_NATIVE_RENDER_INPUT_PRODUCER_DEPENDENCIES_NATIVE_MEDIA,
+		openFxExecute,
 	);
 	let proxyComposition: FramescaperCapturedVideoProxyRuntimeComposition | null = null;
 	let proxyActions: FramescaperVideoProxyActionRuntime | null = null;
@@ -112,12 +112,14 @@ export function createFramescaperAudioEditorController(
 		status: FramescaperVideoProxyPreviewTrust;
 	}>>();
 	let controller: ReturnType<typeof createAudioEditorController> | null = null;
+	const canPreviewProxy = createFramescaperProxyPreviewCapability(canPreviewNativeProResProxy);
 	const resolveProductVideoPreviewMedia = createFramescaperVideoProxyPreviewMediaResolverNativeMedia({
 		bodyStore: environment.store,
 		originalStore: environment.controllerStore,
 		getProject: () => controller?.project ?? null,
 		getMode: (sourceId) => proxyActions?.mode(sourceId) ?? 'auto',
 		getPressure: (sourceId) => proxyActions?.pressure(sourceId) ?? null,
+		canPreviewProxy,
 		onTrustStatus: (sourceId, attachment, status) => {
 			proxyTrust.set(sourceId, Object.freeze({ attachment, status }));
 		},
@@ -166,6 +168,11 @@ export function createFramescaperAudioEditorController(
 		productNativeRenderInputAuthority: nativeRenderInputAuthority,
 		...presentation,
 	});
+	if (openFxFrames) {
+		const { beginDisposal, dispose } = controller;
+		controller.beginDisposal = () => { openFxFrames.dispose(); beginDisposal(); };
+		controller.dispose = () => { openFxFrames.dispose(); return dispose(); };
+	}
 	Object.defineProperty(controller, 'prepareNativeRenderInputStream', {
 		enumerable: false,
 		configurable: false,
@@ -180,12 +187,19 @@ export function createFramescaperAudioEditorController(
 	proxyActions = createFramescaperVideoProxyActions({
 		owner: controller,
 		cleanup: environment.videoProxyCleanup,
+		canPreviewProxy,
 		createScheduler: () => createFramescaperCapturedVideoProxyScheduler(
 			environment, sessionController, selectedProxyComposition,
 		),
 		createAttachExistingScheduler: (candidate) => createFramescaperExistingVideoProxyScheduler(
 			environment, sessionController, selectedProxyComposition, candidate,
 		),
+		...(!environment.desktopProjectLibrary ? {
+			stageDetach: bindFramescaperProxyDetachSession(
+				framescaperProjectStoreAuthority(environment.runtime.profile, environment.store).port,
+				sessionController,
+			),
+		} : {}),
 		createDetachCommand: createFramescaperVideoProxyDetachCommandFinishing,
 		previewTrust: (sourceId, attachment) => {
 			const entry = proxyTrust.get(sourceId);
@@ -237,6 +251,13 @@ export function createFramescaperAudioEditorController(
 		publishIfCurrent: request => environment.hdrImages.publishIfCurrent(request) });
 	bindFramescaperCorridorKeyController(controller as never, environment.controllerStore);
 	return controller;
+}
+
+function canPreviewNativeProResProxy(): boolean {
+	const video = globalThis.document?.createElement('video');
+	if (!video) return true;
+	return Boolean(video.canPlayType('video/quicktime; codecs="apco"')
+		|| video.canPlayType('video/mp4; codecs="apco"'));
 }
 
 function snapshotPresentation(value: unknown): FramescaperAudioEditorControllerPresentation {

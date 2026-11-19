@@ -14,8 +14,8 @@ test('effect preset dropdown permits wheel scrolling to a later visible choice',
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Reverb (Audacity)']);
 	const dialog = page.getByRole('dialog', { name: 'Apply effect', exact: true });
-	await dialog.getByRole('button', { name: 'Preset', exact: true }).click();
-	const menu = page.getByRole('listbox', { name: 'Preset', exact: true });
+	await dialog.getByRole('button', { name: /^Preset(?::|$)/u }).click();
+	const menu = page.getByRole('listbox', { name: /^Preset(?::|$)/u });
 	await menu.hover({ position: { x: 12, y: 20 } });
 	await page.mouse.wheel(0, 800);
 	const cathedral = page.getByRole('option', { name: 'Cathedral', exact: true });
@@ -33,7 +33,7 @@ test('export format dropdown permits wheel scrolling to MP2 before clicking it',
 	const dialog = await openExportDialog(page, editor);
 	const format = dialog.getByRole('group', { name: 'Format', exact: true }).getByRole('button');
 	await format.click();
-	const menu = page.getByRole('listbox', { name: 'Format', exact: true });
+	const menu = page.getByRole('listbox', { name: /^Format(?::|$)/u });
 	await menu.hover({ position: { x: 12, y: 20 } });
 	await page.mouse.wheel(0, 800);
 	const mp2 = page.getByRole('option', { name: 'MP2', exact: true });

@@ -30,7 +30,7 @@ for (const owner of ['selection', 'rack']) test(`${owner} numeric draft cannot e
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'launchQueue', {
 		configurable: true, value: { setConsumer(consumer) { globalThis.__nextEffectDraftLaunch = consumer; } },
 	}));
-	const editor = await bootEditor(page, '/en/');
+	const editor = await bootEditor(page, '/en/', { showProjectBin: false });
 	await launch(page, await projectFile(`effect-${owner}-outgoing`, .3));
 	await expect(editor).toHaveAttribute('data-project-id', `effect-${owner}-outgoing`); await waitForProjectActivation(editor);
 	let field, before;

@@ -41,48 +41,62 @@ export function normalizeRms(channels, targetDb, independent) {
 
 export function integratedLoudnessPower(channels, sampleRate) {
 	if (channels[0].length === 0) return 0;
+	// Preserve the one-shot silent fast path; streamed meters retain filter state.
+	const weights = ebuChannelWeights(channels.length);
+	if (channels.every((channel, index) => weights[index] === 0 || channel.every(sample => sample === 0))) return 0;
+	const meter = createIntegratedLoudnessPowerMeter(channels.length, sampleRate);
+	meter.push(channels);
+	return meter.finish();
+}
+
+/** The same selection-wide meter, retaining its filters and gate across PCM chunks. */
+export function createIntegratedLoudnessPowerMeter(channelCount, sampleRate) {
 	const blockSize = Math.ceil(0.4 * sampleRate);
 	const blockOverlap = Math.ceil(0.1 * sampleRate);
 	const ring = new Float64Array(blockSize);
 	const histogram = createLoudnessPowerHistogram();
 	const template = weightingFilters(sampleRate);
 	// Native 5.0/5.1 source processing follows the analyzer's programme roles.
-	const channelWeights = ebuChannelWeights(channels.length);
-	if (channels.every((channel, index) => channelWeights[index] === 0 || channel.every(sample => sample === 0))) return 0;
-	const filters = channels.map(() => template.map(filter => ({ ...filter })));
+	const channelWeights = ebuChannelWeights(channelCount);
+	const filters = Array.from({ length: channelCount }, () => template.map(filter => ({ ...filter })));
 	let ringPosition = 0;
 	let ringSize = 0;
 	let framesUntilBlock = blockSize;
 	let histogramCount = 0;
 
-	for (let index = 0; index < channels[0].length; index += 1) {
-		let power = 0;
-		for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
-			if (channelWeights[channelIndex] === 0) continue;
-			const [shelf, highPass] = filters[channelIndex];
-			const weighted = processBiquad(
-				processBiquad(channels[channelIndex][index], shelf),
-				highPass,
-			);
-			power += weighted * weighted * channelWeights[channelIndex];
-		}
-		ring[ringPosition] = power;
-		ringPosition += 1;
-		ringSize += 1;
-		framesUntilBlock -= 1;
-		if (framesUntilBlock === 0) {
-			histogramCount += addLoudnessBlock(histogram, ring, blockSize);
-			ringSize = blockSize;
-			framesUntilBlock = blockOverlap;
-		}
-		if (ringPosition === blockSize) ringPosition = 0;
-	}
-
-	if (histogramCount === 0) {
-		histogramCount += addLoudnessBlock(histogram, ring, Math.min(ringSize, blockSize));
-	}
-	if (histogramCount === 0) return 0;
-	return EBU_POWER_SCALE * histogram.meanPower();
+	return {
+		push(channels) {
+			for (let index = 0; index < channels[0].length; index += 1) {
+				let power = 0;
+				for (let channelIndex = 0; channelIndex < channels.length; channelIndex += 1) {
+					if (channelWeights[channelIndex] === 0) continue;
+					const [shelf, highPass] = filters[channelIndex];
+					const weighted = processBiquad(
+						processBiquad(channels[channelIndex][index], shelf),
+						highPass,
+					);
+					power += weighted * weighted * channelWeights[channelIndex];
+				}
+				ring[ringPosition] = power;
+				ringPosition += 1;
+				ringSize += 1;
+				framesUntilBlock -= 1;
+				if (framesUntilBlock === 0) {
+					histogramCount += addLoudnessBlock(histogram, ring, blockSize);
+					ringSize = blockSize;
+					framesUntilBlock = blockOverlap;
+				}
+				if (ringPosition === blockSize) ringPosition = 0;
+			}
+		},
+		finish() {
+			if (histogramCount === 0) {
+				histogramCount += addLoudnessBlock(histogram, ring, Math.min(ringSize, blockSize));
+			}
+			if (histogramCount === 0) return 0;
+			return EBU_POWER_SCALE * histogram.meanPower();
+		},
+	};
 }
 
 export function weightingFilters(sampleRate) {

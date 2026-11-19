@@ -42,6 +42,16 @@ test('a sole same-track candidate wins; ambiguous other-track boundaries do not 
 		pixelsPerSecond, sampleRate }), { frame: 101, snapped: false });
 });
 
+test('touching clips on the edited track contribute one shared snap location', () => {
+	const content = project([
+		{ id: 'left', trackId: 'upper', start: 50, duration: 50 },
+		{ id: 'right', trackId: 'upper', start: 100, duration: 50 },
+		{ id: 'nearby', trackId: 'lower', start: 102, duration: 50 },
+	]);
+	assert.deepEqual(resolveBoundarySnap({ project: content, frame: 101, currentTrackId: 'upper',
+		pixelsPerSecond, sampleRate }), { frame: 100, snapped: true });
+});
+
 test('coincident boundaries resolve toward the selected edge', () => {
 	const content = project([
 		{ id: 'a', trackId: 'upper', start: 100, duration: 100 },
@@ -151,6 +161,17 @@ test('clip move excludes moving clips and chooses the edge closest to pointer-do
 	assert.deepEqual(resolveClipMoveBoundarySnap({ ...input, index, preferRightEdge: true }), {
 		startFrame: 99, guideFrame: 199,
 	});
+});
+
+test('a clip moving between tracks prefers the destination track boundary', () => {
+	const content = project([
+		{ id: 'moving', trackId: 'upper', start: 10, duration: 30 },
+		{ id: 'source-boundary', trackId: 'upper', start: 100, duration: 100 },
+		{ id: 'target-boundary', trackId: 'lower', start: 102, duration: 200 },
+	]);
+	assert.deepEqual(resolveClipMoveBoundarySnap({ project: content, clipId: 'moving', movingClipIds: ['moving'],
+		rawStartFrame: 101, currentTrackId: 'upper', destinationTrackId: 'lower', pixelsPerSecond, sampleRate,
+		preferRightEdge: false }), { startFrame: 102, guideFrame: 102 });
 });
 
 test('an already aligned clip edge does not displace a nearby moving edge', () => {

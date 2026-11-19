@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 import rehypeVerdictTables from '../handbook/src/plugins/rehype-verdict-tables.mjs';
+import rehypeComparisonDetails from '../handbook/src/plugins/rehype-comparison-details.mjs';
+import rehypeComparisonLayout from '../handbook/src/plugins/rehype-comparison-layout.mjs';
 
 const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compares.md';
 // Generated from the repository by `scripts/docs-reference.mjs`, and the reason
@@ -10,6 +12,7 @@ const COMPARISON_PAGE = 'handbook/src/content/docs/start/how-soundscaper-compare
 const PLATFORMS_PAGE = 'handbook/src/content/docs/reference/generated/platforms.md';
 
 const text = (value) => ({ type: 'text', value });
+const textOf = (node) => node.type === 'text' ? node.value : (node.children ?? []).map(textOf).join('');
 const element = (tagName, children) => ({ type: 'element', tagName, properties: {}, children });
 const row = (cells) => element('tr', cells.map((cell) => element('td', Array.isArray(cell) ? cell : [text(cell)])));
 
@@ -20,6 +23,7 @@ const table = (rows) => element('table', [element('tbody', rows.map(row))]);
 // otherwise.
 const transform = (tree, page = COMPARISON_PAGE) => {
 	rehypeVerdictTables()(tree, { path: page });
+	rehypeComparisonDetails()(tree);
 	return tree;
 };
 
@@ -107,6 +111,104 @@ test('symbol sources decorate every product column and expose each meaning witho
 	assert.deepEqual(products[0].children[1], text(' unavailable in the browser'));
 	assert.deepEqual(products[1].children[1], text(' optional model install'));
 	assert.equal(products[3].children.length, 1);
+});
+
+test('unverified capabilities have a distinct accessible verdict', () => {
+	const tree = transform(table([['Capability', '? — not verified']]));
+	const [, cell] = cellsOf(tree);
+	assert.deepEqual(classesOf(cell), ['verdict-cell', 'verdict-cell--unknown']);
+	assert.deepEqual(cell.children[0].children, [text('?')]);
+	assert.equal(cell.children[0].properties.ariaLabel, 'Not verified');
+	assert.deepEqual(cell.children[1], text(' not verified'));
+});
+
+test('comparison details preserve inline markup and give each tooltip a unique description link', () => {
+	const tree = transform(table([
+		['Native project', [text('+ — '), element('code', [text('.sscape')]), text(' :: Media is bundled.')], '/ — :: Requires an external plug-in.'],
+	]));
+	const [, project, external] = cellsOf(tree);
+	const [projectNote] = project.children;
+	const [trigger, tooltip] = projectNote.children;
+	assert.equal(projectNote.tagName, 'comparison-note');
+	assert.equal(trigger.tagName, 'button');
+	assert.equal(tooltip.properties.role, 'tooltip');
+	assert.equal(tooltip.properties.popover, 'auto');
+	assert.equal(trigger.properties.ariaDescribedBy, tooltip.properties.id);
+	assert.ok(trigger.children.some((node) => node.tagName === 'code'));
+	assert.deepEqual(tooltip.children, [text('Media is bundled.')]);
+	const [externalNote] = external.children;
+	assert.notEqual(externalNote.children[1].properties.id, tooltip.properties.id);
+	assert.deepEqual(externalNote.children[0].children[0].children, [text('/')]);
+});
+
+test('detail syntax in an ordinary table is left alone', () => {
+	const tree = table([['Term', 'Value :: explanation']]);
+	rehypeComparisonDetails()(tree);
+	assert.deepEqual(cellsOf(tree)[1].children, [text('Value :: explanation')]);
+});
+
+test('comparison layout moves keyboard scrolling to a named region and preserves ordinary tables', () => {
+	const comparison = transform(table([['Feature', '+']]));
+	comparison.properties.tabIndex = 0;
+	const ordinary = table([['Format', 'WAV']]);
+	ordinary.properties.tabIndex = 0;
+	const tree = { type: 'root', children: [element('h2', [text('Export and delivery')]), comparison, ordinary] };
+	rehypeComparisonLayout()(tree);
+	const region = tree.children[1];
+	assert.equal(region.tagName, 'div');
+	assert.equal(region.properties.role, 'region');
+	assert.equal(region.properties.ariaLabel, 'Export and delivery');
+	assert.equal(region.properties.tabIndex, 0);
+	assert.equal(region.children[0], comparison);
+	assert.equal(comparison.properties.tabIndex, undefined);
+	assert.equal(tree.children[2], ordinary);
+	assert.equal(ordinary.properties.tabIndex, 0);
+	rehypeComparisonLayout()(tree);
+	assert.equal(tree.children[1], region);
+	assert.equal(region.children[0], comparison);
+});
+
+test('comparison groups span related products and retain accessible column and row headers', () => {
+	const products = ['Recorder Web', 'Recorder Desktop', 'Mixer 2', 'Composer Suite', 'Performer 3'];
+	const header = element('tr', ['Capability', ...products].map((name) => element('th', [text(name)])));
+	const comparison = element('table', [element('thead', [header]), element('tbody', [row(['Feature', '+', '+', '/', '~', '+'])])]);
+	comparison.properties.className = ['verdict-table'];
+	const tree = { type: 'root', children: [comparison] };
+	const layout = rehypeComparisonLayout({ groups: [
+		{ label: 'Recording', families: [['Recorder Web', 'Recorder Desktop'], ['Mixer']] },
+		{ label: 'Composition', families: [['Composer', 'Performer']] },
+	] });
+	layout(tree);
+	const grouped = tree.children[0].children[0];
+	const head = grouped.children.find((child) => child.tagName === 'thead');
+	const [categories, columns] = head.children;
+	assert.equal(categories.children[0].properties.rowSpan, 2);
+	assert.equal(categories.children[0].properties.scope, 'col');
+	assert.deepEqual(categories.children.slice(1).map((cell) => [textOf(cell), cell.properties.colSpan, cell.properties.scope]), [
+		['Recording', 3, 'colgroup'], ['Composition', 2, 'colgroup'],
+	]);
+	assert.deepEqual(columns.children.map((cell) => cell.children[0].value), products);
+	assert.ok(columns.children.every((cell) => cell.properties.scope === 'col'));
+	assert.ok(classesOf(columns.children[0]).includes('comparison-family-related'));
+	assert.ok(classesOf(columns.children[1]).includes('comparison-family-related'));
+	assert.ok(classesOf(columns.children[2]).includes('comparison-family-start'));
+	assert.ok(classesOf(columns.children[3]).includes('comparison-category-start'));
+	const feature = grouped.children.find((child) => child.tagName === 'tbody').children[0].children[0];
+	assert.equal(feature.tagName, 'th');
+	assert.equal(feature.properties.scope, 'row');
+	assert.ok(classesOf(feature).includes('comparison-feature-heading'));
+	assert.match(grouped.properties.style, /--comparison-product-count: 5/u);
+	layout(tree);
+	assert.equal(head.children.length, 2);
+});
+
+test('comparison grouping rejects headers that no longer match its layout configuration', () => {
+	const comparison = element('table', [element('thead', [element('tr', [
+		element('th', [text('Capability')]), element('th', [text('Unexpected product')]),
+	])])]);
+	comparison.properties.className = ['verdict-table'];
+	const layout = rehypeComparisonLayout({ groups: [{ label: 'Focus', families: [['Expected product']] }] });
+	assert.throws(() => layout({ type: 'root', children: [comparison] }), /headers do not match/u);
 });
 
 test('a verdict whose detail opens with markup keeps the word space the em dash held', () => {

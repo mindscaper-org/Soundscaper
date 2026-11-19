@@ -8,7 +8,7 @@ import { registerNyquistArchivePublication } from './helpers/nyquist-archive-pub
 test('published Vocal Reduction applies its mono result to the imported stereo recording', async ({ page }) => {
 	await registerNyquistArchivePublication(page, ['vocalrediso.ny']);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'stereo.wav', frequency: 440, duration: .1, channelCount: 2, channelAmplitudes: [.4, .1] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	let menu = await openNestedCommandMenu(page, editor, 'Effect', ['Nyquist']);

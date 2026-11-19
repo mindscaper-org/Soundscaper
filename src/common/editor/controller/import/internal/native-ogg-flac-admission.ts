@@ -2,6 +2,7 @@
 
 import { oggPageCrc } from '../../../ogg-page-crc.ts';
 import { isDesktopMainAudioCodecRuntime } from '../../../desktop-main-audio-codec-runtime-marker.ts';
+import { streamedOggFlacFrameCount } from './native-ogg-flac-streamed-geometry.ts';
 
 const MAXIMUM_ENCODED_BYTES = 32 * 1024 ** 2;
 const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
@@ -24,8 +25,11 @@ export async function nativeOggFlacAdmission(file: Blob, options: Readonly<{
 	if (view.getUint32(18, true) !== 0 || view.getUint32(22, true) !== oggPageCrc(bytes)) return null;
 	const packed = view.getBigUint64(55);
 	const sampleRate = Number(packed >> 44n), channelCount = Number(packed >> 41n & 7n) + 1;
-	const frameCount = Number(packed & 0xf_ffff_ffffn);
-	if (sampleRate < 8000 || sampleRate > 192_000 || frameCount < 1 || frameCount * channelCount * 4 > MAXIMUM_PCM_BYTES) return null;
+	const declaredFrames = Number(packed & 0xf_ffff_ffffn);
+	const maximumFrames = Math.floor(MAXIMUM_PCM_BYTES / (channelCount * 4));
+	if (sampleRate < 8000 || sampleRate > 192_000 || declaredFrames > maximumFrames) return null;
+	const frameCount = declaredFrames || await streamedOggFlacFrameCount(file, bytes, { sampleRate, channelCount, maximumFrames }, options.signal);
+	if (frameCount < 1) return null;
 	return Object.freeze({ sampleRate, channelCount, frameCount });
 }
 

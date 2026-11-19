@@ -9,6 +9,9 @@ import { videoTransition } from '../../video-timeline-internals.js';
 import { applyVideoPreviewDisplaySize } from './video-preview-display-size.ts';
 
 const EMPTY_VIDEO_EFFECT_STACK = Object.freeze([]);
+// Firefox's WebGL element upload omits rotation that Canvas2D applies.
+// https://bugzilla.mozilla.org/show_bug.cgi?id=2066947
+const FIREFOX_VIDEO_TEXTURE_ROTATION = /\bGecko\/\d+\b.*\bFirefox\/\d+/u.test(globalThis.navigator?.userAgent ?? '');
 
 function createEntry() {
 	return {
@@ -19,6 +22,7 @@ function createEntry() {
 		opacity: 0,
 		displayWidth: 0,
 		displayHeight: 0,
+		copyVideoPresentation: false,
 	};
 }
 
@@ -30,6 +34,7 @@ export function clearVideoPreviewCompositorEntry(entry) {
 	entry.opacity = 0;
 	entry.displayWidth = 0;
 	entry.displayHeight = 0;
+	entry.copyVideoPresentation = false;
 	delete entry.renderDescription;
 	delete entry.intervalProgress;
 }
@@ -124,13 +129,17 @@ export function synchronizeVideoPreviewCompositorLayers(
 		let targetEntryCount = 0;
 		for (let clipIndex = 0; clipIndex < layer.clips.length; clipIndex += 1) {
 			const clip = layer.clips[clipIndex];
-			if (!timeline.clipStateById.get(clip.clipId)?.available) continue;
+			const clipState = timeline.clipStateById.get(clip.clipId);
+			if (!clipState?.available) continue;
 			const targetEntry = targetLayer.entryPool[targetEntryCount];
 			targetLayer.entries[targetEntryCount] = targetEntry;
 			targetEntry.clipId = clip.clipId;
 			targetEntry.sourceId = clip.sourceId || clip.source?.id || null;
 			targetEntry.video = videoElements.get(clip.clipId) || null;
 			applyVideoPreviewDisplaySize(displaySizes, clip.source, targetEntry, targetEntry.video);
+			const rotation = clip.source?.characteristics?.rotationDegrees;
+			targetEntry.copyVideoPresentation = FIREFOX_VIDEO_TEXTURE_ROTATION && !clipState.usesProxy
+				&& (rotation === 90 || rotation === 180 || rotation === 270);
 			const keyframeState = keyframeStates.get(clip) || null;
 			targetEntry.effects = videoEffectBypass.effectsFor(
 				clip.clipId,

@@ -1,0 +1,135 @@
+{
+	"schemaVersion": 1,
+	"modelId": "voicefixer",
+	"version": "1.0.0",
+	"target": "linux-x64",
+	"boundary": "direct Python ONNX Runtime probe, not packaged application qualification",
+	"runtimeVersion": "1.29.0",
+	"webGpuPluginVersion": "0.4.0",
+	"webGpuPluginSha256": "9f76e3dc4459421958ad086a9da03bf7e5de9289e9a3a56e28bbb459773dec81",
+	"artifacts": [
+		{
+			"fileName": "analysis.onnx",
+			"byteLength": 282016051,
+			"sha256": "113d24062c5c9f87293a4e4771fbd4930136ccdff87ccbe6a6cb47726fc9cae9"
+		},
+		{
+			"fileName": "vocoder.onnx",
+			"byteLength": 132905282,
+			"sha256": "51b513f2e5510bd7d1e61d255015d47e2fc7b5af95eb35f25b6e5030446c5310"
+		},
+		{
+			"fileName": "mel_filters.npy",
+			"byteLength": 524928,
+			"sha256": "d534ace99f19552fadd89d07d8cef0e3ff398b608ed2247c975c153b95b17f04"
+		}
+	],
+	"fixture": {
+		"source": "tests/electron/local-assistance-models/fixtures/jfk.wav",
+		"originalSha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
+		"preparation": "First five seconds resampled from 16 kHz to 44.1 kHz with scipy.signal.resample_poly(441, 160), then hard-clipped at +/-0.08.",
+		"sampleRate": 44100,
+		"frameCount": 220500,
+		"sha256": "4c2eae6bf7b5e2b3c74cf2c72989c0a09344b1dd602aed4735861e8a66f25492"
+	},
+	"output": {
+		"frameCount": 223146,
+		"finite": true,
+		"peak": 0.9735256433486938,
+		"sha256": "1e3c129d1e2f199a21bba618b87c9b1b0ed6e4ae32513958ece9b6fd1644f85b"
+	},
+	"elapsedSeconds": {
+		"analysis": 11.290420293807983,
+		"vocoder": 14.516132593154907
+	},
+	"maximumRssBytes": 1671819264,
+	"gpuProfiles": [
+		{
+			"role": "analysis",
+			"providerKernelEvents": {
+				"WebGpuExecutionProvider": 371,
+				"CPUExecutionProvider": 21
+			},
+			"gpuOperators": {
+				"Add": 55,
+				"AveragePool": 6,
+				"BatchNormalization": 62,
+				"Clip": 2,
+				"Concat": 7,
+				"Conv": 112,
+				"ConvTranspose": 6,
+				"Div": 2,
+				"GRU": 4,
+				"LeakyRelu": 50,
+				"Log": 2,
+				"MatMul": 4,
+				"MemcpyFromHost": 2,
+				"Mul": 1,
+				"Pad": 2,
+				"Relu": 10,
+				"Reshape": 4,
+				"Shape": 4,
+				"Sigmoid": 1,
+				"Slice": 12,
+				"Squeeze": 2,
+				"Transpose": 19,
+				"Unsqueeze": 2
+			}
+		},
+		{
+			"role": "vocoder",
+			"providerKernelEvents": {
+				"WebGpuExecutionProvider": 188,
+				"CPUExecutionProvider": 10
+			},
+			"gpuOperators": {
+				"Abs": 1,
+				"Add": 37,
+				"Clip": 1,
+				"Concat": 1,
+				"Conv": 71,
+				"ConvTranspose": 4,
+				"Div": 3,
+				"Elu": 5,
+				"Gather": 1,
+				"LeakyRelu": 36,
+				"Log": 1,
+				"Max": 1,
+				"MemcpyFromHost": 1,
+				"Mul": 2,
+				"Pad": 2,
+				"Shape": 1,
+				"Sin": 4,
+				"Sub": 3,
+				"Transpose": 13
+			}
+		}
+	],
+	"limitations": [
+		"One direct Linux x64 execution using the pinned production plugin; no claim about other targets or the packaged host.",
+		"Upstream source-framework parity is reported by the retained model card and has not been independently rerun here.",
+		"No blind listening or declipping-quality benchmark was performed."
+	],
+	"productionWorkerCpu": {
+		"boundary": "direct production worker, locally installed CPU ONNX Runtime; not packaged-host qualification",
+		"elapsedSeconds": 4.549617713,
+		"sampleRate": 48000,
+		"channelCount": 1,
+		"frameCount": 48000,
+		"byteLength": 192044,
+		"sha256": "6c28b839e29577410e6ed208cf2cfe662c14f3daad0540a3be7db36aff818172",
+		"maximumSampleDifference": 0.879235103726387,
+		"energy": 853.2603515928422,
+		"inputSha256": "fef44952e8720db52d74f357dff7628ccb6bd7571b41cc4ff651c3d7fcbb2663",
+		"adapterSources": [
+			{
+				"path": "desktop/assistance-onnx-voicefixer-worker.ts",
+				"sha256": "a8089e3422809f0d137d134c2876abfacd2499b721f267670a0615856f018194"
+			},
+			{
+				"path": "src/common/editor/assistance/voicefixer-signal-v1.ts",
+				"sha256": "2f8e0f5008b9adb426af172235fdfb9b0cf510cedd5cc671fecefade23a28de8"
+			}
+		]
+	}
+}

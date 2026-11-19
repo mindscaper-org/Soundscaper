@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
+import { resolveRuntimeClipProjection, type RuntimeClipProject, type RuntimePersistedClip } from './runtime-clip-projection.ts';
+import { isVideoTimingIndexVerifiedForReference } from './video-timing-asset.ts';
+
 export const VIDEO_THUMBNAIL_BASE_INTERVAL_SECONDS = 5;
 export const VIDEO_THUMBNAIL_MINIMUM_SPACING_PIXELS = 80;
 
@@ -102,6 +106,33 @@ export function unregisterVideoTimingIndex(sourceValue: unknown): void {
 /** Read the exact active registry object without copying or re-validating its timing payload. */
 export function registeredVideoTimingIndex(sourceValue: unknown): RuntimeVideoTimingIndex | undefined {
 	return VIDEO_TIMING_INDEXES.get(videoTimingKey(record(sourceValue, 'source')));
+}
+
+/** Resolve a paused seek inside the picture that owns the selected timeline sample. */
+export function indexedVideoSourceSeekSeconds(
+	sourceValue: unknown, timestamp: number, clipValue?: unknown, timelineSample?: number,
+): number {
+	const source = optionalRecord(sourceValue, 'source');
+	const index = source && registeredVideoTimingIndex(source);
+	if (!index) return timestamp;
+	const end = Number(index.endTicks) / index.timescale;
+	const tick = sourceTickAtTimelineSample(clipValue, timelineSample, index);
+	if (tick === null && !(timestamp >= Number(index.presentationTicks[0]) / index.timescale && timestamp < end)) return timestamp;
+	const frame = sourceFrameIndexAtTime(tick ?? timestamp, index);
+	const start = Number(index.presentationTicks[frame]) / index.timescale;
+	const next = Number(index.presentationTicks[frame + 1] ?? index.endTicks) / index.timescale;
+	return browserVideoFrameSeekSeconds(start, next);
+}
+
+/** Find the picture drawn at a sample using the same source clock as paused Programme. */
+export function indexedUnretimedVideoFrameAtSample(
+	project: RuntimeClipProject, clip: RuntimePersistedClip, source: DataRecord, timelineSample: number,
+): number | null {
+	if (clip.retimeMap != null || source.timingAsset == null) return null;
+	const index = timingIndexForClip(clip, source);
+	if (!isVideoTimingIndexVerifiedForReference(index, source.timingAsset)) return null;
+	const tick = sourceTickAtTimelineSample(resolveRuntimeClipProjection(project, clip), timelineSample, index);
+	return tick === null ? null : sourceFrameIndexAtTime(tick, index);
 }
 
 /** Identity changes whenever exact timing availability or lease restoration changes. */
@@ -323,23 +354,41 @@ function timingIndexForClip(
 function sourceTimingRange(
 	clip: DataRecord,
 	index: RuntimeVideoTimingIndex,
-): Readonly<{ startTimeSeconds: number; endTimeSeconds: number; durationSeconds: number }> {
+): Readonly<{ startTick: bigint; endTick: bigint; startTimeSeconds: number; durationSeconds: number }> {
 	const sourceStartFrame = nonNegativeSafeInteger(clip.sourceStartFrame, 'clip.sourceStartFrame');
 	const sourceDurationFrames = positiveSafeInteger(clip.sourceDurationFrames, 'clip.sourceDurationFrames');
 	const sourceEndFrame = sourceStartFrame + sourceDurationFrames;
 	if (!Number.isSafeInteger(sourceEndFrame) || sourceEndFrame > index.frameCount) {
 		throw new RangeError('The active clip source range exceeds its timing index.');
 	}
-	const startTimeSeconds = sourceFrameTimeSeconds(sourceStartFrame, index);
-	const endTimeSeconds = sourceFrameTimeSeconds(sourceEndFrame, index);
-	if (startTimeSeconds == null || endTimeSeconds == null || endTimeSeconds <= startTimeSeconds) {
+	const startTick = index.presentationTicks[sourceStartFrame];
+	const endTick = sourceEndFrame === index.frameCount ? index.endTicks : index.presentationTicks[sourceEndFrame];
+	if (startTick === undefined || endTick === undefined) throw new RangeError('The video timing index is incomplete.');
+	const startTimeSeconds = Number(startTick) / index.timescale;
+	const endTimeSeconds = Number(endTick) / index.timescale;
+	if (endTimeSeconds <= startTimeSeconds) {
 		throw new RangeError('The active clip source range has no positive timing span.');
 	}
 	return Object.freeze({
+		startTick,
+		endTick,
 		startTimeSeconds,
-		endTimeSeconds,
 		durationSeconds: endTimeSeconds - startTimeSeconds,
 	});
+}
+
+function sourceTickAtTimelineSample(
+	clipValue: unknown, timelineSample: number | undefined, index: RuntimeVideoTimingIndex,
+): bigint | null {
+	if (timelineSample === undefined || !Number.isSafeInteger(timelineSample)) return null;
+	const clip = optionalRecord(clipValue, 'clip');
+	if (!clip || !Object.hasOwn(clip, 'sourceInFrame')) return null;
+	const localSample = timelineSample - nonNegativeSafeInteger(clip.timelineStartFrame, 'clip.timelineStartFrame');
+	const duration = positiveSafeInteger(clip.durationFrames, 'clip.durationFrames');
+	if (localSample < 0 || localSample >= duration) return null;
+	const { startTick, endTick } = sourceTimingRange(clip, index);
+	// Integer PTS boundaries compare exactly against the floored rational tick.
+	return startTick + ((endTick - startTick) * BigInt(localSample)) / BigInt(duration);
 }
 
 function timingIndex(value: RuntimeVideoTimingIndex): RuntimeVideoTimingIndex {
@@ -377,19 +426,24 @@ function sourceTimeSecondsToFrame(sourceTimeSeconds: number, index: RuntimeVideo
 	const end = Number(index.endTicks) / index.timescale;
 	if (target <= first) return 0;
 	if (target >= end) return index.frameCount;
-	let lower = 0;
-	let upper = index.frameCount;
-	while (lower + 1 < upper) {
-		const middle = lower + Math.floor((upper - lower) / 2);
-		const middleTime = Number(index.presentationTicks[middle]) / index.timescale;
-		if (middleTime <= target) lower = middle;
-		else upper = middle;
-	}
+	const lower = sourceFrameIndexAtTime(target, index);
 	const start = Number(index.presentationTicks[lower]) / index.timescale;
 	const next = lower + 1 < index.frameCount
 		? Number(index.presentationTicks[lower + 1]) / index.timescale
 		: end;
 	return lower + boundedProgress((target - start) / (next - start));
+}
+
+function sourceFrameIndexAtTime(target: number | bigint, index: RuntimeVideoTimingIndex): number {
+	let lower = 0;
+	let upper = index.frameCount;
+	while (lower + 1 < upper) {
+		const middle = lower + Math.floor((upper - lower) / 2);
+		const tick = index.presentationTicks[middle]!;
+		if (typeof target === 'bigint' ? tick <= target : Number(tick) / index.timescale <= target) lower = middle;
+		else upper = middle;
+	}
+	return lower;
 }
 
 function boundedProgress(value: number): number {

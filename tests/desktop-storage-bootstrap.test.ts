@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { lstat, mkdir, mkdtemp, readFile, readlink, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readFile, readlink, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -19,7 +19,7 @@ async function fixture(t: test.TestContext, platform: NodeJS.Platform = 'linux',
 	]);
 	const switches = new Map<string, string>();
 	await seed?.(userData);
-	const storage = configureDesktopStorage({
+	const configure = (environment: NodeJS.ProcessEnv = {}) => configureDesktopStorage({
 		app: {
 			getPath: (name) => { const path = paths.get(name); assert.ok(path); return path; },
 			setPath: (name, path) => { paths.set(name, path); },
@@ -29,9 +29,9 @@ async function fixture(t: test.TestContext, platform: NodeJS.Platform = 'linux',
 				appendSwitch: (name, value) => { switches.set(name, value); },
 			},
 		},
-		appName: 'Soundscaper', platform, environment: {}, argv: [],
+		appName: 'Soundscaper', platform, environment, argv: [],
 	});
-	return { home, appData, userData, paths, switches, storage };
+	return { home, appData, userData, paths, switches, configure, storage: configure() };
 }
 
 test('resolving storage does not mutate files or Electron before the instance lock', async (t) => {
@@ -40,6 +40,30 @@ test('resolving storage does not mutate files or Electron before the instance lo
 	assert.equal(f.switches.size, 0);
 	await assert.rejects(lstat(f.storage.dataRoot), { code: 'ENOENT' });
 	await assert.rejects(f.storage.migrate(), /single-instance lock/u);
+});
+
+test('a synced portable profile is refused before Electron or storage migration writes', async t => {
+	const f = await fixture(t, 'win32', false, async userData => {
+		const executableDirectory = join(userData, '..', '..', 'application');
+		await mkdir(join(executableDirectory, 'Portable Settings'), { recursive: true });
+	});
+	// A directory symlink must not hide the provider path from the bootstrap.
+	const { rename } = await import('node:fs/promises');
+	const portable = join(f.home, 'application', 'Portable Settings');
+	const synced = join(f.home, 'OneDrive');
+	await rename(portable, synced);
+	await symlink(synced, portable, 'junction');
+	const storage = configureDesktopStorage({
+		app: {
+			getPath: name => { const path = f.paths.get(name); assert.ok(path); return path; },
+			setPath: (name, path) => { f.paths.set(name, path); },
+			setAppLogsPath: path => { f.paths.set('logs', path); },
+			commandLine: { getSwitchValue: () => '', appendSwitch: () => undefined },
+		}, appName: 'Soundscaper', platform: 'win32', environment: {}, argv: [],
+	});
+	assert.throws(() => storage.prepareBeforeReady(), /local.*unsynced/iu);
+	assert.equal(f.paths.has('sessionData'), false);
+	await assert.rejects(lstat(join(synced, 'logs')), { code: 'ENOENT' });
 });
 
 test('Linux configures Chromium and diagnostics paths synchronously before startup', async (t) => {
@@ -54,6 +78,69 @@ test('Linux configures Chromium and diagnostics paths synchronously before start
 	await f.storage.migrate();
 	assert.equal(await readlink(join(f.storage.sessionDataRoot, 'Partitions/soundscaper-production/GPUCache')),
 		join(f.storage.cacheRoot, 'browser/Partitions/soundscaper-production/GPUCache'));
+});
+
+for (const base of ['config', 'data', 'cache', 'state'] as const) {
+	test(`Linux starts and migrates a legacy profile through a local ${base} base symlink`, async (t) => {
+		const f = await fixture(t);
+		const physical = join(f.home, 'profile-volume');
+		const alias = base === 'config' ? f.appData : join(f.home, `.xdg-${base}`);
+		const environment = base === 'config' ? {} : { [`XDG_${base.toUpperCase()}_HOME`]: alias };
+		await mkdir(physical);
+		await symlink(physical, alias, 'junction');
+		const storage = f.configure(environment);
+		const legacyLibrary = join(f.appData, 'kw.media/soundscaper-project-library/v1');
+		await mkdir(legacyLibrary, { recursive: true });
+		await mkdir(f.userData, { recursive: true });
+		await writeFile(join(f.userData, 'Local State'), 'original browser identity');
+		await writeFile(join(f.userData, 'freesound-session.json'), 'retained session');
+		await mkdir(join(f.userData, 'GPUCache'));
+		await writeFile(join(f.userData, 'GPUCache/shader'), 'original shader');
+		await writeFile(join(legacyLibrary, 'library.sqlite3'), 'original project catalog');
+
+		storage.prepareBeforeReady();
+		await storage.migrate();
+		assert.equal(await readFile(join(storage.sessionDataRoot, 'Local State'), 'utf8'), 'original browser identity');
+		assert.equal(await readFile(join(storage.dataRoot, 'project-library/v1/library.sqlite3'), 'utf8'),
+			'original project catalog');
+		assert.equal(await readFile(join(storage.cacheRoot, 'browser/GPUCache/shader'), 'utf8'), 'original shader');
+		assert.equal(await readFile(join(storage.stateRoot, 'freesound-session.json'), 'utf8'), 'retained session');
+		assert.equal(await readlink(alias), physical);
+		await assert.rejects(lstat(join(f.userData, 'Local State')), { code: 'ENOENT' });
+		await assert.rejects(lstat(legacyLibrary), { code: 'ENOENT' });
+		// A second launch uses the same migrated local profile.
+		const reopened = f.configure(environment);
+		reopened.prepareBeforeReady();
+		await reopened.migrate();
+		assert.equal(await readFile(join(reopened.dataRoot, 'project-library/v1/library.sqlite3'), 'utf8'),
+			'original project catalog');
+	});
+}
+
+test('Linux refuses a config base alias into a synchronized directory before migration', async (t) => {
+	const f = await fixture(t);
+	const synced = join(f.home, 'OneDrive');
+	await mkdir(join(synced, 'Soundscaper'), { recursive: true });
+	await symlink(synced, f.appData, 'junction');
+	await writeFile(join(f.userData, 'Local State'), 'leave synced bytes in place');
+	assert.throws(() => f.storage.prepareBeforeReady(), /local.*unsynced/iu);
+	assert.equal(await readFile(join(f.userData, 'Local State'), 'utf8'), 'leave synced bytes in place');
+	assert.equal(f.paths.has('sessionData'), false);
+});
+
+test('Linux migration through a real base still rejects managed profile symlink entries', async (t) => {
+	const f = await fixture(t);
+	const profile = join(f.home, 'profile-volume');
+	const outside = join(f.home, 'independent-data');
+	await mkdir(profile);
+	await mkdir(outside);
+	await symlink(profile, f.appData, 'junction');
+	await mkdir(f.userData);
+	await writeFile(join(outside, 'keep'), 'independent bytes');
+	await symlink(outside, join(f.userData, 'Partitions'), 'junction');
+	assert.throws(() => f.storage.prepareBeforeReady(), /symbolic links are unsupported.*Partitions/iu);
+	assert.equal(await readFile(join(outside, 'keep'), 'utf8'), 'independent bytes');
+	assert.equal(f.paths.has('sessionData'), false);
 });
 
 test('Electron profile identity and existing shader caches relocate before paths are activated', async (t) => {

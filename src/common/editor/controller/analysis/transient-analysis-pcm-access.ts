@@ -45,6 +45,7 @@ export interface TransientAnalysisPcmAccess {
 		projectId: string,
 		source: TransientAnalysisPcmSource,
 		signal: AbortSignal,
+		observeChannels?: (channels: readonly Float32Array[]) => void,
 	): Promise<string>;
 	readSourceRange(
 		source: TransientAnalysisPcmSource,
@@ -75,17 +76,23 @@ export function createTransientAnalysisPcmAccess(
 	}
 	const maximumRangePcmBytes = maximumPcmBytes(options.maximumRangePcmBytes);
 	const memo = new Map<string, DigestMemoEntry>();
-	let disposed = false;
+	const lifetime = new AbortController();
 	return Object.freeze({ resolveSourceSha256, readSourceRange, dispose });
 
 	async function resolveSourceSha256(
 		projectIdValue: string,
 		sourceValue: TransientAnalysisPcmSource,
 		signal: AbortSignal,
+		observeChannels?: (channels: readonly Float32Array[]) => void,
 	): Promise<string> {
 		assertUsable(signal);
 		const projectId = stableId(projectIdValue, 'A project id is required for PCM identity.');
 		const source = canonicalSource(sourceValue);
+		if (observeChannels) {
+			// Receipt verification needs the same complete, generation-checked read as the PCM digest.
+			const readSignal = AbortSignal.any([signal, lifetime.signal]);
+			return (await digestCanonicalSource(options.store, source, readSignal, observeChannels)).sha256;
+		}
 		if (isMediaContentSha256(source.contentSha256)) return source.contentSha256;
 		const key = `${projectId}\u0000${source.id}`;
 		const fingerprint = sourceFingerprint(source);
@@ -182,16 +189,15 @@ export function createTransientAnalysisPcmAccess(
 	}
 
 	function dispose(): void {
-		if (disposed) return;
-		disposed = true;
-		for (const entry of memo.values()) {
-			entry.abort.abort(new Error('Transient PCM access was disposed.'));
-		}
+		if (lifetime.signal.aborted) return;
+		const error = new Error('Transient PCM access was disposed.');
+		lifetime.abort(error);
+		for (const entry of memo.values()) entry.abort.abort(error);
 		memo.clear();
 	}
 
 	function assertUsable(signal: AbortSignal): void {
-		if (disposed) throw new Error('Transient PCM access was disposed.');
+		throwIfAborted(lifetime.signal);
 		throwIfAborted(signal);
 	}
 }
@@ -200,10 +206,20 @@ async function digestCanonicalSource(
 	store: TransientAnalysisPcmStore,
 	source: TransientAnalysisPcmSource,
 	signal: AbortSignal,
+	observeChannels?: (channels: readonly Float32Array[]) => void,
 ): Promise<CanonicalSourceDigest> {
 	const expected = await sourceMetadata(store, source, signal);
 	const digest = createScapeDigest();
-	const stream = scapeAudioSourceStream(store, source, digest, () => undefined, signal);
+	const readerStore = observeChannels ? {
+		async *readSourceChunks(id: string, options?: Readonly<{ signal?: AbortSignal }>) {
+			for await (const chunk of store.readSourceChunks(id, options)) {
+				yield chunk;
+				throwIfAborted(signal);
+				observeChannels('channels' in chunk ? chunk.channels : chunk);
+			}
+		},
+	} : store;
+	const stream = scapeAudioSourceStream(readerStore, source, digest, () => undefined, signal);
 	const reader = stream.getReader();
 	try {
 		while (!(await reader.read()).done) throwIfAborted(signal);

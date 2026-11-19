@@ -7,6 +7,8 @@ import { createExportPlan } from '../src/common/editor/export.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { MasteringSequenceValidationError } from '../src/common/editor/mastering-sequence.ts';
 import { createDeliveryReportForPlan } from '../src/common/editor/delivery-conversion-inventory.ts';
+import { createDocumentMasteringSequenceSnapshot } from '../src/common/editor/controller/document/document-mastering-sequence-snapshot.ts';
+import { exportDialogOutputOptions } from '../src/common/editor/ui/export-dialog-output-options.ts';
 
 const NOW = '2026-08-18T00:00:00.000Z';
 
@@ -115,6 +117,27 @@ test('the delivery is written in the rate the file uses', () => {
 		[[0, 480_000], [700_000, 1_180_000]],
 		'source frames stay in the project rate, because they say what to render',
 	);
+});
+
+test('a one-sample mastering region remains audible and cueable at a lower export rate', () => {
+	const project = albumProject(ORDER, { timelineAnnotations: [
+		annotation({ id: 'r-one', startFrame: 24, endFrame: 25 }, 'main-sequence'),
+		annotation({ id: 'r-two', startFrame: 48, endFrame: 48_048 }, 'main-sequence'),
+	] });
+	const plan = createExportPlan(project, { format: 'wav', masteringSequenceId: 'album-order', sampleRate: 16_000 });
+	assert.equal(plan.masteringSequence?.segments[0]!.outputEndFrame, 1);
+	assert.equal(plan.masteringSequence?.segments[1]!.outputStartFrame, 32_001);
+	assert.deepEqual(plan.markers.map(({ sampleOffset, sampleLength }) => [sampleOffset, sampleLength]), [[0, 1], [32_001, 16_000]]);
+});
+
+test('a newly created empty mastering order cannot be selected as an audio export output', () => {
+	const project = albumProject([]);
+	const document = createDocumentMasteringSequenceSnapshot(project);
+	const option = exportDialogOutputOptions({}, { hasSelection: false, hasLoop: false, labelChapterCount: 0,
+		markerChapterCount: 0, audioClipCount: 1, singleFileOnly: false, masteringSequences: document.sequences })
+		.find(({ value }) => value === 'mastering-sequence:album-order');
+	assert.equal(option?.disabled, true);
+	assert.equal(document.sequences[0]?.totalFrames, 0);
 });
 
 test('a sequence that does not validate refuses the plan with the typed error', () => {

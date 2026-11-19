@@ -13,6 +13,7 @@ import type { EngineEffect } from './types.ts';
 import type { ParallelStackEffect, ParallelStackRuntimeModules } from './parallel-stack-types.ts';
 
 export interface ParallelStackEffectProcessor {
+	readonly transitioning?: boolean;
 	reset(): void;
 	updateParams?(params: Readonly<Record<string, unknown>>, options?: Readonly<{ transitionFrames?: number }>): void;
 	processBlock(input: readonly Float32Array[], output: readonly Float32Array[], frames: number,
@@ -74,7 +75,8 @@ export function createParallelStackEffect(effect: ParallelStackEffect, sampleRat
 			}
 			runtime.configure(next, { effectId: effect.id, mode: 'auto', transitionFrames });
 		};
-		return { reset() { queued = null; runtime.reset(); },
+		return { get transitioning() { return runtime.transitioning || queued !== null; },
+			reset() { queued = null; runtime.reset(); },
 			updateParams(next, updateOptions) { configure(next, updateOptions?.transitionFrames); },
 			processBlock(input, output, frames) {
 			if (output[0]?.length !== frames) throw new Error('Parallel EQ requires a complete output block.');

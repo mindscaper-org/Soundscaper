@@ -41,9 +41,9 @@ function monitor() {
 test('Source monitor seeks the actual presentation interval instead of the average-rate frame', () => {
 	const { service, cleanup } = monitor();
 	try {
-		assert.equal(service.seek(0).mediaSeconds, 0.015);
-		assert.equal(service.seek(2).mediaSeconds, 0.2225);
-		assert.equal(service.seek(7).mediaSeconds, 0.9035);
+		assert.equal(service.seek(0).mediaSeconds, 0.0075);
+		assert.equal(service.seek(2).mediaSeconds, 0.21125);
+		assert.equal(service.seek(7).mediaSeconds, 0.89125);
 	} finally { cleanup(); }
 });
 

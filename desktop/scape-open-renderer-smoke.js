@@ -30,17 +30,17 @@ export async function runScapeOpenRendererSmoke(scope, plan) {
 		}
 		const alerts = document.querySelectorAll('[role="alert"], [role="alertdialog"]');
 		const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
+		const unexpectedDialogs = [...dialogs].filter(element => !element.matches?.('[role="dialog"][data-task-progress-dialog]'));
 		// Project bin activity and background plugin scans use alert toasts.
-		// Wait for their normal notifications to clear before accepting success;
-		// failed scans and unrelated alerts still reject the smoke immediately.
+		// Failed scans and unrelated alerts reject the smoke immediately.
 		const unexpectedAlerts = [...alerts].filter((element) => element.getAttribute?.('role') !== 'alert'
 			|| (!element.closest?.('[data-project-bin-toast] [data-editor-toast="project-bin-busy"]')
 				&& !element.closest?.('[data-editor-toast^="native-plugin-scan-"] .toast--info, [data-editor-toast^="native-plugin-scan-"] .toast--success')));
-		if (unexpectedAlerts.length || dialogs.length) {
+		if (unexpectedAlerts.length || unexpectedDialogs.length) {
 			// Name what was exposed: a first-launch chooser and a stale-build prompt
 			// are both dialogs, and a bare "exposed a dialog" tells them apart only
 			// after a second packaged run.
-			const exposed = [...unexpectedAlerts, ...dialogs].slice(0, 3).map((element) => {
+			const exposed = [...unexpectedAlerts, ...unexpectedDialogs].slice(0, 3).map((element) => {
 				const role = element.getAttribute?.('role') ?? 'dialog';
 				const label = element.getAttribute?.('aria-label')
 					|| element.querySelector?.('h1, h2, h3, [role="heading"]')?.textContent
@@ -49,6 +49,12 @@ export async function runScapeOpenRendererSmoke(scope, plan) {
 				return `${role}: ${String(label).replace(/\s+/gu, ' ').trim().slice(0, 120)}`;
 			});
 			throw new Error(`Packaged Scape-open UI exposed an alert or dialog (${exposed.join('; ')})`);
+		}
+		// Completed scan notices retain their Preferences action and never expire.
+		// Running scans have no Close button; wait for completion before dismissal.
+		for (const alert of alerts) {
+			alert.closest?.('[data-editor-toast^="native-plugin-scan-"]')
+				?.querySelector?.('button.kw-audio-editor__toast-close')?.click();
 		}
 		const roots = document.querySelectorAll('[data-audio-editor][data-audio-editor-bound="true"]');
 		if (roots.length === 1) {
@@ -65,6 +71,7 @@ export async function runScapeOpenRendererSmoke(scope, plan) {
 				&& root.getAttribute('data-track-count') === '1'
 				&& root.getAttribute('data-clip-count') === '1'
 				&& alerts.length === 0
+				&& dialogs.length === 0
 				&& tabs.length === 1 && tabs[0].textContent.trim() === plan.project.title
 				&& tracks.length === 1 && clips.length === 1
 				&& statuses.length === 1 && statuses[0].textContent.trim()) {

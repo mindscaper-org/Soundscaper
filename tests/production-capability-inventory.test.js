@@ -118,7 +118,7 @@ test('production capability inventory records browser and desktop QA targets', a
 	}
 });
 
-test('MIDI stays absent while Framescaper capture is a separate application capability', async () => {
+test('MIDI instruments remain separate from frozen product profiles and Framescaper capture', async () => {
 	const inventory = JSON.parse(await readFile(inventoryUrl, 'utf8'));
 	const serializedProfiles = JSON.stringify(inventory.products).toLowerCase();
 	const dependencyMetadata = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -159,7 +159,7 @@ test('MIDI stays absent while Framescaper capture is a separate application capa
 	]) assert.equal(inventory.products.soundscaper.projectFeatures[capability], false, capability);
 	assert.equal(inventory.products.framescaper.projectFeatures.ofxEffects, true);
 	assert.equal(inventory.products.framescaper.platforms['electron-only'].status, 'partial');
-	assert.deepEqual(dependencyNames.filter((name) => /midi/u.test(name)), []);
+	assert.deepEqual(dependencyNames.filter((name) => /midi/u.test(name)), ['libadlmidi-js']);
 });
 
 test('Electron Enhanced inventory records product-owned current desktop boundaries', async () => {

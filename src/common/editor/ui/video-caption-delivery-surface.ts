@@ -6,15 +6,15 @@ import {
 	isCurrentProjectSchemaIdentity,
 } from '../project-schema-identity.ts';
 
-/** Selected products own captions separately from their video-file renderers. */
+/** Soundscaper's caption interchange is owned by the label export menu. */
 export function videoCaptionDeliveryUnavailable(
 	productId: unknown,
 	project: unknown,
 ): boolean {
-	return (productId === 'framescaper'
-		&& isCurrentProjectSchemaIdentity(project, FRAMESCAPER_PROJECT_SCHEMA_FAMILY))
-		|| (productId === 'soundscaper'
-			&& isCurrentProjectSchemaIdentity(project, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY));
+	return productId === 'soundscaper'
+		&& isCurrentProjectSchemaIdentity(project, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY);
 }
 
-export { videoCaptionDeliveryUnavailable as framescaperCaptionDeliveryUnavailable };
+export function framescaperVideoCaptionBurnInAvailable(productId: unknown, project: unknown): boolean {
+	return productId === 'framescaper' && isCurrentProjectSchemaIdentity(project, FRAMESCAPER_PROJECT_SCHEMA_FAMILY);
+}

@@ -37,6 +37,7 @@ export const VIDEO_PROXY_ADDITIONAL_COPY = Object.freeze({
 	videoProxyStatus: "Proxy status",
 	videoProxyTitle: "Video proxies",
 	videoProxyUnavailable: "The attached proxy bodies are missing or failed verification. Proxy mode refuses them; regenerate or detach the attachment.",
+	videoProxyDecoderUnavailable: "This runtime cannot preview the attached ProRes proxy. Use the original or attach a compatible proxy.",
 	videoProxyUnsupported: "Video proxies are unavailable for this project version.",
 	videoProxyUnverified: "A proxy attachment is present but has not been verified for this preview session.",
 	videoProxyVerified: "The attached proxy bodies and timing are verified for this session.",

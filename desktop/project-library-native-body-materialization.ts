@@ -21,9 +21,16 @@ interface VerifiedBodyClaim {
 	readonly file: Readonly<{ dev: number; ino: number; size: number; mtimeMs: number; ctimeMs: number }>;
 }
 
-/** Session-scoped range reader over one authenticated, retained file identity. */
+interface BodyReadCustody {
+	readonly identity: ProjectLibraryNativeBodyIdentity;
+	readonly claim: Promise<VerifiedBodyClaim>;
+	readers: number;
+	finished: boolean;
+}
+
+/** Retains the authenticated file until the last range and any overlapping reads finish. */
 export class ProjectLibraryVerifiedBodyReader {
-	readonly #claims = new Map<string, VerifiedBodyClaim>();
+	readonly #claims = new Map<string, BodyReadCustody>();
 
 	async read(
 		sourceValue: string,
@@ -39,35 +46,51 @@ export class ProjectLibraryVerifiedBodyReader {
 			|| length > maximumLength || offset > identity.byteLength - length) {
 			throw new RangeError('The managed project body range is invalid.');
 		}
-		let claim = this.#claims.get(source);
-		if (claim && (claim.identity.byteLength !== identity.byteLength
-			|| claim.identity.sha256 !== identity.sha256)) {
+		let custody = this.#claims.get(source);
+		if (custody && (custody.identity.byteLength !== identity.byteLength
+			|| custody.identity.sha256 !== identity.sha256)) {
 			throw new Error('The managed project body claim changed declared identity.');
 		}
-		if (!claim) {
-			claim = await openVerifiedProjectLibraryBody(source, identity);
-			this.#claims.set(source, claim);
+		if (!custody) {
+			custody = { identity, claim: openVerifiedProjectLibraryBody(source, identity), readers: 0, finished: false };
+			this.#claims.set(source, custody);
 		}
-		const current = await claim.handle.stat();
-		if (!sameFileIdentity(claim.file, current)) {
-			this.#claims.delete(source);
-			await claim.handle.close().catch(() => undefined);
-			throw new Error('The managed project body changed after authentication.');
+		custody.readers += 1;
+		try {
+			const claim = await custody.claim;
+			if (!sameFileIdentity(claim.file, await claim.handle.stat())) {
+				throw new Error('The managed project body changed after authentication.');
+			}
+			const bytes = new Uint8Array(length);
+			const observed = await claim.handle.read(bytes, 0, length, offset);
+			if (observed.bytesRead !== length) throw new Error('The managed project body ended early.');
+			if (offset + length === identity.byteLength) custody.finished = true;
+			return bytes;
+		} catch (error) {
+			custody.finished = true;
+			throw error;
+		} finally {
+			custody.readers -= 1;
+			if (custody.finished && custody.readers === 0 && this.#claims.get(source) === custody) {
+				this.#claims.delete(source);
+				await closeClaim(custody);
+			}
 		}
-		const bytes = new Uint8Array(length);
-		const observed = await claim.handle.read(bytes, 0, length, offset);
-		if (observed.bytesRead !== length) throw new Error('The managed project body ended early.');
-		return bytes;
 	}
 
 	async close(): Promise<void> {
 		const claims = [...this.#claims.values()];
 		this.#claims.clear();
-		const results = await Promise.allSettled(claims.map(({ handle }) => handle.close()));
+		const results = await Promise.allSettled(claims.map(closeClaim));
 		const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
 		if (failures.length) throw new AggregateError(failures.map(({ reason }) => reason),
 			'Managed project body reader cleanup failed.');
 	}
+}
+
+async function closeClaim(custody: BodyReadCustody): Promise<void> {
+	const claim = await custody.claim.catch(() => null);
+	await claim?.handle.close();
 }
 
 export async function verifyProjectLibraryNativeBody(

@@ -157,7 +157,7 @@ export function applyAudacityNoiseReduction(channels, sampleRate, params = {}, p
 	}
 
 	const window = periodicHann(NOISE_WINDOW_SIZE);
-	const normalization = noiseReductionNormalization(channels[0].length, window);
+	const normalization = noiseReductionNormalization(window);
 	const geometry = prepareNoiseReductionGeometry(normalized, profile.meanPowers);
 	return channels.map((channel) => reduceNoiseChannel(
 		channel,
@@ -187,7 +187,7 @@ export function applyAudacityPaulstretch(channels, sampleRate, params = {}, cont
 	}
 	const baseSeed = seedToUint32(context?.seed);
 	const window = periodicHann(inputBufferSize * 2);
-	const normalization = paulstretchNormalization(outputFrames, inputBufferSize, window);
+	const normalization = paulstretchNormalization(inputBufferSize, window);
 	return channels.map((channel, channelIndex) => paulstretchChannel(
 		channel,
 		normalized.stretchFactor,
@@ -273,12 +273,12 @@ function paulstretchBufferSize(sampleRate, timeResolution) {
 	return Math.max(128, powerOfTwo);
 }
 
-function paulstretchNormalization(outputFrames, outputHop, window) {
-	const normalization = new Float64Array(outputFrames);
-	for (let start = -outputHop; start < outputFrames; start += outputHop) {
-		const first = Math.max(0, -start);
-		const end = Math.min(window.length, outputFrames - start);
-		for (let index = first; index < end; index++) normalization[start + index] += window[index] * window[index];
+function paulstretchNormalization(outputHop, window) {
+	const normalization = new Float64Array(outputHop);
+	for (let index = 0; index < outputHop; index += 1) {
+		const earlier = window[index + outputHop];
+		const later = window[index];
+		normalization[index] = earlier * earlier + later * later;
 	}
 	return normalization;
 }
@@ -329,8 +329,9 @@ function paulstretchChannel(input, stretchFactor, inputBufferSize, outputFrames,
 			accumulated[destination & mask] += real[index] * window[index];
 		}
 		// The next window begins one hop later; it cannot touch these samples.
-		for (let frame = Math.max(0, outputStart); frame < Math.min(outputFrames, outputStart + outputHop); frame++) {
-			if (normalization[frame] > 1e-12) output[frame] = accumulated[frame & mask] / normalization[frame];
+		for (let frame = Math.max(0, outputStart), end = Math.min(outputFrames, outputStart + outputHop); frame < end; frame++) {
+			const weight = normalization[frame - outputStart];
+			if (weight > 1e-12) output[frame] = accumulated[frame & mask] / weight;
 			accumulated[frame & mask] = 0;
 		}
 	}

@@ -13,7 +13,7 @@ test.describe('ordinary coincident chapter delivery', () => {
 
 	test('coincident point labels each reach their own delivered WAV chapter', async ({ page }) => {
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		await importFiles(editor, [{
 			name: 'interview-labels.txt', mimeType: 'text/plain',

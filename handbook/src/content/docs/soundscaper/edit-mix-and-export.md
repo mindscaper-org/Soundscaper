@@ -14,6 +14,46 @@ whether later material stays in place or moves to close the removed region.
 Use track folders, clip groups, and the Project Bin to keep larger projects
 organized.
 
+### Keep alternate track playlists {#track-playlists}
+
+Select an audio or MIDI track and choose **Tracks → Track playlists**. Enter a
+name and choose **Duplicate current playlist** to try another edit, or **Create
+empty playlist** to start a fresh arrangement. The first alternative preserves
+your existing clips and take comps in a playlist named **Original**.
+
+Select a playlist and choose **Activate playlist** to switch. Switching keeps
+your edits in the outgoing playlist automatically. The track's volume, pan,
+effects, automation and routing, and the other tracks stay as they are. Only the
+active playlist appears on the timeline and contributes to playback and export.
+
+The same dialog renames and deletes playlists. Activate another playlist before
+deleting the current one. Changes are undoable; playlists share their source
+audio and are saved in the project library and `.sscape` file. A locked or frozen
+track must be unlocked or unfrozen before its playlists can change. Session
+snapshots preserve the whole session, including its track playlists.
+
+### Edit a collapsed folder {#folder-editing}
+
+Open a folder's context menu and choose **Edit folder contents → Select folder
+contents**. This selects its full media range, including nested and collapsed
+children, and activates time selection on the folder overview. Drag across that
+overview to choose a smaller interval without expanding the folder.
+
+The same submenu offers **Split folder contents**, **Delete from folder and
+leave gap**, **Cut from folder and close gap**, **Delete from folder and close
+gap**, and **Insert clipboard into folder**. Split uses the selected range's
+boundaries, or the playhead when there is no range. Insert pastes at the range's
+start or the playhead, maps clipboard lanes to matching descendant tracks, and
+makes room across every descendant media track. It refuses when the folder
+does not contain enough matching tracks. Outside tracks stay in place.
+
+These commands also appear under **Edit → Edit folder contents** and operate
+on the selected folder. All six start without keyboard bindings; assign them
+in **Preferences → Shortcuts**. Folder edits are undoable. A locked descendant
+or an audio/video link crossing the folder boundary prevents a content edit.
+Folder editing explicitly targets a subtree; it does not link ordinary edits
+made directly on individual child tracks.
+
 ### Select and adjust audio {#audio-selection}
 
 Drag across a waveform to select a time range. Drag across adjacent tracks to
@@ -264,6 +304,15 @@ after enabling it in the manager. Soundscaper builds controls from the LADSPA
 ports because this format has no vendor interface. Those control values and the
 effect's enabled or bypassed state are saved with the project.
 
+For a MIDI beta track, select the track and open **Effect → Plugin Manager**.
+Allow a discovered VST2/VST3 instrument (or an LV2 instrument on Linux), then
+choose **Assign instrument to MIDI track**. Use the parameter controls or vendor
+interface and choose **Apply instrument settings** to update the track's sound.
+Saved projects retain both the instrument settings and rendered audio, so they
+can play and export even when the instrument is unavailable. Editing or
+auditioning new notes requires that instrument. Choose a built-in sound from
+the piano roll's **Instrument** selector to switch back.
+
 Vamp plug-ins analyze audio instead of changing it. After enabling a Vamp
 installation, select an audio track to analyze that track, or leave no audio
 track selected to analyze the master mix. A time selection limits the analysis;
@@ -272,6 +321,23 @@ Plugins**, select the analyzer output and its settings, then run it. Soundscaper
 adds the returned timestamps as a new label track only after the complete
 analysis succeeds, so cancelling or changing the project cannot leave partial
 labels behind.
+
+To convert an isolated melody into MIDI, install and enable the **pYIN** Vamp
+plug-in, then choose its **Notes** output. For a chord progression, use
+**Chordino → Note Representation of Chord Estimate**. After analysis, choose
+**Create MIDI track**. The result is a new editable MIDI beta track alongside
+the original audio, placed at the analyzed selection with its original timing.
+Open **Window → Piano roll (beta)** to audition and correct the notes, or use
+**File → Export other → Export MIDI (beta)**. Creation is one undoable edit;
+the original recording is retained.
+
+pYIN expects one melodic voice or instrument; accompaniment and reverb can
+reduce accuracy. Chordino creates voicings for the estimated harmony rather
+than recovering every note and articulation of the performance. Detected notes
+are rounded to MIDI pitches without rhythmic quantization; their velocity
+defaults to 100. Continuous pitch tracks, chromagrams and unrelated analyzer
+outputs do not offer MIDI creation. Plug-ins are installed separately and must
+match your desktop platform.
 
 ## Project metadata {#project-metadata}
 
@@ -296,9 +362,23 @@ metadata. MP3 chapter labels and descriptive metadata share one tag.
 
 ## Export
 
+When the timeline contains video, the desktop export dialog also offers **MOV
+video**. It writes H.264 video and optional AAC audio in a QuickTime `.mov`
+container using external FFmpeg. Choose **File → Export audio**, then select
+**MOV video** under **Format**. If FFmpeg is missing, the dialog offers to
+install it; an installed build must pass the MOV encoder and muxer checks.
+MOV export is unavailable in the browser editor.
+
 Choose **File → Export audio** for a mixed delivery or **Export selected audio**
 when only a selection should be rendered. Soundscaper can also export stems and
 labels.
+
+Dither and **Include effect tails up to 10 seconds** start disabled. To export
+a repeating loop, choose **In/Out (looping region)** under **Output**, then enable
+**Render as loop** in **Rendering**. This wraps effect tails, such as reverb or
+delay, into the beginning while keeping the file exactly as long as the loop.
+Tails up to ten seconds are wrapped, including multiple turns for short loops.
+The option starts disabled and replaces appended effect tails while enabled.
 
 ### Export clips as separate files {#export-clips}
 

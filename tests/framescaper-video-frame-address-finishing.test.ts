@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { createFramescaperVideoFrameAddressFinishing } from
 	'../src/framescaper/video-frame-address-finishing.ts';
+import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
 
 test('concurrent frame resolves share decoder creation and account for one cache entry', async () => {
 	let releaseDecoder!: () => void;
@@ -79,6 +80,27 @@ test('an oversized frame request preserves smaller warm cache entries', async ()
 		'a frame too large to retain must not evict an unrelated cache hit');
 });
 
+test('the cache and each consumer own their pixels when a decoder reuses its buffer', async () => {
+	const decoderPixels = Uint8Array.of(10, 20, 30, 255);
+	const addressing = createFramescaperVideoFrameAddressFinishing({
+		sources: new Map([['video-source', new Blob(['video'])]]),
+		timingViewsBySourceId: new Map([[
+			'video-source', { kind: 'cfr', rate: { num: 30, den: 1 }, frameCount: 1 },
+		]]),
+		createDecoder: () => ({
+			capture: () => ({ width: 1, height: 1, pixels: decoderPixels }), dispose() {},
+		}),
+	});
+	const request = { sourceId: 'video-source', sourceFrame: 0, width: 1, height: 1, signal: new AbortController().signal };
+	try {
+		const first = await addressing.resolve(request);
+		decoderPixels[0] = 11;
+		first.pixels[0] = 12;
+		const cached = await addressing.resolve(request);
+		assert.equal(cached.pixels[0], 10);
+	} finally { await addressing.dispose(); }
+});
+
 test('decoder creation finishing after disposal cannot reopen frame addressing', async () => {
 	let releaseDecoder!: () => void;
 	const decoderReady = new Promise<void>((resolve) => { releaseDecoder = resolve; });
@@ -113,13 +135,16 @@ test('decoder creation finishing after disposal cannot reopen frame addressing',
 	assert.equal(disposals, 1);
 });
 
-test('the default decoder admits full-size temporal frame requests through the preview extractor', async () => {
+for (const [resolution, timingKind] of [
+	['preview', 'cfr'], ['render', 'cfr'], ['render', 'vfr'],
+] as const) test(`the default decoder captures ${resolution} ${timingKind} temporal pixels without a still-image round trip`, async () => {
 	const originals = new Map<string, PropertyDescriptor | undefined>();
 	for (const name of ['document', 'createImageBitmap']) {
 		originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
 	}
 	let capturedWidth = 0;
 	let capturedHeight = 0;
+	let readbackBuffer: ArrayBuffer | undefined;
 	const video = fakeVideo();
 	const document = {
 		createElement(name: string) {
@@ -131,16 +156,16 @@ test('the default decoder admits full-size temporal frame requests through the p
 				getContext() {
 					return {
 						drawImage() {},
-						getImageData: () => ({
-							data: new Uint8ClampedArray(canvas.width * canvas.height * 4),
-						}),
+						getImageData() {
+							capturedWidth = canvas.width;
+							capturedHeight = canvas.height;
+							const data = new Uint8ClampedArray(canvas.width * canvas.height * 4);
+							readbackBuffer = data.buffer;
+							return { data };
+						},
 					};
 				},
-				toBlob(callback: (body: Blob | null) => void, mimeType: string) {
-					capturedWidth = canvas.width;
-					capturedHeight = canvas.height;
-					callback(new Blob(['captured'], { type: mimeType }));
-				},
+				toBlob() { assert.fail('temporal frame addressing attempted still encoding'); },
 			};
 			return canvas;
 		},
@@ -149,16 +174,26 @@ test('the default decoder admits full-size temporal frame requests through the p
 		document: { configurable: true, value: document },
 		createImageBitmap: {
 			configurable: true,
-			value: async () => ({
-				width: capturedWidth, height: capturedHeight, close() {},
-			}),
+			value: () => { assert.fail('temporal frame addressing attempted still decoding'); },
 		},
 	});
+	let bodyReads = 0;
+	const body = new class extends Blob {
+		override slice(start?: number, end?: number, contentType?: string): Blob {
+			bodyReads += 1;
+			return super.slice(start, end, contentType);
+		}
+	}(['video'], { type: 'video/mp4' });
+	const cfr = { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 };
+	const { reference, bytes } = createVideoTimingAssetPublication('ab'.repeat(32), {
+		timescale: 30, presentationTicks: [0n], finalFrameDurationTicks: 1n,
+	});
+	const vfr = { kind: 'vfr' as const, reference, index: validateVideoTimingAssetBytes(reference, bytes) };
 	const addressing = createFramescaperVideoFrameAddressFinishing({
-		sources: new Map([['video-source', new Blob(['video'], { type: 'video/mp4' })]]),
-		timingViewsBySourceId: new Map([[
-			'video-source', { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 },
-		]]),
+		resolution,
+		maximumCacheBytes: 1,
+		sources: new Map([['video-source', body]]),
+		timingViewsBySourceId: new Map([['video-source', timingKind === 'vfr' ? vfr : cfr]]),
 	});
 	try {
 		const frame = await addressing.resolve({
@@ -166,7 +201,12 @@ test('the default decoder admits full-size temporal frame requests through the p
 			signal: new AbortController().signal,
 		});
 		assert.deepEqual({ width: frame.width, height: frame.height }, { width: 1_280, height: 720 });
-		assert.deepEqual({ width: capturedWidth, height: capturedHeight }, { width: 640, height: 360 });
+		assert.deepEqual({ width: capturedWidth, height: capturedHeight },
+			resolution === 'preview' ? { width: 640, height: 360 } : { width: 1_280, height: 720 });
+		if (resolution === 'render') {
+			assert.ok(frame.pixels.buffer === readbackBuffer, 'an unretained native-resolution frame owns its readback');
+		}
+		if (timingKind === 'vfr') assert.equal(bodyReads, 0, 'the addressed decoder already has the authenticated source timing');
 	} finally {
 		await addressing.dispose();
 		for (const [name, descriptor] of originals) {

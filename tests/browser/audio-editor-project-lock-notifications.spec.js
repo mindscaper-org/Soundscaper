@@ -4,18 +4,34 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClie
 test.describe('project lock notifications', () => {
 	registerAudioEditorHooks();
 
-	test('project lock toasts disappear after ten seconds and editing remains available through the menu', async ({ page, context }) => {
+	test('project lock toasts retain their action until dismissal and editing remains available through the menu', async ({ page, context }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'Audio track']);
 		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', { timeout: 10_000 });
+		await chooseCommandAction(page, editor, 'View', 'Contextual status help');
 		const otherPage = await context.newPage();
 		await otherPage.goto('/embed/en/');
 		await waitForEditor(otherPage);
 		const toast = editor.getByRole('region', { name: 'This project is already open in another tab.', exact: true });
 		await expect(toast).toBeVisible();
+		await expect(editor.locator('[data-status]')).not.toContainText('Stopped');
 		await expect(toast.getByRole('button', { name: 'Close', exact: true })).toHaveText('×Close');
-		await expect(toast).toBeHidden({ timeout: 15_000 });
+		await page.clock.install();
+		await page.clock.fastForward(15_000);
+		await expect(toast).toBeVisible();
+		await toast.getByRole('button', { name: 'Close', exact: true }).click();
+		await expect(toast).toBeHidden();
+		await chooseNestedCommandAction(page, editor, 'View', ['Notifications', 'Notification history']);
+		const history = editor.getByRole('dialog', { name: 'Notifications', exact: true });
+		await expect(history).toContainText('This project is already open in another tab.');
+		await expect(history.getByRole('button', { name: 'Edit here', exact: true })).toHaveCount(0);
+		await history.getByRole('checkbox', { name: 'Mute informational notifications', exact: true }).click();
+		await expect(history.getByRole('checkbox', { name: 'Mute informational notifications', exact: true })).toHaveAttribute('aria-checked', 'true');
+		await history.getByRole('button', { name: 'Clear history', exact: true }).click();
+		await expect(history).toContainText('No notifications in this session.');
+		await history.getByRole('button', { name: 'Close', exact: true }).last().click();
+		await expect(history).toBeHidden();
 		const record = editor.getByRole('button', { name: /Record.*read-only/iu });
 		await expect(record).toBeDisabled();
 		await chooseCommandAction(page, editor, 'File', 'Edit here');
@@ -141,5 +157,56 @@ test.describe('project lock notifications', () => {
 		} finally {
 			await page.evaluate(() => globalThis.__heldProjectEstimate.release()).catch(() => undefined);
 		}
+	});
+
+	test('the stale view releases the writer after the newer project window closes', async ({ browserName, page, context }) => {
+		test.skip(browserName !== 'chromium', 'This regression inspects the Chromium Web Locks state.');
+		const viewer = await bootEditor(page, '/embed/en/');
+		const id = await viewer.getAttribute('data-project-id');
+		const writerPage = await context.newPage();
+		try {
+			const writer = await bootEditor(writerPage, '/embed/en/');
+			await expect(writer).toHaveAttribute('data-project-id', id);
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '2');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		} finally { await writerPage.close(); }
+		await expect(viewer.getByRole('alert').filter({ hasText: /This project is read-only\.$/u })).toBeVisible();
+		await expect(viewer).toHaveAttribute('data-track-count', '1');
+		await expect.poll(() => page.evaluate(async projectId => {
+			const { held } = await navigator.locks.query();
+			return held.some(lock => lock.name.endsWith(`:${projectId}`));
+		}, id)).toBe(false);
+	});
+
+	test('returning to a stale project tab does not take write access from the current editor', async ({ page, context }) => {
+		const viewer = await bootEditor(page, '/embed/en/');
+		const originalId = await viewer.getAttribute('data-project-id');
+		await viewer.getByRole('button', { name: 'New project', exact: true }).click();
+		await expect(viewer).not.toHaveAttribute('data-project-id', originalId);
+		const writerPage = await context.newPage();
+		try {
+			const writer = await bootEditor(writerPage, `/embed/en/?project=${originalId}`);
+			await expect(writer).toHaveAttribute('data-project-id', originalId);
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '2');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+			await page.bringToFront();
+			await viewer.getByRole('tab').first().click();
+			await expect(viewer).toHaveAttribute('data-project-id', originalId);
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await expect(viewer).toHaveAttribute('data-track-count', '1');
+			await writerPage.bringToFront();
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '3');
+			await expect(writer.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+			await page.bringToFront();
+			await chooseCommandAction(page, viewer, 'File', 'Edit here');
+			await expect(viewer).toHaveAttribute('data-edit-block-reason', 'read-only');
+			await writerPage.bringToFront();
+			await chooseNestedCommandAction(writerPage, writer, 'Tracks', ['Add new track', 'Audio track']);
+			await expect(writer).toHaveAttribute('data-track-count', '4');
+		} finally { await writerPage.close(); }
 	});
 });

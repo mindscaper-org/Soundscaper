@@ -4,7 +4,10 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 import { createPaddedMetadataWavPackFixture } from '../helpers/wavpack-import-fixture.ts';
 
-for (const [padding, retainTag] of [[0, true], [16, true], [4096, true], [4096, false]]) test(`File Import retains WavPack PCM after tag edit padding=${padding}, tag=${retainTag}`, async ({ page }) => {
+// The padding/tag matrix runs through real WASM, controller, store and Scape in Node.
+// Retain the largest padded file as the browser worker and File Import witness.
+const padding = 4096, retainTag = true;
+test('File Import retains WavPack PCM after a padded tag edit', async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/'); const file = await createPaddedMetadataWavPackFixture(padding, retainTag);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });

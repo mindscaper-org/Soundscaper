@@ -3,6 +3,7 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { releaseArtifactStem } from '../src/common/release/release-packaging.ts';
 
 import {
 	assertDesktopCodecPolicy,
@@ -50,10 +51,12 @@ const RELEASE_TARGET_PACKAGE_ROWS = Object.freeze({
 	]),
 	'win-arm64': Object.freeze([
 		['Windows ARM64 installer', 'win-arm64\\.exe'],
+		['Windows ARM64 MSI', 'win-arm64\\.msi'],
 		['Windows ARM64 ZIP', 'win-arm64\\.zip'],
 	]),
 	'win-x64': Object.freeze([
 		['Windows x64 installer', 'win-x64\\.exe'],
+		['Windows x64 MSI', 'win-x64\\.msi'],
 		['Windows x64 ZIP', 'win-x64\\.zip'],
 	]),
 });
@@ -223,7 +226,7 @@ export function validateDesktopReleasePackageInventory(
 				pattern,
 			])
 	)));
-	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|pkg|exe|zip)$/u.test(name));
+	const releasePackages = packageFiles.filter((name) => /\.(?:AppImage|deb|dmg|pkg|exe|msi|zip)$/u.test(name));
 	for (const [label, pattern] of requiredPackages) {
 		assert(releasePackages.filter((name) => pattern.test(name)).length === 1, `Expected exactly one ${label}.`);
 	}
@@ -238,7 +241,7 @@ export function validateDesktopReleasePackageInventory(
 			const productName = productId === 'framescaper' ? 'Framescaper' : 'Soundscaper';
 			const version = desktopReleaseApplicationVersion(productId, applicationVersionAuthority);
 			for (const arch of ['x64', 'arm64']) {
-				assert(flatpaks.includes(`${productName}-${version}-linux-${arch}.flatpak`),
+				assert(flatpaks.includes(`${releaseArtifactStem(version, productName)}-linux-${arch}.flatpak`),
 					`Expected exactly one ${productName} ${arch} Flatpak.`);
 			}
 		}
@@ -267,10 +270,10 @@ export function desktopReleaseTargetPackageInventory(productId, targetId, applic
 	assert(typeof applicationVersion === 'string' && applicationVersion.length > 0,
 		'Desktop release application version is invalid.');
 	const productName = productId === 'framescaper' ? 'Framescaper' : 'Soundscaper';
-	const version = escapeRegex(applicationVersion);
+	const version = escapeRegex(releaseArtifactStem(applicationVersion, productName));
 	return Object.freeze(RELEASE_TARGET_PACKAGE_ROWS[targetId].map(([label, suffix]) => Object.freeze({
 		label,
-		pattern: new RegExp(`^${productName}-${version}-${suffix}$`, 'u'),
+		pattern: new RegExp(`^${version}-${suffix}$`, 'u'),
 	})));
 }
 

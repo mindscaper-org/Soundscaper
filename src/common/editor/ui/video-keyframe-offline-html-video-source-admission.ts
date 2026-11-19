@@ -14,6 +14,7 @@ export interface VideoKeyframeOfflineHtmlVideoSourceAsset {
 	readonly displayHeight: number;
 	readonly presentedWidth?: number;
 	readonly presentedHeight?: number;
+	readonly postRotationAspectWidth?: number;
 	readonly presentationForEntry: (
 		entry: Readonly<Record<string, unknown>>,
 	) => VideoRetimeFrameDescriptor;
@@ -53,7 +54,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 		const source = closedRecord(sourceValue, name, [
 			'sourceId', 'identity', 'blob', 'clipIds', 'decodedWidth', 'decodedHeight',
 			'displayWidth', 'displayHeight', 'presentationForEntry',
-		], ['presentedWidth', 'presentedHeight']);
+		], ['presentedWidth', 'presentedHeight', 'postRotationAspectWidth']);
 		const sourceId = boundedId(source.sourceId, `${name}.sourceId`);
 		if (assets.has(sourceId)) throw new RangeError(`Duplicate offline HTML video source ID ${sourceId}.`);
 		const identity = digest(source.identity, `${name}.identity`);
@@ -72,6 +73,11 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 			presentedHeight: dimension(source.presentedHeight, `${name}.presentedHeight`),
 		} : null;
 		if (presented) planVideoPreviewCapture({ sourceWidth: presented.presentedWidth, sourceHeight: presented.presentedHeight });
+		const postRotationAspectWidth = source.postRotationAspectWidth === undefined ? undefined
+			: dimension(source.postRotationAspectWidth, `${name}.postRotationAspectWidth`);
+		if (postRotationAspectWidth !== undefined && (displayWidth !== decodedWidth || displayHeight === decodedHeight)) {
+			throw new RangeError(`${name} requires a post-rotation vertical aspect correction.`);
+		}
 		const clipValues = denseArray(source.clipIds, `${name}.clipIds`, MAXIMUM_CLIP_REFERENCES);
 		clipReferences += clipValues.length;
 		if (clipReferences > MAXIMUM_CLIP_REFERENCES || clipValues.length < 1) {
@@ -96,6 +102,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 			displayWidth,
 			displayHeight,
 			...presented,
+			...(postRotationAspectWidth === undefined ? {} : { postRotationAspectWidth }),
 			presentationForEntry: source.presentationForEntry as VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot['presentationForEntry'],
 		}));
 	}

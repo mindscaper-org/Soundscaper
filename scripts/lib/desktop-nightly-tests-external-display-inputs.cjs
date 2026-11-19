@@ -66,7 +66,7 @@ module.exports = Object.freeze([
 	'desktop/native-media-v14-helper-adapter.ts',
 	'desktop/native-media-v14-runtime-contract.ts',
 	'desktop/native-services-carrier-recovery-v3.ts',
-	'desktop/native-services-checkpoint-directory-durability.ts',
+	'desktop/desktop-directory-durability.ts',
 	'desktop/native-services-checkpoint-manifest-file.ts',
 	'desktop/native-services-checkpoint-recovery-core.ts',
 	'desktop/native-services-checkpoint-recovery-v3.ts',

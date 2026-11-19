@@ -4,6 +4,7 @@ import {
 	EFFECT_PROGRAM_COUNT,
 	GAUSSIAN_BLUR_RENDER_SCALE,
 	createProgram,
+	createVideoPreviewVertexShader,
 	finiteNumber,
 	programLocations,
 	videoEffectPasses,
@@ -58,7 +59,6 @@ import { bindVideoGlobalDevelopGpu, disposeVideoGlobalDevelopGpu } from '../cont
 
 export {
 	VIDEO_PREVIEW_MAX_GAUSSIAN_BLUR_KERNEL_SIGMA,
-	VIDEO_PREVIEW_PIXELATE_GRID_SIZE,
 	videoEffectPasses,
 } from './video-preview-effects.js';
 export { videoPreviewBlurViewport, videoPreviewViewports } from './video-preview-viewports.js';
@@ -84,7 +84,7 @@ export class VideoPreviewCompositor {
 			alpha: true,
 			antialias: false,
 			depth: false,
-			preserveDrawingBuffer: false,
+			preserveDrawingBuffer: true,
 			premultipliedAlpha: false,
 			stencil: false,
 		});
@@ -134,22 +134,18 @@ export class VideoPreviewCompositor {
 	initializeResources() {
 		disposeVideoGlobalDevelopGpu(this.gl);
 		this.effectResultCache.clear();
-		this.programs = Array.from(
-			{ length: EFFECT_PROGRAM_COUNT },
-			(_, effectCode) => createProgram(this.gl, effectCode),
-		);
-		this.programLocations = this.programs.map((program) => programLocations(this.gl, program));
-		this.compositionBlend = createVideoPreviewCompositionBlendRuntime(this.gl);
+		this.programs = new Array(EFFECT_PROGRAM_COUNT);
+		this.programLocations = new Array(EFFECT_PROGRAM_COUNT);
+		this.vertexShader = createVideoPreviewVertexShader(this.gl);
+		this.compositionBlend = createVideoPreviewCompositionBlendRuntime(this.gl, this.vertexShader);
 		this.positionBuffer = this.gl.createBuffer();
 		if (!this.positionBuffer) throw new Error('Unable to allocate the video preview geometry.');
-		this.program = this.programs[0];
-		this.locations = this.programLocations[0];
-		this.currentProgram = null;
 		this.boundBlurKernel = null;
 		this.targets = null;
 		for (const video of this.videoTextures?.keys() || []) this.releaseVideo(video);
 		this.videoTextures = new Map();
 		this.configureGeometry();
+		this.prepareEffectProgram(0);
 	}
 
 	passesForEffects(effects, previewScale) {
@@ -174,21 +170,19 @@ export class VideoPreviewCompositor {
 			-1, 1,
 			1, 1,
 		]), gl.STATIC_DRAW);
-		for (let index = 0; index < this.programs.length; index += 1) {
-			const locations = this.programLocations[index];
-			gl.useProgram(this.programs[index]);
-			gl.enableVertexAttribArray(locations.position);
-			gl.vertexAttribPointer(locations.position, 2, gl.FLOAT, false, 0, 0);
-			gl.uniform1i(locations.texture, 0);
-			gl.uniform1i(locations.auxTexture, 1);
-			gl.uniformMatrix3fv(
-				locations.positionTransform, false, VIDEO_PREVIEW_IDENTITY_POSITION_TRANSFORM,
-			);
-			gl.uniformMatrix3fv(
-				locations.textureTransform, false, VIDEO_PREVIEW_IDENTITY_TEXTURE_TRANSFORM,
-			);
-		}
+	}
+
+	prepareEffectProgram(effectCode) {
+		const gl = this.gl;
+		const program = createProgram(gl, effectCode, this.vertexShader);
+		const locations = programLocations(gl, program);
+		gl.useProgram(program);
+		gl.uniform1i(locations.texture, 0);
+		gl.uniform1i(locations.auxTexture, 1);
+		this.programs[effectCode] = program;
+		this.programLocations[effectCode] = locations;
 		this.currentProgram = null;
+		return program;
 	}
 
 	resizeToDisplaySize(options = {}) {
@@ -200,8 +194,8 @@ export class VideoPreviewCompositor {
 		this.effectResultCache.clear();
 	}
 
-	uploadVideo(video, reusePresented = false) {
-		return uploadVideoTexture(this.gl, this.videoTextures, video, this.renderGeneration, reusePresented);
+	uploadVideo(video, reusePresented, copyVideoPresentation) {
+		return uploadVideoTexture(this.gl, this.videoTextures, video, this.renderGeneration, reusePresented, copyVideoPresentation);
 	}
 
 	releaseVideo(video) {
@@ -236,8 +230,9 @@ export class VideoPreviewCompositor {
 		const gl = this.gl;
 		const targetWidth = target?.width || this.canvas.width;
 		const targetHeight = target?.height || this.canvas.height;
-		const effectCode = this.programs[pass.code] ? pass.code : 0;
-		const program = this.programs[effectCode];
+		const effectCode = Number.isInteger(pass.code) && pass.code >= 0 && pass.code < EFFECT_PROGRAM_COUNT
+			? pass.code : 0;
+		const program = this.programs[effectCode] ?? this.prepareEffectProgram(effectCode);
 		const locations = this.programLocations[effectCode];
 		if (program !== this.currentProgram) {
 			gl.useProgram(program);
@@ -375,7 +370,7 @@ export class VideoPreviewCompositor {
 				if (!decodableVideoPreviewEntry(entry)) continue;
 				let videoTexture;
 				try {
-					videoTexture = this.uploadVideo(video, options.reusePresentedMedia === true);
+					videoTexture = this.uploadVideo(video, options.reusePresentedMedia === true, entry.copyVideoPresentation === true);
 				} catch {
 					recordVideoPreviewEntryFallback(ledger, entry);
 					continue;
@@ -528,9 +523,11 @@ export class VideoPreviewCompositor {
 		for (const video of this.videoTextures?.keys() || []) this.releaseVideo(video);
 		this.videoTextures.clear();
 		this.gl.deleteBuffer(this.positionBuffer);
-		for (const program of this.programs) this.gl.deleteProgram(program);
+		this.programs.forEach((program) => this.gl.deleteProgram(program));
 		disposeVideoPreviewCompositionBlendRuntime(this.gl, this.compositionBlend);
 		disposeVideoGlobalDevelopGpu(this.gl);
+		this.gl.deleteShader(this.vertexShader);
+		this.gl.getExtension?.('WEBGL_lose_context')?.loseContext?.();
 	}
 }
 

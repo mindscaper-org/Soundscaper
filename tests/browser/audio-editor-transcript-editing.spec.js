@@ -1,0 +1,205 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+import { expect, test, createWavFixture } from './audio-editor-test-fixtures.js';
+import { addRackEffect, bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClientErrors, clipByName, closeDialog, closeEffectsPanel, importFiles, openEffectsForTrack, registerAudioEditorHooks, closeWorkspacePanel, waitForEditor } from './audio-editor-test-helpers.js';
+import { persistedProject, selectClipRange } from './helpers/complex-editing-workflows.js';
+import { installMilestone7LocalAssistanceFixture, milestone7FixtureSnapshot, completeMilestone7Run } from './helpers/milestone-7-local-assistance.js';
+
+test.describe('Transcript-based editing', () => {
+	test.use({ viewport: { width: 1440, height: 1000 } });
+	registerAudioEditorHooks();
+
+	test('opens hidden at the bottom and generates timed transcripts for all audio tracks', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const errors = collectClientErrors(page);
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [
+			createWavFixture({ name: 'interview-a.wav', frequency: 330, duration: 4, channelCount: 1 }),
+			createWavFixture({ name: 'interview-b.wav', frequency: 440, duration: 4, channelCount: 1 }),
+		]);
+		await expect(editor.getByRole('textbox', { name: 'Transcript', exact: true })).toHaveCount(0);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		await expect(panel).toBeVisible();
+		await expect(panel.locator('xpath=ancestor::*[@data-panel-dock][1]')).toHaveAttribute('data-panel-dock', 'bottom');
+		await expect(panel.getByRole('button', { name: 'Generate transcript', exact: true })).toBeEnabled();
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		for (let run = 1; run <= 2; run += 1) {
+			await expect.poll(async () => ({ progress: (await milestone7FixtureSnapshot(page)).progressEvents, errors: await panel.getByRole('alert').allTextContents() })).toEqual({ progress: run, errors: [] });
+			await completeMilestone7Run(page);
+		}
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(2);
+		await expect(panel.getByRole('button', { name: 'Generate transcript', exact: true })).toHaveCount(0);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+
+		const firstPassage = transcript.getByRole('group', { name: 'interview-a', exact: true });
+		const launch = firstPassage.getByText('Launch', { exact: true });
+		const plan = firstPassage.getByText('plan', { exact: true });
+		await launch.click();
+		await launch.evaluate(element => {
+			element.closest('[contenteditable="true"]').focus();
+			const range = document.createRange();
+			range.selectNodeContents(element);
+			range.collapse(false);
+			const selection = document.getSelection();
+			selection.removeAllRanges(); selection.addRange(range);
+		});
+		await page.keyboard.press('ControlOrMeta+x');
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect(plan).toHaveCount(1);
+		await expect(launch).toHaveCount(1);
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('Backspace');
+		await expect(launch).toHaveCount(0);
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(1);
+		await transcript.press('ControlOrMeta+z');
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(2);
+		await launch.dblclick();
+		await expect(launch).toHaveClass('is-selected');
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('ArrowRight');
+		await page.keyboard.press('Delete');
+		await expect(plan).toHaveCount(0);
+		await expect(launch).toHaveCount(1);
+		await transcript.press('ControlOrMeta+z');
+		await expect(plan).toHaveCount(1);
+		const firstClip = clipByName(editor, 'interview-a.wav').first();
+		await selectClipRange(page, editor, firstClip, 0.105, 0.12);
+		await expect(firstPassage.getByText('interview.', { exact: true })).toHaveClass('is-selected');
+		await expect(launch).toHaveClass('');
+		for (let step = 0; step < 5; step += 1) await editor.getByRole('button', { name: 'Zoom in', exact: true }).click();
+		const clipWidth = (await firstClip.boundingBox()).width;
+		const scroll = editor.locator('.audio-editor-timeline-scroll');
+		await scroll.evaluate(element => { element.scrollLeft = 0; element.dispatchEvent(new Event('scroll', { bubbles: true })); });
+		await expect.poll(() => scroll.evaluate(element => element.scrollLeft)).toBe(0);
+		await firstPassage.getByText('interview.', { exact: true }).click();
+		await expect.poll(() => scroll.evaluate(element => element.scrollLeft)).toBeGreaterThan(0);
+		expect((await firstClip.boundingBox()).width).toBeCloseTo(clipWidth, 1);
+		await launch.dblclick();
+		await expect(launch).toHaveClass('is-selected');
+		await transcript.press('Backspace');
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(1);
+		await expect(plan).toHaveClass('');
+		await transcript.press('Delete');
+		await expect(transcript.getByText('plan', { exact: true })).toHaveCount(1);
+		await transcript.press('ControlOrMeta+z');
+		await expect(transcript.getByText('plan', { exact: true })).toHaveCount(2);
+		await transcript.press('ControlOrMeta+z');
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(2);
+		await transcript.press('ControlOrMeta+Shift+z');
+		await expect(transcript.getByText('Launch', { exact: true })).toHaveCount(1);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+
+		await closeWorkspacePanel(editor, 'transcript-editing');
+		await expect(transcript).toHaveCount(0);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		await expect(editor.getByRole('textbox', { name: 'Transcript', exact: true }).getByText('Launch', { exact: true })).toHaveCount(1);
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.reload();
+		const reopened = await waitForEditor(page);
+		await expect(reopened.getByRole('textbox', { name: 'Transcript', exact: true }).getByText('Launch', { exact: true })).toHaveCount(1);
+		expect(errors).toEqual([]);
+	});
+
+	test('web panel explains desktop generation without invoking inference', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		await expect(panel.getByRole('button', { name: 'Generate transcript', exact: true })).toBeDisabled();
+		await expect(panel).toContainText('Transcript generation is available in the desktop app.');
+	});
+
+	test('Backspace can remove the final transcribed audio from a frozen track and Undo restores it', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const errors = collectClientErrors(page), editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Frozen interview.wav', duration: .5, channelCount: 1 })]);
+		const effects = await openEffectsForTrack(editor, await editor.locator('[data-track-row]').count() - 1);
+		await addRackEffect(page, effects, 'track', 'Feedback delay');
+		await closeDialog(page.getByRole('dialog', { name: 'Feedback delay', exact: true }));
+		await closeEffectsPanel(effects);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await clipByName(editor, 'Frozen interview.wav').getByText('Frozen interview.wav', { exact: true }).click();
+		await chooseNestedCommandAction(page, editor, 'Tracks', ['Freeze', 'Freeze track']);
+		const projectId = await editor.getAttribute('data-project-id');
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(true);
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await transcript.press('ControlOrMeta+a');
+		await transcript.press('Backspace');
+		await expect(clipByName(editor, 'Frozen interview.wav')).toHaveCount(0);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(false);
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(clipByName(editor, 'Frozen interview.wav')).toHaveCount(1);
+		await expect.poll(async () => (await persistedProject(page, projectId)).tracks.some(track => Boolean(track.audioFreeze))).toBe(true);
+		expect(errors).toEqual([]);
+	});
+
+	test('keyboard Undo remains available after deleting the final transcript words', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Final sentence.wav', duration: .5, channelCount: 1 })]);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await transcript.press('ControlOrMeta+a');
+		await transcript.press('Backspace');
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(1);
+		await transcript.press('ControlOrMeta+Shift+z');
+		await expect(clipByName(editor, 'Final sentence.wav')).toHaveCount(0);
+		await page.keyboard.press('ControlOrMeta+z');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+	});
+
+	test('Delete after removing the last transcript word leaves preceding audio intact', async ({ page }) => {
+		test.setTimeout(120_000);
+		await installMilestone7LocalAssistanceFixture(page, [], { transcriptWordTiming: true });
+		const editor = await bootEditor(page, '/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Passage ending.wav', duration: .5, channelCount: 1 })]);
+		await chooseCommandAction(page, editor, 'Edit', 'Transcript-based editing');
+		const panel = editor.locator('[data-workspace-panel="transcript-editing"]');
+		page.on('dialog', dialog => { void dialog.accept(); });
+		await panel.getByRole('button', { name: 'Generate transcript', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).progressEvents).toBe(1);
+		await completeMilestone7Run(page);
+		const transcript = panel.getByRole('textbox', { name: 'Transcript', exact: true });
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(5);
+		await transcript.getByText('interview.', { exact: true }).dblclick();
+		await page.keyboard.press('Delete');
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(4);
+		await expect(transcript.getByText('interview.', { exact: true })).toHaveCount(0);
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect.poll(() => transcript.evaluate(element => {
+			const selection = element.ownerDocument.getSelection();
+			if (!selection?.rangeCount || !selection.isCollapsed || !element.lastElementChild) return null;
+			const right = selection.getRangeAt(0).cloneRange();
+			right.setEnd(element.lastElementChild, element.lastElementChild.childNodes.length);
+			return right.toString().trim();
+		})).toBe('');
+		await page.keyboard.press('Delete');
+		await expect(transcript).toHaveAttribute('aria-busy', 'false');
+		await expect(transcript.getByText('the', { exact: true })).toHaveCount(1);
+		await expect(transcript.locator('[data-transcript-word]')).toHaveCount(4);
+		await expect(panel.getByRole('alert')).toHaveCount(0);
+	});
+});

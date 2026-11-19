@@ -9,6 +9,7 @@ import { publishedCopyFor } from '../../shared/presentation-localization.ts'; im
 import { projectForAudioGeneratorCommands } from './generator-project-view.ts';
 import { prepareLabeledAudioSilenceRemoval } from './labeled-audio-silence-removal.ts';
 import { generateAudioEditorSignal } from '../../../generators.js';
+import { createAudioTrackChannelCounter } from '../../../project-audio-factory.js';
 import { normalizeProjectSampleRate } from '../../shared/app-helpers.ts';
 import { publishGeneratedAudioSource, type GeneratedAudioSource } from './generated-source-publication.ts';
 import type {
@@ -66,24 +67,26 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			const requested = new Set(trackIds);
 			const targets = project.tracks.filter((track) => requested.has(track.id) && track.type === 'audio');
 			const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
+			const labels = mergeTouching(spans);
+			const countChannels = createAudioTrackChannelCounter(project);
 			// Upstream silences samples, so a labelled region over a track that
 			// holds nothing there silences nothing. Only the stretches that
 			// actually cover audio become silent clips.
 			const plan = targets
-				.map((track) => Object.freeze({ trackId: track.id, spans: coveredSpans(clipById, track, spans),
-					channelCount: Number(dependencies.trackChannelCount(project, track, project.masterChannels || 2)) }))
+				.map((track) => Object.freeze({ trackId: track.id, spans: coveredSpans(clipById, track, labels),
+					channelCount: countChannels(track, project.masterChannels || 2) }))
 				.filter((entry) => entry.spans.length > 0);
 			if (plan.length === 0) return false;
 			const sampleRate = normalizeProjectSampleRate(project.sampleRate);
-			let longestRegionFrames = 0;
-			for (const entry of plan) for (const region of entry.spans) {
-				longestRegionFrames = Math.max(longestRegionFrames, region.endFrame - region.startFrame);
+			const framesByWidth = new Map<number, number>();
+			for (const { channelCount, spans } of plan) for (const span of spans) {
+				// One frame of headroom keeps every clip inside the rounded source bounds.
+				const frames = span.endFrame - span.startFrame + 1;
+				framesByWidth.set(channelCount, Math.max(framesByWidth.get(channelCount) ?? 0, frames));
 			}
-			// One frame of headroom keeps every clip inside the source bounds
-			// however the requested duration rounds.
-			const widths = [...new Set(plan.map(entry => entry.channelCount))];
+			const widths = [...framesByWidth];
 			await dependencies.preflightStorage(
-				widths.reduce((bytes, width) => bytes + (longestRegionFrames + 1) * width * Float32Array.BYTES_PER_ELEMENT, 0),
+				widths.reduce((bytes, [width, frames]) => bytes + frames * width * Float32Array.BYTES_PER_ELEMENT, 0),
 				'effect',
 			);
 			ownership.assert(owned);
@@ -95,9 +98,10 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 			return await publishWidth(0);
 
 			async function publishWidth(index: number): Promise<boolean> {
-				const channelCount = widths[index];
-				if (channelCount === undefined) return commitSilence();
-				const options = { durationSeconds: (longestRegionFrames + 1) / sampleRate, sampleRate, channelCount };
+				const width = widths[index];
+				if (width === undefined) return commitSilence();
+				const [channelCount, frames] = width;
+				const options = { durationSeconds: frames / sampleRate, sampleRate, channelCount };
 				const generated = dependencies.generateStream
 					? await dependencies.generateStream('silence', options, owned.task.signal)
 					: generateAudioEditorSignal('silence', options) as GeneratedSignal;
@@ -160,14 +164,13 @@ export function createLabeledAudioSilence<Context, Target extends AudioGenerator
 function coveredSpans(
 	clipById: ReadonlyMap<string, AudioGeneratorClip>,
 	track: AudioGeneratorTrack,
-	regions: readonly LabeledAudioRegion[],
+	labels: readonly LabeledAudioRegion[],
 ): readonly LabeledAudioRegion[] {
 	const clips = (track.clipIds ?? [])
 		.map((clipId) => clipById.get(clipId))
 		.filter((clip): clip is AudioGeneratorClip => Boolean(clip));
 	const occupied = mergeTouching(clips.map(clip => ({ startFrame: clip.timelineStartFrame,
 		endFrame: clip.timelineStartFrame + clip.durationFrames })));
-	const labels = mergeTouching(regions);
 	const overlaps: LabeledAudioRegion[] = [];
 	let labelIndex = 0, clipIndex = 0;
 	while (labelIndex < labels.length && clipIndex < occupied.length) {

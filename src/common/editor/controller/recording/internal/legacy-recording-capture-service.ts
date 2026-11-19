@@ -90,7 +90,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				: Number(trackSettings.channelCount) || 1);
 			scope.assertCurrent();
 			const captureSampleRate = context.sampleRate || sampleRate;
-			const selection = runtime.activeSelection(project);
+			const selection = options.punch ? options.punch.selection : runtime.activeSelection(project);
 			await runtime.preflightStorage(
 				captureSampleRate * channelCount * Float32Array.BYTES_PER_ELEMENT * 60,
 				'recording', scope.signal,
@@ -98,7 +98,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 			scope.assertCurrent();
 			const sourceId = runtime.createStableId('recording');
 			const previewResampler = runtime.createPreviewResampler(captureSampleRate, sampleRate, channelCount);
-			const requestedStartFrame = selection?.startFrame ?? runtime.engine.getPositionFrames();
+			const requestedStartFrame = options.punch?.startFrame ?? selection?.startFrame ?? runtime.engine.getPositionFrames();
 			const automaticLatency = (context.baseLatency || 0)
 				+ (context.outputLatency || 0)
 				+ (Number(trackSettings.latency) || 0);
@@ -209,6 +209,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				contextSampleRate: context.sampleRate,
 				requestedStartFrame,
 				leadInEnabled: state.leadInRecording,
+				leadInDurationSeconds: state.leadInDurationSeconds,
 				createTimedRecordingPastError: () => createLocalizedError(
 					RangeError,
 					{ ['timedRecordingPast']: runtime.messages.timedRecordingPast },
@@ -280,6 +281,7 @@ export function createLegacyRecordingCaptureService(runtime: RecordingCaptureCom
 				)));
 				state.recordingPaused = false;
 				publishLocalizedStatus(runtime.setStatus, runtime.messages.recording, { key: 'recording' });
+				if (state.recordingKind === 'ordinary') runtime.rememberPunch?.(requestedStartFrame, selection, [track.id]);
 				runtime.updateTransportState('recording');
 			}
 		} catch (error) {

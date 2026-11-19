@@ -46,6 +46,13 @@ test('project ID3 fields, artwork and undo persist before exporting tagged brows
 		const dialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), format);
 		await expect(dialog.getByRole('button', { name: 'Metadata', exact: true })).toBeEnabled();
+		// Real streamed profiles: tests/audio-editor-project-id3-streamed-custody.test.ts.
+		// Keep every native format control and the WAV/AIFF/MP3 delivery witnesses.
+		if (!['WAV', 'AIFF', 'MP3'].includes(format)) {
+			await dialog.getByRole('button', { name: 'Close', exact: true }).first().click();
+			await expect(dialog).toBeHidden();
+			continue;
+		}
 		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 		const link = dialog.locator('[data-export-download]');
 		await expect(link).toBeVisible({ timeout: 20_000 });

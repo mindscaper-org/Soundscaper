@@ -75,7 +75,6 @@ export function createFixture(overrides: Partial<AudioGeneratorServiceDependenci
 		editingBlocked: () => false,
 		getPositionFrames: () => 40,
 		snapFrame: (value) => Math.round(Number(value)),
-		trackChannelCount: () => 1,
 		effectTargets: () => [],
 		persistEffectResults: async () => undefined,
 		preflightStorage: async (bytes) => { preflights.push(bytes); },

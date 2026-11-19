@@ -9,6 +9,7 @@ import {
 	publishNativeScapeArchiveCopy,
 } from '../src/common/editor/controller/document/internal/native-project/native-scape-save.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
+import { currentScapeArchiveManifest } from '../src/common/editor/controller/document/internal/scape/scape-archive-manifest-action.ts';
 import { withProjectFileExtension } from '../src/common/project-file-extensions.ts';
 import type {
 	NativePreparedSave,
@@ -93,7 +94,7 @@ test('direct Scape publication stages with the admitted maximum and commits afte
 		async commit() { events.push('commit'); return { method: 'direct', size: 17 }; },
 		async abort() { events.push('abort'); },
 	};
-	const state = { archiveManifest: { manifest: { stale: true }, fileName: 'old.scape' } };
+	const state = {};
 	const runtime = {
 		state,
 		store: {},
@@ -120,8 +121,8 @@ test('direct Scape publication stages with the admitted maximum and commits afte
 	assert.deepEqual(events, ['open:99', 'export', 'ownership', 'commit']);
 	assert.equal(result.exported.blob, null);
 	assert.deepEqual(result.saved, { method: 'direct', size: 17 });
-	assert.equal((state.archiveManifest as { manifest: unknown }).manifest, null);
-	assert.equal((state.archiveManifest as { fileName: string }).fileName, 'project.scape');
+	assert.equal(currentScapeArchiveManifest(state, project.id)?.manifest, null);
+	assert.equal(currentScapeArchiveManifest(state, project.id)?.fileName, 'project.scape');
 });
 
 test('direct Scape publication aborts staging when ownership fails before commit', async () => {
@@ -191,9 +192,9 @@ test('Blob fallback publishes the admitted archive to its already-selected targe
 	// The archive's checksums are recorded from the file that was written. This
 	// stub's three bytes are not a readable archive, so the record says why it
 	// has no manifest rather than the save failing over missing evidence.
-	assert.equal((state.archiveManifest as { manifest: unknown }).manifest, null);
+	assert.equal(currentScapeArchiveManifest(state, project.id)?.manifest, null);
 	assert.match(
-		String((state.archiveManifest as { unavailable: string }).unavailable),
+		String(currentScapeArchiveManifest(state, project.id)?.unavailable),
 		/could not be read back/u,
 	);
 });
@@ -321,7 +322,7 @@ test('stream archive copy writes exact retained bytes and commits after ownershi
 		async commit() { events.push('commit'); return { method: 'direct', size: staged }; },
 		async abort() { events.push('abort'); },
 	};
-	const state = { archiveManifest: { manifest: { stale: true }, fileName: 'old.scape' } };
+	const state = {};
 	const runtime = {
 		state,
 		scapeMimeType: 'application/vnd.soundscaper.scape+zip',
@@ -335,6 +336,7 @@ test('stream archive copy writes exact retained bytes and commits after ownershi
 		},
 	};
 	const result = await publishNativeScapeArchiveCopy(runtime as never, {
+		projectId: project.id,
 		archive,
 		assertReadyToCommit() { events.push('ownership'); },
 		fileName: 'future.scape', prepared, signal: new AbortController().signal,
@@ -342,8 +344,8 @@ test('stream archive copy writes exact retained bytes and commits after ownershi
 	assert.deepEqual(events, ['open:5', 'copied', 'sealed', 'ownership', 'commit']);
 	assert.deepEqual(result.copied, { byteLength: 5, schemaVersion: 16 });
 	assert.deepEqual(result.saved, { method: 'direct', size: 5 });
-	assert.equal((state.archiveManifest as { manifest: unknown }).manifest, null);
-	assert.equal((state.archiveManifest as { fileName: string }).fileName, 'future.scape');
+	assert.equal(currentScapeArchiveManifest(state, project.id)?.manifest, null);
+	assert.equal(currentScapeArchiveManifest(state, project.id)?.fileName, 'future.scape');
 });
 
 test('stream archive copy aborts once when a staged write is refused', async () => {
@@ -366,6 +368,7 @@ test('stream archive copy aborts once when a staged write is refused', async () 
 		},
 	};
 	await assert.rejects(publishNativeScapeArchiveCopy(runtime as never, {
+		projectId: project.id,
 		archive: new Blob([Uint8Array.of(9)]),
 		assertReadyToCommit() { events.push('ownership'); },
 		fileName: 'future.scape', prepared, signal: new AbortController().signal,
@@ -391,6 +394,7 @@ test('stream archive copy refuses byte-count disagreement before ownership', asy
 		},
 	};
 	await assert.rejects(publishNativeScapeArchiveCopy(runtime as never, {
+		projectId: project.id,
 		archive: new Blob([Uint8Array.of(1, 2, 3)]),
 		assertReadyToCommit() { events.push('ownership'); },
 		fileName: 'future.scape', prepared, signal: new AbortController().signal,
@@ -416,6 +420,7 @@ test('stream archive copy commit failure cleans the destination and preserves it
 		},
 	};
 	await assert.rejects(publishNativeScapeArchiveCopy(runtime as never, {
+		projectId: project.id,
 		archive: new Blob([Uint8Array.of(7)]),
 		assertReadyToCommit() { events.push('ownership'); },
 		fileName: 'future.scape', prepared, signal: new AbortController().signal,
@@ -443,6 +448,7 @@ test('stream archive copy aggregates destination cleanup failure with its cause'
 		},
 	};
 	await assert.rejects(publishNativeScapeArchiveCopy(runtime as never, {
+		projectId: project.id,
 		archive: new Blob([Uint8Array.of(9)]),
 		assertReadyToCommit() {},
 		fileName: 'future.scape', prepared, signal: new AbortController().signal,

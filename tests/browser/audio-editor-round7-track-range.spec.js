@@ -9,7 +9,7 @@ function field(editor, edge) {
 
 for (const selectedClip of [false, true]) {
 	test(`vertical track selection retains ${selectedClip ? 'selected clip bounds' : 'off-grid boundaries and an independent playhead'}`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone, toneB]);
 		await chooseCommandAction(page, editor, 'Select', 'Select none');
 		const clip = clipByName(editor, longTone.name);

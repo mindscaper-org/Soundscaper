@@ -21,6 +21,7 @@ test.describe('Stale build reload prompt', () => {
 		await expect(prompt).toBeHidden();
 		await expect(editor).toHaveAttribute('data-audio-editor-bound', 'true');
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		await expect(editor.getByRole('menuitem', { name: 'File', exact: true })).toBeFocused();
 
 		// The retired surface closes itself once its module finally resolves, which
 		// is measurably after the prompt appeared. Cancelling has to survive that:

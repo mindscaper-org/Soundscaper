@@ -30,14 +30,15 @@ const PUBLICATION_ID = 'ab'.repeat(24);
 
 test('main admits an unchanged verified body without receiving its bytes again', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-retained-body-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'framescaper', processId: 973, instanceId: 'retained-body' },
 		handshake, onLeaseLost: () => undefined, testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(handshake);
 	context.after(() => session.close());
 
@@ -84,14 +85,15 @@ test('main admits an unchanged verified body without receiving its bytes again',
 
 test('renderer neither reloads nor uploads a body retained by main', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'framescaper-retained-renderer-body-'));
-	context.after(() => rm(root, { recursive: true, force: true }));
 	const handshake = createFramescaperDesktopProjectLibraryHandshake();
 	const main = await FramescaperDesktopProjectLibraryMain.start({
 		appDataPath: root,
 		owner: { product: 'framescaper', processId: 974, instanceId: 'retained-renderer-body' },
 		handshake, onLeaseLost: () => undefined, testControl: null,
 	});
-	context.after(() => main.close());
+	context.after(async () => {
+		try { await main.close(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
 	const session = main.openSession(handshake);
 	context.after(() => session.close());
 	const store = createFramescaperProjectStore(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, {

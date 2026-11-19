@@ -23,6 +23,7 @@ export interface NativeContainerAudioAdmission {
 	readonly channelCount: number | null;
 	readonly decodeSampleRate?: number;
 	readonly trimNativeVorbisFinalFrame?: true;
+	readonly trimNativeMpeg?: Readonly<{ encodedFrames: number; leadingFrames: number }>;
 }
 interface Options {
 	readonly signal?: AbortSignal;
@@ -65,6 +66,9 @@ export async function nativeContainerAudioAdmission(file: Blob, options: Options
 	}
 	if (first[0] === 255 && first[1] === 251 && first[2]! >> 4 === 0) {
 		return (await import('./native-free-format-mp3-admission.ts')).nativeFreeFormatMp3Admission(file, offset, options.signal);
+	}
+	if (first[0] === 255 && (first[1]! & 0xe6) === 0xe2 && (first[1]! >> 3 & 3) !== 3) {
+		return (await import('./native-low-rate-mpeg-admission.ts')).nativeLowRateMpegAdmission(file, offset, options.signal);
 	}
 	const profile = adtsHeader(first);
 	if (!profile || profile.configuration !== 0) return null;
@@ -113,20 +117,24 @@ export function normalizeNativeContainerAudio(decoded: AudioBuffer, admission: N
 		if (normalized !== decoded) NATIVE_CONTAINER_AUDIO_VIEWS.add(normalized);
 		decoded = normalized;
 	}
+	if (admission?.trimNativeMpeg && decoded.length === admission.trimNativeMpeg.encodedFrames
+		&& decoded.sampleRate === admission.sampleRate && decoded.numberOfChannels === admission.channelCount) {
+		return nativePcmExtentView(decoded, admission.frameCount, admission.trimNativeMpeg.leadingFrames);
+	}
 	if (!admission?.trimNativeVorbisFinalFrame || decoded.length !== admission.frameCount + 1
 		|| decoded.sampleRate !== admission.sampleRate || decoded.numberOfChannels !== admission.channelCount) return decoded;
 	return nativePcmExtentView(decoded, admission.frameCount);
 }
 
-function nativePcmExtentView(decoded: AudioBuffer, length: number): AudioBuffer {
+function nativePcmExtentView(decoded: AudioBuffer, length: number, offset = 0): AudioBuffer {
 	// Storage consumes this zero-copy PCM view; it must never enter the native resident cache.
 	const view = Object.freeze({ length, sampleRate: decoded.sampleRate, duration: length / decoded.sampleRate, numberOfChannels: decoded.numberOfChannels,
-		getChannelData: (channel: number) => decoded.getChannelData(channel).subarray(0, length),
+		getChannelData: (channel: number) => decoded.getChannelData(channel).subarray(offset, offset + length),
 		copyFromChannel(destination: Float32Array<ArrayBuffer>, channel: number, start = 0) {
-			decoded.copyFromChannel(destination.subarray(0, Math.max(0, length - start)), channel, start);
+			decoded.copyFromChannel(destination.subarray(0, Math.max(0, length - start)), channel, offset + start);
 		},
 		copyToChannel(source: Float32Array<ArrayBuffer>, channel: number, start = 0) {
-			decoded.copyToChannel(source.subarray(0, Math.max(0, length - start)), channel, start);
+			decoded.copyToChannel(source.subarray(0, Math.max(0, length - start)), channel, offset + start);
 		},
 	});
 	NATIVE_CONTAINER_AUDIO_VIEWS.add(view);

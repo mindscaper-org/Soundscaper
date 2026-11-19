@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
@@ -6,7 +7,9 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 test('Cancel during generator storage preflight releases processing before the estimate returns', async ({ page }) => {
 	await page.addInitScript(() => {
 		if (typeof navigator.storage?.estimate !== 'function') return;
-		const estimate = navigator.storage.estimate.bind(navigator.storage);
+		const storage = navigator.storage;
+		Object.defineProperty(navigator, 'storage', { configurable: true, value: storage });
+		const estimate = storage.estimate.bind(storage);
 		navigator.storage.estimate = async function () {
 			if (globalThis.__nextHoldGeneratorEstimate) {
 				globalThis.__nextGeneratorEstimateStarted = true;
@@ -23,7 +26,7 @@ test('Cancel during generator storage preflight releases processing before the e
 	await dialog.getByRole('button', { name: 'Generate', exact: true }).click();
 	await expect.poll(() => page.evaluate(() => globalThis.__nextGeneratorEstimateStarted === true)).toBe(true);
 	try {
-		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await taskProgressCancel(page).click();
 		await expect(dialog).toHaveCount(0);
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'processing-effect');
 		await expect(editor.locator('[data-clip-id][role="group"]')).toHaveCount(0);

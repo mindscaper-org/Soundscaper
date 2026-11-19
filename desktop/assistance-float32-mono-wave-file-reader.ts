@@ -15,6 +15,11 @@ const MAXIMUM_RANGE_SAMPLES = 1_000_000;
 
 export const ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES = 256 * 1024;
 
+interface WaveLayout {
+	readonly dataOffset: number;
+	readonly sampleCount: number;
+}
+
 export interface AssistanceFloat32MonoWaveFileV1 extends AssistanceBeatThisPcmSourceV1 {
 	readonly sampleRate: number;
 	readonly byteLength: number;
@@ -26,6 +31,7 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 	path: string,
 	expectedSampleRate: number,
 	expectedByteLength: number,
+	options?: Readonly<{ validateSamples: true; signal?: AbortSignal }>,
 ): Promise<AssistanceFloat32MonoWaveFileV1> {
 	if (typeof path !== 'string' || path.length < 1 || path.length > 4_096) {
 		throw new TypeError('Assistance WAV file reading requires a bounded path.');
@@ -35,16 +41,16 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 		|| expectedByteLength < 44 || expectedByteLength > 0xffff_ffff + 8) {
 		throw new RangeError('The expected assistance WAV file geometry is invalid.');
 	}
+	options?.signal?.throwIfAborted();
 	const handle = await open(path, 'r');
 	let maximumObservedFileReadBytes = 0;
 	let closed = false;
-	const positionedRead = async (position: number, byteLength: number): Promise<Uint8Array> => {
+	const readInto = async (position: number, bytes: Uint8Array): Promise<void> => {
 		if (closed) throw new Error('The assistance WAV file source is closed.');
-		if (!Number.isSafeInteger(position) || position < 0 || !Number.isSafeInteger(byteLength)
-			|| byteLength < 1 || position + byteLength > expectedByteLength) {
+		if (!Number.isSafeInteger(position) || position < 0 || bytes.length < 1
+			|| position + bytes.length > expectedByteLength) {
 			throw new RangeError('The assistance WAV positioned read exceeds file authority.');
 		}
-		const bytes = new Uint8Array(byteLength);
 		let offset = 0;
 		while (offset < bytes.length) {
 			const length = Math.min(ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES, bytes.length - offset);
@@ -55,6 +61,10 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 			}
 			offset += length;
 		}
+	};
+	const positionedRead = async (position: number, byteLength: number): Promise<Uint8Array> => {
+		const bytes = new Uint8Array(byteLength);
+		await readInto(position, bytes);
 		return bytes;
 	};
 	try {
@@ -63,6 +73,7 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 			throw new Error('The assistance WAV staged-file length or kind changed.');
 		}
 		const layout = await inspectWave(positionedRead, expectedByteLength, expectedSampleRate);
+		if (options?.validateSamples) await validateWaveSamples(readInto, layout, options.signal);
 		return Object.freeze({
 			sampleRate: expectedSampleRate,
 			byteLength: expectedByteLength,
@@ -83,14 +94,10 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 					layout.dataOffset + startSample * FLOAT32_BYTES, sampleCount * FLOAT32_BYTES,
 				);
 				signal?.throwIfAborted();
-				const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+				const values = view(bytes);
 				const samples = new Float32Array(sampleCount);
 				for (let index = 0; index < samples.length; index += 1) {
-					const sample = view.getFloat32(index * FLOAT32_BYTES, true);
-					if (!Number.isFinite(sample)) {
-						throw new RangeError('Every assistance WAV sample must be finite.');
-					}
-					samples[index] = sample;
+					samples[index] = finiteSample(values, index * FLOAT32_BYTES);
 				}
 				return samples;
 			},
@@ -107,11 +114,34 @@ export async function openAssistanceFloat32MonoWaveFileV1(
 	}
 }
 
+async function validateWaveSamples(
+	read: (position: number, bytes: Uint8Array) => Promise<void>,
+	layout: WaveLayout,
+	signal?: AbortSignal,
+): Promise<void> {
+	const byteLength = layout.sampleCount * FLOAT32_BYTES;
+	const bytes = new Uint8Array(Math.min(byteLength, ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES));
+	const values = view(bytes);
+	for (let offset = 0; offset < byteLength; offset += bytes.length) {
+		signal?.throwIfAborted();
+		const length = Math.min(bytes.length, byteLength - offset);
+		await read(layout.dataOffset + offset, bytes.subarray(0, length));
+		for (let index = 0; index < length; index += FLOAT32_BYTES) finiteSample(values, index);
+	}
+	signal?.throwIfAborted();
+}
+
+function finiteSample(values: DataView, offset: number): number {
+	const sample = values.getFloat32(offset, true);
+	if (!Number.isFinite(sample)) throw new RangeError('Every assistance WAV sample must be finite.');
+	return sample;
+}
+
 async function inspectWave(
 	read: (position: number, byteLength: number) => Promise<Uint8Array>,
 	byteLength: number,
 	expectedSampleRate: number,
-): Promise<Readonly<{ dataOffset: number; sampleCount: number }>> {
+): Promise<WaveLayout> {
 	const preamble = await read(0, RIFF_HEADER_BYTES);
 	const preambleView = view(preamble);
 	if (ascii(preamble, 0, 4) !== 'RIFF' || ascii(preamble, 8, 4) !== 'WAVE'

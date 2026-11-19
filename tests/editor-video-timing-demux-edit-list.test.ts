@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { demuxIsobmffVideoTiming } from '../src/common/editor/video-timing-demux-isobmff.ts';
+import { hasDeclaredLeadingVideoEdit } from '../src/common/editor/video-timing-demux.ts';
 import { createVideoTimingDemuxReader } from '../src/common/editor/video-timing-demux-reader.ts';
+import { createImportVideoFile } from '../src/common/editor/controller/import/internal/source-import.ts';
+import { createFixture } from './helpers/audio-editor-source-import-fixture.ts';
 
 const MEDIA_TIMESCALE = 600;
 const SAMPLE_COUNT = 10;
@@ -67,15 +70,66 @@ test('an edit list this cannot express exactly is refused rather than guessed at
 	]), null, 'two non-contiguous segments are not one presentation grid');
 });
 
+test('import rejects a leading picture delay before a backend can normalize it away', async () => {
+	const importing = createFixture();
+	let probes = 0;
+	const importVideo = createImportVideoFile({
+		...importing.runtime,
+		helperTimingProbe: {
+			id: 'native-helper',
+			async probe() {
+				probes++;
+				return { timescale: MEDIA_TIMESCALE, presentationTicks: codedTicks(),
+					finalFrameDurationTicks: BigInt(SAMPLE_TICKS), nominalRate: { num: 10, den: 1 } };
+			},
+		},
+	});
+	const delayed = new File([fixture(1000, [
+		{ movieTicks: 100, mediaTicks: -1 }, { movieTicks: 1000, mediaTicks: 0 },
+	])], 'delayed.mp4', { type: 'video/mp4' });
+	await assert.rejects(importVideo(delayed), /picture delay.*render/iu);
+	assert.equal(probes, 0);
+	assert.deepEqual(importing.commits, []);
+	assert.deepEqual(importing.addedSources, []);
+	assert.equal(importing.calls.some(call => call.startsWith('write-media:')), false);
+});
+
+test('leading video edit inspection reads only small header ranges', async () => {
+	class MeasuredBlob extends Blob {
+		readonly ranges: number[] = [];
+		override slice(start = 0, end = this.size, type = ''): Blob {
+			this.ranges.push(end - start);
+			return super.slice(start, end, type);
+		}
+	}
+	const edited = new MeasuredBlob([fixture(1000, [
+		{ movieTicks: 100, mediaTicks: -1 }, { movieTicks: 1000, mediaTicks: 120 },
+	], 1)]);
+	assert.equal(await hasDeclaredLeadingVideoEdit(edited), true);
+	assert.ok(edited.ranges.length > 0 && edited.ranges.every(length => length <= 48));
+});
+
+test('audio delays, zero-length empty edits, and ordinary nonzero media time do not block video', async () => {
+	const delayed = [{ movieTicks: 100, mediaTicks: -1 }, { movieTicks: 1000, mediaTicks: 0 }];
+	assert.equal(await hasDeclaredLeadingVideoEdit(fixture(1000, delayed, 0, 'soun')), false);
+	assert.equal(await hasDeclaredLeadingVideoEdit(fixture(1000, [
+		{ movieTicks: 0, mediaTicks: -1 }, { movieTicks: 800, mediaTicks: 120 },
+	])), false);
+	assert.equal(await hasDeclaredLeadingVideoEdit(fixture(600, [
+		{ movieTicks: 480, mediaTicks: 120 },
+	])), false);
+	assert.equal(await hasDeclaredLeadingVideoEdit(fixture(600, null)), false);
+});
+
 /** A minimal `moov` whose single video track carries `edits`, or none for null. */
-function fixture(movieTimescale: number, edits: readonly EditEntry[] | null): Blob {
+function fixture(movieTimescale: number, edits: readonly EditEntry[] | null, editVersion = 0, handler = 'vide'): Blob {
 	const moov = box('moov',
 		fullBox('mvhd', u32(0), u32(0), u32(movieTimescale), u32(movieTimescale)),
 		box('trak',
-			...(edits === null ? [] : [box('edts', editList(edits))]),
+			...(edits === null ? [] : [box('edts', editList(edits, editVersion))]),
 			box('mdia',
 				fullBox('mdhd', u32(0), u32(0), u32(MEDIA_TIMESCALE), u32(SAMPLE_COUNT * SAMPLE_TICKS)),
-				fullBox('hdlr', u32(0), ascii('vide')),
+				fullBox('hdlr', u32(0), ascii(handler)),
 				box('minf', box('stbl',
 					fullBox('stts', u32(1), u32(SAMPLE_COUNT), u32(SAMPLE_TICKS)),
 				)),
@@ -85,9 +139,10 @@ function fixture(movieTimescale: number, edits: readonly EditEntry[] | null): Bl
 	return new Blob([bytes(box('ftyp', ascii('isom')), moov).buffer]);
 }
 
-function editList(edits: readonly EditEntry[]): Uint8Array {
-	return fullBox('elst', u32(edits.length), ...edits.map((edit) => bytes(
-		u32(edit.movieTicks), i32(edit.mediaTicks), u32(edit.rate ?? UNIT_RATE),
+function editList(edits: readonly EditEntry[], version: number): Uint8Array {
+	return box('elst', u32(version << 24), u32(edits.length), ...edits.map((edit) => bytes(
+		...(version === 1 ? [i64(edit.movieTicks), i64(edit.mediaTicks)] : [u32(edit.movieTicks), i32(edit.mediaTicks)]),
+		u32(edit.rate ?? UNIT_RATE),
 	)));
 }
 
@@ -109,6 +164,12 @@ function u32(value: number): Uint8Array {
 function i32(value: number): Uint8Array {
 	const out = new Uint8Array(4);
 	new DataView(out.buffer).setInt32(0, value);
+	return out;
+}
+
+function i64(value: number): Uint8Array {
+	const out = new Uint8Array(8);
+	new DataView(out.buffer).setBigInt64(0, BigInt(value));
 	return out;
 }
 

@@ -8,9 +8,11 @@
 @import './audio-editor-design-system/04-shell-workspace.css';
 @import './audio-editor-design-system/04a-workspace-panel-docking.css';
 @import './audio-editor-design-system/04b-video-workspace.css';
+@import './audio-editor-design-system/04c-editor-notifications.css';
 @import './audio-editor-design-system/05-panels-project-bin.css';
 @import './audio-editor-design-system/06-panels-mixer-output.css';
 @import './audio-editor-design-system/06b-selection-status.css';
+@import './audio-editor-design-system/06c-status-help.css';
 @import './audio-editor-design-system/07-timeline-tracks.css';
 @import './audio-editor-design-system/08-timeline-clips-effects.css';
 @import './audio-editor-design-system/08c-frequency-waveforms.css';

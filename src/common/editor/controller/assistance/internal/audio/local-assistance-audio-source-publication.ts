@@ -21,6 +21,23 @@ interface SourceStore {
 	deleteSource(sourceId: string): Promise<unknown>;
 }
 
+/** Hash the exact planar PCM packets persisted by a model-audio source writer. */
+export function createAssistanceSourcePcmIdentity() {
+	const digest = sha256.create();
+	const header = new Uint8Array(4);
+	const view = new DataView(header.buffer);
+	let byteLength = 0;
+	return {
+		update(channels: readonly Float32Array[]) {
+			view.setUint32(0, channels[0]!.length, true);
+			const pcm = new Uint8Array(packPlanarFloat32(channels));
+			digest.update(header); digest.update(pcm);
+			byteLength += header.byteLength + pcm.byteLength;
+		},
+		finish() { return { contentSha256: bytesToHex(digest.digest()), byteLength }; },
+	};
+}
+
 /** Persist at the ordinary project rate while retaining the authenticated model WAV in provenance. */
 export async function publishLocalAssistanceAudioSource(
 	store: SourceStore,
@@ -37,25 +54,17 @@ export async function publishLocalAssistanceAudioSource(
 				push(channels: Float32Array[]): Float32Array[];
 				finish(outputFrames: number): Float32Array[];
 			}>;
-	const digest = sha256.create();
-	let byteLength = 0;
+	const pcmIdentity = createAssistanceSourcePcmIdentity();
 	let writer: SourceWriter | null = null;
 	let committed = false;
 	try {
 		writer = await store.beginSourceWrite(sourceId, {
 			name: source.name, mimeType: 'audio/wav', sampleFormat: 'float32',
 			sampleRate, channelCount, chunkFrames,
-			...(!resampler ? { contentSha256: source.contentSha256, byteLength: source.byteLength } : {}),
 		});
 		const chunks = createPlanarPcmChunkCoalescer({ chunkFrames,
 			onChunk: async (channels: readonly Float32Array[]) => {
-				if (resampler) {
-					const header = new Uint8Array(4);
-					new DataView(header.buffer).setUint32(0, channels[0]!.length, true);
-					const pcm = new Uint8Array(packPlanarFloat32(channels));
-					digest.update(header); digest.update(pcm);
-					byteLength += header.byteLength + pcm.byteLength;
-				}
+				pcmIdentity.update(channels);
 				await writer!.write(channels);
 			},
 		}) as unknown as Readonly<{
@@ -73,9 +82,7 @@ export async function publishLocalAssistanceAudioSource(
 			|| writer.framesWritten !== undefined && writer.framesWritten !== frameCount) {
 			throw new Error('The assistance WAV writer persisted inexact frame geometry.');
 		}
-		const identity = resampler
-			? { contentSha256: bytesToHex(digest.digest()), byteLength }
-			: { contentSha256: source.contentSha256, byteLength: source.byteLength };
+		const identity = pcmIdentity.finish();
 		await writer.commit({ sampleRate, channelCount, chunkFrames, ...identity }, { ifAbsent: true });
 		committed = true;
 		return Object.freeze({ ...source, ...identity });

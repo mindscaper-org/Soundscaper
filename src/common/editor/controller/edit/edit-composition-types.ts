@@ -88,7 +88,7 @@ export interface EditCompositionDependencies<History extends ControllerRuntimeHi
 	readonly absentSubsystem: AbsentSubsystemContext;
 	readonly session: ClipboardEditServiceDependencies['session'];
 	readonly store: AudioGeneratorServiceDependencies['store'] & PasteLinkedSourceAliasStore;
-	readonly engine: Pick<EnginePublicApi, 'getAudioContext' | 'getPositionFrames'>;
+	readonly engine: Pick<EnginePublicApi, 'getAudioContext' | 'getPositionFrames' | 'getState' | 'seek'>;
 	readonly sourceBuffers:
 		& ClipboardEditServiceDependencies['sourceBuffers']
 		& AudioGeneratorServiceDependencies['sourceBuffers'];

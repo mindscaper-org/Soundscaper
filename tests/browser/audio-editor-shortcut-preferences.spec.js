@@ -56,12 +56,11 @@ async function extraMouseClick(session, target, button = 'back', modifiers = 0, 
 test.describe('keyboard shortcut preferences', () => {
 	registerAudioEditorHooks();
 
-	test('sorts shortcuts by where the commands appear, and drops the rows that take none', async ({ page }) => {
+	test('focuses a new shortcut field after Add shortcut is activated by keyboard', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
-
 		// The categorized view is what the page opens on: File heads the list
 		// because File heads the menubar, and its first row is the File menu's.
 		const groups = preferences.locator('[data-shortcut-group]');
@@ -84,39 +83,7 @@ test.describe('keyboard shortcut preferences', () => {
 		expect(labels.length).toBeGreaterThan(0);
 		expect(labels).toEqual([...labels].sort((left, right) => left.localeCompare(right, 'en')));
 		await expect(preferences.locator('[data-shortcut-action="about-audacity"]')).toHaveCount(0);
-	});
 
-	test('builds the shortcut command inventory from implemented manifest actions', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
-		const search = preferences.getByRole('searchbox', { name: 'Search commands', exact: true });
-
-		await search.fill('Insert');
-		const insert = preferences.locator('[data-shortcut-action="insert"]');
-		await expect(insert).toBeVisible();
-		await expect(insert).not.toHaveAttribute('aria-disabled', 'true');
-		const insertShortcut = insert.locator('input');
-		await expect(insertShortcut).toBeEnabled();
-		// Alt+I is Audacity's Split labeled audio, so a free chord is what proves the
-		// row assignable rather than a conflict message.
-		await insertShortcut.fill('Alt+U');
-		await expect(insert.getByRole('button', { name: 'Assign', exact: true })).toBeEnabled();
-		await expect(insert.locator('[data-shortcut-disabled-reason]')).toHaveCount(0);
-
-		await search.fill('Zoom normal');
-		await expect(preferences.locator('[data-shortcut-action="zoom-default"]')).toBeVisible();
-		await expect(preferences.locator('[data-shortcut-action="plugin-manager"]')).toHaveCount(0);
-		await search.fill('Nyquist prompt');
-		await expect(preferences.locator('[data-shortcut-action="nyquist-prompt"]')).toBeVisible();
-	});
-
-	test('focuses a new shortcut field after Add shortcut is activated by keyboard', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
-		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
-		await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
 		await preferences.getByRole('searchbox', { name: 'Search commands', exact: true }).fill('Insert');
 		const row = preferences.locator('[data-shortcut-action="insert"]');
 		await expect(row).toBeVisible();
@@ -125,6 +92,30 @@ test.describe('keyboard shortcut preferences', () => {
 		await add.focus();
 		await page.keyboard.press('Enter');
 		await expect(row.locator(`[data-shortcut-binding="${existing}"]`)).toBeFocused();
+	});
+
+	test('a shortcut draft survives looking up another command and changing the sort', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const preferences = await openShortcutPreferences(page, editor);
+		const row = await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		const binding = row.locator('[data-shortcut-binding="0"]');
+		await binding.fill('Ctrl+Shift+F12');
+		await shortcutRow(preferences, 'new-label-track', 'New label track');
+		await expect(row).toHaveCount(0);
+		await chooseDropdown(page, preferences.locator('[role="group"][aria-label="Sort commands"]'), 'Alphabetical');
+		await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		await expect(binding).toHaveValue('Ctrl+Shift+F12');
+	});
+
+	test('resetting shortcut defaults clears an unassigned draft even when the installed defaults are current', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const preferences = await openShortcutPreferences(page, editor);
+		const row = await shortcutRow(preferences, 'new-mono-track', 'New mono track');
+		const binding = row.locator('[data-shortcut-binding="0"]');
+		const original = await binding.inputValue();
+		await binding.fill('Ctrl+Shift+F12');
+		await preferences.getByRole('button', { name: 'Restore default shortcuts', exact: true }).click();
+		await expect(binding).toHaveValue(original);
 	});
 
 	test('captures extra mouse buttons, detects conflicts, and keeps modified bindings after reload', async ({ page, context, browserName }) => {

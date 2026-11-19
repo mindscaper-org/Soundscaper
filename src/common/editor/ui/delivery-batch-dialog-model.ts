@@ -35,6 +35,7 @@ export interface DeliveryBatchTargetCopy {
 	readonly entireProject: string;
 	readonly currentSelection: string;
 	readonly loopRegion: string;
+	readonly noMaterial: string;
 	readonly noSelection: string;
 	readonly noLoop: string;
 	readonly undeliverableSequence: string;
@@ -42,6 +43,7 @@ export interface DeliveryBatchTargetCopy {
 }
 
 export interface DeliveryBatchTargetInput {
+	readonly hasMaterial: boolean;
 	readonly hasSelection: boolean;
 	readonly hasLoop: boolean;
 	readonly masteringSequences?: DocumentMasteringSequenceDocumentSnapshot | null;
@@ -83,7 +85,9 @@ export function deliveryBatchTargetOptions(
 			copy.stemsUnsupported,
 		));
 	}
-	return Object.freeze(options);
+	return Object.freeze(input.hasMaterial ? options : options.map(target => Object.freeze({
+		...target, available: false, reason: target.key === 'project' ? copy.noMaterial : target.reason,
+	})));
 }
 
 /**

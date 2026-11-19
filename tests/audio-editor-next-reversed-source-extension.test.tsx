@@ -42,8 +42,11 @@ for (const reversed of [false, true]) for (const speed of [.5, 2]) for (const ed
 			const pointer = (frame: number) => ({ target: handle, button: 0, buttons: 1, pointerId: 1,
 				isPrimary: true, clientX: frame / range.totalFrames * 600, clientY: 0,
 				preventDefault() {}, stopPropagation() {} });
-			await act(async () => reactProps(handle).onPointerDown(pointer(initial)));
-			await act(async () => reactProps(wave).onPointerUp(pointer(desired)));
+			await act(async () => reactProps(handle).onPointerDown(pointer(initial + 5)));
+			await act(async () => reactProps(wave).onPointerUp(pointer(initial + 5)));
+			assert.deepEqual(trims, [], 'clicking off-center within a trim handle must not trim the source');
+			await act(async () => reactProps(handle).onPointerDown(pointer(initial + 5)));
+			await act(async () => reactProps(wave).onPointerUp(pointer(desired + 5)));
 			assert.deepEqual(trims, [{ sourceStartFrame: edge === 'start' ? 500 : 1000,
 				sourceDurationFrames: 2500, durationFrames: clip.durationFrames * 1.25 }]);
 		} finally {

@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { createDesktopVideoCodecOperationRunner } from '../src/common/editor/desktop-video-codec-runtime.ts';
 import { createVideoExactPictureExportFrameSource } from '../src/common/editor/video-keyframe-export-frame-source.ts';
+import { DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER } from '../src/common/editor/desktop-main-audio-codec-runtime-marker.ts';
 import { encodeVideoKeyframeVideo } from '../src/common/editor/video-keyframe-video-encoder.ts';
 
 const TOKEN = '0123456789abcdef0123456789abcdef';
@@ -14,14 +15,16 @@ const MP4 = Uint8Array.of(
 	0, 0, 0, 9, 0x6d, 0x64, 0x61, 0x74, 0,
 );
 
-test('desktop video adapter drives the existing bounded encoder and validates output before return', async () => {
+for (const format of ['mp4', 'mov'] as const) test(`desktop video adapter drives the existing bounded encoder and validates output before return (${format})`, async () => {
+	const encoded = MP4.slice();
+	if (format === 'mov') encoded.set([0x71, 0x74, 0x20, 0x20], 8);
 	const input: number[] = [];
 	let closeInput!: () => void;
 	const closed = new Promise<void>((resolve) => { closeInput = resolve; });
 	const calls: string[] = [];
 	const bridge = {
 		begin(plan: unknown) {
-			assert.equal((plan as { format?: unknown }).format, 'mp4');
+			assert.equal((plan as { format?: unknown }).format, format);
 			calls.push('begin');
 			return { operationId: `desktop-video-${'1'.repeat(32)}` };
 		},
@@ -36,10 +39,10 @@ test('desktop video adapter drives the existing bounded encoder and validates ou
 			calls.push('close'); closeInput(); return { offset: input.length };
 		},
 		async execute() { calls.push('execute'); await closed; return { exitCode: 0 }; },
-		stat() { calls.push('stat'); return { byteLength: MP4.byteLength }; },
+		stat() { calls.push('stat'); return { byteLength: encoded.byteLength }; },
 		read(request: { offset: number; maximumBytes: number }) {
 			calls.push('read');
-			return MP4.slice(request.offset, request.offset + request.maximumBytes);
+			return encoded.slice(request.offset, request.offset + request.maximumBytes);
 		},
 		delete() { calls.push('delete'); return true; },
 		cancel() { calls.push('cancel'); return false; },
@@ -49,8 +52,12 @@ test('desktop video adapter drives the existing bounded encoder and validates ou
 		canvas: { width: 2, height: 2, frameRate: { num: 1, den: 1 } },
 	});
 	let disposed = 0;
+	const ffmpeg = {
+		runVideoKeyframeEncoderOperation: createDesktopVideoCodecOperationRunner(bridge),
+		[DESKTOP_MAIN_AUDIO_CODEC_RUNTIME_MARKER]: true as const,
+	};
 	const result = await encodeVideoKeyframeVideo(
-		{ runVideoKeyframeEncoderOperation: createDesktopVideoCodecOperationRunner(bridge) },
+		ffmpeg,
 		{
 			frameSource,
 			producer: {
@@ -58,11 +65,13 @@ test('desktop video adapter drives the existing bounded encoder and validates ou
 				produce(_frame, target) { target.fill(7); },
 				dispose() { disposed += 1; },
 			},
-			format: 'mp4', maximumOutputChunkBytes: 8,
+			format, maximumOutputChunkBytes: 8,
 		},
 		{ createJobToken: () => TOKEN },
 	);
-	assert.deepEqual(result.bytes, MP4);
+	assert.deepEqual(result.bytes, encoded);
+	assert.equal(result.extension, `.${format}`);
+	assert.equal(result.mimeType, format === 'mov' ? 'video/quicktime' : 'video/mp4');
 	assert.deepEqual(input, new Array(16).fill(7));
 	assert.equal(disposed, 1);
 	assert.deepEqual(calls.slice(0, 4), ['begin', 'execute', 'write', 'close']);

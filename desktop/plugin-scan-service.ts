@@ -24,10 +24,11 @@
  * and the Web Core editor is untouched.
  */
 
-import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat } from './helper-job-grant.ts';
+import { HELPER_PLUGIN_FORMATS, type HelperPluginFormat, type PluginScanCursor } from './helper-job-grant.ts';
 import { HELPER_RESOURCE_HARD_LIMITS } from './helper-resource-policy.ts';
 import { HelperSupervisionError, type HelperJobRequest } from './helper-supervisor.ts';
 import { HelperContractViolationError } from './helper-wire-admission.ts';
+import type { NativeChildFileIdentity } from './native-child-file-identity.ts';
 import type { NativeAddonAvailability } from './native-addon-payload.ts';
 import {
 	type HelperPluginScanResult,
@@ -137,7 +138,7 @@ export interface PluginScanQuarantinePort {
 export interface PluginScanRootLocation {
 	/** Main-private directory. Never leaves this process. */
 	readonly path: string;
-	readonly identity: Readonly<{ dev: number; ino: number }>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	/** Lowercase SHA-256 naming this root-and-format scan unit for quarantine. */
 	readonly scanDigest: string;
 }
@@ -276,13 +277,39 @@ export class DesktopPluginScanService {
 				if (!this.#consent.isGranted(format)) {
 					throw new ScanPreconditionError('consent-required');
 				}
-				return this.#supervisor.runJob({
-					kind: 'plugin-scan',
-					grant: { rootPath: root.path, format, identity: root.identity },
-					resourcePolicy: PLUGIN_SCAN_RESOURCE_POLICY,
-					signal: controller.signal,
-					validateResult: (value) => validateHelperPluginScanResult(value),
-				});
+				let cursor: Readonly<PluginScanCursor> | undefined;
+				const deadline = Date.now() + PLUGIN_SCAN_RESOURCE_POLICY.maximumJobDurationMs;
+				const entries: HelperPluginScanResult['entries'][number][] = [];
+				const stableIds = new Set<string>();
+				let detail = '';
+				for (;;) {
+					controller.signal.throwIfAborted();
+					if (!this.#consent.isGranted(format)) throw new ScanPreconditionError('consent-required');
+					const remaining = deadline - Date.now();
+					if (remaining <= 0) throw new HelperSupervisionError('resource-violation', 'The plugin scan exceeded its time limit.');
+					const page = validateHelperPluginScanResult(await this.#supervisor.runJob({
+						kind: 'plugin-scan',
+						grant: { rootPath: root.path, format, identity: root.identity, ...(cursor ? { cursor } : {}) },
+						resourcePolicy: cursor ? { ...PLUGIN_SCAN_RESOURCE_POLICY, maximumJobDurationMs: remaining } : PLUGIN_SCAN_RESOURCE_POLICY,
+						signal: controller.signal,
+						validateResult: validateHelperPluginScanResult,
+					}));
+					if (page.format !== format) throw new HelperContractViolationError('malformed', 'The scan page changed its format.');
+					if (page.status !== 'scanned' && page.status !== 'root-oversized') return page;
+					detail ||= page.detail;
+					for (const entry of page.entries) {
+						if (stableIds.has(entry.stableId)) throw new HelperContractViolationError('malformed', 'Scan pages repeated a plugin identity.');
+						stableIds.add(entry.stableId);
+						entries.push(entry);
+					}
+					if (!page.next) return Object.freeze({ format, status: page.status, detail, entries: Object.freeze(entries) });
+					const previous = cursor ?? { candidateIndex: 0, descriptorIndex: 0 };
+					if (page.next.candidateIndex < previous.candidateIndex
+						|| page.next.candidateIndex === previous.candidateIndex && page.next.descriptorIndex <= previous.descriptorIndex) {
+						throw new HelperContractViolationError('malformed', 'The plugin scan cursor did not advance.');
+					}
+					cursor = page.next;
+				}
 			}) as HelperPluginScanResult;
 			if (controller.signal.aborted) {
 				// A scanner that answered as the abort landed still answered for
@@ -386,7 +413,7 @@ const FAILURE_MESSAGES: Readonly<Record<PluginScanFailureCode, string>> = Object
 	'unknown-root': 'That scan location is not registered for this format.',
 	'unsupported-job': 'This surface accepts plug-in discovery requests only.',
 	'helper-cancelled': 'The scan was cancelled.',
-	'helper-failed': 'The plug-in scanner could not complete this folder. Review scanning preferences and retry. If it fails again, restart the application.',
+	'helper-failed': 'The plug-in scanner could not complete this folder. Open Plugin Manager and scan again.',
 });
 
 const SCAN_FAULT_MESSAGES: Readonly<Record<PluginScanFaultReason, string>> = Object.freeze({

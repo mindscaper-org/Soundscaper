@@ -66,9 +66,9 @@ function authority(
 			tracks: Object.freeze([...tracks]),
 		}),
 		source: Object.freeze({ id: 'voice-source' }),
-		clip: Object.freeze({ id: 'voice-clip' }),
+		clip: Object.freeze({ id: 'voice-clip' as string }),
 		track: Object.freeze({ id: 'voice-track' }),
-		startFrame: 48_000, endFrame: 96_000,
+		startFrame: 48_000 as number, endFrame: 96_000 as number,
 		sourceStartFrame: 36_000, sourceEndFrame: 84_000,
 		fence: fence(revision),
 	});
@@ -125,67 +125,7 @@ function attributedRequest(selectionFence = fence(), text = 'Hello there') {
 	});
 }
 
-class TranscriptStore {
-	readonly bodies = new Map<string, Blob>();
-	readonly metadata = new Map<string, Readonly<Record<string, unknown>>>();
-	beginCount = 0;
-	discardCount = 0;
-	onCommit: (() => void) | null = null;
-
-	getMediaAssetMetadata(key: string) {
-		return Promise.resolve(this.metadata.get(key) ?? null);
-	}
-
-	loadMediaAsset(key: string) {
-		return Promise.resolve(this.bodies.get(key) ?? null);
-	}
-
-	beginMediaAssetWrite(
-		key: string,
-		metadata: Readonly<Record<string, unknown>>,
-		options: Readonly<{ expectedBytes: number; expectedSha256: string }>,
-	) {
-		this.beginCount += 1;
-		const chunks: Uint8Array[] = [];
-		let bytesWritten = 0;
-		let aborted = false;
-		return Promise.resolve({
-			maximumChunkBytes: 64,
-			get bytesWritten() { return bytesWritten; },
-			write: (bytes: Uint8Array) => {
-				if (aborted) throw new Error('writer aborted');
-				chunks.push(Uint8Array.from(bytes));
-				bytesWritten += bytes.byteLength;
-				return Promise.resolve();
-			},
-			commitOwned: () => {
-				const bytes = new Uint8Array(bytesWritten);
-				let offset = 0;
-				for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
-				assert.equal(bytes.byteLength, options.expectedBytes);
-				const record = Object.freeze({
-					...metadata, sourceId: key, size: bytes.byteLength, sha256: options.expectedSha256,
-				});
-				const body = new Blob([bytes], { type: String(metadata.mimeType ?? '') });
-				this.bodies.set(key, body);
-				this.metadata.set(key, record);
-				this.onCommit?.();
-				return Promise.resolve(Object.freeze({
-					metadata: record,
-					discardIfCurrent: () => {
-						this.discardCount += 1;
-						if (this.bodies.get(key) !== body) return Promise.resolve(false);
-						this.bodies.delete(key);
-						this.metadata.delete(key);
-						return Promise.resolve(true);
-					},
-				}));
-			},
-			commit: () => Promise.resolve(Object.freeze({})),
-			abort: () => { aborted = true; return Promise.resolve(); },
-		});
-	}
-}
+import { TranscriptStore } from './helpers/local-assistance-transcript-store.ts';
 
 test('reviewed speech acceptance publishes one authenticated body and timeline label batch', async () => {
 	const store = new TranscriptStore();
@@ -313,6 +253,46 @@ test('a rerun replaces its stable reference and owned label track through one co
 	assert.ok(secondAdd?.type === 'track/add');
 	assert.equal(secondAdd.track.id, firstAdd.track.id);
 	assert.equal(secondAdd.track.labels[0]?.title, 'Speaker 1: Changed words');
+});
+
+for (const legacy of [false, true]) test(`another occurrence retains its earlier ${legacy ? 'legacy' : 'current'} caption track`, async () => {
+	const store = new TranscriptStore();
+	let current = authority();
+	let command: TestAcceptanceCommand | null = null;
+	const acceptance = createLocalAssistanceTranscriptAcceptance({ currentAuthority: () => current, captureProject: () => current.fence,
+		assertProject: () => {}, store, commit: value => { command = value as unknown as TestAcceptanceCommand; } });
+	await acceptance.acceptValidatedResult(request());
+	const first = command as unknown as TestAcceptanceCommand;
+	const added = first.commands[0];
+	assert.ok(added?.type === 'track/add');
+	const earlierTrack = legacy ? { ...added.track, id: first.reference.id.replace('assistance-transcript:', 'assistance-transcript-track:') } : added.track;
+	current = { ...authority(5, [first.reference], [earlierTrack]), startFrame: 144_000, endFrame: 192_000,
+		clip: { id: 'second-voice-clip' }, fence: { ...fence(5), occurrenceIds: ['second-voice-clip'] } };
+	await acceptance.acceptValidatedResult(request(current.fence));
+	const second = command as unknown as TestProjectCommand | { type: 'batch'; commands: readonly TestProjectCommand[] };
+	const commands = second.type === 'batch' ? second.commands : [second];
+	assert.deepEqual(commands.map(({ type }) => type), ['track/add']);
+	const secondAdded = commands[0];
+	assert.ok(secondAdded?.type === 'track/add');
+	assert.notEqual(secondAdded.track.id, added.track.id);
+	assert.equal(secondAdded.track.labels[0]?.startFrame, 156_000);
+	assert.equal(store.beginCount, 1);
+});
+
+test('rerunning a saved legacy caption track migrates its occurrence identity without duplicating labels', async () => {
+	const store = new TranscriptStore();
+	let current = authority();
+	const commits: TestAcceptanceCommand[] = [];
+	const acceptance = createLocalAssistanceTranscriptAcceptance({ currentAuthority: () => current, captureProject: () => current.fence,
+		assertProject: () => {}, store, commit: value => { commits.push(value as unknown as TestAcceptanceCommand); } });
+	await acceptance.acceptValidatedResult(request());
+	const first = commits[0]!;
+	const added = first.commands[0];
+	assert.ok(added?.type === 'track/add');
+	const legacyId = first.reference.id.replace('assistance-transcript:', 'assistance-transcript-track:');
+	current = authority(5, [first.reference], [{ ...added.track, id: legacyId }]);
+	await acceptance.acceptValidatedResult(request(current.fence, 'Changed words'));
+	assert.deepEqual(commits[1]?.commands[0], { type: 'track/remove', trackId: legacyId });
 });
 
 test('speaker attribution replaces the same transcript body and owned caption track atomically', async () => {

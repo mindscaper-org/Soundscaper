@@ -60,7 +60,7 @@ test.describe('Audacity Reverb realtime rack', () => {
 			await expect(parameter(dialog, label).getByRole('spinbutton')).toBeVisible();
 			await expect(parameter(dialog, label).getByRole('spinbutton')).toBeEnabled();
 		}
-		const preset = dialog.getByRole('button', { name: 'Preset', exact: true });
+		const preset = dialog.getByRole('button', { name: /^Preset(?::|$)/u });
 		await preset.click();
 		await page.getByRole('option', { name: 'Cathedral', exact: true }).click();
 		await expect(preset).toContainText('Cathedral');

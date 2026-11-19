@@ -15,6 +15,7 @@ import {
 } from '../../recording-routing.js';
 import { createStreamingWindowedSincResampler } from '../../resample.js';
 import { abortError } from '../shared/app-helpers.ts';
+import { createRecordingPunchAndRollService } from './internal/recording-punch-and-roll-service.ts';
 import { createRecordingMidiAdmission } from './internal/recording-midi-admission.ts';
 import { createLegacyRecordingCaptureService } from './internal/legacy-recording-capture-service.ts';
 import { planNewRecordingTracks } from './internal/new-recording-tracks.ts';
@@ -46,6 +47,7 @@ import type {
 	RecordingSelection,
 } from './recording-transaction-types.ts';
 import { createRoutedRecordingCaptureService } from './internal/routed-recording-capture-service.ts';
+import { hasOnlyExplicitNativeRecordingRoutes } from './internal/routed-recording-source-plan.ts';
 import { SOURCE_CHUNK_FRAMES } from '../source/source-audio.ts';
 import { createOrdinaryRecordingRecoveryComposition } from './internal/ordinary-recording-recovery-composition.ts';
 import { startOwnedOrdinaryRecording } from './internal/recording-start-ownership.ts';
@@ -141,9 +143,16 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		dependencies.publishDocumentSnapshot();
 	};
 
+	const punchAndRoll = createRecordingPunchAndRollService({ state, getProject: document.get,
+		captureCurrent: document.captureCurrent, assertCurrent: document.assertCurrent,
+		stopRecording: () => session.stopRecording(), startRecording: options => session.startRecording(options),
+		pauseTransport: () => engine.pause(), seek: frame => { engine.seek(frame); dependencies.updatePlayhead(frame); },
+		persistDuration: seconds => dependencies.persistSetting('recording-lead-in-seconds', seconds, { policy: 'required' }),
+		publish: dependencies.publishDocumentSnapshot });
 	const ordinaryRecovery = createOrdinaryRecordingRecoveryComposition(dependencies);
 	const captureRuntime: RecordingCaptureCommonRuntime & Readonly<{ engine: RecordingCompositionEngine }> = {
 		state,
+		rememberPunch: punchAndRoll.rememberPunch,
 		soundActivation,
 		engine,
 		capturePool,
@@ -230,9 +239,12 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		createStableId,
 		createAddSourceCommand,
 		preparePunchCommand,
-		preparePunchSequence: async (project, segments) => (
-			(await import('./internal/recording-punch-sequence.js')).prepareRecordingPunchSequence(project, segments)
-		),
+		preparePunchSequence: async (project, segments) => {
+			const { prepareRecordingPunchSequence } = await import('./internal/recording-punch-sequence.ts');
+			const current = document.get();
+			if (!current || current !== project) throw abortError();
+			return prepareRecordingPunchSequence(current, segments, dependencies.projectRuntime.applyCommand);
+		},
 		activateStoredSource: async (source, metadata) => { await dependencies.activateStoredSource(source, metadata); },
 		commitBatch: (project, commands, selection) => {
 			if (project !== document.get()) throw abortError();
@@ -326,7 +338,7 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		abortError,
 		addTrack: dependencies.addTrack,
 		prepareRecordingOptions: (options) => {
-			if (!state.preferences.recording.alwaysRecordToNewTrack) return options;
+			if (options.punch || !state.preferences.recording.alwaysRecordToNewTrack) return options;
 			const plan = planNewRecordingTracks(requireProject(), state.recordingRouting, options, createStableId, publishedCopyFor(copy).recordingLabel);
 			if (!plan) return options;
 			dependencies.commit(plan.command, { selectTrackId: plan.selectTrackId });
@@ -339,7 +351,8 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 		cancelTimedRecording: () => timed.cancelTimedRecording(),
 		beginRecording: async (options, scope) => {
 			if (state.audioHost !== 'browser' && state.audioHost !== 'electron'
-				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)) {
+				&& !state.audioInputDevices.some(device => device.deviceId === state.preferredInputDeviceId)
+				&& !hasOnlyExplicitNativeRecordingRoutes(requireProject(), options, state.recordingRouting.routes)) {
 				throw new Error('The selected native audio input is unavailable.');
 			}
 			await startOwnedOrdinaryRecording({ begin: ordinaryRecovery.begin, scope,
@@ -503,8 +516,12 @@ export function createRecordingComposition(dependencies: RecordingCompositionDep
 
 	return Object.freeze({
 		routing,
+		punchAndRoll,
 		inputs,
-		session,
+		session: Object.freeze({ ...session,
+			stopRecording: () => { punchAndRoll.cancelPendingRetry(); return session.stopRecording(); },
+			cancelRecordingStart: () => { punchAndRoll.cancelPendingRetry(); return session.cancelRecordingStart(); },
+		}),
 		timed,
 		takeCycle,
 		publishRecordingPreview,

@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
 	externalDisplayPlacementSupport,
 	FramescaperExternalDisplayController,
+	type FramescaperExternalDisplayFrame,
 	type FramescaperExternalDisplayWindow,
 } from '../desktop/external-display-controller.ts';
 import { createFramescaperNativeExternalDisplayPort } from '../desktop/native-services-external-display-port.ts';
@@ -58,7 +59,7 @@ test('the session window is sandboxed, shares evaluated frames, and presents the
 
 	const rgba = Uint8Array.of(0, 0, 0, 255, 255, 255, 255, 255);
 	const rgbaSha256 = createHash('sha256').update(rgba).digest('hex');
-	controller.present({
+	const frame: FramescaperExternalDisplayFrame = {
 		sequence: 1,
 		evaluationFingerprint: 'a'.repeat(64),
 		width: 2,
@@ -66,7 +67,8 @@ test('the session window is sandboxed, shares evaluated frames, and presents the
 		dynamicRange: 'hdr',
 		rgbaSha256,
 		rgba,
-	});
+	};
+	await controller.present(frame);
 	assert.deepEqual(sent, [{
 		channel: 'framescaper:external-display:v1:frame',
 		payload: {
@@ -79,10 +81,13 @@ test('the session window is sandboxed, shares evaluated frames, and presents the
 			rgba,
 		},
 	}]);
-	assert.throws(() => controller.present({
-		sequence: 1, evaluationFingerprint: 'a'.repeat(64), width: 2, height: 1,
-		dynamicRange: 'sdr', rgbaSha256, rgba,
-	}), /strictly increasing/u);
+	assert.equal((sent[0]?.payload as FramescaperExternalDisplayFrame).rgba, rgba);
+	assert.throws(() => controller.present(frame), /strictly increasing/u);
+	const shared = new Uint8Array(new SharedArrayBuffer(rgba.byteLength));
+	shared.set(rgba);
+	await controller.present({ ...frame, sequence: 2, rgba: shared });
+	shared.fill(0);
+	assert.deepEqual((sent[1]?.payload as FramescaperExternalDisplayFrame).rgba, rgba);
 
 	controller.reconcileDisplays([]);
 	assert.equal(window.closes, 1);

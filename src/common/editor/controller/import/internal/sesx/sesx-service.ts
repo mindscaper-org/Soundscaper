@@ -53,7 +53,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 			if (!resolveMedia || !chooseFolder || !withRead || !files.releaseSesxSession) {
 				throw new Error('Desktop SESX media access is unavailable.');
 			}
-			if (runtime.editingBlocked()) return undefined;
+			if (runtime.editingBlocked(true)) return undefined;
 			const operation = helpers.beginProjectTask('native-project-open');
 			const signal = operation.task.signal;
 			const assertReady = (): void => { helpers.assertOwnership(operation.task, operation.projectToken); };
@@ -140,7 +140,7 @@ export function createSesxService(runtime: NativeProjectServiceRuntime, helpers:
 				const created = createCurrentAudioEditorProject(plan.project as never);
 				importedProject = runtime.adaptAudacityProject
 					? await runtime.adaptAudacityProject(created)
-					: runtime.loadProject(created).project;
+					: runtime.createImportedProject ? await runtime.createImportedProject(plan.project) : runtime.loadProject(created).project;
 				assertReady();
 				const retainedIds = new Set(plan.media.map((binding) => binding.sourceId));
 				for (const sourceId of persistedSourceIds) {

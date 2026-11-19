@@ -25,7 +25,7 @@ export async function readBoundedResponse(response: Response, options: Readonly<
 		}
 		if (!response.body) throw new Error(`${options.label} response has no readable body.`);
 	} catch (error) {
-		await response.body?.cancel(error).catch(() => undefined);
+		void response.body?.cancel(error).catch(() => undefined);
 		throw error;
 	}
 	const reader = response.body.getReader();
@@ -50,7 +50,7 @@ export async function readBoundedResponse(response: Response, options: Readonly<
 			chunks.push(owned);
 		}
 	} catch (error) {
-		await reader.cancel(error).catch(() => undefined);
+		void reader.cancel(error).catch(() => undefined);
 		throw error;
 	} finally {
 		reader.releaseLock();

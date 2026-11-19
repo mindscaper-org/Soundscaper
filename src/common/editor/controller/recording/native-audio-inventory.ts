@@ -25,6 +25,7 @@ export type NativeAudioDirection = 'input' | 'output';
 /** What main publishes per device. The handle is opaque and stays opaque. */
 export type NativeAudioDeviceReport = Readonly<{ handle: string; label: string; direction: NativeAudioDirection | 'duplex'; channelCount?: number; isDefault?: boolean }>;
 export type NativeAudioInventoryReport = Readonly<{ backend: string; status: string; detail: string; devices: readonly NativeAudioDeviceReport[] }>;
+export type NativeAudioDeviceDefaults = Readonly<{ preferredInputDeviceId: string; preferredOutputDeviceId: string }>;
 /** Deterministic per-device map: the index, and the even index of its pair. */
 export type NativeAudioChannel = Readonly<{ index: number; pairStart: number | null }>;
 /** The `state.recordingDevices` row shape, plus the native group and channel map. */
@@ -43,6 +44,11 @@ export type NativeAudioInventory = Readonly<{ backend: string; status: string; d
  */
 export function nativeAudioDeviceId(backend: string, kind: AudioDeviceKind, handle: string): string {
 	return `${NATIVE_AUDIO_DEVICE_ID_PREFIX}:${backend}:${kind === 'audio-input' ? 'in' : 'out'}:${handle}`;
+}
+
+export function isNativeAudioDeviceSelection(deviceId: string, backend: string, kind: AudioDeviceKind): boolean {
+	const prefix = nativeAudioDeviceId(backend, kind, '');
+	return deviceId.startsWith(prefix) && deviceId.length > prefix.length && isOpaqueNativeAudioHandle(deviceId.slice(prefix.length));
 }
 
 export function nativeAudioDeviceGroupId(backend: string, handle: string): string {

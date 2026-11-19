@@ -17,6 +17,7 @@ import { AUDIO_EDITOR_BUILT_IN_WORKSPACES } from '../../workspace-layout-default
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
 import PreferenceNumberInput from './PreferenceNumberInput.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface EditingPreferencesCopy {
 	readonly allTracks: string;
@@ -349,7 +350,7 @@ export default function EditingPreferencesPage({
 							options={zoomOptions}
 						/>
 						<label className="kw-audio-editor-preferences__field">
-							<span>{copy.mouseZoomPrecision}</span>
+							<EditorControlLabel>{copy.mouseZoomPrecision}</EditorControlLabel>
 							<PreferenceNumberInput
 								minimum={AUDIO_EDITOR_MINIMUM_ZOOM_PRECISION}
 								maximum={AUDIO_EDITOR_MAXIMUM_ZOOM_PRECISION}
@@ -388,7 +389,7 @@ function PreferenceRadioGroup<Value extends string>({
 								checked={value === choice.value}
 								onChange={() => onChange(choice.value)}
 							/>
-							<span>{choice.label}</span>
+							<EditorControlLabel>{choice.label}</EditorControlLabel>
 						</label>
 					</div>
 					{afterChoice?.(choice.value)}

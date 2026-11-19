@@ -28,3 +28,13 @@ test('BGR model resizing and cropped normalized RGB write identical tensors with
 	assert.equal(hash(rgb), '8a0683783e46bc1813c4170e089b4ce12ef90db2b84fc75a4ddcaf9f3a0142fc');
 	assert.equal(rgbArrays, 0, 'interpolated channels go directly to the owned tensor');
 });
+
+test('visual tensor resizing prepares each axis only once', (context) => {
+	const floor = context.mock.method(Math, 'floor');
+	const rgba = Uint8Array.from({ length: 7 * 5 * 4 }, (_, index) => index * 61 % 256);
+	const result = resizeAssistanceRgbaToChwFloatV1(rgba, 7, 5, 11, 9,
+		{ channelOrder: 'rgb', mean: [.1, .25, .45], standardDeviation: [.2, .3, .4], scale: 1 / 255 },
+		{ left: .03, top: .11, right: .89, bottom: .885 });
+	assert.equal(hash(result), '7c69e8b0cc11eb6abd700ff6faef768fff572072122f99fde82c090c5c263df9');
+	assert.equal(floor.mock.callCount(), 20);
+});

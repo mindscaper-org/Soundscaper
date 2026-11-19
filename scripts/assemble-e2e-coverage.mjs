@@ -6,10 +6,11 @@ import { resolve } from 'node:path';
 import { assembleE2ECoverageCapture } from './lib/e2e-coverage-assembler.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
-const { output, runRoots } = argumentsFrom(process.argv.slice(2));
+const { output, runRoots, nodeEvidenceRoots } = argumentsFrom(process.argv.slice(2));
 const result = assembleE2ECoverageCapture({
 	repositoryRoot,
 	runRoots: runRoots.map((path) => resolve(path)),
+	nodeEvidenceRoots: nodeEvidenceRoots.map((path) => resolve(path)),
 	...(output === null ? {} : { outputRoot: resolve(output) }),
 });
 
@@ -21,11 +22,16 @@ process.stdout.write(
 function argumentsFrom(values) {
 	let output = null;
 	const runRoots = [];
+	const nodeEvidenceRoots = [];
 	for (let index = 0; index < values.length; index += 1) {
 		const value = values[index];
 		if (value === '--output') {
 			if (output !== null || values[index + 1] === undefined) usage();
 			output = values[index + 1];
+			index += 1;
+		} else if (value === '--node-evidence') {
+			if (values[index + 1] === undefined || values[index + 1].startsWith('-')) usage();
+			nodeEvidenceRoots.push(values[index + 1]);
 			index += 1;
 		} else if (value === '--help' || value === '-h') {
 			usage(0);
@@ -36,12 +42,13 @@ function argumentsFrom(values) {
 		}
 	}
 	if (runRoots.length === 0) usage();
-	return { output, runRoots };
+	return { output, runRoots, nodeEvidenceRoots };
 }
 
 function usage(exitCode = 1) {
 	const text = 'Usage: node scripts/assemble-e2e-coverage.mjs '
-		+ '[--output <capture-directory>] <nightly-run-root> [<nightly-run-root> ...]\n';
+		+ '[--output <capture-directory>] [--node-evidence <qualified-directory>] '
+		+ '<nightly-run-root> [<nightly-run-root> ...]\n';
 	if (exitCode === 0) {
 		process.stdout.write(text);
 		process.exit(0);

@@ -42,7 +42,9 @@ export async function inspectVorbisInitialGeometry(file: Blob, serial: number, s
 						if (!Number.isFinite(next.value.duration) || frames < 0 || frames > 8192
 							|| audioPackets > 1 && frames === 0 || next.value.byteLength < 1 || next.value.byteLength > 1024 ** 2
 							|| Math.abs(next.value.duration * sampleRate - frames) > 1e-5) throw new RangeError('The initial Vorbis packet duration is unsupported.');
-						decodedFrames += frames;
+						// The first Vorbis packet primes the overlap window without PCM.
+						// New demuxers report that window's duration instead of zero.
+						if (audioPackets > 1) decodedFrames += frames;
 					}
 					// A final granule also contains trailing trim and cannot prove an absolute origin.
 					if (header[5]! & 4) return { origin: 0, minimumEncodedFrames: decodedFrames };

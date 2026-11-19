@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { interchangeRequiredForTests, nativePrerequisitesForTests, selectedBrowserTestFiles } from '../scripts/ci-test-prerequisites.mjs';
+import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
 
 function fixture(context) {
 	const root = mkdtempSync(join(tmpdir(), 'soundscaper-prerequisite-selection-'));
@@ -44,6 +45,11 @@ test('desktop payload manifest checks require interchange assets only when selec
 	assert.equal(interchangeRequiredForTests(root, [ordinary, manifest]), true);
 });
 
+test('AAF reference consumers require interchange provisioning through their helper closure', () => {
+	const root = fileURLToPath(new URL('../', import.meta.url));
+	assert.equal(interchangeRequiredForTests(root, [join(root, 'tests/audio-editor-aaf-import-service.test.ts')]), true);
+});
+
 test('Playwright prerequisite discovery uses only selected specs, including nested suites', context => {
 	const root = fixture(context);
 	const report = { config: { rootDir: join(root, 'tests/browser') }, errors: [], suites: [
@@ -58,11 +64,29 @@ test('Playwright prerequisite discovery uses only selected specs, including nest
 test('native prerequisites follow selected helper dependencies rather than execution slot names', context => {
 	const root = fixture(context);
 	const ordinary = join(root, 'tests/browser/ordinary.spec.js');
-	assert.deepEqual(nativePrerequisitesForTests(root, [ordinary]), { boost: false, electron: false, desktop_runtime: false });
+	assert.deepEqual(nativePrerequisitesForTests(root, [ordinary]), { boost: false, electron: false, desktop_runtime: false, chromium: false });
 	writeFileSync(join(root, 'tests/helpers/native.js'), "import 'electron'; export { run } from '../../src/framescaper/native.ts';");
 	writeFileSync(join(root, 'tests/native.test.js'), "import './helpers/native.js';");
-	assert.deepEqual(nativePrerequisitesForTests(root, [join(root, 'tests/native.test.js')]), { boost: true, electron: true, desktop_runtime: false });
+	assert.deepEqual(nativePrerequisitesForTests(root, [join(root, 'tests/native.test.js')]), { boost: true, electron: true, desktop_runtime: false, chromium: false });
 });
+
+test('selecting the WebGL pixelation Node regression requires headless Chromium', () => {
+	const root = fileURLToPath(new URL('../', import.meta.url));
+	const pixelation = join(root, 'tests/audio-editor-more50-pixelate.test.ts');
+	assert.equal(nativePrerequisitesForTests(root, [pixelation]).chromium, true);
+	assert.equal(nativePrerequisitesForTests(root, []).chromium, false);
+});
+
+for (const workflowName of ['quality.yml', 'desktop-preview.yml', 'soundscaper-stable-1.yml']) {
+	test(`${workflowName} provides headless Chromium for the selected Node tests that launch it`, async () => {
+		const job = extractJob(await readWorkflow(workflowName), 'tests');
+		const selection = job.indexOf('id: test-prerequisites');
+		const provision = job.indexOf('run: node node_modules/playwright-core/cli.js install --with-deps --only-shell chromium');
+		assert.ok(selection >= 0 && provision > selection && job.indexOf('run: xvfb-run') > provision);
+		const step = job.slice(0, provision).split(/\n {6}- /u).at(-1);
+		assert.match(step ?? '', /if: steps\.test-prerequisites\.outputs\.chromium == 'true'/u);
+	});
+}
 
 test('production parity discovery needs no downloaded build assets in any browser project', context => {
 	const root = fileURLToPath(new URL('../', import.meta.url));

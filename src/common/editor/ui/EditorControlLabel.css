@@ -1,0 +1,8 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+.audio-editor-control-label,
+.audio-editor-control-label :is(.labeled-checkbox__label, .labeled-radio__label) {
+	font-weight: 600;
+	letter-spacing: normal;
+	text-transform: none;
+}

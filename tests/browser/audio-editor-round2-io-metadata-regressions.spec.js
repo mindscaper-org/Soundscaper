@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, closeWorkspacePanel, importFiles, waitForEditor } from './audio-editor-test-helpers.js';
 
 test('pasted multiline project comments retain their lines after saving and reopening', async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');
 	let metadata = editor.locator('[data-workspace-panel="metadata"]');

@@ -4,7 +4,7 @@ import { expect, test, longTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('Source waveform selection ends on primary release while middle remains held', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [longTone]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
 	const waveform = panel.getByRole('region', { name: 'Source waveform', exact: true });

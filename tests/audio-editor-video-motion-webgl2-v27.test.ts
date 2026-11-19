@@ -41,3 +41,28 @@ test('WebGL2 admission records stable missing-extension diagnostics', () => {
 		fallbackReason: VIDEO_MOTION_WEBGL2_FALLBACK_REASONS_V1.extensionsUnavailable,
 	});
 });
+
+test('failed motion admission releases its owned browser context slot', () => {
+	let releases = 0;
+	const context = { texImage3D() {}, drawArrays() {}, getExtension(name: string) {
+		return name === 'WEBGL_lose_context' ? { loseContext() { releases += 1; } } : null;
+	} };
+	assert.equal(createVideoMotionWebGl2AcceleratorAdmissionV1({ getContext: () => context }).accelerator, null);
+	assert.equal(releases, 1);
+});
+
+test('successful motion admission releases only contexts it owns and only once', () => {
+	let releases = 0;
+	const gl = new Proxy({}, { get(_target, key) {
+		if (key === 'getExtension') return (name: string) => name === 'WEBGL_lose_context'
+			? { loseContext() { releases += 1; } } : {};
+		if (key === 'getParameter') return () => 32;
+		return () => ({});
+	} });
+	createVideoMotionWebGl2AcceleratorV1(gl).dispose();
+	assert.equal(releases, 0, 'a caller-owned context remains available');
+	const { accelerator } = createVideoMotionWebGl2AcceleratorAdmissionV1({ getContext: () => gl });
+	assert.ok(accelerator);
+	accelerator.dispose(); accelerator.dispose();
+	assert.equal(releases, 1);
+});

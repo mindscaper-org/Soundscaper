@@ -14,8 +14,9 @@ import {
 import type { FrameCanonicalRollRippleTrimMode } from './frame-canonical-roll-ripple-trim-domain.ts';
 import {
 	frameCanonicalStableParticipants,
-	frameCanonicalTrackParticipants,
+	frameCanonicalTrackSpans,
 	frameCanonicalTrimParticipant,
+	type FrameCanonicalTrackSpan,
 	type FrameCanonicalTrimParticipant,
 } from './frame-canonical-trim-planning.ts';
 
@@ -70,7 +71,7 @@ function rollTargets(
 			participantIds,
 		).map(({ trackId }) => trackId));
 		for (const trackId of reachedTrackIds) {
-			const lane = frameCanonicalTrackParticipants(index, trackId);
+			const lane = frameCanonicalTrackSpans(index, trackId);
 			const left = lane.filter((item) => item.timelineEnd === editSample);
 			const right = lane.filter((item) => item.timelineStart === editSample);
 			if (left.length !== 1 || right.length !== 1) {
@@ -135,7 +136,7 @@ function rippleSuffixClosure(
 	while (changed) {
 		changed = false;
 		for (const [trackId, cut] of cutByTrackId) {
-			for (const item of frameCanonicalTrackParticipants(index, trackId)) {
+			for (const item of frameCanonicalTrackSpans(index, trackId)) {
 				if (edgeIds.has(item.clipId)) continue;
 				if (item.timelineStart < cut && item.timelineEnd > cut) {
 					throw new RangeError(`Clip ${item.clipId} straddles ripple suffix cut ${String(cut)}.`);
@@ -173,8 +174,8 @@ function uniqueTouchingNeighbor(
 	active: FrameCanonicalTrimParticipant,
 	edge: FrameCanonicalTrimEdge,
 	editSample: number,
-): FrameCanonicalTrimParticipant {
-	const candidates = frameCanonicalTrackParticipants(index, active.trackId).filter((item) => (
+): FrameCanonicalTrackSpan {
+	const candidates = frameCanonicalTrackSpans(index, active.trackId).filter((item) => (
 		item.clipId !== active.clipId
 		&& (edge === 'right' ? item.timelineStart === editSample : item.timelineEnd === editSample)
 	));
@@ -187,9 +188,9 @@ function uniqueTouchingNeighbor(
 function assertNoRollStraddler(
 	trackId: string,
 	editSample: number,
-	lane: readonly FrameCanonicalTrimParticipant[],
-	left: FrameCanonicalTrimParticipant,
-	right: FrameCanonicalTrimParticipant,
+	lane: readonly FrameCanonicalTrackSpan[],
+	left: FrameCanonicalTrackSpan,
+	right: FrameCanonicalTrackSpan,
 ): void {
 	for (const item of lane) {
 		if (item.clipId === left.clipId || item.clipId === right.clipId) continue;

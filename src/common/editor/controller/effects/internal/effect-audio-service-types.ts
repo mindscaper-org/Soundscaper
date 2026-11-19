@@ -136,6 +136,7 @@ interface NoiseProfileWorkerResult {
 }
 
 export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
+	readonly importMidiDocument?: import('../../../assistance/music-transcription-v1.ts').MusicMidiImporter;
 	readonly renderSourceRange?: (trackId: string, startFrame: number, endFrame: number) => Promise<Float32Array[] | null>;
 	readonly lifetime: Readonly<{ startTask(name: string): EditorTaskScope }>;
 	readonly captureProject: () => EditorProjectToken;
@@ -173,6 +174,7 @@ export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
 		trackId: string,
 		startFrame: number,
 		endFrame: number,
+		requestedClipIds?: readonly string[] | null,
 	) => number;
 	readonly renderSnapshot: (
 		project: EffectAudioProject,
@@ -183,6 +185,7 @@ export interface EffectAudioServiceRuntime<Buffer = EffectAudioBuffer> {
 	readonly prepareCommittedTimePitchCaches: (project: EffectAudioProject) => Promise<unknown>;
 	readonly createRenderEngine: () => EffectAudioRenderEngine<Buffer>;
 	readonly sourceBuffers: EngineSourceBufferInput;
+	readonly sourceChunkProviders?: import('../../../engine/public-api.ts').EngineChunkSourceInput;
 	readonly audioBufferChannels: (buffer: Buffer) => readonly Float32Array[];
 	readonly matchAudacitySelectionChannels: (
 		channels: readonly Float32Array[],

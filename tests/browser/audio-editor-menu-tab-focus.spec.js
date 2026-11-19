@@ -6,7 +6,7 @@ import { flushFocusCallbacks, holdFocusCallbacks, installControlledFocusCallback
 
 test('leaving an application menu with Tab preserves a later pointer focus choice', async ({ page }) => {
 	await installControlledFocusCallbacks(page, 'animation-frame');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const stop = editor.getByRole('button', { name: 'Stop', exact: true });
 	const bounds = await stop.boundingBox();

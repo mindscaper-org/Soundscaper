@@ -4,6 +4,10 @@ import { MACRO_MANAGER_COPY_BY_LOCALE } from '../../../i18n/editor-macro-manager
 import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 
 export interface MacroManagerCopy {
+	readonly run: string;
+	readonly editMacro: string;
+	readonly macroOptions: string;
+	readonly paletteOptions: string;
 	readonly cancelRun: string;
 	readonly runCancelled: string;
 	readonly newProgram: string;

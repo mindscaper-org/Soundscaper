@@ -9,7 +9,7 @@ import { createFramescaperImageHdrMergeMenuItemsCurrentV1 } from './framescaper-
 import { createFramescaperNativeServicesMenuItems } from './framescaper-native-services-menu.ts';
 import { createSoundscaperNativeServicesMenuItems } from './soundscaper-native-services-menu.ts';
 import { createSoundscaperWorkflowApplicationMenuItems } from './soundscaper-workflow-product-runtime.tsx';
-import { resolveSelectionRange } from '../selection-range.ts';
+import { resolveVampAnalysisSelection } from '../vamp-analysis-selection.ts';
 import { appendParallelStackProcessingMenu } from './parallel-stack-menu.ts';
 import { createAraApplicationMenuItems } from './ara-application-menu.ts';
 
@@ -18,7 +18,7 @@ export function createApplicationMenuProductTrackItems({ productId, project, edi
 }
 
 export function createApplicationMenuProductItems({
-	productId, capabilities = {}, project, snapshot = {}, editBlocked, copy, actions, locale = 'en',
+	productId, capabilities = {}, project, snapshot = {}, durationFrames = 0, editBlocked, copy, actions, locale = 'en',
 }) {
 	const nestedSequences = createFramescaperNestedSequenceMenuItems({
 		productId, project, editingBlocked: editBlocked, copy: {
@@ -41,6 +41,7 @@ export function createApplicationMenuProductItems({
 		},
 	}, { execute: actions.executeMulticameraCommand });
 	const workflowRuntime = actions.soundscaperWorkflow || null;
+	const run = actions.run || ((operation) => operation());
 	const soundscaperWorkflows = createSoundscaperWorkflowApplicationMenuItems({
 		productId,
 		capabilities: workflowRuntime ? capabilities : {},
@@ -53,7 +54,7 @@ export function createApplicationMenuProductItems({
 		copy,
 	}, {
 		openMasteringSequences: () => workflowRuntime?.openMasteringSequences?.(),
-		freeze: (operation, trackId) => workflowRuntime?.freeze(operation, trackId),
+		freeze: (operation, trackId) => run(() => workflowRuntime?.freeze(operation, trackId)),
 	});
 	const nativeRuntime = actions.framescaperNativeServices || null;
 	const authoringRuntime = actions.framescaperCandidateAuthoring || null;
@@ -98,13 +99,12 @@ export function createApplicationMenuProductItems({
 		runtimeAvailable: soundscaperNativeRuntime !== null,
 		snapshot: soundscaperNativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: soundscaperNativeRuntime?.vampAnalyzerAvailable,
-		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
-			selectedClipId: snapshot.selectedClipId ?? null,
-		})),
+		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
+		analyzerSelectionAvailable: Boolean(resolveVampAnalysisSelection(project, snapshot.selectedClipId ?? null, durationFrames)),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,
-	}, { open: (surface) => soundscaperNativeRuntime?.open(surface) });
+	}, { open: (surface, stablePluginId) => soundscaperNativeRuntime?.open(surface, stablePluginId) });
 	return Object.freeze({
 		...soundscaperWorkflows,
 		tracks: Object.freeze([nestedSequences, multicamera, ...candidateAuthoring.tracks,

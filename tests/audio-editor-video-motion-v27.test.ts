@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import {
@@ -10,6 +11,7 @@ import {
 } from '../src/common/editor/video-motion-model-v27.ts';
 import {
 	applySimilarityTransformV1,
+	createAdjacentLucasKanadeTrackerV1,
 	createGrayVideoFrameV1,
 	detectShiTomasiFeaturesV1,
 	estimateSimilarityRansacV1,
@@ -119,6 +121,17 @@ test('motion analysis references are digest-bound and stale inputs refuse export
 	}), /stale|input digest/iu);
 });
 
+test('gray frame admission reuses owned immutable frames and snapshots external samples', () => {
+	const input = { width: 2, height: 1, samples: [-0, 0.5] };
+	const admitted = createGrayVideoFrameV1(input);
+	assert.equal(createGrayVideoFrameV1(admitted), admitted);
+	input.samples[1] = 1;
+	assert.deepEqual(admitted.samples, [0, 0.5]);
+	assert.throws(() => createGrayVideoFrameV1(Object.freeze({
+		width: 2, height: 1, samples: Object.freeze([0, NaN]),
+	})), /gray frame sample 1/iu);
+});
+
 test('Shi-Tomasi features and pyramidal Lucas-Kanade tracks are deterministic', () => {
 	const before = translatedDot(0, 0);
 	const after = translatedDot(1, 1);
@@ -147,6 +160,44 @@ test('Shi-Tomasi features and pyramidal Lucas-Kanade tracks are deterministic', 
 		assert.ok(Math.abs((item.target.x - item.source.x) - 1) < 0.25);
 		assert.ok(Math.abs((item.target.y - item.source.y) - 1) < 0.25);
 	}
+});
+
+test('overlapping Shi–Tomasi windows retain their exact floating-point scores and ordering', () => {
+	const width = 35, height = 15;
+	const samples = Array.from({ length: width * height }, (_, i) => ((i * 73) ^ ((i % width + 1) * i)) % 251 / 251);
+	const frame = createGrayVideoFrameV1({ width, height, samples });
+	const features = detectShiTomasiFeaturesV1(frame, { maximumFeatures: 50, quality: 0.0001, minimumDistance: 1.5 });
+	assert.equal(createHash('sha256').update(JSON.stringify(features)).digest('hex'),
+		'3ae78400ee740ba6b0440afff43e393ab120f2caadfadf1423040b30aef18965');
+});
+
+test('tracking adjacent pairs keeps the same output when reusing the middle pyramid', () => {
+	const frames = [translatedDot(0, 0), translatedDot(1, 1), translatedDot(2, 2)] as const;
+	const track = createAdjacentLucasKanadeTrackerV1();
+	const options = { windowRadius: 2, pyramidLevels: 3, maximumIterations: 12, epsilon: 1e-4 };
+	for (const [left, right, pyramidLevels] of [[0, 1, 3], [1, 2, 3], [2, 1, 2]] as const) {
+		const previous = frames[left];
+		const next = frames[right];
+		const features = detectShiTomasiFeaturesV1(previous, { maximumFeatures: 8, quality: 0.01, minimumDistance: 2 });
+		const pairOptions = { ...options, pyramidLevels };
+		assert.deepEqual(track(previous, next, features, pairOptions),
+			trackPyramidalLucasKanadeV1(previous, next, features, pairOptions));
+	}
+});
+
+test('iterated tracking retains its subpixel tracks, errors and lost border features', () => {
+	const width = 40, height = 32;
+	const frameAt = (dx: number, dy: number) => createGrayVideoFrameV1({
+		width, height, samples: Array.from({ length: width * height }, (_, i) => {
+			const x = i % width - dx, y = Math.floor(i / width) - dy;
+			return ((x * 73 ^ y * 63) & 255) / 255;
+		}),
+	});
+	const tracks = trackPyramidalLucasKanadeV1(frameAt(0, 0), frameAt(1, 1), [
+		{ x: 12.25, y: 11.125, score: 0.1 }, { x: 24, y: 18.5, score: 0.2 }, { x: 3, y: 3, score: 0.3 },
+	], { windowRadius: 3, pyramidLevels: 3, maximumIterations: 24, epsilon: 1e-4 });
+	assert.equal(createHash('sha256').update(JSON.stringify(tracks)).digest('hex'),
+		'99364b64643386ab60be163b720e8f86fa97601a76b8d6912095071c210ab427');
 });
 
 test('deterministic RANSAC recovers a similarity transform and ignores an outlier', () => {
@@ -240,29 +291,75 @@ test('temporal denoise admits GPU-first output and computes CPU only after accel
 	assert.deepEqual(invalidGeometry, cpu);
 });
 
-test('CPU temporal denoise resolves each neighbor transform outside the pixel loop', async () => {
-	const current = createGrayVideoFrameV1({ width: 2, height: 2, samples: [1, 1, 1, 1] });
-	const neighbor = createGrayVideoFrameV1({ width: 2, height: 2, samples: [0, 0, 0, 0] });
+test('temporal denoise shares owned planes and snapshots unowned input', async () => {
+	const current = translatedDot(0, 0);
+	const cachedNeighbor = translatedDot(1, 0);
+	const mutableNeighbor = { ...cachedNeighbor, samples: [...cachedNeighbor.samples] };
+	const transformToCurrent = {
+		scale: 1, rotationRadians: 0, translateX: 0, translateY: 0, inlierCount: 4, meanError: 0,
+	};
+	let admitted: readonly unknown[] = [];
+	const result = await processTemporalDenoiseV1({
+		current, neighbors: [cachedNeighbor, mutableNeighbor].map(frame => ({ frame, transformToCurrent })),
+		strength: 0.5,
+		accelerator: {
+			kind: 'webgl2',
+			async temporalDenoise(request) {
+				const mutableInput = request.neighbors[1]!.frame;
+				mutableNeighbor.samples[0] = 1;
+				admitted = [request.current, request.neighbors[0]!.frame, mutableInput, mutableInput.samples[0]];
+				return cachedNeighbor;
+			},
+		},
+	});
+	assert.equal(admitted[0], current);
+	assert.equal(admitted[1], cachedNeighbor);
+	assert.notEqual(admitted[2], mutableNeighbor);
+	assert.equal(admitted[3], 0);
+	assert.equal(result, cachedNeighbor);
+});
+
+test('CPU temporal denoise prepares affine coefficients once and preserves the scalar result', async () => {
+	const current = translatedDot(0, 0);
+	const neighbor = translatedDot(1, -1);
+	const transformToCurrent = {
+		scale: 0.93, rotationRadians: 0.095, translateX: -1.2, translateY: 0.6,
+		inlierCount: 12, meanError: 0.01,
+	};
+	const inverse = resolveStabilizationTransformV1(transformToCurrent, 1);
+	const expected = current.samples.map((original, index) => {
+		const x = index % current.width;
+		const y = Math.floor(index / current.width);
+		const coordinate = applySimilarityTransformV1({ x, y }, inverse);
+		if (coordinate.x < 0 || coordinate.x > neighbor.width - 1
+			|| coordinate.y < 0 || coordinate.y > neighbor.height - 1) return original;
+		const total = original + sampleGrayVideoFrameBilinearV1(neighbor, coordinate.x, coordinate.y);
+		return original + (total / 2 - original) * 0.5;
+	});
 	const originalLog = Math.log;
+	const originalSin = Math.sin;
 	let inverseResolutions = 0;
+	let sines = 0;
 	Math.log = (value: number): number => {
 		inverseResolutions += 1;
 		return originalLog(value);
 	};
+	Math.sin = (value: number): number => {
+		sines += 1;
+		return originalSin(value);
+	};
 	try {
-		await processTemporalDenoiseV1({
-			current,
-			neighbors: [{ frame: neighbor, transformToCurrent: {
-				scale: 1, rotationRadians: 0, translateX: 0, translateY: 0,
-				inlierCount: 4, meanError: 0,
-			} }],
-			strength: 0.5,
+		const output = await processTemporalDenoiseV1({
+			current, neighbors: [{ frame: neighbor, transformToCurrent }], strength: 0.5,
 		});
+		assert.deepEqual(output.samples, expected);
 	} finally {
 		Math.log = originalLog;
+		Math.sin = originalSin;
 	}
 	assert.equal(inverseResolutions, 2,
 		'one validation and one CPU transform resolution are independent of pixel count');
+	assert.equal(sines, 3, 'sine evaluation depends on neighbors and stays independent of pixel count');
 });
 
 test('motion processing observes cancellation', async () => {
@@ -289,4 +386,22 @@ test('motion processing observes cancellation', async () => {
 		onAcceleratorFallback() { fallbackObserved = true; },
 	}), /cancel accelerated motion/iu);
 	assert.equal(fallbackObserved, false);
+});
+
+test('CPU temporal denoise yields to task-queued cancellation', async () => {
+	const width = 192;
+	const height = 256;
+	const current = createGrayVideoFrameV1({ width, height, samples: new Array<number>(width * height).fill(0.25) });
+	const neighbors = [{ frame: current, transformToCurrent: {
+		scale: 1, rotationRadians: 0, translateX: 2, translateY: 3, inlierCount: 4, meanError: 0,
+	} }];
+	const controller = new AbortController();
+	const reason = new Error('stop temporal denoise');
+	const pendingAbort = setImmediate(() => { controller.abort(reason); });
+	try {
+		await assert.rejects(processTemporalDenoiseV1({ current, neighbors, strength: 0.5, signal: controller.signal }),
+			(error: unknown) => error === reason);
+	} finally {
+		clearImmediate(pendingAbort);
+	}
 });

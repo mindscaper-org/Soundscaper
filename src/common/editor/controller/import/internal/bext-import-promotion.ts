@@ -6,13 +6,13 @@ import { normalizeProjectBextMetadata, type ProjectBextMetadata } from '../../..
 /** A recording's absolute timestamp describes its placement, not project frame zero. */
 export function promoteImportedBextOrigin(
 	source: BextMetadataInput,
-	projectClockReference: string | null,
+	projectClockReference: string,
 	timelineStartFrame: number,
 ): ProjectBextMetadata {
 	if (!Number.isSafeInteger(timelineStartFrame) || timelineStartFrame < 0) {
 		throw new RangeError('The imported recording position must be a non-negative safe integer.');
 	}
-	const reference = BigInt(projectClockReference ?? '0');
+	const reference = BigInt(projectClockReference);
 	const origin = reference - BigInt(timelineStartFrame);
 	if (origin < 0n) throw new RangeError('The recording placement produces a negative BEXT project origin.');
 	return normalizeProjectBextMetadata({ ...source, timeReference: origin.toString() });

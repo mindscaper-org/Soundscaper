@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 for (const finish of ['release', 'Escape']) test(`the track-header volume drag ${finish === 'release' ? 'is one undoable edit' : 'cancels on Escape'}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 	const volume = row.getByRole('slider', { name: 'Volume', exact: true });

@@ -121,15 +121,17 @@ export function createExternalFfmpegCandidateLocator(
 				readonly ffmpegPath: string;
 			}>[] = [];
 			if (options.selectedPath) pending.push({ source: 'user-selected', ffmpegPath: options.selectedPath });
-			if (options.managedPath) pending.push({ source: 'managed-package', ffmpegPath: options.managedPath });
-			for (const directory of await packageManagerDirectories(
-				options.platform, environment, options.listSubdirectories ?? defaultSubdirectories,
-			)) pending.push({
-				source: 'package-manager', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
-			});
-			for (const directory of pathDirectories(options.platform, environmentValue(environment, 'PATH', options.platform))) pending.push({
-				source: 'system-path', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
-			});
+			else {
+				if (options.managedPath) pending.push({ source: 'managed-package', ffmpegPath: options.managedPath });
+				for (const directory of await packageManagerDirectories(
+					options.platform, environment, options.listSubdirectories ?? defaultSubdirectories,
+				)) pending.push({
+					source: 'package-manager', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
+				});
+				for (const directory of pathDirectories(options.platform, environmentValue(environment, 'PATH', options.platform))) pending.push({
+					source: 'system-path', ffmpegPath: executableIn(directory, options.platform, 'ffmpeg'),
+				});
+			}
 			const result: ExternalFfmpegCandidateInput[] = [];
 			const seen = new Set<string>();
 			const ordinals = new Map<ExternalFfmpegCandidateInput['source'], number>();
@@ -158,7 +160,8 @@ export function createExternalFfmpegNodeRunner(options: NodeRunnerOptions): Exte
 		throw new TypeError('An absolute external FFmpeg scratch directory is required.');
 	}
 	const launch = options.launch ?? ((executablePath, arguments_, launchOptions) => (
-		spawn(executablePath, [...arguments_], launchOptions) as unknown as ExternalFfmpegChildProcess
+		// Node adds inherited coverage variables to an explicit environment during spawn.
+		spawn(executablePath, [...arguments_], { ...launchOptions, env: { ...launchOptions.env } }) as unknown as ExternalFfmpegChildProcess
 	));
 	const setTimer = options.setTimer ?? setTimeout;
 	const clearTimer = options.clearTimer ?? clearTimeout;

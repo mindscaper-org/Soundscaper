@@ -7,7 +7,7 @@ test.use({ viewport: { width: 1440, height: 1000 } });
 test('Format resamples at the chosen precision and reinterprets the rate with undo and persistence', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	const recording = createWavFixture({ name: 'format-16000.wav', sampleRate: 16000, frequency: 440, duration: 1, channelCount: 1 });
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [recording]);
 	let panel = await openClipProperties(page, editor, clipByName(editor, recording.name), { additional: false });
 	const rate = () => panel.getByRole('spinbutton', { name: 'Sample rate (Hz)', exact: true });
@@ -46,7 +46,7 @@ test('Format resamples at the chosen precision and reinterprets the rate with un
 
 test('Clip properties presents the media controls beside the fields they affect', async ({ page }) => {
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'media-controls.wav', frequency: 330, duration: 1 });
 	await importFiles(editor, [recording]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, recording.name), { additional: false });

@@ -46,6 +46,7 @@ export async function openStreamedWavPackImportSession(
 	};
 	return Object.freeze({
 		sampleRate: first.sampleRate, channelCount: first.channelCount,
+		mimeType: 'audio/wavpack',
 		durationSeconds: first.totalFrames / first.sampleRate, timelineOrigin: 0,
 		async *samples(): AsyncGenerator<BrowserContainerAudioSample> {
 			assertCurrent();

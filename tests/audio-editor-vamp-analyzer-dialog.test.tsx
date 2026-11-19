@@ -8,8 +8,12 @@ import React, { act } from 'react';
 import type {
 	VampAnalysisRequest,
 	VampAnalysisResult,
+	VampAnalysisScope,
+	VampAnalyzerDescriptor,
 } from '../src/common/editor/vamp-analysis.ts';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
+import { controllerSession } from './helpers/soundscaper-controller-session.ts';
+import { pluginEffectType } from '../src/common/editor/effect-plugin-identity.ts';
 
 const BINARY_SHA256 = 'ab'.repeat(32);
 
@@ -91,9 +95,74 @@ test('Vamp dialog aborts on close and ignores completion from a replaced project
 });
 
 
+test('Vamp note results offer MIDI creation and cancel its pending publication when closed', async () => {
+	const noteAnalyzer = { ...analyzer(), outputs: [{ id: 'notes', name: 'Notes', description: '',
+		unit: 'Hz', sampleType: 'variable-sample-rate' as const, sampleRate: null, hasDuration: true }] };
+	const completion = deferred<void>();
+	const signals: AbortSignal[] = [];
+	const mounted = await mountDialog({ catalog: [noteAnalyzer],
+		analyze: async request => ({ ...resultFor(request), features: [{
+			timestamp: { seconds: 0, nanoseconds: 0 }, duration: { seconds: 0, nanoseconds: 500_000_000 }, values: [440], label: '',
+		}] }),
+		publishMidi: (_result, _name, signal) => { signals.push(signal); return completion.promise; },
+		publishLabels: () => { throw new Error('MIDI publication must not create labels.'); },
+	});
+	try {
+		assert.equal(button(mounted.dom.container, 'Create MIDI track'), null);
+		await submit(mounted.dom.container);
+		await click(mounted.dom.container, 'Create MIDI track');
+		await click(mounted.dom.container, 'Create MIDI track');
+		assert.equal(signals.length, 1);
+		await click(mounted.dom.container, 'Cancel');
+		assert.equal(signals[0]!.aborted, true);
+		completion.resolve();
+		await act(async () => { await completion.promise; });
+		assert.equal(mounted.closes(), 1);
+	} finally { await mounted.unmount(); }
+});
+
+test('the Vamp dialog cannot select Track scope when opened without a selected audio track', async () => {
+	const requests: VampAnalysisRequest[] = [];
+	const mounted = await mountDialog({ scope: 'master', analyze: async request => { requests.push(request); return resultFor(request); } });
+	try {
+		const control = select(mounted.dom.container, 'Scope');
+		const track = control.querySelectorAll('option').find(option => String(reactProps(option).value) === 'track');
+		assert.equal(reactProps(track!).disabled, true);
+		await submit(mounted.dom.container);
+		assert.equal(requests[0]?.scope, 'master');
+	} finally { await mounted.unmount(); }
+});
+
+test('loading a saved Vamp preset keeps missing overrides inherited from its native program', async context => {
+	const { controller } = await controllerSession(context);
+	const preset = await controller.actions.effects.presets.save({ effectType: pluginEffectType('vamp', 'installed-onsets'), name: 'My percussive program',
+		params: { program: 'Percussive', parameters: {}, outputId: 'onsets' } });
+	assert.ok(preset);
+	assert.equal(controller.actions.effects.presets.list(pluginEffectType('vamp', 'installed-onsets')).length, 1);
+	const requests: VampAnalysisRequest[] = [];
+	const mounted = await mountDialog({ controller, analyze: async request => { requests.push(request); return resultFor(request); } });
+	try {
+		const dropdown = mounted.dom.one('.dropdown__trigger');
+		await act(async () => { reactProps(dropdown).onClick({}); });
+		const option = mounted.dom.container.ownerDocument.body.querySelectorAll('[role="option"]')
+			.find(candidate => candidate.textContent.includes('My percussive program'));
+		assert.ok(option);
+		await act(async () => { reactProps(option).onClick({}); });
+		assert.equal(reactProps(select(mounted.dom.container, 'Program')).value, 'Percussive');
+		await submit(mounted.dom.container);
+		assert.equal(requests[0]?.program, 'Percussive');
+		assert.deepEqual(requests[0]?.parameters, []);
+		assert.equal(reactProps(input(mounted.dom.container, 'Threshold')).value, '');
+	} finally { await mounted.unmount(); }
+});
+
 async function mountDialog(overrides: Readonly<{
+	catalog?: readonly VampAnalyzerDescriptor[];
+	controller?: unknown;
+	scope?: VampAnalysisScope;
 	analyze?: (request: VampAnalysisRequest, signal: AbortSignal) => Promise<unknown>;
 	publishLabels?: (result: VampAnalysisResult, trackName: string) => PromiseLike<void> | void;
+	publishMidi?: (result: Readonly<VampAnalysisResult>, trackName: string, signal: AbortSignal) => Promise<void>;
 }> = {}) {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -108,14 +177,16 @@ async function mountDialog(overrides: Readonly<{
 	const root = createRoot(dom.container as unknown as Element);
 	let closeCount = 0;
 	const render = async (projectId: string) => act(async () => root.render(<VampAnalyzerDialog
-		catalog={[analyzer()]}
+		catalog={overrides.catalog ?? [analyzer()]}
+		controller={overrides.controller}
 		projectId={projectId}
-		scope="track"
+		scope={overrides.scope ?? 'track'}
 		startFrame={1_000}
 		endFrame={49_000}
 		sampleRate={48_000}
 		analyze={overrides.analyze ?? (async (request) => resultFor(request))}
 		publishLabels={overrides.publishLabels ?? (() => undefined)}
+		publishMidi={overrides.publishMidi}
 		onClose={() => { closeCount += 1; }}
 	/>));
 	await render('project-a');

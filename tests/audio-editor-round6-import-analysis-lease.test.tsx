@@ -22,7 +22,7 @@ for (const raw of [true, false]) {
 		const controller = {
 			project,
 			actions: {
-				project: { importFiles: () => { calls++; } },
+				project: { importFiles: () => { calls++; return { importedFileCount: 1 }; } },
 				timelineAnnotations: { regularInterval: () => { calls++; } },
 			},
 		};

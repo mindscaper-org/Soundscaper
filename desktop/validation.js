@@ -16,14 +16,16 @@ const PROJECT_EXTENSIONS = Object.freeze(
 );
 const NATIVE_PROJECT_EXTENSION = PROJECT_FILE_EXTENSION.slice(1);
 const MEDIA_IMPORT_EXTENSIONS = Object.freeze([
-	'aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'cue', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
-	'oga', 'ogg', 'opus', 'rf64', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
+	'aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'cue', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'flac', 'gro', 'm4a', 'm4v', 'mid', 'midi', 'mka', 'mov', 'mp2', 'mp3', 'mp4',
+	'oga', 'ogg', 'opus', 'rf64', 'snd', 'srt', 'txt', 'vtt', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv',
+	'ardour', 'scraft', 'scraftz',
+	'ptx', 'ptf', 'pts', 'nhsx', 'rpp',
 ]);
 const AUDIO_VIDEO_IMPORT_EXTENSIONS = Object.freeze(MEDIA_IMPORT_EXTENSIONS.filter(
-	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt'].includes(extension),
+	(extension) => !['cue', 'gro', 'mid', 'midi', 'srt', 'txt', 'vtt', 'edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'ardour', 'scraft', 'scraftz', 'ptx', 'ptf', 'pts', 'nhsx', 'rpp'].includes(extension),
 ));
 const PROJECT_OPEN_EXTENSIONS = Object.freeze([
-	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
+	...new Set([...PROJECT_EXTENSIONS, 'aup', 'aup3', 'aup4', 'aup4unsaved', 'dawproject', 'ses', 'sesx', ...MEDIA_IMPORT_EXTENSIONS]),
 ]);
 
 const FILE_PURPOSES = Object.freeze({
@@ -36,8 +38,8 @@ const FILE_PURPOSES = Object.freeze({
 		}]),
 	}),
 	audio: Object.freeze({
-		extensions: Object.freeze(['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv']),
-		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
+		extensions: Object.freeze(['aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'snd', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv']),
+		filters: Object.freeze([{ name: 'Audio', extensions: ['aac', 'aif', 'aifc', 'aiff', 'au', 'bw64', 'bwf', 'flac', 'm4a', 'mka', 'mp2', 'mp3', 'oga', 'ogg', 'opus', 'rf64', 'snd', 'wav', 'wave', 'wavpack', 'webm', 'wma', 'wv'] }]),
 	}),
 	video: Object.freeze({
 		extensions: Object.freeze(['m4v', 'mov', 'mp4', 'webm']),
@@ -83,6 +85,7 @@ const SAVE_PURPOSES = Object.freeze({
 	}),
 	aup3: Object.freeze({ defaultExtension: 'aup3', filters: [{ name: 'Audacity 3 project', extensions: ['aup3'] }] }),
 	aup4: Object.freeze({ defaultExtension: 'aup4', filters: [{ name: 'Audacity interchange', extensions: ['aup4'] }] }),
+	'audacity-recovery': Object.freeze({ defaultExtension: 'aup4', filters: [{ name: 'Recovered Audacity project', extensions: ['aup3', 'aup4'] }] }),
 	'audio-pcm-mix': Object.freeze({
 		defaultExtension: 'wav',
 		filters: [{ name: 'WAV and AIFF audio mix', extensions: ['wav', 'aif', 'aiff'] }],
@@ -97,14 +100,14 @@ const SAVE_PURPOSES = Object.freeze({
 	video: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Video', extensions: ['mp4', 'webm'] },
+			{ name: 'Video', extensions: ['mp4', 'mov', 'webm'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
 	media: Object.freeze({
 		defaultExtension: 'mp4',
 		filters: [
-			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
+			{ name: 'Audio and video', extensions: ['7z', 'aac', 'aif', 'aiff', 'flac', 'm4a', 'mp2', 'mp3', 'mp4', 'mov', 'ogg', 'opus', 'wav', 'webm', 'wv', 'zip'] },
 			{ name: 'All files', extensions: ['*'] },
 		],
 	}),
@@ -120,7 +123,7 @@ const SAVE_PURPOSES = Object.freeze({
 	// here rather than each adding a purpose of its own.
 	interchange: Object.freeze({
 		defaultExtension: 'edl',
-		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
+		filters: [{ name: 'Edit interchange', extensions: ['edl', 'otio', 'fcpxml', 'omf', 'omfi', 'aaf', 'adl', 'zip', 'xml', 'dawproject', 'mid', 'midi', 'gro'] }],
 	}),
 	translation: Object.freeze({
 		defaultExtension: 'json',
@@ -138,9 +141,11 @@ const MIME_TYPES = Object.freeze({
 	'.aif': 'audio/aiff',
 	'.aifc': 'audio/aiff',
 	'.aiff': 'audio/aiff',
+	'.au': 'audio/basic',
 	'.apng': 'image/png',
 	'.aup3': 'application/x-audacity-project',
 	'.aup4': 'application/vnd.audacity.aup4',
+	'.aup4unsaved': 'application/vnd.audacity.aup4',
 	'.bw64': 'audio/bw64',
 	'.bwf': 'audio/wav',
 	'.bmp': 'image/bmp',
@@ -170,8 +175,13 @@ const MIME_TYPES = Object.freeze({
 	'.png': 'image/png',
 	'.otio': 'application/json',
 	'.rf64': 'audio/rf64',
+	'.rpp': 'text/plain',
 	'.ses': 'application/octet-stream',
 	'.sesx': 'application/xml',
+	'.ardour': 'application/xml', '.nhsx': 'application/xml',
+	'.scraft': 'application/json',
+	'.scraftz': 'application/zip',
+	'.snd': 'audio/basic',
 	'.srt': 'application/x-subrip',
 	'.txt': 'text/plain',
 	'.vtt': 'text/vtt',
@@ -244,6 +254,7 @@ export function acceptsFile(purpose, filePath) {
 	if (!Object.hasOwn(FILE_PURPOSES, purpose)) return false;
 	const definition = FILE_PURPOSES[purpose];
 	const extension = extname(String(filePath || '')).slice(1).toLowerCase();
+	if (extension === 'zip' && ['project', 'media'].includes(purpose)) return /\.adl\.zip$/iu.test(String(filePath));
 	return definition.extensions.includes(extension);
 }
 

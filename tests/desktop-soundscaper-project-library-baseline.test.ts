@@ -164,7 +164,7 @@ test('Soundscaper startup does not write an already-current library schema', asy
 		current.exec('PRAGMA synchronous = NORMAL; PRAGMA trusted_schema = ON; PRAGMA foreign_keys = OFF')
 		assert.doesNotThrow(() => initializeSoundscaperDesktopProjectLibraryDatabase(current))
 		assertSoundscaperDesktopProjectLibraryDatabaseIdentity(current)
-		assert.equal(current.prepare('PRAGMA journal_mode').get()?.journal_mode, 'wal')
+		assert.equal(current.prepare('PRAGMA journal_mode').get()?.journal_mode, 'delete')
 		assert.equal(current.prepare('PRAGMA synchronous').get()?.synchronous, 2)
 		assert.equal(current.prepare('PRAGMA trusted_schema').get()?.trusted_schema, 0)
 		assert.equal(current.prepare('PRAGMA foreign_keys').get()?.foreign_keys, 1)

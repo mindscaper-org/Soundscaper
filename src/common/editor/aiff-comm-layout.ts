@@ -4,6 +4,7 @@ export type AiffPcmSampleFormat = 'int8' | 'int16' | 'int24' | 'int32' | 'float3
 
 export interface AiffCommLayout {
 	readonly sampleFormat: AiffPcmSampleFormat;
+	readonly aifcCompression?: string;
 	readonly littleEndian?: boolean;
 	readonly sampleRate: number;
 	readonly channelCount: number;
@@ -23,7 +24,7 @@ export function validateAiffCommByteLength(length: number, isAifc: boolean): voi
 	}
 }
 
-/** Read bounded integer PCM and big-endian IEEE float32 PCM. */
+/** Read bounded integer PCM and big-endian IEEE float PCM. */
 export function parseAiffCommLayout(bytes: Uint8Array, isAifc: boolean): AiffCommLayout {
 	validateAiffCommByteLength(bytes.byteLength, isAifc);
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -32,26 +33,41 @@ export function parseAiffCommLayout(bytes: Uint8Array, isAifc: boolean): AiffCom
 	const bitDepth = view.getUint16(6, false);
 	if (channelCount < 1 || channelCount > 64) throw new RangeError('AIFF channel count must be between 1 and 64.');
 	if (frameCount < 1) throw new RangeError('AIFF frame count must be positive.');
-	const sampleFormat = isAifc ? aifcSampleFormat(bytes, bitDepth) : aiffIntegerSampleFormat(bitDepth);
+	const encoding = isAifc
+		? readAifcEncoding(bytes, bitDepth) : { sampleFormat: aiffIntegerSampleFormat(bitDepth) };
 	const bytesPerSample = Math.ceil(bitDepth / 8);
 	const blockAlign = channelCount * bytesPerSample;
 	const sampleRate = readExtended80(view, 8);
 	const byteRate = sampleRate * blockAlign;
 	if (!Number.isSafeInteger(byteRate)) throw new RangeError('AIFF byte rate exceeds integer precision.');
-	const littleEndian = isAifc && String.fromCharCode(...bytes.subarray(18, 22)) === 'sowt';
-	return Object.freeze({ sampleFormat, sampleRate, channelCount, frameCount, bitDepth, bytesPerSample, blockAlign, byteRate, ...(littleEndian ? { littleEndian } : {}) });
+	return Object.freeze({ ...encoding, sampleRate, channelCount, frameCount, bitDepth, bytesPerSample, blockAlign, byteRate });
 }
 
-function aifcSampleFormat(bytes: Uint8Array, bitDepth: number): AiffPcmSampleFormat {
+type AifcEncoding = Pick<AiffCommLayout, 'sampleFormat' | 'littleEndian'> & { readonly aifcCompression: string };
+
+function readAifcEncoding(bytes: Uint8Array, bitDepth: number): AifcEncoding {
 	const compression = String.fromCharCode(...bytes.subarray(18, 22));
 	const nameLength = bytes[22]!;
 	if (23 + nameLength + (1 + nameLength) % 2 !== bytes.byteLength) {
 		throw new Error('The AIFF-C compression name does not fit its COMM chunk.');
 	}
-	if (['NONE', 'twos', 'sowt'].includes(compression)) return aiffIntegerSampleFormat(bitDepth);
-	if ((bitDepth === 32 && compression.toLowerCase() === 'fl32')
-		|| (bitDepth === 64 && compression.toLowerCase() === 'fl64')) return bitDepth === 32 ? 'float32' : 'float64';
-	throw new Error('AIFF-C compression is unsupported; uncompressed integer or IEEE float PCM is required.');
+	const encoding = resolveAifcPcmCompression(compression, bitDepth);
+	if (!encoding) throw new Error('AIFF-C compression is unsupported; uncompressed integer or IEEE float PCM is required.');
+	return encoding;
+}
+
+/** The reviewed PCM tags carry both the sample width and byte order. */
+export function resolveAifcPcmCompression(compression: unknown, bitDepth: number): AifcEncoding | null {
+	if (typeof compression !== 'string') return null;
+	if (['NONE', 'twos', 'sowt'].includes(compression)
+		|| (bitDepth === 24 && (compression === 'in24' || compression === '42n1'))
+		|| (bitDepth === 32 && (compression === 'in32' || compression === '23ni'))) {
+		const littleEndian = compression === 'sowt' || compression === '42n1' || compression === '23ni';
+		return { aifcCompression: compression, sampleFormat: aiffIntegerSampleFormat(bitDepth), ...(littleEndian ? { littleEndian } : {}) };
+	}
+	if (bitDepth === 32 && compression.toLowerCase() === 'fl32') return { aifcCompression: compression, sampleFormat: 'float32' };
+	if (bitDepth === 64 && compression.toLowerCase() === 'fl64') return { aifcCompression: compression, sampleFormat: 'float64' };
+	return null;
 }
 
 export function aiffIntegerSampleFormat(value: number): AiffPcmSampleFormat {

@@ -58,8 +58,12 @@ export async function prepareAutomaticRealtimeSampleRate(engine: EngineRuntimeHo
 }
 
 /** Native input nodes and the listening graph must share the selected hardware rate. */
-export async function prepareRealtimeSampleRate(engine: EngineRuntimeHost, sampleRate?: number): Promise<void> {
+export async function prepareRealtimeSampleRate(engine: EngineRuntimeHost, sampleRate?: number | null): Promise<void> {
 	if (sampleRate === undefined) return;
+	if (sampleRate === null) {
+		sampleRates.delete(engine);
+		return;
+	}
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 8_000 || sampleRate > 768_000) {
 		throw new RangeError('Audio sample rate must be an integer between 8000 and 768000 Hz.');
 	}

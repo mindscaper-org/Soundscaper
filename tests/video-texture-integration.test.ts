@@ -18,7 +18,7 @@ test('Texture appends one exact closed family while preserving Grain and Noise p
 	assert.deepEqual(VIDEO_EFFECT_TYPES.slice(-8),['noise-reduction-v1','grain-v1','texture-v1','dehaze-v1',
 		'lens-distortion-v1','chromatic-aberration-v1','defringe-v1','optical-vignette-v1']);
 	assert.equal(VIDEO_EFFECT_TYPES.length,32);assert.equal(Object.keys(CLOSED_VIDEO_EFFECT_DEFINITIONS_V1).length,20);
-	assert.equal(EFFECT_PROGRAM_COUNT,38);assert.equal(EFFECT_CODES['noise-reduction-v1'],30);assert.equal(EFFECT_CODES['grain-v1'],31);assert.equal(EFFECT_CODES['texture-v1'],32);
+	assert.equal(EFFECT_PROGRAM_COUNT,40);assert.equal(EFFECT_CODES['noise-reduction-v1'],30);assert.equal(EFFECT_CODES['grain-v1'],31);assert.equal(EFFECT_CODES['texture-v1'],32);
 	const raw={amount:73.25},effect=createClosedVideoEffectFamilyV1('texture-v1',{id:'fixed',params:raw});assert.ok(effect);raw.amount=0;
 	assert.equal(effect.params.amount,73.25);assert.deepEqual(normalizeVideoEffect(effect),effect);
 	assert.deepEqual(normalizeClosedVideoEffectParamsV1('texture-v1',effect.params),{amount:73.25});

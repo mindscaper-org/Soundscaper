@@ -63,22 +63,25 @@ export class DesktopSettingsStore {
 	#filePath;
 	#settings = { ...DEFAULTS };
 	#mutationTail = Promise.resolve();
+	#readOnly = false;
 
 	constructor(filePath) {
 		this.#filePath = filePath;
 	}
 
-	async load(preferredLocales = []) {
+	async load(preferredLocales = [], launchPreferences = {}) {
 		let parsed = null;
 		try {
 			parsed = JSON.parse(await readFile(this.#filePath, 'utf8'));
 		} catch (error) {
 			if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
 		}
-		this.#settings = validateSettings(parsed);
+		this.#readOnly = Number.isSafeInteger(parsed?.schemaVersion) && parsed.schemaVersion > SETTINGS_SCHEMA_VERSION;
+		this.#settings = validateSettings({ ...validateSettings(parsed), ...launchPreferences });
 		if (!this.#settings.locale) {
 			const locale = resolveLocale(preferredLocales, SUPPORTED_LOCALES);
-			await this.#update((settings) => ({ ...settings, locale }));
+			if (this.#readOnly) this.#settings = { ...this.#settings, locale };
+			else await this.#update((settings) => ({ ...settings, locale }));
 		}
 		return this.snapshot();
 	}
@@ -99,13 +102,15 @@ export class DesktopSettingsStore {
 		return settings.modelsDirectory;
 	}
 
-	async setExternalFfmpegSelection(executablePath) {
+	/** @param {'manual' | 'automatic'} [source] */
+	async setExternalFfmpegSelection(executablePath, source = 'manual') {
 		const validated = validateExternalFfmpegExecutable(executablePath);
+		if (source !== 'manual' && source !== 'automatic') throw new TypeError('The FFmpeg selection source is invalid.');
 		const settings = await this.#update((current) => ({
 			...current,
 			externalFfmpegSelection: current.externalFfmpegSelection?.executablePath === validated
-				? current.externalFfmpegSelection
-				: externalFfmpegSelection(validated),
+				? Object.freeze({ ...current.externalFfmpegSelection, source })
+				: externalFfmpegSelection(validated, null, null, source),
 		}));
 		return settings.externalFfmpegSelection;
 	}
@@ -119,6 +124,7 @@ export class DesktopSettingsStore {
 				...current,
 				externalFfmpegSelection: externalFfmpegSelection(
 					validated.executablePath, validated.identity, validated.capabilities,
+					current.externalFfmpegSelection.source,
 				),
 			};
 		});
@@ -129,7 +135,9 @@ export class DesktopSettingsStore {
 		const validated = validateExternalFfmpegExecutable(executablePath);
 		const settings = await this.#update((current) => {
 			assertSelectedExternalFfmpeg(current.externalFfmpegSelection, validated);
-			return { ...current, externalFfmpegSelection: externalFfmpegSelection(validated) };
+			return { ...current, externalFfmpegSelection: externalFfmpegSelection(
+				validated, null, null, current.externalFfmpegSelection.source,
+			) };
 		});
 		return settings.externalFfmpegSelection;
 	}
@@ -236,6 +244,12 @@ export class DesktopSettingsStore {
 		return settings.ofxConsentEnabled;
 	}
 
+	async setUpdatesEnabled(enabled) {
+		if (typeof enabled !== 'boolean') throw new TypeError('Update preference must be a boolean.');
+		const settings = await this.#update((current) => ({ ...current, updatesEnabled: enabled }));
+		return settings.updatesEnabled;
+	}
+
 	async recordUpdateCheck(timestamp = Date.now()) {
 		const lastUpdateCheck = new Date(timestamp).toISOString();
 		await this.#update((settings) => ({ ...settings, lastUpdateCheck }));
@@ -244,6 +258,7 @@ export class DesktopSettingsStore {
 	/** Whole-file replacements must observe and commit in invocation order. */
 	#update(project) {
 		const mutation = this.#mutationTail.then(async () => {
+			if (this.#readOnly) throw new Error('These desktop preferences were created by a newer version.');
 			const next = project(this.#settings);
 			await this.#write(next);
 			this.#settings = next;
@@ -320,7 +335,7 @@ function persistedExternalFfmpegSelection(value) {
 			? externalFfmpegCapabilities(value.capabilities)
 			: null;
 	} catch { /* capability evidence is independently fail-closed */ }
-	return externalFfmpegSelection(executablePath, identity, capabilities);
+	return externalFfmpegSelection(executablePath, identity, capabilities, value.source === 'automatic' ? 'automatic' : 'manual');
 }
 
 function externalFfmpegProbeMetadata(value) {
@@ -336,8 +351,9 @@ function externalFfmpegProbeMetadata(value) {
 	return Object.freeze({ executablePath, identity, capabilities });
 }
 
-function externalFfmpegSelection(executablePath, identity = null, capabilities = null) {
-	return Object.freeze({ executablePath, identity, capabilities });
+/** @param {'manual' | 'automatic'} [source] */
+function externalFfmpegSelection(executablePath, identity = null, capabilities = null, source = 'manual') {
+	return Object.freeze({ executablePath, identity, capabilities, source });
 }
 
 function externalFfmpegIdentity(value) {

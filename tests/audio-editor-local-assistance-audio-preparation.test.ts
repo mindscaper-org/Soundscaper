@@ -8,7 +8,40 @@ import {
 	releaseLocalAssistancePreparedAudioWave,
 	type LocalAssistanceAudioWaveSpoolV1,
 } from '../src/common/editor/controller/assistance/internal/audio/local-assistance-audio-preparation.ts';
-import { inspectWavBlobPcm } from '../src/common/editor/wav-import.js';
+import { inspectWavBlobPcm, streamWavBlobPcm } from '../src/common/editor/wav-import.js';
+
+for (const [operation, modelRate, mono] of [
+	['speech-enhancement', 48000, false], ['dereverberation', 44100, false], ['source-separation', 44100, false],
+	['voice-activity-detection', 16000, true], ['speech-recognition', 16000, true], ['word-alignment', 16000, true],
+	['speaker-diarization', 16000, true], ['audio-tagging', 32000, true], ['beat-tracking', 22050, true],
+] as const) test(`${operation} conforms differing source rates to ${modelRate} Hz before inference`, async () => {
+	for (const inputRate of [16000, 44100, 48000, 96000]) {
+		const frames = Math.floor(inputRate / 4) + 17;
+		async function* chunks() {
+			for (let start = 0; start < frames; start += 307) yield [0.4, 0.2].map(gain => Float32Array.from(
+				{ length: Math.min(307, frames - start) }, (_, i) => gain * Math.sin(2 * Math.PI * 997 * (start + i) / inputRate)));
+		}
+		const body = await createLocalAssistanceAudioWaveFromChunks(operation, chunks(), frames, inputRate, 2);
+		try {
+			const geometry = await inspectWavBlobPcm(body);
+			assert.equal(geometry.sampleRate, modelRate);
+			assert.equal(geometry.channelCount, mono ? 1 : 2);
+			assert.equal(geometry.frameCount, Math.round(frames * modelRate / inputRate));
+			let offset = 0, squaredError = 0, count = 0;
+			await streamWavBlobPcm(body, { chunkFrames: 521, onChunk: (planes: Float32Array[]) => {
+				for (let c = 0; c < planes.length; c++) for (let i = 0; i < planes[c]!.length; i++) {
+					const frame = offset + i;
+					if (frame < 100 || frame >= geometry.frameCount - 100) continue;
+					const expected = (mono ? .3 : c === 0 ? .4 : .2) * Math.sin(2 * Math.PI * 997 * frame / modelRate);
+					squaredError += (planes[c]![i]! - expected) ** 2; count++;
+				}
+				offset += planes[0]!.length;
+			} });
+			assert.equal(offset, geometry.frameCount);
+			assert.ok(Math.sqrt(squaredError / count) < .001, `${inputRate} Hz RMS ${Math.sqrt(squaredError / count)}`);
+		} finally { await releaseLocalAssistancePreparedAudioWave(body); }
+	}
+});
 
 test('long assistance preparation writes bounded chunks to a disposable spool and releases it', async () => {
 	const writes: Uint8Array[] = [];

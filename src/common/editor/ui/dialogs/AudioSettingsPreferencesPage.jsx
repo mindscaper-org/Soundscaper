@@ -6,6 +6,7 @@ import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
 import { AudioDevicesFlyout } from '../toolbar/AudioDevicesFlyout.jsx';
 import { recordingOffsetSources } from './editor-dialog-model.js';
 import RecordingOffsetInput from './RecordingOffsetInput.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /** Shared host, device, and next-recording settings for Preferences and Audio setup. */
 export default function AudioSettingsPreferencesPage({ controller, snapshot, copy, run, displayAudioSupported = true }) {
@@ -31,7 +32,7 @@ export default function AudioSettingsPreferencesPage({ controller, snapshot, cop
 			<PreferencePanel title={copy.recordingOffset}>
 				<div className="kw-audio-editor-preferences__grid">
 					<label className="kw-audio-editor-preferences__field">
-						<span>{copy.recordingOffsetSource}</span>
+						<EditorControlLabel>{copy.recordingOffsetSource}</EditorControlLabel>
 						<select value={sourceKey} onChange={(event) => setSourceKey(event.currentTarget.value)}>
 							{sources.map((source) => (
 								<option key={source.key} value={source.key}>{source.label}</option>
@@ -39,7 +40,7 @@ export default function AudioSettingsPreferencesPage({ controller, snapshot, cop
 						</select>
 					</label>
 					<label className="kw-audio-editor-preferences__field">
-						<span>{copy.latencyOffset}</span>
+						<EditorControlLabel>{copy.latencyOffset}</EditorControlLabel>
 						<RecordingOffsetInput key={sourceKey} label={copy.latencyOffset} value={sourceOffset}
 							onCommit={(offset) => run(() => sourceKey === 'global'
 								? controller.actions.recording.setLatencyOffset(offset)

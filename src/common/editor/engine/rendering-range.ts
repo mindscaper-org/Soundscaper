@@ -47,10 +47,10 @@ export function resolveRenderTimelineRanges(fromFrame: number, toFrame: number, 
 export function resolveRenderPreRollFrames(
 	project: EngineProject,
 	startFrame: number,
-	requestedFrames: number,
+	requestedFrames: number | false,
 	options: Readonly<{ trackId?: unknown; includeMaster?: boolean; respectMuteSolo?: boolean }> = {},
 ): number {
-	if (startFrame <= 0) return 0;
+	if (requestedFrames === false || startFrame <= 0) return 0;
 	const sampleRate = project.sampleRate || DEFAULT_SAMPLE_RATE;
 	const history = tailFrames(project, { ...options, maximumSeconds: startFrame / sampleRate });
 	return clampFrame(Math.max(requestedFrames, history), 0, startFrame);

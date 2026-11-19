@@ -11,13 +11,14 @@ export function resolveDesktopProductId(value, defaultProductId = productConfig.
 }
 
 export const PRODUCT_ID = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
-const PRODUCT_METADATA_MATCHES = productConfig.schemaVersion === 1 && productConfig.id === PRODUCT_ID;
+const PRODUCT_METADATA_MATCHES = [1, 2].includes(productConfig.schemaVersion) && productConfig.id === PRODUCT_ID;
 export const DECLARED_APPLICATION_VERSION = PRODUCT_METADATA_MATCHES
 	? productConfig.applicationVersion
 	: null;
 export const APPLICATION_VERSION_CHANNEL = PRODUCT_METADATA_MATCHES
 	? productConfig.applicationVersionChannel
 	: 'candidate';
+export const DECLARED_PACKAGE_VERSION = PRODUCT_METADATA_MATCHES ? productConfig.packageVersion ?? productConfig.applicationVersion : null;
 export const RELEASE_CHANNEL = PRODUCT_METADATA_MATCHES
 	? productConfig.releaseChannel
 	: PRODUCT_ID === 'soundscaper' ? 'candidate' : 'deferred';
@@ -46,24 +47,38 @@ export const ACCEPTED_PROJECT_FILE_EXTENSIONS = Object.freeze([
 	'.scape',
 ]);
 
+// Mirrors ROUTE_LOCALES in src/common/i18n/locales.js without importing renderer
+// sources into the packaged main process. tests/desktop-locales.test.ts guards parity.
 export const SUPPORTED_LOCALES = Object.freeze([
 	'en',
 	'de',
 	'ar',
+	'cs',
+	'el',
 	'en-GB',
 	'es',
+	'fa',
 	'fi',
 	'fr',
 	'gl',
+	'he',
+	'hi',
 	'hy',
+	'id',
+	'it',
 	'ja',
 	'ko',
+	'nl',
 	'pl',
+	'pt-BR',
+	'pt-PT',
 	'ro',
 	'ru',
 	'tr',
 	'uk',
+	'vi',
 	'zh-CN',
+	'zh-TW',
 ]);
 
 export const READ_CAPABILITY_PREFIX = '/_desktop/read/';
@@ -101,6 +116,7 @@ export const IPC = Object.freeze({
 	soakDebugProcessMetrics: 'soundscaper:v1:soak-debug:process-metrics',
 	soakDebugCoverageCheckpoint: 'soundscaper:v1:soak-debug:coverage-checkpoint',
 	chooseFiles: 'soundscaper:v1:files:choose',
+	claimPendingProjectOpen: 'soundscaper:v1:files:claim-project-open',
 	captureExternalMedia: 'soundscaper:v1:external-media:capture', resolveExternalMedia: 'soundscaper:v1:external-media:resolve',
 	releaseRead: 'soundscaper:v1:files:release',
 	prepareOriginalOverwrite: 'soundscaper:v1:original-file:prepare-overwrite',

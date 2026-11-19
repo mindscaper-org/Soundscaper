@@ -430,7 +430,7 @@ test('controller rejects oversized macro renders before allocating or editing', 
 		await assert.rejects(controller.actions.macros.run({
 			name: 'Oversized macro',
 			trackId,
-			effects: [{ type: 'audacity-invert', params: {} }],
+			effects: [{ type: 'audacity-reverse', params: {} }],
 		}), /too much memory/i);
 		assert.equal(renderCalls, 0);
 		assert.equal(controller.getSnapshot().processingEffect, false);

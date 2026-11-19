@@ -12,57 +12,7 @@ import {
 	openNativePersistentPluginSession,
 } from '../desktop/native-plugin-helper-adapter.ts'
 
-interface FakeMessageEvent { readonly data: unknown }
-
-class FakePort {
-	peer: FakePort | null = null
-	closed = false
-	readonly listeners = new Set<(event: FakeMessageEvent) => void>()
-	onmessage: ((event: FakeMessageEvent) => void) | null = null
-
-	postMessage(message: unknown): void {
-		const event = Object.freeze({ data: message })
-		queueMicrotask(() => {
-			for (const listener of this.peer?.listeners ?? []) listener(event)
-			this.peer?.onmessage?.(event)
-		})
-	}
-
-	on(_event: 'message', listener: (event: FakeMessageEvent) => void): void { this.listeners.add(listener) }
-	off(_event: 'message', listener: (event: FakeMessageEvent) => void): void { this.listeners.delete(listener) }
-	start(): void {}
-	close(): void { this.closed = true }
-}
-
-function channel(): Readonly<{ port1: FakePort; port2: FakePort }> {
-	const port1 = new FakePort()
-	const port2 = new FakePort()
-	port1.peer = port2
-	port2.peer = port1
-	return Object.freeze({ port1, port2 })
-}
-
-function nextMessage(port: FakePort): Promise<Record<string, unknown>> {
-	return new Promise((resolve) => {
-		const listener = (event: FakeMessageEvent) => {
-			port.off('message', listener)
-			resolve(event.data as Record<string, unknown>)
-		}
-		port.on('message', listener)
-	})
-}
-
-async function boundedMessage(port: FakePort): Promise<Record<string, unknown>> {
-	let timer: ReturnType<typeof setTimeout> | null = null
-	try {
-		return await Promise.race([
-			nextMessage(port),
-			new Promise<never>((_resolve, reject) => {
-				timer = setTimeout(() => reject(new Error('persistent audio response timed out')), 100)
-			}),
-		])
-	} finally { if (timer !== null) clearTimeout(timer) }
-}
+import { boundedMessage, channel, ElectronMessagePort, nextMessage, type FakePort } from './helpers/native-helper-test-port.ts'
 
 const AUDIO_GRANT = Object.freeze({
 	backend: 'pipewire',
@@ -81,7 +31,7 @@ const AUDIO_GRANT = Object.freeze({
 })
 
 test('persistent audio runner opens exact format and moves blocks over only the admitted port', async () => {
-	const link = channel()
+	const link = channel(ElectronMessagePort)
 	const writes: unknown[][] = []
 	const runner = createNativePersistentAudioJobRunner({
 		addonPath: '/addon.node',
@@ -105,13 +55,16 @@ test('persistent audio runner opens exact format and moves blocks over only the 
 		protocolVersion: 1, kind: 'configured', status: 'opened', backend: 'pipewire',
 		format: { direction: 'output', mode: 'shared', sampleRate: 48_000, periodFrames: 1_024, channelCount: 2 },
 	})
-	const planes = [new Float32Array(4), new Float32Array(4)]
+	const planes = [Float32Array.of(0.25, 0, 0, 0), Float32Array.of(-0.25, 0, 0, 0)]
 	response = nextMessage(link.port2)
 	link.port2.postMessage({
 		protocolVersion: 1, kind: 'audio', generation: 3, packetId: 0, sequence: 0,
 		startFrame: 0, frameCount: 4, channels: planes,
 	})
-	assert.equal((await response).kind, 'return')
+	const returned = await response
+	assert.equal(returned.kind, 'return')
+	assert.deepEqual(returned.channels, planes)
+	assert.notEqual((returned.channels as Float32Array[])[0]?.buffer, planes[0]?.buffer)
 	assert.equal(writes.length, 1)
 	link.port2.postMessage({ protocolVersion: 1, kind: 'close', reason: 'editor-shutdown' })
 	assert.equal((await handle.completion).reason, 'editor-shutdown')
@@ -321,7 +274,7 @@ const PLUGIN_RESOURCE_POLICY = Object.freeze({
 })
 
 test('persistent plug-in runner processes, saves, restores and closes over its bound port', async () => {
-	const link = channel()
+	const link = channel(ElectronMessagePort)
 	let restored = 0
 	let selected = ''
 	const runner = createNativePersistentPluginJobRunner({
@@ -351,7 +304,9 @@ test('persistent plug-in runner processes, saves, restores and closes over its b
 		protocolVersion: 1, kind: 'process', requestId: 'rpc-1', frameCount: 4,
 		input: [Float32Array.of(1, 2, 3, 4)], output: [new Float32Array(4)],
 	})
-	assert.deepEqual([...((await response).output as Float32Array[])[0]], [1, 2, 3, 4])
+	const processed = await response
+	assert.equal(processed.kind, 'processed')
+	assert.deepEqual([...(processed.output as Float32Array[])[0]], [1, 2, 3, 4])
 	response = nextMessage(link.port2)
 	link.port2.postMessage({ protocolVersion: 1, kind: 'save-state', requestId: 'rpc-2' })
 	assert.deepEqual([...((await response).bytes as Uint8Array)], [1, 2, 3])

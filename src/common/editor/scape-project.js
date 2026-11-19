@@ -14,7 +14,7 @@ import { createDigest as createScapeDigest, bytesStream as scapeBytesStream, hex
 import { extractScapeAudio, scapeAudioSourceStream } from './scape-archive-media.ts';
 import { scapeHashingStream, verifyScapeAssetBytes, verifyScapeExtractedAsset } from '../scape/asset-bytes.ts';
 import { extractScapeVideo } from './scape-archive-video.ts'; import { confirmScapeProxyImportSizes } from './scape-proxy-import-size-warning.ts';
-import { createScapeExportDestination } from './scape-export-destination.ts';
+import { createScapeExportDestination, openScapeExportWritable } from './scape-export-destination.ts';
 import {
 	assertScapeExportBlob,
 	completeScapeExportAsset,
@@ -32,9 +32,10 @@ import {
 import { withScapeProjectInput } from './scape-project-input.ts';
 import { isDesktopScapeArchiveByteSource } from './desktop-scape-archive-byte-source.ts';
 import { SCAPE_MIME_TYPE } from './scape-project-format.ts';
-import { remapScapeProjectSourceReferences } from './scape-project-source-remap.ts';
+import { remapProjectSourceReferences } from './project-source-reference-remap.ts';
 import { prepareScapeImportSourceIdentities, resolveScapeProjectAssetExtension, retryScapeImportSourceIdentityCollision } from './scape-project-asset-extension.ts';
-import { inspectScapeCanonicalEvidence } from './scape-project-canonical-inspection.ts';
+import { inspectScapeCanonicalEvidence, reuseUnchangedScapeProject } from './scape-project-canonical-inspection.ts';
+import { verifyScapeReopenAssets } from './scape-project-reopen-assets.ts';
 import { canonicalMediaContentBlob } from '../media/content-digest.ts';
 import { createProjectCopyDocument } from './storage/project-copy-document.ts';
 import {
@@ -78,7 +79,7 @@ export async function exportScapeProject(project, store, options = {}) {
 		additionalAssets,
 	});
 	const resolvedWritable = createWritable
-		? await awaitScapeOperation(createWritable(plan.maximumArchiveBytes), signal)
+		? await openScapeExportWritable(createWritable, plan.maximumArchiveBytes, signal)
 		: writable;
 	if ((writable || createWritable) && (!resolvedWritable || typeof resolvedWritable.getWriter !== 'function')) {
 		throw new TypeError('The Scape streaming destination is not writable.');
@@ -209,6 +210,11 @@ async function importScapeProjectAttempt(input, store, options, remapAllSources)
 			assertScapeImportStore(store);
 			const existingProject = await awaitScapeOperation(store.loadProject(project.id), signal);
 			const collision = options.collision || 'copy';
+			if (collision === 'reuse') {
+				const reused = reuseUnchangedScapeProject(project, existingProject);
+				await verifyScapeReopenAssets(entryByName, manifest.assets, project.sources, expandedByteBudget, signal, store);
+				return { project: reused, manifest, readOnly: false, collision };
+			}
 			if (existingProject && collision === 'cancel') throw new Error('A project with this ID already exists.');
 			await preflightScapeImportCapacity(manifest, {
 				estimateStorage: options.estimateStorageForPreflight == null && typeof store.estimateStorage === 'function'
@@ -297,7 +303,7 @@ async function importScapeProjectAttempt(input, store, options, remapAllSources)
 			}
 
 			const sourceIdMap = await prepareScapeImportSourceIdentities(project, store, assetExtension, signal, remapAllSources);
-			remapScapeProjectSourceReferences(project, sourceIdMap);
+			remapProjectSourceReferences(project, sourceIdMap);
 			if (isCurrentProjectSchemaIdentity(project, resolveScapeCurrentProjectSchemaFamily(options))) {
 				if (options.rebindProjectSourceIdentities !== undefined) {
 					if (typeof options.rebindProjectSourceIdentities !== 'function') {
@@ -472,7 +478,7 @@ async function importScapeProjectAttempt(input, store, options, remapAllSources)
  *   options?: Readonly<{ signal?: AbortSignal }>,
  * ) => PromiseLike<unknown> | unknown } | null} store
  * @param {{ signal?: AbortSignal, confirmFileSizeWarning?: import('./controller/shared/file-size-warning.ts').FileSizeWarningConfirmation, assertCurrent?: () => void,
- *   canonicalProjectDigest?: boolean, loadProject?: (project: unknown) => { project: Record<string, unknown>, readOnly: boolean },
+ *   canonicalProjectDigest?: boolean | 'reopen', loadProject?: (project: unknown) => { project: Record<string, unknown>, readOnly: boolean },
  *   currentProjectSchemaFamily?: import('./project-schema-identity.ts').ProjectSchemaFamily,
  *   currentProjectSchemaVersion?: number,
  *   projectFeatureCompatibility?: { evaluate: (project: unknown) => import('./project-feature-requirement-types.ts').ProjectFeatureRequirementsReport | null },
@@ -524,7 +530,7 @@ export async function inspectScapeProject(input, store = null, options = {}, ret
 			featureRequirementsCompatibility,
 			...inspectScapeCanonicalEvidence(
 				options.canonicalProjectDigest && !loaded.readOnly ? loaded.project : null,
-				options.canonicalProjectDigest && existing ? existing : null),
+				options.canonicalProjectDigest && existing ? existing : null, options.canonicalProjectDigest !== 'reopen'),
 		});
 	}, {
 		blob: options.archiveReaderFactory,

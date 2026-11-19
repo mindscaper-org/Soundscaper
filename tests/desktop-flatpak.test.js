@@ -12,7 +12,7 @@ import { promisify } from 'node:util';
 import { createPackageFromStreams } from '@electron/asar';
 
 import { buildDesktopFlatpak, parseDesktopFlatpakArguments } from '../scripts/desktop-flatpak.mjs';
-import { readProductReleaseLines, resolveProductApplicationVersion } from '../scripts/lib/product-release-lines.mjs';
+import { readProductReleaseLines, resolveProductApplicationVersion, resolveProductDesktopMetadata } from '../scripts/lib/product-release-lines.mjs';
 
 const executeFile = promisify(execFile);
 const canBuildDeb = process.platform === 'linux' && spawnSync('dpkg-deb', ['--version']).status === 0;
@@ -42,10 +42,10 @@ for (const [product, arch] of [['soundscaper', 'x64'], ['framescaper', 'arm64']]
 		const fixture = await createFixture(context, { product, arch });
 		const calls = [];
 		await mkdir(fixture.options.output);
-		await writeFile(join(fixture.options.output, `${fixture.productName}-${fixture.version}-linux-${arch}.flatpak.sha256`), 'old checksum');
+		await writeFile(join(fixture.options.output, `${fixture.version}-linux-${arch}.flatpak.sha256`), 'old checksum');
 		await writeFile(join(fixture.options.output, `${product}-${arch}-manifest.json`), 'old manifest');
 		const result = await buildDesktopFlatpak(fixture.options, { runCommand: fakeBuilder(calls) });
-		assert.equal(basename(result.bundlePath), `${fixture.productName}-${fixture.version}-linux-${arch}.flatpak`);
+		assert.equal(basename(result.bundlePath), `${fixture.version}-linux-${arch}.flatpak`);
 		const manifest = JSON.parse(await readFile(result.manifestPath, 'utf8'));
 		assert.equal(manifest.id, `org.${product}.desktop`);
 		assert.equal(manifest.branch, 'nightly');
@@ -121,7 +121,7 @@ test('Flatpak propagates tool failure and does not publish a checksum', requires
 		throw failure;
 	} }), (error) => error === failure);
 	await assert.rejects(readFile(join(fixture.options.output,
-		`${fixture.productName}-${fixture.version}-linux-x64.flatpak.sha256`)), { code: 'ENOENT' });
+		`${fixture.version}-linux-x64.flatpak.sha256`)), { code: 'ENOENT' });
 });
 
 test('Flatpak refuses a builder that changes authenticated application bytes', requiresDeb, async (context) => {
@@ -137,6 +137,7 @@ async function createFixture(context, { product = 'soundscaper', arch = 'x64', m
 	const productName = product === 'framescaper' ? 'Framescaper' : 'Soundscaper';
 	const releaseLines = await readProductReleaseLines();
 	const version = resolveProductApplicationVersion(product, releaseLines);
+	const numericVersion = resolveProductDesktopMetadata(product, releaseLines).packageVersion;
 	await mkdir(join(root, 'config'), { recursive: true });
 	await writeFile(join(root, 'config/product-release-lines.json'), JSON.stringify(releaseLines));
 	const packageRoot = join(root, 'fixture');
@@ -148,7 +149,7 @@ async function createFixture(context, { product = 'soundscaper', arch = 'x64', m
 	const asarPath = join(appRoot, 'resources/app.asar');
 	const archiveMetadata = Buffer.from(JSON.stringify({
 		name: `${archiveProduct}-desktop`, productName,
-		version, desktopName: `org.${archiveProduct}.desktop`,
+		version: numericVersion, releaseVersion: version, desktopName: `org.${archiveProduct}.desktop`,
 	}));
 	await createPackageFromStreams(asarPath, [{ path: 'package.json', type: 'file',
 		streamGenerator: () => Readable.from([archiveMetadata]), unpacked: false,
@@ -161,14 +162,14 @@ async function createFixture(context, { product = 'soundscaper', arch = 'x64', m
 	await mkdir(join(packageRoot, 'usr/share/mime/packages'), { recursive: true });
 	await writeFile(join(packageRoot, 'usr/share/mime/packages', `${product}.xml`), mime);
 	await mkdir(join(packageRoot, 'DEBIAN'), { recursive: true });
-	const fields = { Package: `${product}-desktop`, Version: version.replaceAll('-', '~'),
+	const fields = { Package: `${product}-desktop`, Version: numericVersion,
 		Architecture: arch === 'x64' ? 'amd64' : 'arm64', Maintainer: 'Fixture <fixture@example.org>',
 		Description: 'Flatpak fixture', ...metadata };
 	await writeFile(join(packageRoot, 'DEBIAN/control'),
 		`${Object.entries(fields).map(([name, value]) => `${name}: ${value}`).join('\n')}\n`);
 	const packages = join(root, 'packages');
 	await mkdir(packages);
-	const debPath = join(packages, `${productName}-${version}-linux-${arch}.deb`);
+	const debPath = join(packages, `${version}-linux-${arch}.deb`);
 	await executeFile('dpkg-deb', ['--build', '--root-owner-group', packageRoot, debPath]);
 	return { root, productName, version, debPath, icon, mime, asarBytes: await readFile(asarPath),
 		options: { repositoryRoot: root, packages, product, arch, output: join(root, 'output') } };

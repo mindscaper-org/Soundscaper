@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { measureBextLoudness } from './broadcast-loudness.ts';
+import { bextLoudnessFields, measureBextLoudness, measureProgrammeLoudness } from './broadcast-loudness.ts';
+import { EBU_R128_FLOOR_DB } from './ebu-r128.js';
 import {
 	type LoudnessNormalizationDecision,
 	type LoudnessNormalizationTarget,
@@ -85,20 +86,23 @@ export function normalizeRenderedLoudness(
 		throw new TypeError('A delivered loudness capture must measure the channels it writes.');
 	}
 
-	const measured = measureBextLoudness(measurementChannels, sampleRate, {
+	const measured = measureProgrammeLoudness(measurementChannels, sampleRate, {
 		channelWeights: request.channelWeights,
 	});
 	if (!target) {
 		// A delivery without normalization still reports its measured loudness,
 		// so the report says the same kind of thing either way.
-		return result(channels, computeLoudnessNormalization(measured, null), measured);
+		const fields = bextLoudnessFields(measured);
+		return result(channels, computeLoudnessNormalization(fields, null), fields);
 	}
 
-	const decision = computeLoudnessNormalization(measured, target);
+	const peak = measured.maximumTruePeakDbtp;
+	const decision = computeLoudnessNormalization({
+		loudnessValue: measured.integratedLufs,
+		maxTruePeakLevel: peak !== null && peak > EBU_R128_FLOOR_DB ? peak : null,
+	}, target);
 	if (!loudnessNormalizationChangesAudio(decision)) {
-		// Already on target, or unmeasurable. Nothing moved, so the first
-		// measurement is also the delivered one — no second pass to pay for.
-		return result(channels, decision, captureLoudness ? measured : null);
+		return result(channels, decision, captureLoudness ? bextLoudnessFields(measured) : null);
 	}
 
 	const factor = loudnessNormalizationGainFactor(decision);

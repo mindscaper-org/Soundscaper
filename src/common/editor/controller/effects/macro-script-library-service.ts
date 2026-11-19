@@ -72,13 +72,7 @@ export function createMacroScriptLibraryService(runtime: MacroScriptLibraryServi
 		return result.script;
 	}
 
-	/**
-	 * Take in a program someone else wrote.
-	 *
-	 * Importing never runs anything and never grants anything: the program lands
-	 * in the list marked untrusted, with the file it came from recorded, and the
-	 * manager offers a review rather than a Run button until a person has read it.
-	 */
+	/** Import stores the program and its origin; execution requires an explicit Run action. */
 	function importFile(text: unknown, origin?: unknown): MacroScriptRecord {
 		const envelope = parseMacroScriptEnvelope(text);
 		return save({
@@ -103,7 +97,7 @@ export function createMacroScriptLibraryService(runtime: MacroScriptLibraryServi
 		return script;
 	}
 
-	/** Whether this exact program text is something the user has not enabled. */
+	/** Empty program text cannot run. Legacy review metadata is retained only for compatibility. */
 	function blocked(source: string): boolean {
 		return macroScriptSourceIsBlocked(list(), source);
 	}

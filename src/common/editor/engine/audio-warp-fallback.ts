@@ -14,7 +14,9 @@ import {
 	clamp,
 	clampFrame,
 	MAX_EFFECT_TAIL_SECONDS,
+	playRangeStopFrame,
 } from './buffer-math.ts';
+import { isPlaybackLoopEnabled } from './playback-frequency-range.ts';
 import { projectGraphLatencyFrames } from './project-graph.ts';
 import { projectEffectRacks } from './project-effects.ts';
 import { resolveRenderFrameRange, resolveRenderTimelineRanges } from './rendering-range.ts';
@@ -137,11 +139,15 @@ export function assertExactAudioWarpWindowGraph(
 	}
 }
 
+export function exactAudioWarpPlaybackEnd(engine: EngineRuntimeHost, fromFrame: number): number {
+	return isPlaybackLoopEnabled(engine) ? engine.loop.endFrame
+		: playRangeStopFrame(engine.playRange, fromFrame, engine.durationFrames);
+}
+
 /** Render one authority-keyed, bounded exact window for demand-driven playback. */
 export function prepareExactAudioWarpPlayback(
 	engine: EngineRuntimeHost,
 	startFrame: number,
-	endFrame = engine.durationFrames,
 	signal: AbortSignal | null = null,
 ): Promise<Readonly<PreparedAudioWarpPlayback>> {
 	if (!engine.project || !projectHasAuthoredAudioWarp(engine.project)) {
@@ -152,7 +158,7 @@ export function prepareExactAudioWarpPlayback(
 	const graphLatencyFrames = exactGraphLatencyFrames(engine, null, true);
 	const range = planExactAudioWarpWindow({
 		startFrame: clampFrame(startFrame, 0, engine.playbackDurationFrames),
-		endFrame: clampFrame(endFrame, 0, engine.playbackDurationFrames),
+		endFrame: clampFrame(exactAudioWarpPlaybackEnd(engine, startFrame), 0, engine.playbackDurationFrames),
 		sampleRate: engine.sampleRate,
 		channelCount: clamp(Number(project.masterChannels) || 2, 1, 32),
 		graphLatencyFrames,

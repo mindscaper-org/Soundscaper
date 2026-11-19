@@ -1,3 +1,4 @@
+import EffectAutoIdleOverrides from './EffectAutoIdleOverrides.tsx';
 import TemporaryDataPreferencesPanel, { type TemporaryDataFileService } from './TemporaryDataPreferencesPanel.tsx';
 import type { TemporaryDataPreferences } from '../../saving-preferences.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
@@ -9,12 +10,19 @@ import { Separator } from '@soundscaper/design-system/Separator';
 import type { AudioEditorPerformancePreferences } from '../../performance-preferences.ts';
 import type { WaveformDisplayPreferences } from '../../waveform-display-preferences.ts';
 import PreferenceDropdownField from './PreferenceDropdownField.jsx';
+import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
+import PreferenceNumberInput from './PreferenceNumberInput.tsx';
+import { MAXIMUM_EFFECT_MEMORY_LIMIT_GIB } from '../../effect-memory-budget.ts';
 import {
 	AUDIO_COM_DEFAULT_SERVER_URL, normalizeAudioComServerUrl,
 	type AudioEditorAdvancedPreferences,
 } from '../../advanced-preferences.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AdvancedPreferencesCopy {
+	readonly advancedEffectMemory: string;
+	readonly advancedEffectMemoryLimit: string;
+	readonly advancedEffectMemoryDescription: string;
 	readonly advancedAudioServer: string;
 	readonly advancedAudioServerDescription: string;
 	readonly advancedAudioServerInvalid: string;
@@ -28,12 +36,16 @@ interface AdvancedPreferencesCopy {
 	readonly waveformRenderer: string;
 	readonly waveformRendererCanvas: string;
 	readonly waveformRendererGpu: string;
+	readonly effectAutoIdleOverrides: string;
+	readonly effectAutoIdleInherit: string;
+	readonly suspendIdleEffectProcessing: string;
+	readonly suspendIdleEffectProcessingDescription: string;
 }
 
 interface AdvancedPreferencesPageProps {
 	readonly controller: { readonly actions: { readonly preferences: {
 		readonly update: (changes: {
-			readonly advanced?: AudioEditorAdvancedPreferences;
+			readonly advanced?: Partial<AudioEditorAdvancedPreferences>;
 			readonly temporaryData?: Partial<TemporaryDataPreferences>;
 			readonly performance?: AudioEditorPerformancePreferences;
 			readonly waveformDisplay?: Partial<WaveformDisplayPreferences>;
@@ -56,6 +68,7 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 	const [draft, setDraft] = useState(serverUrl);
 	const [invalid, setInvalid] = useState(false);
 	const fieldId = useId();
+	const idleDescriptionId = useId();
 	useEffect(() => { setDraft(serverUrl); setInvalid(false); }, [serverUrl]);
 	const save = (value: string) => {
 		let audioComServerUrl: string;
@@ -68,6 +81,18 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 	return <>
 		<TemporaryDataPreferencesPanel controller={controller} preferences={preferences.temporaryData} copy={copy as unknown as Record<string, unknown>} fileService={fileService} run={run} />
 		<Separator />
+		{fileService?.isDesktop === true && <>
+			<PreferencePanel title={copy.advancedEffectMemory}>
+				<div className="kw-audio-editor-preferences__field">
+					<span>{copy.advancedEffectMemoryLimit}</span>
+					<PreferenceNumberInput label={copy.advancedEffectMemoryLimit} value={preferences.advanced.effectMemoryLimitGiB}
+						minimum={1} maximum={MAXIMUM_EFFECT_MEMORY_LIMIT_GIB} integer
+						onCommit={effectMemoryLimitGiB => run(() => controller.actions.preferences.update({ advanced: { effectMemoryLimitGiB } }))} />
+				</div>
+				<p className="kw-audio-editor-preferences__note">{copy.advancedEffectMemoryDescription}</p>
+			</PreferencePanel>
+			<Separator />
+		</>}
 		<PreferencePanel title={copy.optimizeFor}>
 			<div className="kw-audio-editor-preferences__grid">
 				<PreferenceDropdownField label={copy.optimizeFor} value={preferences.performance?.optimizeFor ?? 'memory'}
@@ -79,6 +104,16 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 					]} />
 			</div>
 			<p className="kw-audio-editor-preferences__note">{copy.optimizeForDescription}</p>
+		</PreferencePanel>
+		<Separator />
+		<PreferencePanel title={copy.suspendIdleEffectProcessing}>
+			<PreferenceCheckbox label={copy.suspendIdleEffectProcessing}
+				checked={preferences.advanced.suspendIdleEffectProcessing !== false}
+				ariaDescribedBy={idleDescriptionId}
+				onChange={(enabled) => run(() => controller.actions.preferences.update({ advanced: { suspendIdleEffectProcessing: enabled } }))} />
+			<p className="kw-audio-editor-preferences__note" id={idleDescriptionId}>{copy.suspendIdleEffectProcessingDescription}</p>
+			<EffectAutoIdleOverrides preferences={preferences.advanced} copy={copy}
+				onChange={effectAutoIdleOverrides => { run(() => controller.actions.preferences.update({ advanced: { effectAutoIdleOverrides } })); }} />
 		</PreferencePanel>
 		<Separator />
 		<PreferencePanel title={copy.waveformRenderer}>
@@ -94,7 +129,7 @@ export default function AdvancedPreferencesPage({ controller, preferences, copy,
 			<Separator />
 			<PreferencePanel title={copy.advancedAudioServer}>
 				<label className="kw-audio-editor-preferences__field" htmlFor={fieldId}>
-					<span>{copy.advancedAudioServerUrl}</span>
+					<EditorControlLabel>{copy.advancedAudioServerUrl}</EditorControlLabel>
 					<input id={fieldId} type="url" value={draft} autoComplete="off" spellCheck={false}
 						aria-invalid={invalid || undefined} aria-describedby={`${fieldId}-note${invalid ? ` ${fieldId}-error` : ''}`}
 						onChange={(event) => { setDraft(event.currentTarget.value); setInvalid(false); }}

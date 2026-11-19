@@ -4,6 +4,7 @@ import {
 } from './file-save-stream.ts';
 import {
 	materializeDesktopReadBlob,
+	withDesktopReadCleanup as withReadCleanup,
 } from './desktop-read-materialization.ts';
 import {
 	assertDesktopMaterializedReadProfile,
@@ -14,7 +15,7 @@ import {
 import { createDesktopScapeArchiveByteSource } from './desktop-scape-archive-byte-source.ts';
 import { createDesktopHelperVideoTimingProbe } from './desktop-helper-video-timing-probe.ts';
 import { createDesktopLinkedOriginalAccess } from './desktop-linked-original-port.ts';
-import { registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
+import { desktopReadCapabilityIdFor, registerDesktopReadCapability } from './desktop-read-capability-registry.ts';
 import { createBrowserFileSaveService } from './browser-file-save-service.ts';
 import { readSourceWithRecovery } from './storage/source-read-recovery.ts';
 import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked-video-original-port.ts';
@@ -65,7 +66,7 @@ export function createAudioEditorFileService(options = {}) {
 		browserProjectPickerAvailable: !isDesktop && typeof scope.showOpenFilePicker === 'function',
 		chooseBrowserProjectFiles: async () => (await import('./browser-project-files.ts')).chooseBrowserProjectFiles(scope),
 		originalOverwriteAvailable: typeof bridge?.prepareOriginalOverwrite === 'function',
-		prepareOriginalOverwrite: async (id) => { const target = await bridge?.prepareOriginalOverwrite?.(id); return target ? Object.freeze({ ...target, originalOverwrite: true, originalFile: { id, name: target.name } }) : null; },
+		prepareOriginalOverwrite: async (id, allowProjectSavePicker = false) => { const target = await bridge?.prepareOriginalOverwrite?.(id, allowProjectSavePicker); return target ? Object.freeze({ ...target, originalOverwrite: true, originalFile: { id, name: target.name } }) : null; },
 		releaseSaveTarget: (target) => bridge?.releaseSaveTarget?.(target?.id),
 		releaseOriginalFile: (id) => bridge?.releaseOriginalFile?.(id),
 		externalMediaResolver: externalMediaFiles.resolve, captureExternalMediaFile: (file) => externalMediaFiles.capture(file),
@@ -80,6 +81,7 @@ export function createAudioEditorFileService(options = {}) {
 		linkedOriginalPort: linkedOriginals.port,
 		chooseLinkedAudioOriginal: linkedOriginals.chooseAudio,
 		releaseLinkedAudioOriginal: linkedOriginals.releaseAudio,
+		cpuProfiler: bridge?.cpuProfiler,
 		getEnvironment: () => bridge?.getEnvironment?.() ?? null,
 		rememberProjectFile: (value) => bridge?.rememberProjectFile?.(value) ?? null,
 		restoreProjectFile: (value) => bridge?.restoreProjectFile?.(value) ?? null,
@@ -94,6 +96,7 @@ export function createAudioEditorFileService(options = {}) {
 			respondMcpRequest: (response) => bridge?.respondMcpRequest?.(response),
 		} : {}),
 		chooseFiles,
+		protectProjectCopySource,
 		openReadDescriptor,
 		withScapeReadDescriptor,
 		withReadDescriptors,
@@ -102,6 +105,10 @@ export function createAudioEditorFileService(options = {}) {
 		chooseSesxMediaFolder: (request) => bridge?.chooseSesxMediaFolder?.(request) ?? Promise.resolve({ status: 'cancelled' }),
 		releaseSesxSession: (sessionReadId) => bridge?.releaseSesxSession?.(sessionReadId) ?? Promise.resolve(false),
 		chooseSaveTarget,
+		chooseBatchSaveDirectory: (suggestedNames = []) => bridge?.chooseBatchSaveDirectory?.({ suggestedNames }) ?? null,
+		planBatchSaveOutputs: (batchId, suggestedNames) => bridge?.planBatchSaveOutputs?.({ batchId, suggestedNames }) ?? null,
+		prepareBatchSaveTarget: (batchId, index) => bridge?.prepareBatchSaveTarget?.({ batchId, index }) ?? null,
+		releaseBatchSaveDirectory: (batchId) => bridge?.releaseBatchSaveDirectory?.(batchId),
 		prepareSave,
 		writeFile,
 		saveFile,
@@ -131,6 +138,7 @@ export function createAudioEditorFileService(options = {}) {
 		readNativeTierControls: nativeTierControlsAvailable ? () => bridge.readNativeTierControls() : undefined,
 		applyNativeTierControl: nativeTierControlsAvailable ? (request) => bridge.applyNativeTierControl(request) : undefined,
 		checkForUpdates: () => bridge?.checkForUpdates?.(),
+		updatePreferences: (enabled) => bridge?.updatePreferences?.(enabled),
 		openExternal: (destination) => bridge?.openExternal?.(destination),
 		editText: (command) => bridge?.editText?.(command),
 		onOpenProject: (listener) => subscribeBridgeEvent(bridge, 'onOpenProject', listener),
@@ -162,7 +170,7 @@ export function createAudioEditorFileService(options = {}) {
 	async function withReadDescriptors(descriptors, request = {}, consume) {
 		if (!Array.isArray(descriptors)) throw new TypeError('Desktop read descriptors must be an array.');
 		if (typeof consume !== 'function') throw new TypeError('A desktop read consumer is required.');
-		const readIds = uniqueReadIds(descriptors);
+		const readIds = request.retainReads === true ? [] : uniqueReadIds(descriptors);
 		return withDesktopOriginalReadCleanup(descriptors, bridge?.releaseOriginalFile?.bind(bridge), () => withReadCleanup(readIds, releaseRead, async () => {
 			let aggregateBytes = 0;
 			for (const descriptor of descriptors) {
@@ -224,12 +232,22 @@ export function createAudioEditorFileService(options = {}) {
 		await readSourceWithRecovery(() => bridge.releaseRead(String(id)), { maximumAttempts: 1 });
 	}
 
+	async function protectProjectCopySource(input) {
+		const readId = desktopReadCapabilityIdFor(input);
+		if (!readId || !bridge?.chooseSaveTarget) return null;
+		const sourceId = await bridge.chooseSaveTarget({ kind: 'protect-project-copy-source', readId });
+		if (typeof sourceId !== 'string' || !/^[a-f0-9]{48}$/u.test(sourceId)) throw new TypeError('Invalid project copy source.');
+		return sourceId;
+	}
+
 	async function chooseSaveTarget(request = {}) {
-		if (!bridge) return browserFiles.chooseSaveTarget(request);
-		const purpose = normalizePurpose(request.purpose, ['project', 'project-copy', 'aup3', 'aup4', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange', 'translation']);
+		const purpose = normalizePurpose(request.purpose, ['project', 'project-copy', 'aup3', 'aup4', 'audacity-recovery', 'audio-pcm-mix', 'audio', 'video', 'media', 'labels', 'preset', 'macro', 'report', 'attribution-csv', 'interchange', 'translation']);
 		const suggestedName = sanitizeSuggestedName(request.suggestedName || request.fileName);
-		if (bridge.chooseSaveTarget) {
-			return bridge.chooseSaveTarget({ purpose, suggestedName,
+		if (bridge?.chooseSaveTarget) {
+			return bridge.chooseSaveTarget({
+				purpose,
+				suggestedName,
+				...(request.projectCopySourceId === undefined ? {} : { projectCopySourceId: request.projectCopySourceId }),
 				...(request.mimeType ? { mimeType: String(request.mimeType) } : {}),
 			});
 		}
@@ -253,6 +271,7 @@ export function createAudioEditorFileService(options = {}) {
 		if (target === undefined) {
 			try {
 				target = await chooseSaveTarget({ ...request, suggestedName: fileName });
+				if (target && request.signal?.aborted) await bridge?.releaseSaveTarget?.(target.id);
 				throwIfAborted(request.signal);
 			} catch (error) {
 				throwIfAborted(request.signal);
@@ -262,7 +281,16 @@ export function createAudioEditorFileService(options = {}) {
 		}
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
 		const persistent = bindSoundscaperPersistentDeliverySave(target, fileName);
-		return withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
+		const prepared = withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
+		if (persistent || typeof bridge.releaseSaveTarget !== 'function') return prepared;
+		return Object.freeze({
+			...prepared,
+			/** @param {unknown} [reason] */
+			async abort(reason) {
+				try { await prepared.abort(reason); }
+				finally { await bridge.releaseSaveTarget(target.id); }
+			},
+		});
 	}
 
 	async function saveFile(request = {}) {
@@ -408,36 +436,6 @@ function uniqueReadIds(descriptors) {
 		.map((descriptor) => descriptor?.id)
 		.filter((id) => id != null)
 		.map(String))];
-}
-
-async function withReadCleanup(readIds, release, operation) {
-	let value;
-	let primaryError;
-	let operationFailed = false;
-	try {
-		value = await operation();
-	} catch (error) {
-		operationFailed = true;
-		primaryError = error;
-	}
-	const cleanupResults = await Promise.allSettled(readIds.map((id) => release(id)));
-	const cleanupErrors = cleanupResults
-		.filter((result) => result.status === 'rejected')
-		.map((result) => result.reason);
-	if (operationFailed) {
-		if (cleanupErrors.length) {
-			throw new AggregateError(
-				[primaryError, ...cleanupErrors],
-				'The desktop read failed and its capability cleanup was incomplete.',
-				{ cause: primaryError },
-			);
-		}
-		throw primaryError;
-	}
-	if (cleanupErrors.length) {
-		throw new AggregateError(cleanupErrors, 'Desktop read capability cleanup was incomplete.');
-	}
-	return value;
 }
 
 function createNamedFile(blob, descriptor, scope) {

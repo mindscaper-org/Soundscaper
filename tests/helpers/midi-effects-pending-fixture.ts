@@ -7,14 +7,21 @@ import type { EnginePublicApi, EngineChunkSourceInput, EngineSourceBufferInput }
 import type { MidiNote } from '../../src/common/editor/midi-model.ts';
 import { MockAudioBuffer } from './audio-editor-controller-fixtures.js';
 import { deferred } from './async-test-control.ts';
+import { installNodeEditorWorkers } from './node-editor-workers.ts';
 
 /** Real synthesis, storage, commands and DSP; render this neutral fixture's canonical PCM. */
 export async function midiEffectsFixture(t: TestContext, blockSourceRegistration = false, carrier: 'channels' | 'buffer' = 'channels') {
+	installNodeEditorWorkers(t);
 	const memory = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 	const entered = deferred<void>(), release = deferred<void>();
 	const sourceReadEntered = deferred<void>(), releaseSourceRead = deferred<void>();
 	let hold = false, captureSource = false, pendingSourceId: string | null = null;
 	const store = new Proxy(memory, { get(target, key) {
+		if (key === 'writeMidiSource') return async (...args: Parameters<typeof memory.writeMidiSource>) => {
+			if (captureSource) { pendingSourceId = args[0]; captureSource = false; }
+			if (hold) { entered.resolve(); await release.promise; }
+			return target.writeMidiSource(...args);
+		};
 		if (key === 'getSourceMetadata') return async (...args: Parameters<typeof memory.getSourceMetadata>) => {
 			if (blockSourceRegistration && args[0] === pendingSourceId) { sourceReadEntered.resolve(); await releaseSourceRead.promise; }
 			return target.getSourceMetadata(...args);
@@ -90,8 +97,9 @@ export async function midiEffectsFixture(t: TestContext, blockSourceRegistration
 		async pendingNote(changes: Partial<MidiNote> = { pitch: 67 }) {
 			hold = true; captureSource = true;
 			const updating = controller.actions.midi.updateNote(clipId, 'note', changes);
-			void updating.catch(() => {});
-			await entered.promise;
+			await Promise.race([entered.promise, updating.then(() => {
+				assert.fail('The MIDI update completed without reaching the source-publication barrier.');
+			})]);
 			return { updating };
 		},
 		async samples() {

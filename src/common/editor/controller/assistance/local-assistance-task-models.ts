@@ -2,6 +2,7 @@
 import { assistanceWorkflowStageGraph } from '../../assistance/workflow-recipes.ts';
 import type { AssistanceWorkflowSettingsV1 } from '../../assistance/workflow-settings-v1.ts';
 import type { LocalAssistanceModel } from '../../assistance/local-assistance-bridge.ts';
+import { SPEECH_ENHANCEMENT_MODELS } from '../../assistance/speech-enhancement-models.ts';
 import { localAssistanceGuidedModelMatches } from
 	'./internal/guided/local-assistance-guided-model-selection.ts';
 import { selectLocalAssistanceGuidedStages } from
@@ -20,7 +21,8 @@ export function assistanceTaskAvailableModelFilter(
 ): (model: Model) => boolean {
 	const settingsOptions = settings.workflowId === 'transcribe-captions'
 		? [{ ...settings, recognizer: 'parakeet' as const }, { ...settings, recognizer: 'whisper' as const }]
-		: [settings];
+		: settings.workflowId === 'enhance-dialogue'
+			? SPEECH_ENHANCEMENT_MODELS.map(({ modelId }) => ({ ...settings, modelId })) : [settings];
 	const filters = settingsOptions.map(assistanceTaskModelFilter);
 	return (model) => filters.some((filter) => filter(model));
 }

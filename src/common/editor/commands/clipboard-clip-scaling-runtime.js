@@ -20,12 +20,15 @@ export function scaleClipboardClip(
 	conformedAnchor = null,
 	project = undefined,
 ) {
-	const durationFrames = Math.max(1, Math.round(descriptor.durationFrames * scale));
+	const offsetFrame = Math.round(descriptor.offsetFrame * scale);
+	const scaleLocalFrame = frame => descriptor.kind === 'video' ? Math.round(frame * scale)
+		: Math.round((descriptor.offsetFrame + frame) * scale) - offsetFrame;
+	const durationFrames = Math.max(1, scaleLocalFrame(descriptor.durationFrames));
 	const videoPlacement = descriptor.kind === 'video' && targetSequence && conformedAnchor
 		? conformClipboardVideoPlacement(descriptor, scale, targetSequence, conformedAnchor)
 		: null;
 	const timelineStartFrame = videoPlacement?.timelineStartFrame
-		?? atFrame + Math.round(descriptor.offsetFrame * scale) + (conformedAnchor?.sampleDelta ?? 0);
+		?? atFrame + offsetFrame + (conformedAnchor?.sampleDelta ?? 0);
 	const timelineDurationFrames = videoPlacement?.durationFrames ?? durationFrames;
 	const candidate = {
 		...descriptor,
@@ -36,7 +39,7 @@ export function scaleClipboardClip(
 		avLinkId: descriptor.avLinkId ? avLinkIds[descriptor.avLinkId] || null : null,
 		timelineStartFrame,
 		durationFrames: timelineDurationFrames,
-		...clipLoopTransformFields(descriptor, { durationFrames: timelineDurationFrames }),
+		...clipLoopTransformFields(descriptor, { durationFrames: timelineDurationFrames }, scale),
 		...(descriptor.anchor !== 'musical' && descriptor.warpMap?.feature === 'audio-warp'
 			&& timelineDurationFrames !== descriptor.durationFrames ? {
 				warpMap: { ...descriptor.warpMap, points: normalizeAudioWarpMap(descriptor.warpMap).points.map((point) => ({
@@ -59,7 +62,7 @@ export function scaleClipboardClip(
 		...(Array.isArray(descriptor.envelope) ? {
 			envelope: descriptor.envelope.map((point) => ({
 				...point,
-				frame: Math.min(durationFrames, Math.max(0, Math.round(point.frame * scale))),
+				frame: Math.min(durationFrames, Math.max(0, scaleLocalFrame(point.frame))),
 			})).filter((point, index, values) => index === values.length - 1 || point.frame < values[index + 1].frame),
 		} : {}),
 	};

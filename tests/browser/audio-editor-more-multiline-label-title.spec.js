@@ -3,8 +3,7 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
-for (const surface of ['timeline', 'manager']) test(`editing an imported multiline caption in the ${surface} preserves its lines`, async ({ page }) => {
-	const original = 'First line\nSecond line';
+for (const surface of ['timeline', 'manager']) for (const original of ['First line', 'First line\nSecond line']) test(`editing a ${original.includes('\n') ? 'multiline' : 'single-line'} caption in the ${surface} preserves its lines`, async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [{ name: 'Two lines.srt', mimeType: 'application/x-subrip',
 		buffer: Buffer.from(`1\n00:00:01,000 --> 00:00:02,000\n${original}\n`) }]);
@@ -26,6 +25,7 @@ for (const surface of ['timeline', 'manager']) test(`editing an imported multili
 	await title.press('Control+End');
 	await title.pressSequentially('!');
 	await title.press('Shift+Enter');
+	await expect(title).toBeFocused();
 	await title.pressSequentially('Third line');
 	await title.press('Enter');
 	const edited = `${original}!\nThird line`;

@@ -606,6 +606,8 @@
 		,
 		{ "path": "scripts/lib/e2e-v8-function-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-function-topology.mjs validates the upstream V8 function coverage topology and does not identify project schema." }
 		,
+		{ "path": "scripts/lib/e2e-v8-source-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-source-topology.mjs derives source topology for the upstream V8 coverage format and does not identify project schema." }
+		,
 		{ "path": "scripts/lib/e2e-v8-topology.mjs", "kind": "upstream-contract", "justification": "e2e-v8-topology.mjs validates the upstream V8 coverage topology and does not identify project schema." }
 		,
 		{ "path": "scripts/lib/lightscaper-desktop-association-evidence-current-v1.ts", "kind": "helper-contract", "justification": "lightscaper-desktop-association-evidence-current-v1.ts is an explicitly version-scoped internal implementation helper or facade; its Current or historical import identity does not claim a separately published format, process grant or product project-schema generation." }
@@ -720,6 +722,8 @@
 		,
 		{ "path": "src/common/editor/assistance/kokoro-voices-v1.ts", "kind": "upstream-contract", "justification": "Kokoro v1.0 publishes a fixed language and voice inventory that binds persisted speech script choices." }
 		,
+		{ "path": "src/common/editor/assistance/music-transcription-v1.ts", "kind": "persisted-contract", "justification": "Music transcription v1 is the bounded semantic note result shared by the native model adapter and editor review." }
+		,
 		{ "path": "src/common/editor/assistance/nomic-tokenizer-v1.ts", "kind": "persisted-contract", "justification": "nomic-tokenizer-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
 		{ "path": "src/common/editor/assistance/owned-audio-cut-transform-registry-v1.ts", "kind": "persisted-contract", "justification": "owned-audio-cut-transform-registry-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
@@ -800,6 +804,8 @@
 		,
 		{ "path": "src/common/editor/assistance/visual-tag-classification-v1.ts", "kind": "persisted-contract", "justification": "visual-tag-classification-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
+		{ "path": "src/common/editor/assistance/voicefixer-signal-v1.ts", "kind": "upstream-contract", "justification": "VoiceFixer v1 binds the pinned NumPy filterbank and model signal geometry used by the native restoration adapter." }
+		,
 		{ "path": "src/common/editor/assistance/wav2vec2-english-tokenizer-v1.ts", "kind": "persisted-contract", "justification": "wav2vec2-english-tokenizer-v1.ts is a persisted assistance asset, workflow, model-adapter, or result format revision." }
 		,
 		{ "path": "src/common/editor/assistance/workflow-claim-correlation-v1.ts", "kind": "persisted-contract", "justification": "workflow-claim-correlation-v1.ts is a persisted assistance claim-correlation format revision shared across workflow boundaries." }
@@ -819,6 +825,8 @@
 		{ "path": "src/common/editor/audio-track-freeze-v21.ts", "kind": "persisted-contract", "justification": "audio-track-freeze-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/automation-capture-boundaries-v21.ts", "kind": "persisted-contract", "justification": "automation-capture-boundaries-v21.ts preserves boundary point identities and segment shapes in the persisted V21 automation-lane contract." }
+		,
+		{ "path": "src/common/editor/automation-lane-curve-shift-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-curve-shift-v21.ts preserves V21 automation curve shapes across edit boundaries and tempo changes." }
 		,
 		{ "path": "src/common/editor/automation-lane-inline-edit-v21.ts", "kind": "persisted-contract", "justification": "automation-lane-inline-edit-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
@@ -1979,6 +1987,8 @@
 		{ "path": "src/common/editor/video-motion-model-v27.ts", "kind": "persisted-contract", "justification": "video-motion-model-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/video-motion-processing-v27.ts", "kind": "persisted-contract", "justification": "video-motion-processing-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
+		,
+		{ "path": "src/common/editor/video-motion-shi-tomasi-v27.ts", "kind": "persisted-contract", "justification": "Preserves the feature scores and candidate order consumed by the V27 motion analysis that produces persisted tracks." }
 		,
 		{ "path": "src/common/editor/video-motion-webgl2-v27.ts", "kind": "persisted-contract", "justification": "video-motion-webgl2-v27.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,

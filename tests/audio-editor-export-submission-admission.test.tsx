@@ -91,6 +91,25 @@ test('a project switch admits its own export without accepting an older completi
 	} finally { await f.unmount(); }
 });
 
+test('an obsolete clip export cannot submit after the same project is reactivated', async () => {
+	const f = await fixture();
+	try {
+		const range = { startFrame: 24_000, endFrame: 48_000 };
+		await f.render({ clipExportRequest: { projectSession: '["first-project",1]', range } });
+		assert.equal(f.startButton().hasAttribute('disabled'), false);
+		await f.start();
+		assert.deepEqual(f.requests[0]?.range, range);
+		await f.settle(0);
+		f.reactivate();
+		await f.start();
+		assert.equal(f.requests.length, 1);
+		await f.render();
+		assert.equal(f.startButton().hasAttribute('disabled'), true);
+		await f.render({ clipExportRequest: null });
+		assert.equal(f.startButton().hasAttribute('disabled'), false);
+	} finally { await f.unmount(); }
+});
+
 test('warm exporter ownership retains its existing Cancel Export action after local submission settles', async () => {
 	const f = await fixture();
 	try {
@@ -117,11 +136,14 @@ async function fixture() {
 	const root = createRoot(dom.container as unknown as Element);
 	const requests: Readonly<Record<string, unknown>>[] = [];
 	const pending: ReturnType<typeof deferred<void>>[] = [];
-	let cancelCount = 0, closeCount = 0, refuseNext = false;
-	let view = { projectId: 'first-project', open: true, exporting: false };
+	let cancelCount = 0, closeCount = 0, refuseNext = false, generation = 1;
+	let view = { projectId: 'first-project', open: true, exporting: false,
+		clipExportRequest: null as { projectSession: string; range: { startFrame: number; endFrame: number } } | null };
 	const controller = {
 		subscribeTelemetry: () => () => undefined,
 		getTelemetrySnapshot: () => ({ exportProgress: 0 }),
+		getSnapshot: () => ({ project: { id: view.projectId } }),
+		captureProjectGeneration: (projectId: string) => ({ projectId, generation }),
 		actions: { export: {
 			presets: { list: () => [] },
 			previewDeliveryCanvas: () => undefined,
@@ -137,7 +159,8 @@ async function fixture() {
 	};
 	const render = async (patch: Partial<typeof view> = {}) => {
 		view = { ...view, ...patch };
-		await act(async () => root.render(<ExportDialog isOpen={view.open} controller={controller}
+		await act(async () => root.render(<ExportDialog key={view.clipExportRequest?.projectSession} isOpen={view.open}
+			clipExportRequest={view.clipExportRequest} controller={controller}
 			snapshot={{ ready: true, importing: false, recording: false, processingEffect: false,
 				exporting: view.exporting, export: { progress: 0, output: null },
 				masteringSequences: { sequences: [] }, project: { id: view.projectId, revision: 1,
@@ -157,6 +180,7 @@ async function fixture() {
 	const click = async (node: ReactTestElement) => { await act(async () => { reactProps(node).onClick({}); }); };
 	return {
 		dom, requests, render, button, startButton, sampleRate, click,
+		reactivate: () => { generation++; },
 		refuseNext: () => { refuseNext = true; },
 		start: () => click(startButton()),
 		canceled: () => cancelCount,

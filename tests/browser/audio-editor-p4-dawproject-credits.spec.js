@@ -10,7 +10,9 @@ const credits = { originalArtist: 'Original performer', composer: 'Composer & co
 	producer: 'Producer', arranger: 'Arranger', genre: 'Genre', copyright: '© Reviewed owner', website: 'https://example.test/credits' };
 const fields = ['OriginalArtist', 'Composer', 'Songwriter', 'Producer', 'Arranger', 'Genre', 'Copyright', 'Website'];
 
-for (const additional of [true, false]) test(`DAWproject File Open and native Save retain ${additional ? 'all standard credits' : 'ordinary primary metadata'}`, async ({ page }) => {
+// The ordinary metadata matrix crosses real DAW and Scape archives in Node.
+const additional = true;
+test(`DAWproject File Open and native Save retain ${additional ? 'all standard credits' : 'ordinary primary metadata'}`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const wav = createWavFixture({ name: 'voice.wav', frequency: 440, duration: .1, sampleRate: 48_000, channelCount: 1 });
 	const metadataXml = '<MetaData><Title>Credits</Title><Artist>Performer</Artist><Album>Album</Album>'

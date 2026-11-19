@@ -116,7 +116,9 @@ function parseAdtl(payload: Uint8Array, markers: Map<number, RiffMarker>, codePa
 			if (marker) {
 				const field = id === 'labl' ? 'label' : 'note';
 				const decoded = markerText(payload.subarray(start + 4, end), codePage, cueId, field, onTextWarning);
-				if (decoded !== undefined) markers.set(cueId, Object.freeze({ ...marker, [field]: decoded }));
+				if (decoded !== undefined && (field === 'note' || decoded || !marker.label)) {
+					markers.set(cueId, Object.freeze({ ...marker, [field]: decoded }));
+				}
 			}
 		} else if (id === 'ltxt' && size >= 20) {
 			const item = new DataView(payload.buffer, payload.byteOffset + start, size);

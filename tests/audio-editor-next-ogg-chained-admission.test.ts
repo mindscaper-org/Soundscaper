@@ -4,11 +4,14 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { BlobSource, Input, OGG } from 'mediabunny';
 import { inspectOggGaplessGeometry } from '../src/common/editor/ogg-gapless-import.ts';
-import { chainedOpusFixture, multiplexedOpusFixture } from './helpers/ogg-multiplexed-tail-fixture.ts';
+import { prepareStreamedAudioImport } from '../src/common/editor/browser-streamed-audio-import.ts';
+import { chainedOpusFixture, croppedOpusGranuleFixture, multiplexedOpusFixture } from './helpers/ogg-multiplexed-tail-fixture.ts';
 import { createController, createTwoTrackFixture } from './helpers/audio-editor-multitrack-selection-harness.js';
 import { validateAudioEditorProjectV17 } from '../src/common/editor/project-v17-validation.ts';
+import { importAndReopenAudio } from './helpers/audio-import-archive-custody.ts';
+import { useLocalAudioCodecPayloads } from './helpers/reviewed-audio-codec-runtime.ts';
 
-test('Ogg import refuses to silently discard a later sequential audio link', async () => {
+test('the single-link Ogg inspector identifies a later sequential audio link', async () => {
 	const fixture = await chainedOpusFixture();
 	const input = new Input({ source: new BlobSource(new Blob([fixture.chained])), formats: [OGG] });
 	try {
@@ -20,8 +23,39 @@ test('Ogg import refuses to silently discard a later sequential audio link', asy
 	assert.deepEqual(await inspectOggGaplessGeometry(new Blob([fixture.first]), 'opus'), { sampleRate: 48_000, sourceFrames: 48_001 });
 });
 
-test('File Import retains no partial source after chained-audio refusal and allows a complete single link', async () => {
+test('File Import and Scape preserve both Opus links at an unaligned chunk boundary', async context => {
+	useLocalAudioCodecPayloads(context);
+	const [fixture, cropped] = await Promise.all([chainedOpusFixture(), croppedOpusGranuleFixture()]);
+	const file = (bytes: Uint8Array<ArrayBuffer>, name: string) => new File([bytes], name, { type: 'audio/ogg' });
+	const first = await importAndReopenAudio(context, file(cropped.original, 'First.opus'));
+	const second = await importAndReopenAudio(context, file(fixture.chained.subarray(fixture.first.length), 'Second.opus'));
+	const chain = await importAndReopenAudio(context, new File([cropped.cropped, fixture.chained.subarray(fixture.first.length)], 'Radio.opus', { type: 'audio/ogg' }));
+	assert.equal(chain.source.sampleRate, 48_000);
+	assert.equal(chain.source.channelCount, 1);
+	assert.equal(chain.source.frameCount, fixture.frames);
+	assert.equal(chain.project.clips[0]?.durationFrames, fixture.frames);
+	assert.deepEqual(chain.channels[0]?.subarray(0, 48_001), first.channels[0]);
+	assert.deepEqual(chain.channels[0]?.subarray(48_001), second.channels[0]);
+});
+
+test('cancelling a block spanning both links stops all further PCM delivery', async context => {
+	useLocalAudioCodecPayloads(context);
 	const fixture = await chainedOpusFixture();
+	const prepared = await prepareStreamedAudioImport(new File([fixture.chained], 'Radio.opus', { type: 'audio/ogg' }));
+	const abort = new AbortController();
+	let frames = 0;
+	await assert.rejects(prepared.stream({ chunkFrames: 16_384, signal: abort.signal, onChunk(channels) {
+		frames += channels[0]!.length;
+		if (frames > 48_001) abort.abort(new DOMException('Cancelled across the link boundary.', 'AbortError'));
+	} }), /Cancelled across the link boundary/u);
+	assert.equal(frames, 49_152);
+	await assert.rejects(prepared.stream({ chunkFrames: 16_384, onChunk: () => assert.fail('The cancelled import is closed.') }), /decoder is closed/u);
+});
+
+test('File Import retains no partial source when a later Opus link is corrupt', async () => {
+	const fixture = await chainedOpusFixture();
+	const corrupted = fixture.chained.slice();
+	corrupted[corrupted.length - 1] = corrupted[corrupted.length - 1]! ^ 1;
 	const originalFetch = globalThis.fetch;
 	globalThis.fetch = async (value, init) => value instanceof URL && value.protocol === 'file:'
 		? new Response(Uint8Array.from(await readFile(value))) : originalFetch(value, init);
@@ -31,9 +65,9 @@ test('File Import retains no partial source after chained-audio refusal and allo
 	const unsubscribe = controller.subscribe(() => { messages.push(controller.getSnapshot().status.message); });
 	try {
 		await controller.ready;
-		await controller.actions.project.importFiles([new File([fixture.chained], 'Radio.opus', { type: 'audio/ogg' })], { destination: 'timeline' });
+		await controller.actions.project.importFiles([new File([corrupted], 'Corrupt.opus', { type: 'audio/ogg' })], { destination: 'timeline' });
 		assert.equal(controller.getSnapshot().status.state, 'error');
-		assert.ok(messages.some(message => /chained.*Split/iu.test(message)), 'the refusal reaches the public controller error presentation');
+		assert.ok(messages.some(message => /checksum/iu.test(message)), 'the refusal reaches the public controller error presentation');
 		let project = controller.getSnapshot().project; assert.ok(validateAudioEditorProjectV17(project));
 		assert.equal(project.sources.length, 0); assert.equal(project.clips.length, 0);
 		await controller.actions.project.importFiles([new File([fixture.first], 'Single.opus', { type: 'audio/ogg' })], { destination: 'timeline' });
@@ -46,6 +80,7 @@ test('chained-audio admission follows bounded headers past another concurrent st
 	const fixture = await chainedOpusFixture(), multiplexed = await multiplexedOpusFixture();
 	const file = new Blob([multiplexed.multiplexed, fixture.chained.subarray(fixture.first.length)]);
 	await assert.rejects(inspectOggGaplessGeometry(file, 'opus'), /chained.*Split/iu);
+	await assert.rejects(prepareStreamedAudioImport(file), /chained.*Split/iu);
 	const abort = new AbortController();
 	class CancelledBlob extends Blob {
 		override slice(start = 0, end = this.size, type?: string): Blob {

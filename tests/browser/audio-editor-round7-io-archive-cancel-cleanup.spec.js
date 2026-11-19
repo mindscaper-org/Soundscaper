@@ -1,4 +1,6 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { taskProgressCancel } from './helpers/task-progress.js';
 
 import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, disableNativeSavePicker, importFiles, openExportDialog } from './audio-editor-test-helpers.js';
@@ -34,7 +36,8 @@ for (const stage of ['write', 'close']) test(`Cancel export during native archiv
 		}
 	});
 	const editor = await bootEditor(page, '/embed/en/');
-	test.skip(!await page.evaluate(() => globalThis.__ordinaryZipStorageAvailable),
+	test.skip(!await originPrivateFileSystemAvailable(page)
+		|| !await page.evaluate(() => globalThis.__ordinaryZipStorageAvailable),
 		'This browser does not provide native origin-storage writable streams.');
 	await importFiles(editor, [monoTone]);
 	const dialog = await openExportDialog(page, editor);
@@ -47,7 +50,7 @@ for (const stage of ['write', 'close']) test(`Cancel export during native archiv
 	try {
 		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect.poll(() => page.evaluate(() => globalThis.__ordinaryZipStorage.entered)).toBe(true);
-		const cancel = dialog.getByRole('button', { name: 'Cancel export', exact: true });
+		const cancel = taskProgressCancel(page);
 		await expect(cancel).toBeEnabled();
 		await cancel.click();
 		await page.evaluate(() => globalThis.__ordinaryZipStorage.release());

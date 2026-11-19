@@ -7,6 +7,7 @@ import { DialogFooter } from '@soundscaper/design-system/Footer';
 
 import type { AudiocomUploadDraft, AudiocomUploadItem } from '../../controller/import/audiocom-panel-session.ts';
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface AudiocomPublishDialogProps {
 	readonly copy: Readonly<Record<string, string>>;
@@ -60,27 +61,27 @@ export default function AudiocomPublishDialog({ copy, item, onClose, onPublish }
 		</>} />}>
 		<form id={formId} className="kw-audio-editor__audiocom-publish-form" onSubmit={submit}>
 			{error ? <p role="alert">{uploadErrorLabel(error, copy, copy.publishError)}</p> : null}
-			<label><span>{copy.title}</span>
+			<label><EditorControlLabel>{copy.title}</EditorControlLabel>
 				<input name="title" value={title} required maxLength={200} disabled={pending}
 					onChange={(event) => setTitle(event.currentTarget.value)} />
 			</label>
-			<label><span>{copy.description}</span>
+			<label><EditorControlLabel>{copy.description}</EditorControlLabel>
 				<textarea name="description" value={description} rows={4} maxLength={500} disabled={pending}
 					onChange={(event) => setDescription(event.currentTarget.value)} />
 			</label>
-			<label><span>{copy.category}</span>
+			<label><EditorControlLabel>{copy.category}</EditorControlLabel>
 				<select name="category" value={category} disabled={pending}
 					onChange={(event) => setCategory(event.currentTarget.value as AudiocomUploadDraft['category'])}>
 					{CATEGORIES.map(([value, key]) => <option key={value} value={value}>{copy[key]}</option>)}
 				</select>
 			</label>
-			<label><span>{copy.license}</span>
+			<label><EditorControlLabel>{copy.license}</EditorControlLabel>
 				<select name="license" value={license} disabled={pending}
 					onChange={(event) => setLicense(event.currentTarget.value as AudiocomUploadDraft['license'])}>
 					{LICENSES.map(([value, key]) => <option key={value} value={value}>{copy[key]}</option>)}
 				</select>
 			</label>
-			<label><span>{copy.visibility}</span>
+			<label><EditorControlLabel>{copy.visibility}</EditorControlLabel>
 				<select name="visibility" value={visibility} disabled={pending} aria-describedby={visibilityNoteId}
 					onChange={(event) => setVisibility(event.currentTarget.value as AudiocomUploadDraft['visibility'])}>
 					<option value="unlisted">{copy.unlisted}</option>
@@ -91,12 +92,12 @@ export default function AudiocomPublishDialog({ copy, item, onClose, onPublish }
 			<label className="kw-audio-editor__audiocom-checkbox">
 				<input name="downloadable" type="checkbox" checked={downloadable} disabled={pending}
 					onChange={(event) => setDownloadable(event.currentTarget.checked)} />
-				<span>{copy.downloadable}</span>
+				<EditorControlLabel>{copy.downloadable}</EditorControlLabel>
 			</label>
 			<label className="kw-audio-editor__audiocom-checkbox">
 				<input name="rightsConfirmed" type="checkbox" checked={rightsConfirmed} required disabled={pending}
 					onChange={(event) => setRightsConfirmed(event.currentTarget.checked)} />
-				<span>{copy.uploadRightsConsent}</span>
+				<EditorControlLabel>{copy.uploadRightsConsent}</EditorControlLabel>
 			</label>
 		</form>
 	</AudioEditorDialogShell>;

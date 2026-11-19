@@ -3,6 +3,7 @@
 /** Runtime archives needed by each reviewed model in the local catalog. */
 
 import type { AssistanceRuntimeDistributionFamily } from './assistance-runtime-distribution.ts';
+import { isSherpaEnhancementModel } from '../src/common/editor/assistance/speech-enhancement-models.ts';
 
 const SHERPA_TASKS = new Set([
 	'voice-activity-detection', 'speaker-segmentation', 'speaker-embedding',
@@ -10,7 +11,7 @@ const SHERPA_TASKS = new Set([
 const ONNX_TASKS = new Set([
 	'speech-enhancement', 'face-detection', 'object-detection', 'saliency-detection',
 	'optical-character-recognition', 'text-embedding', 'image-text-embedding',
-	'word-alignment', 'source-separation', 'audio-tagging', 'beat-tracking',
+	'word-alignment', 'source-separation', 'audio-tagging', 'beat-tracking', 'music-transcription',
 	'shot-detection', 'dereverberation',
 	'video-keying',
 ]);
@@ -19,6 +20,7 @@ export function assistanceRuntimeFamiliesForModel(
 	modelId: string,
 	task: string,
 ): readonly AssistanceRuntimeDistributionFamily[] {
+	if (task === 'speech-enhancement' && isSherpaEnhancementModel(modelId)) return Object.freeze(['sherpa-onnx-node']);
 	if (task === 'speech-recognition') {
 		return Object.freeze([modelId === 'whisper-large-v3-turbo-ggml'
 			? 'whisper-cpp' : 'sherpa-onnx-node']);

@@ -101,6 +101,7 @@ export function createSourceMonitorService(
 ): Readonly<SourceMonitorService> {
 	let binItemId: string | null = null;
 	let sourceId: string | null = null;
+	let projectId: unknown;
 	let positionFrame = 0;
 	let openRevision = 0;
 	let marks: SourceMonitorMarks = SOURCE_MONITOR_NO_MARKS;
@@ -109,6 +110,11 @@ export function createSourceMonitorService(
 	function open(): OpenSource | null {
 		if (sourceId === null) return null;
 		const project = dependencies.getProject();
+		if (projectId !== project.id) {
+			binItemId = null; sourceId = null; positionFrame = 0;
+			marks = SOURCE_MONITOR_NO_MARKS;
+			return null;
+		}
 		const source = arrayOf(project.sources).find((candidate) => (
 			String(candidate.id) === sourceId && candidate.kind === 'video'
 		));
@@ -166,6 +172,7 @@ export function createSourceMonitorService(
 		if (!Number.isSafeInteger(count) || count <= 0) {
 			throw new RangeError(`Video source ${nextSourceId} has no frames to monitor.`);
 		}
+		projectId = project.id;
 		binItemId = nextBinItemId;
 		sourceId = nextSourceId;
 		positionFrame = clampSourceFrame(options.positionFrame ?? 0, count);

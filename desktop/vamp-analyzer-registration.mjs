@@ -72,6 +72,7 @@ function registerSharedPluginRoutes(options, vamp) {
 	const { channels, handle, ownerFor, effects } = options;
 	handle(channels.nativePluginScan, async (event, value) => {
 		const owner = ownerFor(event);
+		await effects.ready?.();
 		const analyzer = value?.format === 'vamp';
 		const outcome = analyzer
 			? await vamp.scanRoot(owner, value)
@@ -85,7 +86,7 @@ function registerSharedPluginRoutes(options, vamp) {
 		}
 		return outcome;
 	});
-	handle(channels.nativePluginInventory, () => vamp.mergeRegistry(effects.registry.describe()));
+	handle(channels.nativePluginInventory, async () => { await effects.ready?.(); return vamp.mergeRegistry(effects.registry.describe()); });
 	handle(channels.nativePluginSetInstallationAllowed, async (event, value) => {
 		void ownerFor(event);
 		if (vamp.ownsInstallation(value?.installationId)) {
@@ -103,6 +104,7 @@ function registerSharedPluginRoutes(options, vamp) {
 			await effects.onInstallationRevoked?.(value.installationId);
 			effects.hosting?.isolation.revokeDigest(effects.registry.installationDigest(value.installationId));
 		} else throw new Error('A plug-in installation allowance must be an explicit boolean.');
+		await effects.onInstallationAllowed?.(value.installationId, value.allowed);
 		await effects.allowances.capture(effects.registry);
 		return vamp.mergeRegistry(effects.registry.describe());
 	});

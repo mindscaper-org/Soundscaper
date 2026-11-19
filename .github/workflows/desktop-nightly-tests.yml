@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'handbook/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       nightly_tests_targets:
@@ -107,13 +110,56 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  professional-native-source:
+    name: Verify native sources for nightly Electron recovery tests
+    needs: nightly-test-targets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with: { node-version-file: .nvmrc, cache: npm }
+      - run: npm install --global npm@12.0.1
+      - run: npm ci
+      - name: Provision and verify pinned native sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          node scripts/provision-milestone-5-native-sources.mjs \
+            --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache" \
+            --source electron-node-api-headers --source juce --source clap \
+            --source vst3-sdk --source fst --source vamp-plugin-sdk --source ara-api --source ara-library \
+            --source asio-sdk --source ladspa-sdk --source lv2
+          node scripts/provision-milestone-5-native-sources.mjs --check \
+            --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache" \
+            --source electron-node-api-headers --source juce --source clap \
+            --source vst3-sdk --source fst --source vamp-plugin-sdk --source ara-api --source ara-library \
+            --source asio-sdk --source ladspa-sdk --source lv2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nightly-professional-native-source-cache
+          path: ${{ runner.temp }}/soundscaper-professional-native-source-cache
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  professional-native-build:
+    name: Build authenticated native helpers for nightly Electron tests
+    needs: professional-native-source
+    uses: ./.github/workflows/soundscaper-professional-native-build.yml
+    with:
+      source-cache-artifact: nightly-professional-native-source-cache
+
   package-with-tests:
     name: Package nightly-with-tests / ${{ matrix.target.platform }} / ${{ matrix.target.arch }}
     if: >-
       !cancelled()
       && needs.nightly-test-targets.result == 'success'
       && needs.browser-sites.result == 'success'
-    needs: [nightly-test-targets, browser-sites]
+      && needs.professional-native-build.result == 'success'
+    needs: [nightly-test-targets, browser-sites, professional-native-build]
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -153,6 +199,19 @@ jobs:
         env:
           SOUNDSCAPER_DESKTOP_TARGET_PLATFORM: ${{ matrix.target.platform }}
           SOUNDSCAPER_DESKTOP_TARGET_ARCH: ${{ matrix.target.arch }}
+
+      - name: Download the same-revision authenticated native build result
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: soundscaper-professional-native-build-result-${{ matrix.target.platform }}-${{ matrix.target.arch }}
+          path: ${{ runner.temp }}/nightly-professional-native-build-result
+
+      - name: Stage native authority before packaging the tested products
+        shell: bash
+        run: >-
+          node scripts/stage-soundscaper-professional-native-build-result.mjs
+          --result="$RUNNER_TEMP/nightly-professional-native-build-result"
+          --root="$GITHUB_WORKSPACE"
 
       - name: Build the authenticated target-native OS audio codec host
         if: matrix.target.platform != 'linux'

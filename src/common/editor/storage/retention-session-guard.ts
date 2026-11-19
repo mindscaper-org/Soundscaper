@@ -7,7 +7,7 @@ import { createProjectStoreId } from './project-store-defaults.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import { EditorStoreClosedError } from './status.ts';
 
-const SESSION_KEY_PREFIX = 'audio-editor-retention-session-v1:';
+export const RETENTION_SESSION_SETTING_PREFIX = 'audio-editor-retention-session-v1:';
 const SESSION_ADMISSION_LOCK = 'audio-editor-retention-session-admission-v1';
 const memorySessions = new WeakMap<EditorMemoryDatabase, MemorySessionState>();
 
@@ -34,7 +34,7 @@ export class RetentionSessionGuard {
 	readonly #port: StorageRepositoryPort;
 	readonly #locks: LockManager | null;
 	readonly #memorySessions: MemorySessionState;
-	readonly #key = `${SESSION_KEY_PREFIX}${createProjectStoreId('owner')}`;
+	readonly #key = `${RETENTION_SESSION_SETTING_PREFIX}${createProjectStoreId('owner')}`;
 	#registration: Promise<void> | null = null;
 	#releaseLock: (() => void) | null = null;
 	#lockRun: Promise<void> | null = null;
@@ -155,7 +155,7 @@ export class RetentionSessionGuard {
 	async #startupSessions(database: IDBDatabase, own: boolean, requestLock: LockManager['request']): Promise<boolean> {
 		if (this.#released || !this.#releaseLock) return false;
 		const records = await transact(database, 'settings', 'readonly', async ({ settings }) => {
-			const query = IDBKeyRange.bound(SESSION_KEY_PREFIX, 'audio-editor-retention-session-v1;', false, true);
+			const query = IDBKeyRange.bound(RETENTION_SESSION_SETTING_PREFIX, 'audio-editor-retention-session-v1;', false, true);
 			const project = (value: unknown, key: IDBValidKey) => ({ key, value });
 			const page = await readCursorPage(settings, { query, limit: 64, project });
 			if (page.length === 64 && (await readCursorPage(settings,
@@ -171,7 +171,7 @@ export class RetentionSessionGuard {
 				const storedKey = readClosedDomainField(wrapper, 'key', 'retained session');
 				const marker = readClosedDomainRecord(readClosedDomainField(wrapper, 'value', 'retained session'),
 					'retained session marker', ['version', 'owner', 'webLock']);
-				if (typeof storedKey !== 'string' || storedKey !== entry.key || !storedKey.startsWith(SESSION_KEY_PREFIX)
+				if (typeof storedKey !== 'string' || storedKey !== entry.key || !storedKey.startsWith(RETENTION_SESSION_SETTING_PREFIX)
 					|| readClosedDomainField(marker, 'version', 'retained session marker') !== 1
 					|| readClosedDomainField(marker, 'owner', 'retained session marker') !== storedKey
 					|| readClosedDomainField(marker, 'webLock', 'retained session marker') !== true) return false;
@@ -277,7 +277,7 @@ function isWebLockRecord(value: unknown): value is Readonly<{
 	const record = value as Readonly<{ key?: unknown; value?: Readonly<{
 		owner?: unknown; webLock?: unknown;
 	}> }>;
-	return typeof record.key === 'string' && record.key.startsWith(SESSION_KEY_PREFIX)
+	return typeof record.key === 'string' && record.key.startsWith(RETENTION_SESSION_SETTING_PREFIX)
 		&& record.value?.owner === record.key && record.value.webLock === true;
 }
 
@@ -292,7 +292,7 @@ function retentionSessionKeys(settings: IDBObjectStore): Promise<string[]> {
 		cursor.onsuccess = () => {
 			const entry = cursor.result;
 			if (!entry) { resolve(keys); return; }
-			if (typeof entry.key === 'string' && entry.key.startsWith(SESSION_KEY_PREFIX)) {
+			if (typeof entry.key === 'string' && entry.key.startsWith(RETENTION_SESSION_SETTING_PREFIX)) {
 				keys.push(entry.key);
 			}
 			entry.continue();

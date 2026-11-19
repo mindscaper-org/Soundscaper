@@ -7,6 +7,7 @@ import { prepareVideoWebmDecoderSource } from '../src/common/editor/video-webm-d
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
 import { createDesktopSelectedRangeBlob } from '../src/common/editor/desktop-selected-range-blob.ts';
 import { opusPaddingAvFixture } from './helpers/ordinary-ogg-opus-fixture.ts';
+import { OFFSET_VIDEO_WEBM_SHA256, offsetVideoWebmFixture } from './browser/fixtures/video-offset-webm.js';
 
 const RECORDED_WEBM =
 	'GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwH/////////FUmpZpkq17GDD0JATYCGQ2hyb21lV0GG'
@@ -34,6 +35,52 @@ const RECORDED_WEBM =
 	+ 'An6gvqGZgQLBADECAAAQCSAAwADCwX+gAEQBKxdAAHWhnKaa7oEBpZUxAgADEAkgAMAAwsF/oABEASsXQAD7ggKgoL6hmYEC'
 	+ '4gAxAgAAEAkgAMAAwsF/oABEASsXQAB1oZymmu6BAaWVMQIAAxAJIADAAMLBf6AARAErF0AA+4ICwQ==';
 function recording(): File { return new File([Buffer.from(RECORDED_WEBM, 'base64')], 'Screen recording.webm', { type: 'video/webm' }); }
+
+test('a finite video-only WebM decoder view starts at the same zero-based clock as its timing asset', async () => {
+	const fixture = offsetVideoWebmFixture();
+	const original = new File([fixture.buffer], fixture.name, { type: fixture.mimeType });
+	const view = await prepareVideoWebmDecoderSource(original);
+	assert.notEqual(view, original);
+	assert.equal(view.size, original.size);
+	assert.equal(await durationValue(original), 1320);
+	assert.equal(await durationValue(view), 1000);
+	assert.equal(createHash('sha256').update(new Uint8Array(await original.arrayBuffer())).digest('hex'), OFFSET_VIDEO_WEBM_SHA256);
+	assert.deepEqual(await demuxVideoTiming(view), await demuxVideoTiming(original));
+	const sourcePackets = await packets(original);
+	assert.equal(sourcePackets.length, 23);
+	const rebased = sourcePackets.map(packet => ({ ...packet, time: Math.round(packet.time * 1000 - 320) / 1000 }));
+	assert.deepEqual(await packets(view), rebased);
+	assert.equal(await prepareVideoWebmDecoderSource(view), view);
+});
+
+test('a finite WebM with an already relative Duration is not shortened by its packet origin', async () => {
+	const fixture = offsetVideoWebmFixture();
+	const bytes = Uint8Array.from(fixture.buffer);
+	const duration = bytes.findIndex((byte, index) => byte === 0x44 && bytes[index + 1] === 0x89 && bytes[index + 2] === 0x88);
+	assert.ok(duration > 0);
+	const view = new DataView(bytes.buffer);
+	assert.equal(view.getFloat64(duration + 3), 1320);
+	view.setFloat64(duration + 3, 1000);
+	const original = new File([bytes], fixture.name, { type: fixture.mimeType });
+	assert.equal(await prepareVideoWebmDecoderSource(original), original);
+});
+
+test('a one-tick WebM packet origin cannot shorten an exact relative Duration', async () => {
+	const fixture = offsetVideoWebmFixture();
+	const bytes = Uint8Array.from(fixture.buffer);
+	const view = new DataView(bytes.buffer);
+	assert.deepEqual(bytes.slice(481, 485), Uint8Array.of(0xe7, 0x82, 0x01, 0x40));
+	view.setUint16(483, 1);
+	for (const offset of [1372, 1390, 1409, 1428]) {
+		assert.deepEqual(bytes.slice(offset - 2, offset), Uint8Array.of(0xb3, 0x82));
+		view.setUint16(offset, view.getUint16(offset) - 319);
+	}
+	assert.deepEqual(bytes.slice(253, 256), Uint8Array.of(0x44, 0x89, 0x88));
+	// The last picture starts at relative tick 967 and lasts 33,333,333 ns.
+	view.setFloat64(256, 1000.333333);
+	const original = new File([bytes], fixture.name, { type: fixture.mimeType });
+	assert.equal(await prepareVideoWebmDecoderSource(original), original);
+});
 
 test('a live MediaRecorder decoder source gains a complete duration without changing its original', async () => {
  const original=recording(), before=new Uint8Array(await original.arrayBuffer());
@@ -146,6 +193,24 @@ test('a nonzero first video timestamp contributes to the declared absolute end',
 	const bytes=new Uint8Array(await recording().arrayBuffer());bytes[138]=100;
 	const output=await prepareVideoWebmDecoderSource(new File([bytes],'Offset.webm',{type:'video/webm'}));
 	assert.equal(await durationValue(output),871);
+});
+
+test('a one-frame live WebM writes its fractional track duration in container timecodes', async () => {
+	const bytes = new Uint8Array(await recording().arrayBuffer());
+	// Extend TrackEntry and Tracks with DefaultDuration = 33,366,667 ns.
+	const defaultDuration = Uint8Array.of(0x23, 0xe3, 0x83, 0x84, 0x01, 0xfd, 0x22, 0x8b);
+	bytes[82] = 0xa9 + defaultDuration.length;
+	bytes[84] = 0xa7 + defaultDuration.length;
+	bytes[138] = 100;
+	const input = new File([bytes.subarray(0, 124), defaultDuration, bytes.subarray(124, 320)],
+		'One-frame recording.webm', { type: 'video/webm' });
+	const output = await prepareVideoWebmDecoderSource(input);
+	assert.equal(await durationValue(output), 133.366667);
+	const timing = await demuxVideoTiming(input);
+	assert.deepEqual(timing.presentationTicks, [0n]);
+	assert.equal(timing.timescale, 1_000_000_000);
+	assert.equal(timing.finalFrameDurationTicks, 33_366_667n);
+	assert.ok(Math.abs(timing.nominalRate.num / timing.nominalRate.den - 30_000 / 1_001) < 0.000001);
 });
 
 test('reordered video presentation uses the minimum absolute timestamp as its origin', async () => {

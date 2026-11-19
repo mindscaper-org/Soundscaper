@@ -69,13 +69,18 @@ the admitted matrix without a redundant general-purpose file library or its
 additional format surface.
 
 Every bundled payload has a pinned upstream archive or revision, license and
-notice closure, Emscripten 3.1.64 recipe, exact-byte staging audit, startup
+notice closure, Emscripten 3.1.64 recipe, exact-byte staging audit, first-use
 identity check, bounded parser/output validation, and a codec canary. The
 packaged runtime manifest authenticates each WASM file and the complete
 transitive JavaScript module closure that can load it. Canary, preflight, and
 execute each use a fresh, supervised Electron utility process; the main process
-never imports or executes the codec modules. Startup canaries run in batches of
-four, and at most four helper jobs may be active. Preflight and execute use
+never imports or executes the codec modules. Main registers the trusted codec
+IPC boundary before opening the editor, then prepares the bundled and OS tiers
+on the first admitted capability query or execution request. Concurrent requests
+share that preparation; canceled or revoked jobs stop waiting without executing,
+and application shutdown drains in-flight canaries. An unused codec service
+starts no helpers. Canary preparation runs in batches of four, and at most four
+helper jobs may be active. Preflight and execute use
 private sibling input/output scratch files, a 30-second default deadline with a
 five-minute hard ceiling, cancellation that kills the helper, and a bounded
 kill-completion deadline. Canary execution has a five-second ceiling. Helper
@@ -129,17 +134,17 @@ The test pins its stock decoder image by digest and verifies exact MP3 gapless
 sample counts and FLAC frame CRCs before invoking the independent decoder.
 
 Windows Media Foundation and macOS ARM64 AudioToolbox source adapters, exact
-source inspectors, output validators, and live startup canaries are implemented
+source inspectors, output validators, and live first-use canaries are implemented
 for 48 kHz stereo MP3 and AAC-LC/M4A decode, 48 kHz stereo 160 kbps AAC-LC/M4A
 encode, and—on Windows only—48 kHz stereo 192 kbps MP3 encode. The production
 workflow now builds the isolated Node-API codec addon target-native on mac-arm64,
 win-x64, and win-arm64; it does not link the professional JUCE/device/plug-in
-host. The build authenticates the exact Electron 43.8.3 headers and complete
+host. The build authenticates the exact Electron 45.2.3 headers and complete
 repository source/build-plan identity, runs the native codec canaries, and
 records the toolchain and payload digest. macOS applies and verifies only the
 identity-free ad-hoc code seal required to execute the addon; it uses no
 certificate or trust identity. Windows needs no corresponding seal.
-Preparation, beforePack, afterPack, the package-content manifest, and startup
+Preparation, beforePack, afterPack, the package-content manifest, and runtime admission
 all bind the same exact manifest, payload, target, byte length, and SHA-256. A
 supported package build fails closed if that matching target-native result is
 absent or changes. Linux intentionally has no uniform OS tier and falls
@@ -170,7 +175,14 @@ and browser publication keeps its existing limits.
 
 Edit > Preferences > General shows the canonical location and detected version,
 with Browse beside the path and a Rescan action. Install is offered only while
-FFmpeg is not ready. Installation uses the exact WinGet package id
+FFmpeg is not ready. A manual selection stays pinned across rescans and installs;
+if that pair is missing or incompatible, its failure is reported without
+switching to another installation. Automatic discovery probes all detected
+pairs and chooses the newest compatible numeric major/minor/patch version,
+using discovery order to break equal-version ties. Saved automatic selections
+remain automatic on subsequent scans. Legacy saved paths without selection
+provenance retain manual priority; Clear followed by Rescan enables automatic
+selection again. Installation uses the exact WinGet package id
 `BtbN.FFmpeg.GPL.8.1` or an already installed Homebrew binary with
 `brew install ffmpeg`. These in-app actions require an existing package manager
 and do not bootstrap it or invoke `sudo`.
@@ -192,7 +204,9 @@ current execution-verified external FFmpeg pair. Browser delivery retains its
 WebCodecs admission and has no FFmpeg fallback.
 
 The external tier implements the closed desktop keyed-RGBA delivery path:
-H.264/AAC in MP4 and VP9/Opus in WebM. For MP4, main prefers
+H.264/AAC in MP4 or MOV and VP9/Opus in WebM. MOV requires external FFmpeg's
+`libx264`, `aac`, and `mov` muxer, and always selects the external provider;
+browser-native format discovery cannot admit it. For MP4, main prefers
 `h264_videotoolbox` on macOS or `h264_mf` on Windows after token eligibility and
 an exact execution canary. An unavailable or failed native canary may fall back
 to independently verified `libx264`; AAC uses `aac`. The chosen H.264 encoder
@@ -204,9 +218,9 @@ floor; x264 retains CRF/preset controls. Both executable hashes are rechecked
 before and after candidate canaries and real execution. WebM uses
 `libvpx-vp9`/`libopus`. Capability tokens are only a prerequisite. Each exact
 format must also pass a live, one-frame 16x16 RGBA plus 48 kHz stereo-audio
-canary. The resulting finite MP4 or WebM structure must validate, then the exact
+canary. The resulting finite MP4, MOV, or WebM structure must validate, then the exact
 admitted `ffprobe` must report exactly two streams at indices 0 and 1: 16x16
-`yuv420p` H.264 plus 48 kHz stereo AAC for MP4, or 16x16 `yuv420p` VP9 plus
+`yuv420p` H.264 plus 48 kHz stereo AAC for MP4 or MOV, or 16x16 `yuv420p` VP9 plus
 48 kHz stereo Opus for WebM, before the format is exposed.
 Renderer requests remain pathless and owner-scoped. Main binds video to private
 descriptor 3 and optional audio to descriptor 4, creates private scratch and

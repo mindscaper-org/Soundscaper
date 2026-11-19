@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createRecordingCapturePool } from '../src/common/editor/recording-capture-pool.js';
 import { adaptNativeAudioInventory } from '../src/common/editor/controller/recording/native-audio-inventory.ts';
 import type { RecordingInputRoute } from '../src/common/editor/controller/recording/internal/recording-input-coordination-service.ts';
 import { createFixture, type OutputDeviceResult } from './helpers/recording-routing-service-fixture.ts';
@@ -37,6 +38,10 @@ test('host changes replace device lists and incompatible preferred devices', asy
 	assert.deepEqual(fixture.state.audioOutputDevices.map(device => device.deviceId), ['native:wasapi:out:alphabetically-first', 'native:wasapi:out:studio']);
 	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:studio');
 	assert.equal(fixture.state.preferredOutputDeviceId, 'native:wasapi:out:studio');
+	await fixture.service.setPreferredInputDevice('native:wasapi:in:alphabetically-first');
+	assert.equal(await fixture.service.setPreferredInputDevice('default'), 'native:wasapi:in:studio');
+	assert.equal(fixture.state.preferredInputDeviceId, 'native:wasapi:in:studio');
+	assert.deepEqual(fixture.hardwareRequests, [], 'native default selection cannot open a browser microphone');
 	await fixture.service.refreshAudioDevices({ probe: false });
 	assert.deepEqual(fixture.state.audioInputDevices.map(device => device.deviceId), ['native:wasapi:in:alphabetically-first', 'native:wasapi:in:studio']);
 	await fixture.service.setHostInventory('electron', null);
@@ -424,27 +429,64 @@ test('retain-input preference defers active cleanup and releases idle inputs', a
 	assert.equal(active.releaseAllCalls(), 0);
 });
 
-test('unretained cleanup preserves the active meter input and force bypasses retention', () => {
-	const metering = createFixture();
-	metering.state.preferences.recording.retainInputs = false;
-	metering.state.microphoneMetering = true;
-	metering.setPoolSources([
-		{ key: 'device:meter-device', kind: 'device', deviceId: 'meter-device', channelCount: 2 },
-		{ key: 'device:other', kind: 'device', deviceId: 'other', channelCount: 2 },
-		{ key: 'display', kind: 'display', channelCount: 2 },
-	]);
-
-	assert.equal(metering.service.releaseUnretainedRecordingInputs(), true);
-	assert.deepEqual(metering.releasedHardware, ['other']);
-	assert.equal(metering.releaseDisplayCalls(), 1);
-	assert.equal(metering.releaseAllCalls(), 0);
-
+test('unretained cleanup respects retention unless forced', () => {
 	const retained = createFixture();
 	assert.equal(retained.service.releaseUnretainedRecordingInputs(), false);
 	assert.equal(retained.releaseAllCalls(), 0);
 	assert.equal(retained.service.releaseUnretainedRecordingInputs({ force: true }), 2);
 	assert.equal(retained.releaseAllCalls(), 1);
 });
+
+test('cancelling timed input preparation closes late microphone and display streams while metering', async () => {
+	const meter = captureInput('audio');
+	const other = captureInput('audio');
+	const lateMicrophone = captureInput('audio');
+	const lateDisplay = captureInput('audio', 'video');
+	const microphoneGate = deferred<typeof lateMicrophone.stream>();
+	const displayGate = deferred<typeof lateDisplay.stream>();
+	const pool = createRecordingCapturePool({
+		requestHardwareInput: async ({ deviceId }: { deviceId: string }) => {
+			if (deviceId === 'late-microphone') return microphoneGate.promise;
+			return deviceId === 'meter-device' ? meter.stream : other.stream;
+		},
+		requestDisplayInput: () => displayGate.promise,
+	});
+	const fixture = createFixture({ recordingCapturePool: pool });
+	fixture.state.microphoneMetering = true;
+	try {
+		await pool.acquireHardware('meter-device');
+		await pool.acquireHardware('other-microphone');
+		const openingMicrophone = pool.acquireHardware('late-microphone');
+		const openingDisplay = pool.acquireDisplay();
+		assert.equal(fixture.service.releaseUnretainedRecordingInputs({ force: true }), true);
+		microphoneGate.resolve(lateMicrophone.stream);
+		displayGate.resolve(lateDisplay.stream);
+		await Promise.all([
+			assert.rejects(openingMicrophone, /released while it was opening/u),
+			assert.rejects(openingDisplay, /released while it was opening/u),
+		]);
+		assert.equal(pool.getHardware('meter-device'), meter.stream);
+		assert.deepEqual(meter.states(), ['live']);
+		assert.deepEqual(other.states(), ['ended']);
+		assert.deepEqual(lateMicrophone.states(), ['ended']);
+		assert.deepEqual(lateDisplay.states(), ['ended', 'ended']);
+	} finally {
+		pool.dispose();
+	}
+});
+
+function captureInput(...kinds: Array<'audio' | 'video'>) {
+	const tracks = kinds.map(kind => {
+		const track = { kind, readyState: 'live' as MediaStreamTrackState,
+			getSettings: () => ({ channelCount: 2 }), stop: () => { track.readyState = 'ended'; } };
+		return track;
+	});
+	return { stream: {
+		getTracks: () => tracks,
+		getAudioTracks: () => tracks.filter(({ kind }) => kind === 'audio'),
+		getVideoTracks: () => tracks.filter(({ kind }) => kind === 'video'),
+	}, states: () => tracks.map(({ readyState }) => readyState) };
+}
 
 test('pool synchronization publishes sources before reconciling route health', () => {
 	const fixture = createFixture();

@@ -32,7 +32,9 @@ test('desktop preview leaves browser testing and combined coverage to Quality', 
 		assert.ok(extractJob(quality, jobName).length > 0, `${jobName} remains in Quality`);
 		assert.doesNotMatch(preview, new RegExp(`^  ${jobName}:`, 'mu'));
 	}
-	assert.doesNotMatch(preview, /test:browser|playwright|verified-firefox|SCAPE_BUILD_SOURCE_MAPS/u);
+	const chromiumFixtureSetup = /^ {8}run: node node_modules\/playwright-core\/cli\.js install --with-deps --only-shell chromium$/mu;
+	assert.match(extractJob(preview, 'tests'), chromiumFixtureSetup);
+	assert.doesNotMatch(preview.replace(chromiumFixtureSetup, ''), /test:browser|playwright|verified-firefox|SCAPE_BUILD_SOURCE_MAPS/u);
 	assert.deepEqual([...npmScriptsRunBy(preview)].filter(script => script.startsWith('coverage:') || script === 'test:shard'), [],
 		'coverage commands belong to Quality; collect-coverage: false only disables fixture coverage');
 	assert.doesNotMatch(preview, /coverage-shard-|verified-(?:framescaper-)?site-|checked-soundscaper-handbook/u);

@@ -5,12 +5,12 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const allowClipping of [false, true]) test(`authored Amplify macro keeps its clipping policy with allowClipping=${allowClipping}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'Guarded gain.wav', frequency: 440, duration: 0.25, channelCount: 1, channelAmplitudes: [0.8] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	const before = await exportSamples(page, editor);
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: 'Amplify', exact: true }).click();

@@ -33,7 +33,8 @@ export function expectedRuntimeArchiveFileNames(modelId, task) {
 	let families;
 	if (task === 'speech-recognition') {
 		families = [modelId === 'whisper-large-v3-turbo-ggml' ? 'whisper-cpp' : 'sherpa-onnx-node'];
-	} else if (SHERPA_TASKS.has(task)) families = ['sherpa-onnx-node'];
+	} else if (task === 'speech-enhancement' && ['gtcrn', 'dpdfnet2-48khz', 'voxlock'].includes(modelId)) families = ['sherpa-onnx-node'];
+	else if (SHERPA_TASKS.has(task)) families = ['sherpa-onnx-node'];
 	else if (task === 'editorial-generation') families = ['llama-cpp'];
 	else if (task === 'text-to-speech') families = ['onnxruntime-node', 'kokoro-g2p'];
 	else if (ONNX_TASKS.has(task)) families = ['onnxruntime-node'];

@@ -13,7 +13,7 @@ test('a real large raw file retains literal substitution characters in its size 
 	try {
 		const file = await open(path, 'wx');
 		try { await file.truncate(256 * 1024 ** 2 + 2); } finally { await file.close(); }
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseNestedCommandAction(page, editor, 'Tools', ['Import raw data']);
 		const dialog = page.locator('[data-import-surface="raw-pcm"]');
 		await dialog.locator('input[type="file"]').setInputFiles(path);

@@ -24,7 +24,10 @@ test('live analyzers subscribe and paint only while their sections are expanded'
 		spectrumDb: Object.freeze([-90, -30, -12]),
 	} } };
 	const controller = {
-		engine: { acquireLiveAnalysis: () => {
+		engine: { acquirePlaybackSpectrum: () => {
+			visualLeases += 1;
+			return { fftSize: 4096, read: () => null, release: () => { visualLeases -= 1; } };
+		}, getPositionFrames: () => 0, acquireLiveAnalysis: () => {
 			visualLeases += 1;
 			return () => { visualLeases -= 1; };
 		} },
@@ -34,10 +37,11 @@ test('live analyzers subscribe and paint only while their sections are expanded'
 			return () => { subscribers -= 1; };
 		},
 	};
+	const snapshot = { ready: true, project: { id: 'live-analysis', sampleRate: 48_000, tracks: [], clips: [{}] } };
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
 	try {
-		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} />));
+		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} snapshot={snapshot} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} />));
 		assert.deepEqual(
 			dom.container.querySelectorAll('[data-analysis-section]').map((node) => node.getAttribute('data-analysis-section')),
 			['levels', 'loudness', 'spectrum', 'spectrogram', 'correlation', 'acx'],
@@ -51,24 +55,24 @@ test('live analyzers subscribe and paint only while their sections are expanded'
 		const spectrum = dom.one('[data-analysis-section="spectrum"]');
 		await act(async () => reactProps(spectrum).onToggle({ currentTarget: { open: true } }));
 		assert.ok(dom.find('[data-live-analysis-spectrum]'));
-		assert.equal(subscribers, 2);
+		assert.equal(subscribers, 1, 'spectrum sampling uses its own bounded session');
 		assert.equal(visualLeases, 1);
 
 		const spectrogram = dom.one('[data-analysis-section="spectrogram"]');
 		await act(async () => reactProps(spectrogram).onToggle({ currentTarget: { open: true } }));
-		assert.equal(visualLeases, 2, 'each expanded visual retains the shared tap');
+		assert.equal(visualLeases, 2, 'each expanded visual retains its sampling resources');
 		await act(async () => reactProps(spectrogram).onToggle({ currentTarget: { open: false } }));
 		assert.equal(visualLeases, 1, 'the tap stays active while spectrum remains expanded');
 
-		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} active={false} />));
+		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} snapshot={snapshot} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} active={false} />));
 		assert.equal(subscribers, 0, 'hidden workspace tabs release every telemetry subscription');
 		assert.equal(visualLeases, 0, 'hidden workspace tabs release the analysis lease');
 		assert.equal(dom.find('[data-live-analysis-spectrum]'), null);
 		assert.equal(dom.one('[data-analysis-section="spectrum"]').getAttribute('open'), '');
 
-		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} active />));
+		await act(async () => root.render(<RealtimeAnalysisPanel controller={controller} snapshot={snapshot} copy={ENGLISH_COPY} settings={DEFAULT_PLAYBACK_METER_SETTINGS} active />));
 		assert.ok(dom.find('[data-live-analysis-spectrum]'), 'returning to the tab resumes expanded analyzers');
-		assert.equal(subscribers, 2);
+		assert.equal(subscribers, 1);
 		assert.equal(visualLeases, 1);
 
 		await act(async () => reactProps(spectrum).onToggle({ currentTarget: { open: false } }));

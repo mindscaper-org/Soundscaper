@@ -15,6 +15,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { generateDesktopIcon } from './desktop-icons.mjs';
 import { configureCiArtifactFetch } from './lib/ci-artifact-fetch.ts';
+import { buildYabridge } from './build-yabridge.mjs';
+import { yabridgeRequired, stageYabridgePayload } from './lib/yabridge-staging.mjs';
 import { prepareDesktopAssistanceRuntimeSet } from './lib/desktop-assistance-runtime-preparation.mjs';
 import { generateProductWindowIcon } from './lib/offline-application-shell.mjs';
 import { listTranslationCatalogLocales, readTranslationCatalog } from './i18n-ai/catalog.mjs';
@@ -155,6 +157,9 @@ async function main() {
 		: null;
 	await rm(BUILD_ROOT, { recursive: true, force: true });
 	await mkdir(BUILD_ROOT, { recursive: true });
+	const bridge = yabridgeRequired(PRODUCT_ID, nativeTarget.id, nativeHarnessPreparation) ? await buildYabridge(ROOT) : null;
+	const yabridge = bridge ? await stageYabridgePayload({ manifest: bridge.manifest,
+		sourceRoot: bridge.runtimeRoot, runtimeRoot: RUNTIME_ROOT }) : null;
 	const compiledDesktopRuntime = await compileDesktopProjectLibraryRuntime({
 		repositoryRoot: ROOT,
 		outputRoot: DESKTOP_RUNTIME_ROOT,
@@ -228,8 +233,10 @@ async function main() {
 		osAudioCodecNative,
 		soundscaperProfessionalNative,
 		framescaperNativeHosts,
+		yabridge,
 		translations,
 	};
+	if (yabridge) await writeJson(resolve(APP_ROOT, 'config/yabridge-native-payload.json'), yabridge);
 	await writeJson(resolve(BUILD_ROOT, 'stage-manifest.json'), stageManifest);
 	console.log(`Prepared ${PRODUCT_NAME} desktop ${applicationVersion} in ${BUILD_ROOT}`);
 }
@@ -420,7 +427,7 @@ async function stageApplication(
 		name: `${PRODUCT_ID}-desktop`,
 		productName: PRODUCT_NAME,
 		desktopName: `org.${PRODUCT_ID}.desktop`,
-		version: applicationVersion,
+		version: productMetadata.packageVersion ?? applicationVersion, releaseVersion: applicationVersion,
 		description: PRODUCT_ID === 'framescaper' ? 'Local-first video editor' : 'Local-first multitrack audio editor',
 		main: 'desktop/main.mjs',
 		type: 'module',

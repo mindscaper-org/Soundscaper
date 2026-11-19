@@ -49,7 +49,7 @@ function createCaptureController(): RecordingCaptureController | undefined {
 
 /** Request desktop audio while keeping the editor focused and retaining video. */
 export async function requestDisplayInput({
-	audioConstraints = true,
+	audioConstraints,
 	videoConstraints = true,
 	displayConstraints = {},
 	mediaDevices = globalThis.navigator?.mediaDevices,
@@ -63,7 +63,13 @@ export async function requestDisplayInput({
 		...displayConstraints,
 		...(controller ? { controller } : {}),
 		video: videoConstraints || true,
-		audio: audioConstraints || true,
+		audio: {
+			channelCount: { ideal: 2 },
+			echoCancellation: false,
+			noiseSuppression: false,
+			autoGainControl: false,
+			...(typeof audioConstraints === 'object' ? audioConstraints : {}),
+		},
 		selfBrowserSurface: 'exclude',
 		systemAudio: 'include',
 		windowAudio: 'system',

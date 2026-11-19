@@ -6,10 +6,12 @@ import {
 } from './selection-effects-worker-context.ts';
 import { runSelectionEffectChain } from './selection-effect-chain.ts';
 import { initializePffft } from './pffft.js';
+import { registerSelectionWorkerPcm } from './selection-effect-pcm-ownership.ts';
 
 globalThis.onmessage = async ({ data }) => {
 	try {
 		const channels = (data.channels || []).map(asFloat32Array);
+		if (data.effectType === 'match-eq') registerSelectionWorkerPcm(channels);
 		if (data.operation === 'capture-noise-profile') {
 			await initializePffft();
 			const profile = captureAudacityNoiseProfile(channels, data.sampleRate, data.params || {});
@@ -17,6 +19,10 @@ globalThis.onmessage = async ({ data }) => {
 			return;
 		}
 		const context = normalizeSelectionEffectWorkerContext(data.context);
+		let phaseCorrectionAnalysis = null;
+		let matchEqAnalysis = null;
+		context.onPhaseCorrectionAnalysis = (analysis) => { phaseCorrectionAnalysis = analysis; };
+		context.onMatchEqAnalysis = (analysis) => { matchEqAnalysis = analysis; };
 		context.onProgress = (progress) => globalThis.postMessage({ type: 'progress', requestId: data.requestId, ratio: progress });
 		if (data.wasmModule instanceof WebAssembly.Module) context.wasmModule = data.wasmModule;
 		const output = data.operation === 'apply-chain'
@@ -29,7 +35,9 @@ globalThis.onmessage = async ({ data }) => {
 			data.params || {},
 			context,
 		);
-		globalThis.postMessage({ type: 'result', requestId: data.requestId, channels: output }, output.map((channel) => channel.buffer));
+		globalThis.postMessage({ type: 'result', requestId: data.requestId, channels: output,
+			...(matchEqAnalysis ? { matchEqAnalysis } : {}),
+			...(phaseCorrectionAnalysis ? { phaseCorrectionAnalysis } : {}) }, output.map((channel) => channel.buffer));
 	} catch (error) {
 		globalThis.postMessage({
 			type: 'error',

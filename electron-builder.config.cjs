@@ -9,6 +9,8 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 	const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 	const framescaper = productId === 'framescaper';
 	const productName = framescaper ? 'Framescaper' : 'Soundscaper';
+	const releaseMetadata = require('./scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
+	const releaseName = releaseMetadata.applicationVersion;
 	// Development builds use ad-hoc seals; credentialed release jobs explicitly
 	// select a Developer ID identity and require notarization.
 	const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
@@ -32,7 +34,9 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 		forceCodeSigning: signing.forceCodeSigning,
 		appId: framescaper ? 'org.framescaper.desktop' : 'org.soundscaper.desktop',
 		productName,
-		artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+		artifactName: `${releaseName}-\${os}-\${arch}.\${ext}`,
+		buildVersion: releaseMetadata.packageVersion,
+		extraMetadata: { version: releaseMetadata.packageVersion, releaseVersion: releaseName },
 		compression: 'maximum',
 		asar: true,
 		// Stock Electron enables proprietary codecs in its Chromium FFmpeg library.
@@ -44,6 +48,7 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 		afterPack: './scripts/desktop-after-pack.mjs',
 		afterSign: './scripts/desktop-after-sign.mjs',
 		afterAllArtifactBuild: './scripts/desktop-after-all-artifact-build.mjs',
+		msiProjectCreated: './scripts/desktop-msi-project.mjs',
 		directories: {
 			app: '.desktop-build/app',
 			buildResources: '.desktop-build/icons',
@@ -57,6 +62,7 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 			'!desktop/**/*.test.*',
 		],
 		extraResources: [
+			{ from: 'desktop/policies', to: 'policies', filter: [`${productId}.admx`, `en-US/${productId}.adml`] },
 			{ from: '.desktop-build/renderer', to: 'renderer' },
 			{ from: '.desktop-build/runtime', to: 'runtime' },
 			{ from: 'LICENSE', to: 'licenses/Soundscaper-AGPL-3.0.txt' },
@@ -93,7 +99,16 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 			...signing.win,
 			extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 			icon: '.desktop-build/icons/icon.ico',
-			target: ['nsis', 'zip'],
+			target: ['nsis', 'zip', 'msi'],
+		},
+		msi: {
+			perMachine: true,
+			oneClick: true,
+			runAfterFinish: false,
+			createDesktopShortcut: false,
+			createStartMenuShortcut: true,
+			upgradeCode: framescaper ? '1dcfd415-9a4d-5e4d-b5aa-9d9c66854660' : 'dc59358f-8c71-537e-9bdf-f565ac2be491',
+			warningsAsErrors: true,
 		},
 		nsis: {
 			include: 'desktop/installer/windows-ffmpeg.nsh',
@@ -128,8 +143,10 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 			},
 		},
 		dmg: {
+			// DMG titles expand ${arch} to a suffix that already includes its hyphen.
+			title: `${releaseName}\${arch}`,
 			sign: signing.mac.notarize,
-			artifactName: '${productName}-${version}-mac-${arch}.${ext}',
+			artifactName: `${releaseName}-mac-\${arch}.\${ext}`,
 		},
 		linux: {
 			icon: '.desktop-build/icons/linux',
@@ -144,31 +161,31 @@ if (process.env.SCAPE_PRODUCT === 'lightscaper') {
 			target: ['AppImage', 'deb'],
 		},
 		appImage: {
-			artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+			artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
 		},
 		deb: {
-			artifactName: '${productName}-${version}-linux-${arch}.${ext}',
+			artifactName: `${releaseName}-linux-\${arch}.\${ext}`,
 			recommends: ['ffmpeg'],
 		},
 		publish: null,
 	};
-}
 
-/** @param {string} value */
-function regexEscape(value) {
-	return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-}
-
-/**
- * @param {string | undefined} value
- * @returns {'soundscaper' | 'framescaper'}
- */
-function resolveDesktopProductId(value) {
-	const requested = value === undefined ? 'soundscaper' : value;
-	if (requested !== 'soundscaper' && requested !== 'framescaper') {
-		throw new Error(
-			`SCAPE_PRODUCT must be soundscaper or framescaper; received ${JSON.stringify(value)}.`,
-		);
+	/** @param {string} value */
+	function regexEscape(value) {
+		return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 	}
-	return requested;
+
+	/**
+	 * @param {string | undefined} value
+	 * @returns {'soundscaper' | 'framescaper'}
+	 */
+	function resolveDesktopProductId(value) {
+		const requested = value === undefined ? 'soundscaper' : value;
+		if (requested !== 'soundscaper' && requested !== 'framescaper') {
+			throw new Error(
+				`SCAPE_PRODUCT must be soundscaper or framescaper; received ${JSON.stringify(value)}.`,
+			);
+		}
+		return requested;
+	}
 }

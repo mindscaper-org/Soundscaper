@@ -87,17 +87,17 @@ function freshTrackCommand(
 		|| track.clipIds.length !== 1 || track.clipIds[0] !== clip.id) {
 		throw new Error('The fresh timelineImage image track must be unlocked and own only the fresh image clip.');
 	}
-	const primaryId = String(project.primarySequenceId);
 	const owners = records(project.sequences, 'timelineImage target sequences').filter(({ trackIds }) => (
 		Array.isArray(trackIds) && trackIds.includes(trackId)
 	));
-	if (owners.length !== 1 || owners[0]!.id !== primaryId) {
-		throw new Error('The fresh timelineImage image track must belong only to the primary sequence.');
+	if (owners.length !== 1 || owners[0]!.id !== clip.sequenceId) {
+		throw new Error('The fresh timelineImage image track must belong only to the clip’s sequence.');
 	}
 	return {
 		type: 'track/add',
 		track: { ...structuredClone(track), clipIds: [] },
 		index: targetTracks.indexOf(track),
+		sequenceId: clip.sequenceId,
 	};
 }
 

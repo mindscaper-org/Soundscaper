@@ -26,6 +26,7 @@ Families describe product entry points, not every file extension a decoder might
 | --- | --- | --- | --- |
 | Audio analysis | Enabled | Not enabled | Not enabled |
 | Audio automation | Enabled | Enabled | Not enabled |
+| Audio clip effects | Enabled | Not enabled | Not enabled |
 | Audio effects | Enabled | Not enabled | Not enabled |
 | Audio generators | Enabled | Not enabled | Not enabled |
 | Audio import | Enabled | Enabled | Not enabled |
@@ -45,6 +46,7 @@ Families describe product entry points, not every file extension a decoder might
 | Mastering sequences | Enabled | Not enabled | Not enabled |
 | Multicamera editing | Not enabled | Enabled | Not enabled |
 | Musical timeline | Enabled | Not enabled | Not enabled |
+| Nested audio subprojects | Enabled | Not enabled | Not enabled |
 | Nested sequences | Not enabled | Enabled | Not enabled |
 | OpenFX effects | Not enabled | Enabled | Not enabled |
 | Photo catalog | Not enabled | Not enabled | Enabled |

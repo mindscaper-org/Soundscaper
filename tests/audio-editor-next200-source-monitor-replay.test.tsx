@@ -4,6 +4,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import SourceMonitorPanel from '../src/common/editor/ui/workspace/SourceMonitorPanel.jsx';
 import { createSourceMonitorService } from '../src/common/editor/controller/clip-video/internal/source-monitor-service.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 Reflect.set(globalThis, 'React', React);
@@ -24,19 +25,38 @@ for (const frames of [1, 22]) test(`natural source end preserves the native repl
 	} finally { await f.close(); }
 });
 
-test('manual stopped source positioning includes the last frame without claiming native end', async () => {
-	const f = await fixture(22);
+test('a decoder end flag during a paused seek does not suppress the last picture', async () => {
+	const f = await fixture(4, 2_000);
 	try {
-		Reflect.set(f.video, 'ended', false);
-		await act(async () => { f.monitor.seek(21); });
+		await act(async () => { f.monitor.seek(2); });
+		Reflect.set(f.video, 'ended', true);
+		await act(async () => { f.monitor.seek(3); });
 		assert.equal(Reflect.get(f.video, 'currentTime'), f.monitor.view().mediaSeconds);
-		assert.notEqual(Reflect.get(f.video, 'currentTime'), 22 / 25);
+		assert.notEqual(Reflect.get(f.video, 'currentTime'), .002);
 		await act(async () => { f.monitor.step(-1); });
 		assert.equal(Reflect.get(f.video, 'currentTime'), f.monitor.view().mediaSeconds);
 	} finally { await f.close(); }
 });
 
-async function fixture(frames: number) {
+test('an interrupted Play rejection leaves the newer Source Monitor playback running', async () => {
+	const f = await fixture(22);
+	try {
+		const first = deferred<void>();
+		let playCount = 0;
+		let pauseCount = 0;
+		Reflect.set(f.video, 'play', () => ++playCount === 1 ? first.promise : Promise.resolve());
+		Reflect.set(f.video, 'pause', () => { pauseCount++; });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { reactProps(f.play()).onClick(); });
+		await act(async () => { first.reject(new DOMException('Interrupted by pause', 'AbortError')); });
+		assert.equal(playCount, 2);
+		assert.equal(pauseCount, 1);
+		assert.equal(reactProps(f.play())['aria-pressed'], true);
+	} finally { await f.close(); }
+});
+
+async function fixture(frames: number, frameRate = 25) {
 	const dom = installReactTestDom();
 	const global = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = global.IS_REACT_ACT_ENVIRONMENT; global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -45,7 +65,7 @@ async function fixture(frames: number) {
 	let render = (): void => undefined;
 	const monitor = createSourceMonitorService({ lifetime: { assertActive() {} },
 		getProject: () => ({ id: 'source-replay', sources: [{ id: 'camera', kind: 'video', name: 'Camera',
-			sourceFrameCount: frames, frameRate: { num: 25, den: 1 } }] }),
+			sourceFrameCount: frames, frameRate: { num: frameRate, den: 1 } }] }),
 		publishProjectState: () => { render(); },
 	});
 	monitor.openSource('camera');

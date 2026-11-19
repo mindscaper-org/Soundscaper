@@ -6,6 +6,7 @@ import { createId3Artwork, parseId3Artwork, suggestId3ArtworkDescription, type I
 import { id3MetadataCopy } from '../../i18n/editor-id3-metadata-copy.ts';
 import { MetadataEditorField } from './workspace/LabelManagerRows.jsx';
 import './id3-metadata-fields.css';
+import EditorControlLabel from './EditorControlLabel.tsx';
 
 interface Id3MetadataFieldsProps {
 	readonly metadata: Readonly<Record<string, unknown>>;
@@ -96,7 +97,7 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 				{artwork.map((picture, index) => (
 					<div key={index} className="audio-editor-id3-artwork">
 						<img src={`data:${picture.mimeType};base64,${picture.data}`} alt={picture.description} width="96" height="96" />
-						<label><span>{labels.pictureType}</span><select value={picture.pictureType} disabled={disabled || busy}
+						<label><EditorControlLabel>{labels.pictureType}</EditorControlLabel><select value={picture.pictureType} disabled={disabled || busy}
 							onChange={event => commitArtwork(artwork.map((item, position) => position === index ? { ...item, pictureType: Number(event.currentTarget.value) } : item))}>
 							{Array.from({ length: 21 }, (_value, type) => labels[`picture${type}`]).map((name, type) => <option key={type} value={type}>{name}</option>)}
 						</select></label>
@@ -110,7 +111,7 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 						}}>{labels.remove}</button>
 					</div>
 				))}
-				<label><span>{labels.addArtwork}</span><input type="file" data-id3-artwork-add accept="image/png,image/jpeg" disabled={disabled || busy}
+				<label><EditorControlLabel>{labels.addArtwork}</EditorControlLabel><input type="file" data-id3-artwork-add accept="image/png,image/jpeg" disabled={disabled || busy}
 					onChange={event => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; if (file) void addArtwork(file); }} /></label>
 			</fieldset>
 			<fieldset>
@@ -120,8 +121,8 @@ export default function Id3MetadataFields({ metadata, copy, locale, disabled, on
 					<MetadataEditorField key={key} name={`id3-custom-${key}`} label={key} value={String(value ?? '')} disabled={disabled}
 						onCommit={(next: string) => onUpdate({ tags: { ...tags, [key]: next } })} />
 				))}
-				<label><span>{labels.customName}</span><input value={customName} disabled={disabled} onChange={event => setCustomName(event.currentTarget.value)} /></label>
-				<label><span>{labels.customValue}</span><input value={customValue} disabled={disabled} onChange={event => setCustomValue(event.currentTarget.value)} /></label>
+				<label><EditorControlLabel>{labels.customName}</EditorControlLabel><input value={customName} disabled={disabled} onChange={event => setCustomName(event.currentTarget.value)} /></label>
+				<label><EditorControlLabel>{labels.customValue}</EditorControlLabel><input value={customValue} disabled={disabled} onChange={event => setCustomValue(event.currentTarget.value)} /></label>
 				<button type="button" disabled={disabled || !customName.trim()} onClick={addCustom}>{labels.addField}</button>
 			</fieldset>
 			{(error || artworkError) && <p role="alert">{error || artworkError}</p>}

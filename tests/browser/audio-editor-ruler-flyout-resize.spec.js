@@ -5,7 +5,7 @@ import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 
 test('resizing a ruler flyout keeps its focused frequency control reachable and editable', async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 900 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	const ruler = editor.locator('[data-track-ruler]').last();

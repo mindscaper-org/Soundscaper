@@ -12,6 +12,6 @@ test('new Audacity dynamics effects use the pinned Qt defaults shown by their di
 		lookaheadMs: 3, attackMs: 3, releaseMs: 100,
 	});
 	assert.deepEqual(audacityEffectDefaults('audacity-limiter'), {
-		thresholdDb: -6, makeupTargetDb: -1, kneeWidthDb: 2, lookaheadMs: 1, releaseMs: 20,
+		thresholdDb: -6, makeupTargetDb: -1, kneeWidthDb: 2, lookaheadMs: 1, releaseMs: 20, limitTruePeaks: false,
 	});
 });

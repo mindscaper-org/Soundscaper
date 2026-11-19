@@ -1,12 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { link, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import { migrateDesktopProjectLibraries } from '../desktop/desktop-project-library-migration.ts';
+import { openProjectLibraryDirectoryLock, projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
+
+const legacyCopyTests = { skip: process.platform !== 'linux' && process.platform !== 'win32' };
 
 async function fixture(context: TestContext) {
 	const root = await mkdtemp(join(tmpdir(), 'scape-library-migration-'));
@@ -28,6 +32,86 @@ async function seed(directory: string, name: string, bytes: string): Promise<voi
 	await mkdir(directory, { recursive: true });
 	await writeFile(join(directory, name), bytes);
 }
+
+async function interruptedLegacyCopy(context: TestContext) {
+	const paths = await fixture(context);
+	const appName = 'Soundscaper';
+	const source = oldLibrary(paths.legacyAppDataPath);
+	const destination = currentLibrary(paths.projectLibraryAppDataPath);
+	const location = projectLibraryLocationDirectory(paths.projectLibraryAppDataPath, appName);
+	const recordName = 'legacy-upgrade-v1';
+	const id = '3'.repeat(32);
+	const stage = join(location, `${recordName}-${id}`);
+	const entries = [source, oldLibrary(paths.projectLibraryAppDataPath)].map(source => ({ source, destination }));
+	const identity = createHash('sha256').update(JSON.stringify(entries)).digest('hex');
+	const file = 'library.sqlite3';
+	const catalog = 'complete current catalog';
+	const final = join(destination, file);
+	const staged = join(stage, createHash('sha256').update(final).digest('hex'));
+	await seed(source, file, catalog);
+	await mkdir(destination, { recursive: true });
+	await seed(location, recordName, `${id} ${identity}\n`);
+	await mkdir(stage);
+	return { options: { ...paths, appName }, source, stage, catalog, final, staged, record: join(location, recordName) };
+}
+
+test('legacy upgrade restarts an unfinished registered copy', legacyCopyTests, async context => {
+	const witness = await interruptedLegacyCopy(context);
+	await writeFile(witness.staged, 'partial');
+	await migrateDesktopProjectLibraries(witness.options);
+	assert.equal(await readFile(witness.final, 'utf8'), witness.catalog);
+	await assert.rejects(lstat(witness.source), { code: 'ENOENT' });
+	await assert.rejects(lstat(witness.stage), { code: 'ENOENT' });
+	await assert.rejects(lstat(witness.record), { code: 'ENOENT' });
+	assert.equal((await lstat(witness.final)).nlink, 1);
+});
+
+test('legacy upgrade keeps a matching independently created final file and original', legacyCopyTests, async context => {
+	const witness = await interruptedLegacyCopy(context);
+	await writeFile(witness.staged, witness.catalog);
+	await writeFile(witness.final, witness.catalog);
+	const witnessIdentity = await lstat(witness.final);
+	await assert.rejects(migrateDesktopProjectLibraries(witness.options), /created independently of the staged copy/iu);
+	assert.equal((await lstat(witness.final)).ino, witnessIdentity.ino);
+	assert.equal(await readFile(witness.final, 'utf8'), witness.catalog);
+	assert.equal(await readFile(join(witness.source, 'library.sqlite3'), 'utf8'), witness.catalog);
+	assert.equal(await readFile(witness.staged, 'utf8'), witness.catalog);
+});
+
+for (const sourceRetired of [false, true]) {
+	test(`legacy upgrade retires a linked receipt ${sourceRetired ? 'after' : 'with'} its source`,
+		legacyCopyTests, async context => {
+			const witness = await interruptedLegacyCopy(context);
+			await writeFile(witness.staged, witness.catalog);
+			await link(witness.staged, witness.final);
+			if (sourceRetired) await rm(witness.source, { recursive: true });
+			const witnessIdentity = await lstat(witness.final);
+			assert.equal(witnessIdentity.nlink, 2);
+			await migrateDesktopProjectLibraries(witness.options);
+			assert.equal((await lstat(witness.final)).ino, witnessIdentity.ino);
+			assert.equal((await lstat(witness.final)).nlink, 1);
+			assert.equal(await readFile(witness.final, 'utf8'), witness.catalog);
+			await assert.rejects(lstat(witness.source), { code: 'ENOENT' });
+			await assert.rejects(lstat(witness.stage), { code: 'ENOENT' });
+			await assert.rejects(lstat(witness.record), { code: 'ENOENT' });
+		});
+}
+
+test('legacy upgrade waits for a receiving library that another profile has opened', legacyCopyTests, async context => {
+	const paths = await fixture(context);
+	const appName = 'Soundscaper';
+	const source = oldLibrary(paths.legacyAppDataPath);
+	const destination = currentLibrary(paths.projectLibraryAppDataPath);
+	await seed(source, 'library.sqlite3', 'original catalog');
+	const release = openProjectLibraryDirectoryLock(paths.projectLibraryAppDataPath, appName, 'open');
+	try {
+		await assert.rejects(migrateDesktopProjectLibraries({ ...paths, appName }), /project library is in use/iu);
+		assert.equal(await readFile(join(source, 'library.sqlite3'), 'utf8'), 'original catalog');
+		await assert.rejects(lstat(destination), { code: 'ENOENT' });
+	} finally { release(); }
+	await migrateDesktopProjectLibraries({ ...paths, appName });
+	assert.equal(await readFile(join(destination, 'library.sqlite3'), 'utf8'), 'original catalog');
+});
 
 test('missing current libraries leave archived pre-release stores untouched', async (context) => {
 	const paths = await fixture(context);

@@ -1,21 +1,49 @@
 ---
 title: "Soundscaper"
-description: "Դիտահանեք, խմբագրեք, խառնեք, վերլուծեք և արտահանեք բազմաթվային ձայնային ֆայլեր տեղային մակարդակով։"
+description: "Բազմուղի աուդիոն ձայնագրեք, խմբագրեք, միքսեք, վերլուծեք և արտահանեք տեղային եղանակով։"
 sidebar:
   order: 1
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"f817270f3e324e8eda728d34fd6ab03847b617adb5e312cbbe142615c3c4f1a0","model":"qwen3.8:latest","modelDigest":"22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"f817270f3e324e8eda728d34fd6ab03847b617adb5e312cbbe142615c3c4f1a0","targetLocale":"hy"} -->
+<!-- docs-ai-provenance: {"factPacketSha256":"bf2117eaad6e316cda0211ea5d56cf6d694309dc6b17392b58729abcd702c6c4","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"bf2117eaad6e316cda0211ea5d56cf6d694309dc6b17392b58729abcd702c6c4","targetLocale":"hy"} -->
 
-Soundscaper-ը ձայնային կողմնորոշված խմբագիր է։ Այն միավորում է Audacity-ին համապատասխան ընտրացուցակ և խմբագրման մոդել՝ նախագծի արկղով, ոչ քանդող բազմաթվային հորդադրմամբ, ձայնագրությամբ, իրական ժամանակի էֆեկտներով, լարվածության և հաճախականության վերլուծությամբ և տեղափոխելի նախագծերի փոխանակմամբ։
+Soundscaper-ը աուդիոյի վրա կենտրոնացած խմբագիր է։ Այն միավորում է Audacity-ին համապատասխանող ընտրացանկն ու խմբագրման մոդելը, նախագծերի պահոցը, ոչ կործանարար բազմուղի դասավորությունը, ձայնագրումը, իրական ժամանակի էֆեկտները, բարձրության և հաճախականության վերլուծությունը և շարժական նախագծերի փոխանակումը։
 
-## Պահանջվող ուղի
+## Առաջարկվող ուղի
 
-1. Հետևեք դասընթացին [Ձեր առաջին Soundscaper նախագիծը](/tutorials/your-first-project/)։
-2. [Կազմավորեք ձայնագրումը](/soundscaper/recording/), եթե անհրաժեշտ է նոր նյութ։
-3. [Խմբագրեք, խառնեք և արտահանեք](/soundscaper/edit-mix-and-export/)։
-4. Ստուգեք [պահպանման և պահուստային պատճենների վարքագիծը](/projects-and-data/storage-backups-and-privacy/)։
-5. Ընտրեք [գործնական ուղեցույց](/guides/) ձեր առջև ընկած խնդրի համար՝ աղմուկի հեռացում, մարումներ, լարվածություն, արտահանում և այլն։
+1. Անցեք [Ձեր առաջին Soundscaper նախագիծը](/tutorials/your-first-project/) ձեռնարկը։
+2. Եթե նոր նյութ է պետք, [կարգավորեք ձայնագրումը](/soundscaper/recording/)։
+3. [Խմբագրեք, միքսեք և արտահանեք](/soundscaper/edit-mix-and-export/)։
+4. Ծանոթացեք [պահպանման և պահուստավորման վարքագծին](/projects-and-data/storage-backups-and-privacy/)։
+5. Ընտրեք [ինչպես անել ուղեցույց](/guides/) ձեր ընթացիկ խնդրի համար՝ աղմուկի հեռացում, ֆեյդեր, բարձրություն, արտահանում և այլն։
 
-Բացեք դիտարկիչային խմբագիրը [soundscaper.org/en](https://soundscaper.org/en/) հղումով։
+Բացեք դիտարկիչի խմբագիրը [soundscaper.org/en](https://soundscaper.org/en/) հասցեով։
 
-Կոշկային օգնության համար տե՛ս [տեղային մշակումը, մոդելները և խմբագիրները](/help/local-processing/)։
+Սեղանի համակարգչի աջակցության համար տեսեք [տեղային մշակում, մոդելներ և փլագիններ](/help/local-processing/)։
+
+Մեկ այլ տրանսպորտին հետևելու կամ այն կառավարելու համար տեսեք [թայմկոդի համաժամացումը](/soundscaper/timecode-synchronization/)։
+
+## Հատկությունների ուղեցույցներ
+
+Ընտրեք ստորև նշված առաջադրանքը։ Յուրաքանչյուր ուղեցույց նշում է անհրաժեշտը, հատկությանը հասնելու ձևը, արդյունքը ստուգելու և այն դեպքի քայլերը, երբ հատկությունը չի կարող մշակել ձեր նյութը։
+
+- [Պահպանել և վերականգնել սեսիայի նկարապատկերը](/soundscaper/save-session-snapshots/)
+- [Համեմատել նույն ուղու այլընտրանքային խմբագրումները](/soundscaper/compare-track-playlists/)
+- [Պահպանված նախագիծը կրկին օգտագործել որպես կապակցված աուդիո](/soundscaper/reuse-a-subproject/)
+- [Կրկնել պատմումը նախնական ազդանշանով](/soundscaper/punch-and-roll-narration/)
+- [Կիրառել իրական ժամանակի էֆեկտներ մեկ հոլովակի վրա](/soundscaper/process-one-clip/)
+- [Համապատասխանեցնել ձայնագրության տոնը](/soundscaper/match-a-voice-recording/)
+- [Համադրել երկխոսության փոխարինող կատարումը](/soundscaper/align-a-dialogue-take/)
+- [Նվազեցնել երկխոսության միկրոֆոնների միջև արտահոսքը](/soundscaper/reduce-microphone-bleed/)
+- [Կտրել խոսքը տրանսկրիպտի միջոցով](/soundscaper/edit-a-transcript/)
+- [Նվազեցնել աղմուկը նվագարկման ընթացքում](/soundscaper/denoise-during-playback/)
+- [Վերականգնել վնասված խոսքը տեղային մոդելով](/soundscaper/restore-damaged-speech/)
+- [Ձայնագրված նոտաները վերածել խմբագրվող MIDI-ի](/soundscaper/turn-audio-into-midi/)
+- [Նվագարկել MIDI-ն գործիքով](/soundscaper/play-midi-instruments/)
+- [Ներմուծել աուդիո սեսիա այլ խմբագրիչից](/soundscaper/import-a-daw-session/)
+- [Ստուգել ձայնը նվագարկման ընթացքում](/soundscaper/inspect-live-audio/)
+- [Գտնել պլեյբեքի պրոցեսորն օգտագործող էֆեկտները](/soundscaper/find-expensive-effects/)
+- [Արտահանել լուպը էֆեկտների պոչերով](/soundscaper/export-a-seamless-loop/)
+- [Օգտագործել աշխատասեղանի աուդիո փլագիններ](/soundscaper/use-desktop-plugins/)
+- [Վերականգնել աուդիոն վնասված Audacity նախագծից](/soundscaper/recover-an-audacity-project/)
+- [Խմբագրել հետքերը փակված թղթապանակում](/soundscaper/edit-a-collapsed-folder/)
+- [Ռենդերել ADM ծրագիր բարձրախոսների համար](/soundscaper/export-adm-speaker-audio/)

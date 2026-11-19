@@ -18,6 +18,7 @@ import {
 import { linearVideoKeyframeBezierControls } from './video-keyframe-bezier-controls.ts';
 import { parseVideoKeyframeNumber as parseNumber, parseVideoKeyframePosition as parseRational } from './video-keyframe-exact-input.ts';
 import { videoKeyframeInterpolationKinds } from './video-keyframe-interpolation.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface VideoKeyframeCurveEditorProps {
 	readonly model: VideoKeyframeDialogModel;
@@ -159,7 +160,7 @@ export default function VideoKeyframeCurveEditor({
 		{curves.length === 0
 			? <p>{label(copy, 'videoKeyframesNoCurves', 'Add a curve to begin editing.')}</p>
 			: <>
-				<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesCurve', 'Curve')}</span>
+				<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesCurve', 'Curve')}</EditorControlLabel>
 					<select data-video-keyframe-field="curve" value={stableKey} onChange={(event) => selectCurve(event.currentTarget.value)}>{curves.map(({ target }) => {
 						const key = videoKeyframeTargetKey(target);
 						const targetChoice = choices.find((candidate) => candidate.key === key);
@@ -167,15 +168,15 @@ export default function VideoKeyframeCurveEditor({
 					})}</select>
 				</label>
 				<form onSubmit={updateAnchor}>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesAnchor', 'Anchor')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesAnchor', 'Anchor')}</EditorControlLabel>
 						<select data-video-keyframe-field="anchor" value={anchorIndex} onChange={(event) => selectAnchor(Number(event.currentTarget.value))}>
 							{curve?.curve.anchors.map((item, index) => <option key={rationalText(item.position)} value={index}>{String(index + 1)}</option>)}
 						</select>
 					</label>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesPosition', 'Position (frames or num/den)')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesPosition', 'Position (frames or num/den)')}</EditorControlLabel>
 						<input type="text" data-video-keyframe-field="anchor-position" value={positionText} disabled={!visibleAnchor} onChange={(event) => setPositionText(event.currentTarget.value)} />
 					</label>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesValue', 'Value')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesValue', 'Value')}</EditorControlLabel>
 						<input type="number" data-video-keyframe-field="anchor-value" min={choice?.minimum} max={choice?.maximum} step={choice?.integer ? choice.step : 'any'} value={valueText} onChange={(event) => setValueText(event.currentTarget.value)} />
 					</label>
 					<button type="submit" disabled={!visibleAnchor}>{label(copy, 'videoKeyframesUpdateAnchor', 'Update anchor')}</button>
@@ -195,12 +196,12 @@ export default function VideoKeyframeCurveEditor({
 					}}>{label(copy, 'videoKeyframesRemoveAnchor', 'Remove anchor')}</button>
 				</form>
 				<div>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesSegment', 'Segment')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesSegment', 'Segment')}</EditorControlLabel>
 						<select data-video-keyframe-field="segment" value={segmentIndex} onChange={(event) => selectSegment(Number(event.currentTarget.value))}>
 							{curve?.curve.segments.map((_item, index) => <option key={index} value={index}>{String(index + 1)}</option>)}
 						</select>
 					</label>
-					<label className="audio-editor-field"><span>{label(copy, 'videoKeyframesInterpolation', 'Interpolation')}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{label(copy, 'videoKeyframesInterpolation', 'Interpolation')}</EditorControlLabel>
 						<select data-video-keyframe-field="segment-kind" value={segmentKind || segment?.kind} onChange={(event) => changeSegmentKind(event.currentTarget.value as typeof segmentKind)}>
 							{videoKeyframeInterpolationKinds(choice?.integer ?? false).map((kind) => <option key={kind} value={kind}>{label(copy, `videoKeyframes${titleCase(kind)}`, titleCase(kind))}</option>)}
 						</select>
@@ -228,7 +229,7 @@ export default function VideoKeyframeCurveEditor({
 function ControlField({ hook, label: fieldLabel, value, onChange }: Readonly<{
 	hook: string; label: string; value: string; onChange(value: string): void;
 }>) {
-	return <label className="audio-editor-field"><span>{fieldLabel}</span><input type="text" data-video-keyframe-field={hook} value={value} onChange={(event) => onChange(event.currentTarget.value)} /></label>;
+	return <label className="audio-editor-field"><EditorControlLabel>{fieldLabel}</EditorControlLabel><input type="text" data-video-keyframe-field={hook} value={value} onChange={(event) => onChange(event.currentTarget.value)} /></label>;
 }
 
 function rationalText(value: Rational): string { return value.den === 1 ? String(value.num) : `${String(value.num)}/${String(value.den)}`; }

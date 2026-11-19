@@ -8,6 +8,7 @@ import {
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import type { LabeledAudioRegion } from '../../labeled-audio-regions.ts';
 import { generateAudioEditorSignal } from '../../generators.js';
+import { createAudioTrackChannelCounter } from '../../project-audio-factory.js';
 import { resolveSelectionRange } from '../../selection-range.ts';
 import { generatorName, normalizeProjectSampleRate } from '../shared/app-helpers.ts';
 import {
@@ -122,11 +123,6 @@ export interface AudioGeneratorServiceDependencies<Context = unknown, Target ext
 	editingBlocked(): boolean;
 	getPositionFrames(): number;
 	snapFrame(value: unknown): number;
-	trackChannelCount(
-		project: AudioGeneratorDocument,
-		track: AudioGeneratorTrack | null,
-		fallback: number,
-	): number;
 	effectTargets(): readonly Target[];
 	persistEffectResults(
 		results: readonly Readonly<{
@@ -219,6 +215,12 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 		try {
 			const targets = dependencies.effectTargets();
 			if (!targets.length) throw createLocalizedError(Error, dependencies.copy, 'timeSelectionRequired');
+			const bytes = targets.reduce((sum, target) => (
+				sum + target.durationFrames * target.channelCount * Float32Array.BYTES_PER_ELEMENT
+			), 0);
+			await raceAbortableRead(() => dependencies.preflightStorage(bytes, 'effect'), ownership.task.signal, 'immediate');
+			assertOwnership(ownership);
+			processing = markProcessing();
 			const results = targets.map((target) => ({
 				target,
 				channels: Object.freeze(Array.from(
@@ -226,13 +228,6 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 					() => new Float32Array(target.durationFrames),
 				)),
 			}));
-			await raceAbortableRead(() => dependencies.preflightStorage(results.reduce((sum, result) => (
-				sum + result.target.durationFrames
-					* result.target.channelCount
-					* Float32Array.BYTES_PER_ELEMENT
-			), 0), 'effect'), ownership.task.signal, 'immediate');
-			assertOwnership(ownership);
-			processing = markProcessing();
 			await dependencies.persistEffectResults(results, null, {
 				effectName: publishedCopyFor(dependencies.copy).silenceAudio,
 				signal: ownership.task.signal,
@@ -272,11 +267,10 @@ export function createAudioGeneratorService<Context, Target extends AudioGenerat
 			const sampleRate = normalizeProjectSampleRate(project.sampleRate);
 			const durationSeconds = options.durationSeconds
 				?? (selection ? (selection.endFrame - selection.startFrame) / sampleRate : 30);
-			const channelCount = Number(options.channelCount
-				|| dependencies.trackChannelCount(project, targetTrack, project.masterChannels || 2));
+			const countChannels = createAudioTrackChannelCounter(project);
+			const channelCount = Number(options.channelCount || countChannels(targetTrack, project.masterChannels || 2));
 			processing = markProcessing();
-			const groups = generatorChannelGroups(project, selection, targetTrack, channelCount,
-				options, dependencies.trackChannelCount);
+			const groups = generatorChannelGroups(project, selection, targetTrack, channelCount, options, countChannels);
 			const preparedGroups: Array<Readonly<{ command: AudioEditorCommand; trackId: string; clipId: string }>> = [];
 			const name = generatorName(type, publishedCopyFor(dependencies.copy));
 			return await publishGroup(0);

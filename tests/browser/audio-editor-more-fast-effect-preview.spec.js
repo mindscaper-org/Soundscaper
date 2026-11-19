@@ -14,7 +14,7 @@ test('Change tempo previews six output seconds when a longer selection is sped u
 	});
 	const recording = createWavFixture({ name: 'long tempo selection.wav', frequency: 440, duration: 18,
 		channelCount: 1, channelAmplitudes: [.2] });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [recording]);
 	await clipByName(editor, recording.name).locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Change tempo']);

@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('Nyquist prompt restores the language together with the saved source', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Tools', 'Nyquist prompt');

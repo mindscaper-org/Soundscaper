@@ -63,6 +63,8 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 	const mounted = useRef(true);
 	const [revision, setRevision] = useState(0);
 	const projectIdentity = workflowProjectIdentity(input.project);
+	const automation = input.productId === 'soundscaper' ? input.controller.actions.audioAutomation : undefined;
+	const { mode, laneId, gestureActive } = normalizedAutomationSnapshot(automation, activeGesture.current !== null);
 	useEffect(() => {
 		mounted.current = true;
 		setRevision((current) => current + 1);
@@ -70,22 +72,23 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 			mounted.current = false;
 			const token = activeGesture.current;
 			activeGesture.current = null;
-			if (token !== null) void input.controller.actions.audioAutomation?.cancelGesture?.(token);
+			if (token !== null && automation?.getSnapshot().gestureActive !== false) void automation?.cancelGesture?.(token);
 		};
-	}, [input.controller, projectIdentity]);
+	}, [automation, input.controller, projectIdentity]);
 	return useMemo(() => {
 		if (input.productId !== 'soundscaper') return null;
-		const automation = input.controller.actions.audioAutomation;
 		const freeze = input.controller.actions.audioFreeze;
 		const refresh = (): void => {
 			if (mounted.current) setRevision((current) => current + 1);
 		};
-		const automationSnapshot = normalizedAutomationSnapshot(automation, activeGesture.current !== null);
-		const requireGesture = (token: unknown): unknown => {
+		const ownsGesture = (token: unknown): boolean => {
 			if (activeGesture.current === null || token !== activeGesture.current) {
 				throw new Error('The automation gesture token is stale or no longer active.');
 			}
-			return token;
+			if (automation?.getSnapshot().gestureActive !== false) return true;
+			activeGesture.current = null;
+			refresh();
+			return false;
 		};
 		const clearGestureAfterSuccess = (token: unknown, result: unknown): unknown => {
 			const clear = (): void => {
@@ -103,7 +106,7 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 		};
 		const cancelActiveGesture = (): unknown => {
 			const token = activeGesture.current;
-			if (token === null) return undefined;
+			if (token === null || !ownsGesture(token)) return undefined;
 			if (!automation?.cancelGesture) {
 				throw new Error('Automation gesture cancellation is unavailable in this runtime.');
 			}
@@ -121,10 +124,12 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 			return isPromiseLike(canceled) ? Promise.resolve(canceled).then(apply) : apply();
 		};
 		const automationRuntime: TrackAutomationRuntime = Object.freeze({
-			snapshot: automationSnapshot,
+			snapshot: Object.freeze({ mode, laneId, gestureActive }),
 			setMode,
 			beginGesture: (laneId: string, controlValue: number): unknown => {
-				if (activeGesture.current !== null) throw new Error('An automation gesture is already active.');
+				if (activeGesture.current !== null && ownsGesture(activeGesture.current)) {
+					throw new Error('An automation gesture is already active.');
+				}
 				if (!automation?.beginGesture) throw new Error('Automation gesture authoring is unavailable.');
 				const token = automation.beginGesture(laneId, controlValue);
 				if (token === null || token === undefined) {
@@ -136,20 +141,22 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 			},
 			previewGesture: (token: unknown, controlValue: number): unknown => {
 				if (!automation?.previewGesture) throw new Error('Automation gesture preview is unavailable.');
+				if (!ownsGesture(token)) return undefined;
 				return refreshAfterSuccess(
-					automation.previewGesture(requireGesture(token), controlValue), refresh,
+					automation.previewGesture(token, controlValue), refresh,
 				);
 			},
 			releaseGesture: (token: unknown, controlValue?: number): unknown => {
 				if (!automation?.releaseGesture) throw new Error('Automation gesture release is unavailable.');
+				if (!ownsGesture(token)) return undefined;
 				return clearGestureAfterSuccess(
-					requireGesture(token),
+					token,
 					automation.releaseGesture(token, controlValue),
 				);
 			},
 			cancelGesture: (token?: unknown): unknown => {
-				const owned = token === undefined ? activeGesture.current : requireGesture(token);
-				if (owned === null) return false;
+				const owned = token === undefined ? activeGesture.current : token;
+				if (owned === null || !ownsGesture(owned)) return false;
 				if (!automation?.cancelGesture) throw new Error('Automation gesture cancellation is unavailable.');
 				return clearGestureAfterSuccess(owned, automation.cancelGesture(owned));
 			},
@@ -180,8 +187,8 @@ export function useSoundscaperWorkflowWorkspace(input: Readonly<{
 				return refreshAfterSuccess(action(trackId), refresh);
 			},
 		});
-	}, [input.controller, input.openSurface, input.productId, input.project,
-		input.selectedTrackId, projectIdentity, revision]);
+	}, [automation, gestureActive, input.controller, input.openSurface, input.productId, input.project,
+		input.selectedTrackId, laneId, mode, projectIdentity, revision]);
 }
 
 export function resolveSoundscaperFreezeStatus(
@@ -233,7 +240,7 @@ function normalizedAutomationSnapshot(
 	return Object.freeze({
 		mode: normalizeTrackAutomationMode(value.mode),
 		laneId: typeof value.laneId === 'string' && value.laneId ? value.laneId : null,
-		gestureActive: gestureOwned || value.gestureActive === true,
+		gestureActive: value.gestureActive === true || (value.gestureActive === undefined && gestureOwned),
 	});
 }
 

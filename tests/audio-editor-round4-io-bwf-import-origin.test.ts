@@ -61,3 +61,12 @@ test('source timestamps above numeric precision retain their exact placed origin
 	const imported = importMetadata({ reference: '9007199254740993', sourceRate: 48_000, start: 12_000 });
 	assert.equal(imported.projectBext?.timeReference, '9007199254728993');
 });
+
+test('an unscalable valid source timestamp cannot become the project zero timestamp', () => {
+	const reference = '18446744073709551615';
+	const imported = importMetadata({ reference, sourceRate: 44_100, explicit: false });
+	assert.equal(imported.sourceBext.timeReference, reference);
+	assert.equal(imported.projectBext, null);
+	assert.equal(imported.importOptions.timelineStartFrame, 0);
+	assert.ok(imported.warnings.some(({ code }) => code === 'bext-time-reference-conversion'));
+});

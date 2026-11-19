@@ -2,6 +2,7 @@
 
 /** Complete generation-free Soundscaper 1.0 desktop runtime inventory. */
 export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
+	'src/soundscaper/editor-session-snapshot-rebind.js',
 	'desktop/vamp-analyzer-owned-session-data.js',
 	'desktop/audiocom-integration.js',
 	'desktop/audiocom-authorization.js',
@@ -11,6 +12,10 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'desktop/native-audio-session-validation.js',
 	'desktop/native-plugin-helper-adapter.js',
 	'desktop/native-plugin-process-launcher.js',
+	'desktop/windows-plugin-architecture.js',
+	'desktop/windows-vst2-bridge-consent.js',
+	'desktop/windows-vst2-bridge-router.js',
+	'desktop/windows-vst2-bridge-runtime.js',
 	'desktop/native-vamp-analyzer-helper-backend.js',
 	'desktop/plugin-bundle-identity.js',
 	'desktop/plugin-host-isolation-support.js',
@@ -71,6 +76,7 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'desktop/soundscaper-project-recovery-reader.js',
 	'src/common/editor/assistance/assistance-asset-reference-v1.js',
 	'src/common/editor/audacity-binary-xml.js',
+	'src/common/editor/audacity-binary-xml-values.js',
 	'src/common/editor/aup4-effect-profiles.js',
 	'src/common/editor/aup4-effect-xml-values.js',
 	'src/common/editor/effect-macros.js',
@@ -86,6 +92,7 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/native-plugin-effect.js',
 	'src/common/editor/native-plugin-realtime-contract.js',
 	'src/common/editor/native-plugin-realtime-node.js',
+	'src/common/editor/native-midi-port.js',
 	'src/common/editor/native-plugin-realtime-worklet.js',
 	'src/common/i18n/editor-project-recovery-copy.js',
 	'src/common/i18n/editor-recording-recovery-copy.js',
@@ -95,4 +102,5 @@ export const DESKTOP_SOUNDSCAPER_RUNTIME_FILES = Object.freeze([
 	'src/soundscaper/editor-project-feature-requirements.js',
 	'src/soundscaper/editor-project-production-validation.js',
 	'src/soundscaper/editor-project-validation.js',
+	'src/soundscaper/editor-track-playlist-validation.js',
 ]);

@@ -302,9 +302,10 @@ function isComposableAudioDescriptor(descriptor: CommandObject): boolean {
 		&& hasSupportedClipProcessing(descriptor);
 }
 
-/** Preserve complex time/pitch and warp edits as separate clips until their render owner is available here. */
+/** Keep clip racks and complex time/pitch in their own clips when composing raw PCM. */
 function hasSupportedClipProcessing(clip: Readonly<Record<string, unknown>>): boolean {
 	return clip.warpMap == null
+		&& !(Array.isArray(clip.effects) && clip.effects.length > 0)
 		&& finiteDefault(clip.pitchCents, 0) === 0
 		&& (clip.linkPitchAndTempo === true || finiteDefault(clip.speedRatio, 1) === 1)
 		&& clip.preserveFormants !== true

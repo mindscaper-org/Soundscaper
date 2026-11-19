@@ -178,8 +178,8 @@ export function createSourceRuntimeComposition<RenderEngine extends ClipTimePitc
 		readWaveformPeakWindow: (provider, range, options) => readWaveformPeakWindow({
 			channelCount: provider.channelCount,
 			chunkFrames: provider.chunkFrames,
-			readStorageChunk: async (chunkIndex) => waveformChunk(
-				await provider.readStorageChunk(chunkIndex),
+			readStorageChunk: async (chunkIndex, context) => waveformChunk(
+				await (context?.signal ? provider.readStorageChunk(chunkIndex, { signal: context.signal }) : provider.readStorageChunk(chunkIndex)),
 			),
 		}, range, { ...options, maximumChannels: 2 }),
 	};

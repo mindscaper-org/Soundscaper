@@ -28,6 +28,7 @@ import { pasteClipboardV7 } from './clipboard-runtime-v7.ts';
 import { isCurrentClipboardPasteCommandV2, type CurrentAudioEditorMutationCommandV2 } from './clipboard-command-v2.ts';
 import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-batch.ts';
 import { createRackWidthTopologyAdmission } from './rack-width-topology-admission.ts';
+import { createClipControlTopologyAdmission } from './clip-control-topology-admission.ts';
 import { prepareMidiSourceReplacement } from './midi-source-replacement.ts';
 
 type DataRecord = Record<PropertyKey, unknown>;
@@ -88,6 +89,7 @@ function createCommandAdmission(
 		createTrackLockAdmission(persistedProject, commandProject),
 		createVideoRetimePreservationAdmission(persistedProject, commandProject),
 		createRackWidthTopologyAdmission(persistedProject),
+		createClipControlTopologyAdmission(persistedProject),
 	];
 	return Object.freeze({
 		beforeCommand: (project: unknown, command: CurrentAudioEditorMutationCommandV2) => {

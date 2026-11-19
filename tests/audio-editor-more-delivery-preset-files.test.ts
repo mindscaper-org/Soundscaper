@@ -106,8 +106,8 @@ test('an imported audio preset with omitted settings restores its defaults after
 		assert.equal(request.sampleRate, 48_000);
 		assert.equal(request.sampleFormat, 'int24');
 		assert.equal(request.channelMapping, 'preserve');
-		assert.equal(request.dither, 'triangular');
-		assert.equal(request.includeTail, true);
+		assert.equal(request.dither, 'none');
+		assert.equal(request.includeTail, false);
 		assert.equal(request.mode, 'mix');
 	} finally { await fixture.unmount(); }
 });

@@ -80,6 +80,15 @@ test('analysis cancellation remains eager before the lazy implementation is load
 	assert.equal(task.signal.aborted, true);
 });
 
+test('repeated sound can be cancelled while its implementation is still loading', async () => {
+	const f = fixture(), progress = createEditorTaskProgressCoordinator();
+	const actions = createAnalysisComposition({ ...f.dependencies, taskProgress: progress });
+	const finding = actions.findRepeatedSound();
+	assert.equal(progress.cancelActive(), true);
+	await assert.rejects(finding, { name: 'AbortError' });
+	assert.deepEqual(f.renders, []);
+});
+
 test('analysis snapshots its selected range before asynchronous cache lookup', async () => {
 	const f = fixture(), selection = { startFrame: 10, endFrame: 14 };
 	const actions = createAnalysisComposition({

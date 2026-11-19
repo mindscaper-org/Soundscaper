@@ -298,12 +298,13 @@ function pastedAnnotation(
 		return { ...common, kind: descriptor.kind, anchor: descriptor.anchor, positionBeat: addRationals(baseBeat, descriptor.positionOffsetBeat) };
 	}
 	if (descriptor.anchor === 'sample') {
-		const startFrame = scaledOffsetPosition(
+		const startFrame = Math.max(0, scaledOffsetPosition(
 			placementFrame,
 			descriptor.startOffsetFrame,
 			inputSampleRate,
 			project.sampleRate,
-		);
+			true,
+		));
 		const scaledEndFrame = scaledOffsetPosition(
 			placementFrame,
 			descriptor.endOffsetFrame,
@@ -318,19 +319,20 @@ function pastedAnnotation(
 			endFrame: positiveSampleRegionEnd(startFrame, scaledEndFrame),
 		};
 	}
+	const startBeat = addRationals(baseBeat, descriptor.startOffsetBeat);
 	return {
 		...common,
 		kind: descriptor.kind,
 		anchor: descriptor.anchor,
-		startBeat: addRationals(baseBeat, descriptor.startOffsetBeat),
+		startBeat: startBeat.num < 0 ? { num: 0, den: 1 } : startBeat,
 		endBeat: addRationals(baseBeat, descriptor.endOffsetBeat),
 	};
 }
 
-function scaledOffsetPosition(base: number, offset: number, inputRate: number, outputRate: number): number {
+function scaledOffsetPosition(base: number, offset: number, inputRate: number, outputRate: number, allowNegative = false): number {
 	const scaled = scaleSampleFrame(offset, inputRate, outputRate, 'point');
 	const result = base + scaled;
-	if (!Number.isSafeInteger(result) || result < 0) throw new RangeError('A pasted annotation resolves outside the sample timeline.');
+	if (!Number.isSafeInteger(result) || !allowNegative && result < 0) throw new RangeError('A pasted annotation resolves outside the sample timeline.');
 	return result;
 }
 

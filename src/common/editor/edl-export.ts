@@ -52,6 +52,8 @@ export interface EdlEvent {
 	readonly recordInFrames: number;
 	readonly recordOutFrames: number;
 	readonly clipName?: string;
+	/** Media filename retained separately from the authored clip title. */
+	readonly sourceFile?: string;
 	/** Anything other than 1 cannot be expressed as a cut and is reported. */
 	readonly speedRatio?: number;
 	/** Present when the edit carried a transition the EDL cannot express. */
@@ -60,6 +62,8 @@ export interface EdlEvent {
 
 export interface EdlExportRequest {
 	readonly title: string;
+	/** Optional sequence origin, preserved in an ignorable comment for reimport. */
+	readonly startFrameCount?: number;
 	readonly rate: SequenceRationalRate;
 	/**
 	 * The sequence's drop-frame flag, not something inferred from the rate.
@@ -140,6 +144,8 @@ function createEdlExportInput(request: EdlExportRequest): EdlExportResult {
 		].join(' '));
 		const clipName = String(event?.clipName ?? '').replaceAll(/[\r\n\v\f\u0085\u2028\u2029]+/gu, ' ').trim();
 		if (clipName) lines.push(`* FROM CLIP NAME: ${clipName}`);
+		const sourceFile = sanitizeTitle(String(event?.sourceFile ?? '')).trim();
+		if (sourceFile) lines.push(`* SOURCE FILE: ${sourceFile}`);
 
 		if (event?.transition) {
 			addDeliveryReportItem(draft, {
@@ -162,6 +168,12 @@ function createEdlExportInput(request: EdlExportRequest): EdlExportResult {
 			});
 		}
 		emitted += 1;
+	}
+
+	if (emitted > 0) lines.push(`* FPS: ${rate.num}/${rate.den}`);
+	if (request.startFrameCount !== undefined) {
+		if (!Number.isSafeInteger(request.startFrameCount) || request.startFrameCount < 0) throw new RangeError('EDL sequence origin must be a non-negative frame count.');
+		lines.push(`* SEQUENCE START: ${request.startFrameCount}`);
 	}
 
 	for (const omission of request?.omissions ?? []) {

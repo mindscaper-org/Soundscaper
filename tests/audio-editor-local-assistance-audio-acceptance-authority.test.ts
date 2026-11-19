@@ -52,6 +52,7 @@ test('audio acceptance authority normalizes the shared selected-media fence with
 	assert.deepEqual(normalized, {
 		fence: FENCE,
 		sampleRate: 48_000,
+		sourceSampleRate: 48_000,
 		timelineStartFrame: 48_000,
 		timelineEndFrame: 96_000,
 		sourceStartFrame: 36_000,

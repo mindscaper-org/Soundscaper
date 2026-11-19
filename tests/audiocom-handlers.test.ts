@@ -140,7 +140,7 @@ test('audio.com preview pins CDN destination and streams ranges without provider
 	assert.equal(response.status, 206);
 	assert.equal(response.headers.get('Content-Range'), 'bytes 0-3/10');
 	assert.equal((await response.arrayBuffer()).byteLength, 4);
-	assert.equal((await handleAudiocomPreviewRequest(context(request('preview?url=https://evil.test/test')), { repository })).status, 400);
+	assert.equal((await handleAudiocomPreviewRequest(context(request('preview?url=https://evil.test/test')), { repository, now: () => NOW })).status, 400);
 });
 test('audio.com preview rejects redirects, non-audio and oversized content', async () => {
 	for (const upstream of [new Response(null, { status: 302, headers: { Location: 'https://evil.test' } }), new Response('html', { headers: { 'Content-Type': 'text/html' } }), new Response('audio', { headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': '134217729' } })]) {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { createGroupedEditorActions, type EditorActionRuntime } from './action-facade.ts';
+import type { EditorActionRuntime } from './action-facade.ts';
+import { createSubprojectActionComposition } from './internal/subproject-action-composition.ts';
 import type { createControllerBindings } from './controller-bindings.ts';
 import { guardEditorControllerActions } from './internal/controller-action-guard.ts';
 
@@ -16,8 +17,8 @@ export function createControllerActionComposition(
 	context: ControllerActionContext,
 	assertActive: () => void,
 ) {
-	return guardEditorControllerActions(createGroupedEditorActions({
+	return guardEditorControllerActions(createSubprojectActionComposition({
 		...bindings,
 		...context,
-	}), assertActive);
+	}, bindings), assertActive);
 }

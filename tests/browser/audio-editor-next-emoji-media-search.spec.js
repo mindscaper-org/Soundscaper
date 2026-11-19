@@ -15,3 +15,17 @@ test('Search finds a real imported filename by its emoji', async ({ page }) => {
 	await expect(result).toHaveCount(1);
 	await result.click(); await expect(clip).toBeFocused();
 });
+
+test('Search finds an imported recording by a punctuation-only name', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const recording = { ...monoTone, name: '+++.wav' };
+	await importFiles(editor, [recording]);
+	const clip = clipByName(editor, recording.name);
+	await expect(clip).toBeVisible();
+	const search = editor.getByRole('combobox', { name: 'Search commands and media', exact: true });
+	await search.fill('+++');
+	const result = editor.locator('[data-editor-search-kind="timeline"]').filter({ hasText: recording.name });
+	await expect(result).toHaveCount(1);
+	await result.click();
+	await expect(clip).toBeFocused();
+});

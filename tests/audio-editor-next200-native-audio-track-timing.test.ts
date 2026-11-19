@@ -19,14 +19,14 @@ test('a single aligned programme retains its existing native path', async () => 
 	assert.equal(native, 1); assert.ok(result.decodedAudio === decoded);
 });
 
-test('multiple programmes with identical authenticated timing retain the native path', async () => {
+test('legacy recovery with identical authenticated programme timings retains the native path', async () => {
 	const decoded = { channels: [new Float32Array(96_000).fill(.125)], sampleRate: 48_000 };
 	let native = 0;
 	const file = new Blob([multipleAudioOriginFixture('aligned')]);
-	const timing = await readVideoContainerAudioTiming(file);
+	const timing = await readVideoContainerAudioTiming(file, undefined, 'legacy-primary');
 	assert.equal(timing.nativeTimingShared, true);
 	const result = await decodeImportedVideoAudio({
-		file, projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true,
+		file, projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true, audioProgramme: 'legacy',
 		inspectEncodedSampleRate: () => { throw new Error('A file header cannot identify the native-selected programme rate'); },
 		decodeNative: async () => { native++; return decoded; },
 		decodeContainerAudio: async () => { throw new Error('Unexpected container fallback'); },
@@ -44,10 +44,10 @@ for (const variant of ['delayed-default', 'long-primary'] as const) {
 		return { channels: [samples], sampleRate: 48_000 };
 	};
 	const first = () => ({ channels: [new Float32Array(96_000).fill(.125)], sampleRate: 48_000 });
-	test(`${variant}: an ambiguous native result never receives another programme's offset`, async () => {
+	test(`${variant}: legacy recovery never applies an ambiguous native result to another programme's offset`, async () => {
 		let container = 0;
 		const result = await decodeImportedVideoAudio({
-			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true,
+			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true, audioProgramme: 'legacy',
 			inspectEncodedSampleRate: () => 48_000,
 			decodeNative: async () => first(),
 			decodeContainerAudio: async () => { container++; return primary(); },
@@ -58,10 +58,10 @@ for (const variant of ['delayed-default', 'long-primary'] as const) {
 		assert.equal(container, 1);
 	});
 
-	test(`${variant}: timestamp-aware container PCM retains its primary timing`, async () => {
+	test(`${variant}: legacy recovery retains timestamp-aware PCM and its primary timing`, async () => {
 		const placed = primary(); let container = 0;
 		const result = await decodeImportedVideoAudio({
-			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true,
+			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true, audioProgramme: 'legacy',
 			inspectEncodedSampleRate: () => 48_000,
 			decodeNative: async () => { throw new Error('Native unavailable'); },
 			decodeContainerAudio: async (_file, options) => { container++; assert.equal(options.durationSeconds, duration); return placed; },
@@ -71,10 +71,10 @@ for (const variant of ['delayed-default', 'long-primary'] as const) {
 		assert.equal(result.programmeFrameCount, variant === 'long-primary' ? 263_968 : undefined);
 	});
 
-	test(`${variant}: explicit first-track FFmpeg PCM retains first timing and extent`, async () => {
+	test(`${variant}: legacy first-track FFmpeg PCM retains its own timing and extent`, async () => {
 		const unplaced = first(); let ffmpeg = 0;
 		const result = await decodeImportedVideoAudio({
-			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true,
+			file: new Blob([multipleAudioOriginFixture(variant)]), projectSampleRate: 48_000, durationSeconds: 3, hasAudio: true, audioProgramme: 'legacy',
 			inspectEncodedSampleRate: () => 48_000,
 			decodeNative: async () => { throw new Error('Native unavailable'); },
 			decodeContainerAudio: async () => { throw new Error('Container unavailable'); },

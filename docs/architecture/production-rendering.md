@@ -91,6 +91,26 @@ latency maxima are not equivalent and must not be introduced as alternate
 rules. Inactive racks and sidechains still follow the planner's explicit
 audibility semantics rather than ad hoc caller logic.
 
+## Clip effects
+
+Audio clips may own an optional `effects` rack and `effectsActive` bypass flag.
+Clip properties exposes it in a disclosure that starts collapsed. Clip gain,
+fades and envelopes feed the clip rack, then its output feeds the track insert
+rack. Playback and offline rendering use the same clip inputs, including loop
+repeats, warp segments and streamed sources. All source paths compensate to the
+longest mounted clip-rack latency before entering mixer compensation; effect
+tails include the clip and downstream insert path. Dry processing and mixes
+with effects disabled bypass clip racks. Parallel stack execution falls back to
+the conventional graph while an active clip rack is present.
+
+Clip Auto Duck reads its detector before final mix compensation. Its input and
+detector align after resolving upstream clip-rack dependencies; processed detector
+tracks contribute their latency before the final common clip delay is chosen.
+
+Scape retains clip rack state and declares the separate audio-clip-effects
+capability so earlier readers can report the unsupported processing. AUP4
+export reports the omitted clip racks.
+
 ## Track freeze
 
 Audio freeze is a reversible relationship between an editable track and managed
@@ -102,6 +122,11 @@ controls and downstream routing. Fader, pan, strip automation, sends, buses, and
 master processing therefore remain live. The graph and PDC plan used for normal
 rendering also define the freeze capture; freeze does not maintain a second
 render graph.
+
+Freeze retains the track's declared channel width. A rack that expands a mono
+source to stereo must first be rendered to a matching-width track; Freeze
+refuses that capture instead of folding its image to mono. Bypassed widening
+effects and already matching stereo tracks remain eligible.
 
 A freeze record binds the derived body to the track, rack, automation, and other
 input digests required to establish freshness. If any authority changes, the
@@ -116,6 +141,22 @@ Refresh publishes a complete replacement atomically. Unfreeze removes the
 relationship while retaining the editable state. Commit turns rendered media
 into canonical project media through an undoable edit; history-aware storage
 keeps referenced derived bodies alive for as long as an undo entry needs them.
+
+## MIDI pitch control
+
+Automatic pitch correction's optional `params.controlTrackId` names an editable MIDI track by
+stable ID. The default empty ID retains key/scale correction. Control pitches
+come from keyed notes projected through MIDI clip timing, including trim,
+stretch, reversal, musical anchors and loops; instrument audio, mute and solo
+do not affect those pitches. Chords choose the nearest active absolute pitch,
+ties prefer the lower note, and rests leave pitch unchanged. Correction stays
+within the pinned StaffPad ABI's one-octave range.
+
+Selection preview/application and realtime/offline racks share that projection.
+Rack schedules use the audio-context frame clock with upstream PDC and the
+detector's analysis delay; successive loop windows retain their own timing.
+Subset renders preserve MIDI control media with a silent assignment. Missing
+or non-MIDI control tracks are refused instead of silently switching to a scale.
 
 ## Reviewed audio effects
 

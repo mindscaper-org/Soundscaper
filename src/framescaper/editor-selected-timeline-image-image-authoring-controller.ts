@@ -47,6 +47,7 @@ export interface FramescaperSelectedImageFileServiceTimelineImage {
 export interface FramescaperSelectedImageAuthoringControllerTimelineImage
 	extends FramescaperTimelineImagePublicationControllerTimelineImage {
 	readonly project: FramescaperProjectTimelineImage | null;
+	getSnapshot?(): Readonly<{ readonly selectedTrackId?: string | null }>;
 	getTelemetrySnapshot(): Readonly<{ readonly positionFrame?: unknown }>;
 	subscribe?(listener: () => void): () => void;
 }
@@ -134,11 +135,17 @@ export function bindFramescaperSelectedImageAuthoringControllerTimelineImage(
 		assertProjectCurrent(projectId, signal);
 		const project = exactProject(controller.project);
 		const playhead = playheadSample(controller.getTelemetrySnapshot().positionFrame);
-		const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
-		if (!sequence) throw new ReferenceError('Add Images requires the primary Framescaper sequence.');
+		const focusedTrackId = controller.getSnapshot?.().selectedTrackId;
+		const pictureTrack = [focusedTrackId, ...(project.selection.trackIds ?? [])]
+			.find(id => project.tracks.some(track => track.id === id && track.type === 'video'));
+		const sequence = (pictureTrack ? project.sequences.find(item => item.trackIds.includes(pictureTrack)) : undefined)
+			?? project.sequences.find(({ id }) => id === project.primarySequenceId);
+		if (!sequence) throw new ReferenceError('Add Images requires a destination sequence.');
 		const result = await importImages({
 			project,
 			files, signal,
+			sequenceId: sequence.id,
+			...(pictureTrack ? { preferredTrackId: pictureTrack } : {}),
 			sequenceStartFrame: sampleFrameToVideoFrame(
 				playhead, sequence.rate, Number(project.sampleRate), 'enclosingStart',
 			),

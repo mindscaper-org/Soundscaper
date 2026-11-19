@@ -4,8 +4,8 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 
-test('native video numeric keyboard and primary pointer commits remain undoable', async ({ page }) => {
-	const { editor, brightness } = await fixture(page);
+test('the native video numeric input commits Enter and primary pointer edits independently', async ({ page }) => {
+	const { editor, brightness } = await openBrightnessControl(page);
 	await brightness.fill('0.2');
 	await brightness.press('Enter');
 	await expect(brightness).toHaveValue('0.2');
@@ -19,7 +19,7 @@ test('native video numeric keyboard and primary pointer commits remain undoable'
 });
 
 test('the native video numeric context menu leaves an unconfirmed draft cancellable', async ({ page }) => {
-	const { editor, brightness } = await fixture(page);
+	const { editor, brightness } = await openBrightnessControl(page);
 	await brightness.fill('0.3');
 	await brightness.press('Escape');
 	await expect(brightness).toHaveValue('0');
@@ -37,7 +37,7 @@ test('the native video numeric context menu leaves an unconfirmed draft cancella
 	await expect(brightness).toHaveValue('0');
 });
 
-async function fixture(page) {
+async function openBrightnessControl(page) {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
 	await importFiles(editor, [createDeterministicSilentVideoFixture('context-menu-brightness.webm')]);
 	const clip = editor.getByRole('group', { name: /^Video clip:/u }).first();

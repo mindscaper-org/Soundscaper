@@ -89,3 +89,26 @@ test('an explicit end edit uses the entered local time rather than its previousl
 		assert.equal(timedRecordingDialogRange(updateTimedRecordingDialogEnd(edited, '2030-10-27T01:30'), start - 1), null);
 	});
 });
+
+test('a manually entered start can be scheduled in the still-upcoming occurrence of a repeated hour', () => {
+	inBerlin(() => {
+		const now = new Date('2030-10-27T02:45+02:00').getTime();
+		const draft = createTimedRecordingDialogValue(now + 60_000);
+		const start = updateTimedRecordingDialogStart(draft, '2030-10-27T02:30', now);
+		const laterOccurrence = new Date('2030-10-27T02:30+01:00').getTime();
+		assert.deepEqual(timedRecordingDialogRange(start, now), {
+			startTimeMs: laterOccurrence, endTimeMs: laterOccurrence + 3_600_000,
+		});
+	});
+});
+
+test('a manually entered repeated end time can follow a start in the second hour', () => {
+	inBerlin(() => {
+		const start = new Date('2030-10-27T02:15+01:00').getTime();
+		const draft = updateTimedRecordingDialogEndMode(createTimedRecordingDialogValue(start), 'end');
+		const end = updateTimedRecordingDialogEnd(draft, '2030-10-27T02:30');
+		assert.deepEqual(timedRecordingDialogRange(end, start - 1), {
+			startTimeMs: start, endTimeMs: start + 900_000,
+		});
+	});
+});

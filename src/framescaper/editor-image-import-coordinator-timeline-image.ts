@@ -46,6 +46,8 @@ export type DecodeFramescaperTimelineImageTimelineImage = (request: Readonly<{
 export interface FramescaperTimelineImageImportRequestTimelineImage extends FileSizeWarningOptions {
 	readonly project: FramescaperProjectTimelineImage;
 	readonly files: readonly FramescaperImageImportFileTimelineImage[];
+	readonly sequenceId?: string;
+	readonly preferredTrackId?: string;
 	readonly sequenceStartFrame: number;
 	readonly createId: (prefix: string) => string;
 	readonly publisher: FramescaperTimelineImagePublicationPortTimelineImage;
@@ -103,7 +105,9 @@ export async function importFramescaperTimelineImagesTimelineImage(
 	const decode = request.decode ?? defaultDecode;
 	const results = new Map<number, FramescaperTimelineImageImportFileResultTimelineImage>();
 	const prepared: PreparedImage[] = [];
-	const rate = primaryRate(request.project);
+	const sequenceId = request.sequenceId ?? request.project.primarySequenceId;
+	const sequence = request.project.sequences.find(({ id }) => id === sequenceId);
+	if (!sequence) throw new ReferenceError('Timeline image import requires its destination sequence.');
 	for (let index = 0; index < request.files.length; index += 1) {
 		const file = request.files[index]!;
 		const fileName = safeFileName(file.name);
@@ -130,7 +134,7 @@ export async function importFramescaperTimelineImagesTimelineImage(
 				decoded,
 				sourceId: stableId(request.createId('image-source'), 'image source ID'),
 				clipId: stableId(request.createId('image-clip'), 'image clip ID'),
-				sequenceFrameCount: durationFrames(decoded.publication.durationTicks, rate),
+				sequenceFrameCount: durationFrames(decoded.publication.durationTicks, sequence.rate),
 			}));
 		} catch (error) {
 			if (request.signal?.aborted || isAbort(error)) {
@@ -151,6 +155,8 @@ export async function importFramescaperTimelineImagesTimelineImage(
 		return Object.freeze({ project: request.project, files: orderedResults(results) });
 	}
 	const placement = createFramescaperImageBatchPlacementTimelineImage(request.project, {
+		sequenceId,
+		...(request.preferredTrackId !== undefined ? { preferredTrackId: request.preferredTrackId } : {}),
 		sequenceStartFrame: request.sequenceStartFrame,
 		sequenceFrameCounts: prepared.map(({ sequenceFrameCount }) => sequenceFrameCount),
 		createId: request.createId,
@@ -262,12 +268,6 @@ function imageCommand(
 			},
 		],
 	};
-}
-
-function primaryRate(project: FramescaperProjectTimelineImage): Readonly<{ num: number; den: number }> {
-	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
-	if (!sequence) throw new ReferenceError('Timeline image import requires its primary sequence.');
-	return sequence.rate;
 }
 
 function durationFrames(ticksValue: string, rate: Readonly<{ num: number; den: number }>): number {

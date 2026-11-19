@@ -26,11 +26,13 @@ import {
 	validateE2EExecutableObservation,
 } from './e2e-coverage-integrity.mjs';
 import { assembleE2ERawProfiles } from './e2e-coverage-profile-assembly.mjs';
+import { copyQualifiedNodeEvidence } from './e2e-coverage-node-transport.mjs';
 
 export function assembleE2ECoverageCapture({
 	repositoryRoot,
 	runRoot,
 	runRoots,
+	nodeEvidenceRoots = [],
 	outputRoot,
 	expectedRevision = repositoryRevision(repositoryRoot),
 	configuration = E2E_COVERAGE_CONFIGURATION,
@@ -64,6 +66,8 @@ export function assembleE2ECoverageCapture({
 			profiles,
 			sourceRevision: captures[0].sourceRevision,
 		});
+		const nodeEvidence = copyQualifiedNodeEvidence({ inputRoots: nodeEvidenceRoots, outputRoot: staging });
+		if (nodeEvidence) captureIndex.nodeEvidence = nodeEvidence;
 		validateCaptureIndex(captureIndex, configuration);
 		const observationFailures = validateE2EExecutableObservation(
 			[...profiles.values()].flatMap((values) => values.flatMap(({ profile }) => (

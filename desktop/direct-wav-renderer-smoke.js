@@ -42,7 +42,7 @@ export async function runDirectWavRendererSmoke(scope, plan) {
 		const deadline = Date.now() + timeout;
 		while (true) {
 			const value = read();
-			if (value) return value;
+			if (value && !value.disabled && value.getAttribute?.('aria-disabled') !== 'true') return value;
 			if (Date.now() >= deadline) {
 				// Name what the editor was showing when the stage stalled: the status
 				// line and the export progress tell a starved render from a hang.

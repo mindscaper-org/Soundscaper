@@ -55,7 +55,7 @@ export interface ExternalFfmpegVideoVerificationResult extends DesktopExternalFf
 	readonly h264Encoder?: DesktopVideoH264Encoder;
 }
 
-const FORMATS = Object.freeze(['mp4', 'webm'] as const);
+const FORMATS = Object.freeze(['mp4', 'webm', 'mov'] as const);
 const OUTPUT_LIMIT = 256 * 1024;
 const VIDEO_BYTES = new Uint8Array(16 * 16 * 4);
 const AUDIO_BYTES = float32SilenceWav();
@@ -82,6 +82,7 @@ export async function verifyExternalFfmpegVideoAdmission(
 	const formats: Record<DesktopVideoCodecFormat, DesktopExternalFfmpegVideoCapabilities['formats']['mp4']> = {
 		mp4: tokenCapabilities.formats.mp4,
 		webm: tokenCapabilities.formats.webm,
+		mov: tokenCapabilities.formats.mov,
 	};
 	let h264Encoder: DesktopVideoH264Encoder | undefined;
 	for (const format of FORMATS) {
@@ -107,7 +108,7 @@ export async function verifyExternalFfmpegVideoAdmission(
 		if (!verified) {
 			formats[format] = Object.freeze({
 				available: false, provider: null,
-				reason: `The configured FFmpeg failed exact ${format === 'mp4' ? 'H264/AAC MP4' : 'VP9/Opus WebM'} execution verification. Manage or rescan it in Edit > Preferences > General.`,
+				reason: `The configured FFmpeg failed exact ${format === 'mov' ? 'H264/AAC MOV' : format === 'mp4' ? 'H264/AAC MP4' : 'VP9/Opus WebM'} execution verification. Manage or rescan it in Edit > Preferences > General.`,
 			});
 		}
 	}

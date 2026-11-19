@@ -75,6 +75,7 @@ test('normal product staging retains the nightly product seam and excludes only 
 		'desktop/main.mjs',
 		'desktop/nightly-tests-window.mjs',
 		'desktop/nightly-tests-assistance-host.mjs',
+		'desktop/nightly-tests-editor-host.mjs',
 		'desktop/nightly-tests-assistance.html',
 		'desktop/nightly-tests-main.mjs',
 		'desktop/nightly-tests-manifest.mjs',
@@ -337,7 +338,10 @@ test('Soundscaper staged entry sources have no callable Framescaper product surf
 	const stagedConstants = soundscaperConstantsSource(constants);
 	const stagedMain = soundscaperMainSource(main);
 	assert.match(stagedMain, /registerDesktopMcpMain/u);
-	assert.doesNotMatch(main, /registerDesktopMcpMain/u);
+	assert.match(stagedMain, /cleanup: async \(\) => \{ retireRendererCloseRequest\(webContents\); await desktopMcp\?\.revoke\(\); await rendererOwnershipCleanup\.drain\(webContents\); \}/u);
+	assert.match(stagedMain, /if \(revokedOwner\) \{ void desktopMcp\?\.revoke\(\); rendererOwnershipCleanup\.start\(revokedOwner\); \}/u);
+	assert.match(stagedMain, /function revokeRendererSaveOwner\(webContents\) \{\n\tretireRendererCloseRequest\(webContents\);\n\tvoid desktopMcp\?\.revoke\(\);\n\trendererOwnershipCleanup\.revoke\(webContents\);/u);
+	assert.doesNotMatch(main, /registerDesktopMcpMain|desktopMcp/u);
 	const stagedNativeTier = soundscaperNativeTierSource(nativeTier);
 	const stagedPreload = soundscaperPreloadSource(preload);
 	const stagedProjectRuntime = soundscaperProjectRuntimeSource(projectRuntime);

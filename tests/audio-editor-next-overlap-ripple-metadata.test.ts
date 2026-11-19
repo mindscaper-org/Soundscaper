@@ -9,6 +9,7 @@ import { exportScapeProject } from '../src/common/editor/scape-project.js';
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { overlapRippleProject } from './helpers/next-overlap-ripple-project.ts';
 import { COPY, createAudioEditorController, createMemoryEngine, createProjectStore } from './helpers/audio-editor-controller-harness.js';
+import { assertEditedAudioArchiveCustody } from './helpers/edited-audio-archive-custody.ts';
 
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 for (const kind of ['takes', 'automation'] as const) test(`NP035: overlapping clip ripple keeps ${kind} aligned with audio`, async context => {
@@ -40,4 +41,8 @@ for (const kind of ['takes', 'automation'] as const) test(`NP035: overlapping cl
 	assert.deepEqual({ ...controller.project, revision: 0, updatedAt: '' }, { ...before, revision: 0, updatedAt: '' });
 	controller.actions.edit.redo();
 	assert.deepEqual({ ...controller.project, revision: 0, updatedAt: '' }, { ...result, revision: 0, updatedAt: '' });
+	await controller.actions.project.flush();
+	const reopened = await assertEditedAudioArchiveCustody(context, store, controller.project, [new Float32Array(48_000).fill(.25)]);
+	assert.equal(resolveRuntimeProjectProjection(reopened).clips[0]?.timelineStartFrame, 72_000);
+	assert.deepEqual(reopened.takeGroups, result.takeGroups); assert.deepEqual(reopened.automationLanes, result.automationLanes);
 });

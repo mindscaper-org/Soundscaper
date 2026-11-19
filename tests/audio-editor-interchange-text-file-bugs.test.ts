@@ -82,6 +82,14 @@ test('I10: subtitle blocks separated by whitespace-only lines stay separate', ()
 	}
 });
 
+test('WebVTT distinguishes whitespace in cue text from a padded separator before an identified cue', () => {
+	const first = 'One\n \t\nStill one';
+	const text = `WEBVTT\n\n${vttTiming}\n${first}\n \t\nsecond\n${vttTiming}\nTwo\n`;
+	assert.deepEqual(caption(text, 'webvtt').track.cues.map(({ id, text: body }) => [id, body]), [
+		['cue-1', first], ['second', 'Two'],
+	]);
+});
+
 test('I11: WebVTT standard spacing and directional entities decode as text', () => {
 	assert.equal(caption(`WEBVTT\n\n${vttTiming}\nA&nbsp;B&lrm;&rlm;\n`, 'webvtt').track.cues[0]?.text, 'A\u00a0B\u200e\u200f');
 });

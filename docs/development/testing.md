@@ -42,6 +42,20 @@ The imports support TypeScript and stylesheet assets used by editor modules.
 Plain JavaScript tests without those dependencies can use `node --test` directly.
 Use `--test-name-pattern='test name'` before the file to narrow a run further.
 
+The WebGL pixelation Node regression uses Playwright's Chromium headless shell.
+CI installs it when a shard selects the test. For local runs, install the
+locked browser with `npx playwright install --only-shell chromium`. Add
+`--with-deps` on Linux when the system libraries are missing.
+
+The ordinary Node runner checks each selected test's dependency graph before
+choosing its bootstrap. Closed JavaScript and compatible, erasable TypeScript
+graphs use Node's native loader. The `@noble/hashes/sha2.js` and
+`@noble/hashes/utils.js` entrypoints also qualify when their unconditional ESM
+exports lead to a closed JavaScript package graph. Graphs requiring JSX, asset
+stubs, other package resolution, TypeScript transforms, or different import/export
+behavior retain the `tsx` and asset hooks. This changes bootstrap cost without
+changing test selection, process concurrency, or shard membership.
+
 | Change | Development check |
 | --- | --- |
 | Domain, helper, or controller | Focused Node regressions and `npm run typecheck` |
@@ -178,16 +192,23 @@ saves the verified archive before analysis. Review the bundle pin when updating
 the CodeQL action.
 
 `npm run check` is the canonical non-browser gate. It runs lint, strict type
-checks, architecture and file-size guards, audits, documentation checks, the
+checks, architecture and file-size guards, audits, the
 production build, and Node coverage. `npm run check:static` runs everything in
 that gate except the Node suite.
 
 Desktop preview and nightly split that static gate into four independent jobs:
-lint, type checks, architecture/audits, and handbook/site builds. The `quality`
+lint, type checks, architecture/audits, and product site builds. The `quality`
 aggregate requires every job to succeed before Node tests and distribution
 consumers proceed, and forwards the build's product release scope. The build
 job also checks its emitted transfer documents and prepares the single shared
 desktop test runtime. Browser testing and combined coverage remain in Quality.
+
+Handbook checks, builds, browser workflows and publication run separately in
+the **Handbook** workflow, weekly on Monday at 04:43 UTC or manually on `main`.
+Product gates and deployments never generate a handbook. Changes confined to
+`handbook/` and `docs/` do not start Quality or desktop test-artifact workflows.
+See [handbook deployment](../../handbook/README.md#deployment) for local checks
+and the independent `/docs` Workers.
 
 Maintainers can run that gate and the complete ordinary Playwright suite
 (Chromium, Firefox and WebKit) together:
@@ -195,6 +216,11 @@ Maintainers can run that gate and the complete ordinary Playwright suite
 ```sh
 npm run check-all
 ```
+
+Playwright stays pinned to 1.64.1 while its Firefox file-chooser interception
+[reports cancellation before selection](https://github.com/microsoft/playwright/issues/43994).
+Verify both selection and cancellation through Generate > Add Images before
+updating the pin; application cancellation handlers must still honor real cancellation.
 
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node suites across five execution slots,
@@ -221,8 +247,26 @@ test shards and coverage report while independent static checks can finish;
 its diagnostics appear in `test-results/check-all/logs/prepare-interchange.log`.
 Direct focused conformance runs still need the provisioning command first.
 
-The command requires Linux with cgroup v2 memory accounting and a working
-systemd user session (`systemd-run --user`). Every check or shard runs in a
+The command requires Linux booted with systemd and cgroup v2 memory accounting.
+It first verifies a capped scope. If that fails, it reconnects using the current
+UID's `/run/user/<uid>` directory and session bus. When necessary, it starts
+`user@<uid>.service` (which also creates the runtime directory) and adds `memory`
+to that manager's existing delegated controllers, keeping the other controllers.
+An already running manager re-executes after a delegation change to discover the
+controller without restarting its services. These privileged operations use
+`sudo`, which may ask for a password in a terminal; unattended runs need
+passwordless sudo for the required systemctl commands. Delegation changes use
+`systemctl set-property --runtime` and last until reboot. Setup does not enable
+lingering or change boot configuration. See systemd's
+[user-manager units](https://www.freedesktop.org/software/systemd/man/latest/user@.service.html)
+and [controller delegation](https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Delegate=).
+Setup commands and diagnostics are recorded in
+`test-results/check-all/logs/session-setup.log`, and capped probes remain in
+`probe.log`. The command rechecks the actual memory and swap caps after setup
+before admitting any checks. A missing kernel controller, a system without
+systemd as PID 1, or failed privileged setup produces an actionable setup error.
+
+Every check or shard runs in a
 verified scope with `MemoryMax=8G` and `MemorySwapMax=0`: the 8 GiB cap includes
 its native processes and descendants, including detached children. The shared
 preview servers have a separate 8 GiB scope. These are per-scope ceilings, so four
@@ -237,7 +281,10 @@ finish. Piped output prints periodic snapshots. Command diagnostics retain their
 task prefix, even when they contain expected errors; `FAIL` identifies reported
 test failures or failed commands. Full command output is saved under
 `test-results/check-all/logs/`; browser diagnostics have separate directories under
-`test-results/check-all/`. Independent checks continue after a failure, while
+`test-results/check-all/`. The progress summary and failures are also written to
+`test-results/check-all/run.log` from startup. Task output is written as it arrives,
+including the memory-controller probe and shared previews; partial logs remain
+available after Ctrl-C. Independent checks continue after a failure, while
 checks that need a failed prerequisite are marked blocked. Any failed or blocked
 check produces a nonzero exit. Ctrl-C terminates all owned scopes and their
 descendants. A worktree lock prevents overlapping `check-all` invocations; after
@@ -306,3 +353,18 @@ package on a native target machine with a working GPU driver. Its graphics
 probe fails on software rendering. Performance phases use one worker to avoid
 competing measurements. See the [runner instructions](../../Technical_README.md#nightly-test-runner-artifacts)
 and [real-model guide](../operations/local-models/nightly-tests.md).
+
+The nightly includes the Electron workflows omitted by ordinary CI: packaged
+Web VCR dormant-profile and real 720p/1080p audio/video capture, persistent
+delivery queue reopen, publication recovery after a process crash, and streaming
+AI denoising through real utility ports. Denoising covers mono/stereo at 44.1,
+48 and 96 kHz in both products using the installed DPDFNet2 model and shipped
+AudioWorklet. Its GPU provider is required. Packaging builds and stages the
+same-revision authenticated professional-native result before either product,
+so delivery tests use the bundled filesystem helper without manual path setup.
+Missing required payloads fail the run.
+
+The native-helper utility-process, CPU-panel, parallel-stack protocol and archived
+nightly progress regressions already run in CI's Linux Node shards under Xvfb.
+They remain there. `tests/nightly-electron-gaps.test.ts` checks collection of the
+additional nightly workflows without starting Electron or downloading models.

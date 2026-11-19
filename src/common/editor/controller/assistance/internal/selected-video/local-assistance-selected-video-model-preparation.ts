@@ -3,6 +3,7 @@
 /** Bounded visual-model frame custody shared by Guided Reframe's two primitive stages. */
 
 import type { AssistanceOperation } from '../../../../assistance/operation.ts';
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from '../../../../assistance/visual-frame-pack-v2.ts';
 import {
 	createLocalAssistanceSelectedVideoVisualFramePacksV2,
 	LOCAL_ASSISTANCE_FRAME_PACK_MEDIA_TYPE,
@@ -64,8 +65,8 @@ export async function createLocalAssistanceSelectedVideoModelFramePack(
 		'subject-detection', 'saliency-detection'].includes(request.operation)) {
 		throw new RangeError('This selected-video model operation is unsupported.');
 	}
-	const sourceWidth = integer(request.sourceWidth, 1, 4_096, 'source width');
-	const sourceHeight = integer(request.sourceHeight, 1, 4_096, 'source height');
+	const sourceWidth = integer(request.sourceWidth, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'source width');
+	const sourceHeight = integer(request.sourceHeight, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'source height');
 	const raster = boundedRaster(sourceWidth, sourceHeight);
 	const framePackRequest = Object.freeze({ body: request.body, timing: request.timing,
 		sourceWidth, sourceHeight, rasterWidth: raster.width, rasterHeight: raster.height,

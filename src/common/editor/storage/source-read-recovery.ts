@@ -8,6 +8,13 @@ export class SourceReadConnectionError extends Error {
 	}
 }
 
+/** Identify missing or corrupt owned PCM while leaving access and transport faults to the caller. */
+export function isStoredPcmReadDamage(error: unknown): boolean {
+	if (!(error instanceof Error) || error instanceof AggregateError) return false;
+	if (error.name === 'PcmStorageCorruptionError' || error.name === 'NotFoundError') return true;
+	return /^(?:The requested (?:local )?audio source could not be found\.|The requested local audio source is missing\.|The local audio source is truncated\.|The local audio source contains an invalid chunk\.|Source storage chunk \d+ (?:is missing|does not exist)\.)$/u.test(error.message);
+}
+
 export interface SourceReadRecoveryOptions<Value = unknown> {
 	readonly signal?: AbortSignal;
 	readonly maximumAttempts?: number;

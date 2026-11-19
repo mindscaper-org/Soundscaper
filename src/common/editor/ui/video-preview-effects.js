@@ -22,9 +22,9 @@ import { HSL_MIXER_EFFECT_TYPE_V1, HSL_MIXER_EFFECT_CODE_V1, hslMixerPreviewPass
 import { CURVES_EFFECT_CODES_V1, curvesPreviewPassV1, isCurvesEffectTypeV1 } from '../video-curves-v1.ts';
 import { COLOR_WHEELS_EFFECT_TYPE_V1, COLOR_WHEELS_EFFECT_CODE_V1, colorWheelsPreviewPassV1 } from '../video-color-wheels-v1.ts';
 
-export { MAX_GAUSSIAN_BLUR_PAIR_COUNT, VIDEO_PREVIEW_PIXELATE_GRID_SIZE } from './video-preview-effects-shader.js';
+export { MAX_GAUSSIAN_BLUR_PAIR_COUNT } from './video-preview-effects-shader.js';
 
-export const EFFECT_PROGRAM_COUNT = 38;
+export const EFFECT_PROGRAM_COUNT = 40;
 // Calibrated default pass scale that retains the strict FFmpeg golden-frame gates.
 export const GAUSSIAN_BLUR_RENDER_SCALE = 2 / 3;
 const GAUSSIAN_BLUR_SIGMA_CALIBRATION = 0.85;
@@ -300,19 +300,24 @@ function compileShader(gl, type, source) {
 	throw new Error(message);
 }
 
-export function createProgram(gl, effectCode) {
-	const vertexShader = compileShader(gl, gl.VERTEX_SHADER, VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE);
+export function createVideoPreviewVertexShader(gl) {
+	return compileShader(gl, gl.VERTEX_SHADER, VIDEO_PREVIEW_GEOMETRY_VERTEX_SHADER_SOURCE);
+}
+
+export function createProgram(gl, effectCode, vertexShader) {
 	const fragmentSource = FRAGMENT_SHADER_SOURCE.replace(
 		'uniform int u_effect;',
 		`const int u_effect = ${effectCode};`,
 	);
 	const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
 	const program = gl.createProgram();
-	if (!program) throw new Error('Unable to allocate a WebGL program.');
+	if (!program) {
+		gl.deleteShader(fragmentShader);
+		throw new Error('Unable to allocate a WebGL program.');
+	}
 	gl.attachShader(program, vertexShader);
 	gl.attachShader(program, fragmentShader);
 	gl.linkProgram(program);
-	gl.deleteShader(vertexShader);
 	gl.deleteShader(fragmentShader);
 	if (gl.getProgramParameter(program, gl.LINK_STATUS)) return program;
 	const message = gl.getProgramInfoLog(program) || 'Unknown WebGL program link failure.';

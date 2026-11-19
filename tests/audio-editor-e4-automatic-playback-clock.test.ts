@@ -86,6 +86,21 @@ test('explicit native or recording clock remains authoritative across project re
 	assert.equal((await f.engine.getAudioContext({ resume: false })).sampleRate, 48_000);
 });
 
+for (const playing of [false, true]) test(`releasing a native rate restores the project clock when playing=${playing}`, async context => {
+	const f = fixture(); context.after(() => f.engine.dispose());
+	f.engine.loadProject(project(48_000), new Map([['recording', new MockAudioBuffer(2, 4800, 48_000) as unknown as AudioBuffer]]));
+	const selected = await f.engine.getAudioContext({ resume: false, sampleRate: 8_000 });
+	if (playing) await f.engine.play();
+	const released = await f.engine.getAudioContext({ resume: false, sampleRate: null });
+	if (playing) {
+		assert.equal(released, selected, 'active playback retains its context');
+		assert.equal(f.engine.getState().state, 'playing');
+		f.engine.stop();
+	} else assert.equal(released.sampleRate, 48_000);
+	assert.equal((await f.engine.getAudioContext({ resume: false })).sampleRate, 48_000);
+	assert.equal(f.contexts[0]?.closeCalls, 1);
+});
+
 for (const mode of ['ignore', 'unsupported'] as const) test(`automatic ${mode} rate falls back once without context churn`, async context => {
 	const f = fixture(mode); context.after(() => f.engine.dispose());
 	f.engine.loadProject(project(96_000));

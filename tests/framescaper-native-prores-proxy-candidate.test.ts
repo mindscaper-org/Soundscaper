@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -58,6 +59,7 @@ const TIMING_PROBE = Object.freeze({
 	id: 'helper-probe',
 	probe: () => Promise.resolve(PROBE_RESULT),
 });
+const PRORES_FIXTURE = new URL('../native/framescaper-media-host/tests/fixtures/prores-proxy-64x36-24fps-4frames.mov.b64', import.meta.url);
 
 function bridge(): Data {
 	return Object.fromEntries([...BRIDGE_REQUIRED, ...PROXY_METHODS]
@@ -187,15 +189,19 @@ test('a build whose desktop bridge is absent or incomplete composes no observer 
 	assert.equal(observer({ scope: scope({ ...bridge(), capabilities: 1 }) }), null);
 });
 
-test('a build with no timing probe composes nothing, and either probe alone is enough', () => {
-	assert.equal(observer({ composition: { runtime: {} } }), null);
-	assert.equal(observer({ composition: { runtime: null } }), null);
-	assert.equal(observer({ composition: {} }), null);
-	assert.notEqual(observer({ composition: { runtime: {}, helperTimingProbe: TIMING_PROBE } }), null);
-	assert.notEqual(
-		observer({ composition: { runtime: { probeVideoTiming: TIMING_PROBE.probe } } }),
-		null,
-	);
+test('an authenticated pathless native MOV can be timed with external FFmpeg disabled', async () => {
+	const bytes = Buffer.from(await readFile(PRORES_FIXTURE, 'utf8'), 'base64');
+	const deferred = harness();
+	deferred.generate = () => new Blob([bytes], { type: 'video/quicktime' });
+	const helperTimingProbe = {
+		id: 'native-helper',
+		probe: async () => { throw new Error('No desktop read capability backs this media.'); },
+	};
+	for (const composition of [{ helperTimingProbe }, {}]) {
+		const material = await observe(observer({ composition }, deferred.loader));
+		assert.equal(material.timingBackendId, 'container');
+		assert.equal(material.timing.frameCount, 4);
+	}
 });
 
 test('the deferred module is loaded once, on the first candidate, and answers every later one', async () => {

@@ -20,7 +20,7 @@ const ENVELOPES=['color-wheels-v1','detail-sharpen-v1','post-crop-vignette-v1','
 
 test('fixed closed family ownership retains the old inventory and appends exact Noise, Grain, Texture and Dehaze registrations',()=>{
 	assert.deepEqual(Object.keys(CLOSED_VIDEO_EFFECT_DEFINITIONS_V1),[...TYPES,...OPTICS]);assert.ok(Object.isFrozen(CLOSED_VIDEO_EFFECT_DEFINITIONS_V1));
-	assert.deepEqual(VIDEO_EFFECT_TYPES.slice(12),[...TYPES,...OPTICS]);assert.equal(VIDEO_EFFECT_TYPES.length,32);assert.equal(EFFECT_PROGRAM_COUNT,38);
+	assert.deepEqual(VIDEO_EFFECT_TYPES.slice(12),[...TYPES,...OPTICS]);assert.equal(VIDEO_EFFECT_TYPES.length,32);assert.equal(EFFECT_PROGRAM_COUNT,40);
 	assert.deepEqual(VIDEO_EFFECT_V5_TYPES,['color-adjust','pixelate','vignette','gaussian-blur','sharpen','rgb-split']);
 	for(const type of TYPES){assert.equal(isClosedVideoEffectTypeV1(type),true);assert.equal(hasClosedVideoEffectEnvelopeV1(type),ENVELOPES.includes(type));
 		assert.equal(CLOSED_VIDEO_EFFECT_DEFINITIONS_V1[type],videoEffectDefinition(type));}

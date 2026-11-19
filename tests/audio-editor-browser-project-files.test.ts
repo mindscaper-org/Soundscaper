@@ -15,3 +15,21 @@ test('browser project opens retain only granted write permission and cancellatio
 	assert.deepEqual(await chooseBrowserProjectFiles({ showOpenFilePicker: async () => { throw new DOMException('cancelled', 'AbortError'); } }), []);
 	await assert.rejects(chooseBrowserProjectFiles({ showOpenFilePicker: async () => { throw new Error('picker failed'); } }), /picker failed/u);
 });
+
+test('File Open can read a Scape project when the optional write grant throws', async () => {
+	const file = new File(['data'], 'readable.sscape');
+	const handle = { getFile: async () => file, createWritable() {}, requestPermission: async () => {
+		throw new DOMException('The file cannot be granted write access.', 'NotAllowedError');
+	} };
+	assert.deepEqual(await chooseBrowserProjectFiles({ showOpenFilePicker: async () => [handle] }), [file]);
+	assert.equal(browserProjectHandle(file), undefined);
+});
+
+test('opening a recording as a new project does not request write access to the recording', async () => {
+	const file = new File(['recording'], 'incoming.wav');
+	let grants = 0;
+	const handle = { getFile: async () => file, createWritable() {}, requestPermission: async () => { grants++; return 'granted'; } };
+	assert.deepEqual(await chooseBrowserProjectFiles({ showOpenFilePicker: async () => [handle] }), [file]);
+	assert.equal(grants, 0);
+	assert.equal(browserProjectHandle(file), undefined);
+});

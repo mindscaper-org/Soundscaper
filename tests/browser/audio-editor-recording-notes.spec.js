@@ -37,6 +37,29 @@ async function renameProject(page, editor, title) {
 test.describe('optional project recording notes', () => {
 	test.use({ viewport: { width: 1_440, height: 1_000 } });
 
+	test('keeps a single heading when applying inline formatting to the whole note', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const notes = await openRecordingNotes(page, editor);
+		const panel = editor.locator('[data-workspace-panel="recording-notes"]');
+		await notes.fill('## Field session');
+		await notes.press('ControlOrMeta+A');
+		await panel.getByRole('button', { name: 'Bold', exact: true }).click();
+		await panel.getByRole('button', { name: 'Preview', exact: true }).click();
+		const heading = panel.getByRole('heading', { name: 'Field session', level: 2 });
+		await expect(heading.locator('strong')).toHaveText('Field session');
+	});
+
+	test('turns tab- and space-indented notes into a previewable list', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		const notes = await openRecordingNotes(page, editor);
+		const panel = editor.locator('[data-workspace-panel="recording-notes"]');
+		await notes.fill('\tMic check\n    Room tone');
+		await notes.press('ControlOrMeta+A');
+		await panel.locator('[data-recording-notes-format="bullets"]').click();
+		await panel.getByRole('button', { name: 'Preview', exact: true }).click();
+		await expect(panel.getByRole('listitem')).toHaveText(['Mic check', 'Room tone']);
+	});
+
 	syntheticRouteTest('opens from Window, formats selected text and previews Markdown safely', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const editor = await bootEditor(page, '/embed/en/');

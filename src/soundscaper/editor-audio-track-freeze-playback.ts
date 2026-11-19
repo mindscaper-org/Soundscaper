@@ -22,6 +22,8 @@ import {
 	isCurrentProjectSchemaIdentity,
 } from '../common/editor/project-schema-identity.ts';
 import { soundscaperAudioTrackFreezeRequirementId } from './editor-project-feature-requirements.ts';
+import { hasSoundscaperFreezeSidechain } from './editor-audio-track-freeze-sidechain.ts';
+import { createRecoveryModelWaveVerifier, legacyRecoveryModelWaveBitDepth } from './editor-project-recovery-model-wave.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -43,6 +45,7 @@ export interface SoundscaperAudioTrackFreezePlaybackService extends PlaybackProj
 		projectId: string,
 		source: DataRecord,
 		signal?: AbortSignal,
+		inputProject?: DataRecord,
 	) => Promise<string>;
 	readonly admitVerifiedFreeze: (request: VerifiedSoundscaperAudioTrackFreeze) => () => void;
 	readonly getFreezeStatus: (
@@ -96,11 +99,15 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 		if (!isCurrentProjectSchemaIdentity(candidate, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY)) return;
 		const projectId = stableId(candidate.id, 'Soundscaper freeze activation project');
 		const prepared: VerifiedSoundscaperAudioTrackFreeze[] = [];
+		const failed = new Map<string, FreezeAdmission>();
 		for (const track of dataArray(candidate.tracks, 'project.tracks')) {
 			if (!Object.hasOwn(track, 'audioFreeze')) continue;
+			let key: string | undefined, previous: FreezeAdmission | undefined;
 			try {
 				const trackId = stableId(track.id, 'frozen audio track');
 				const freeze = normalizeAudioTrackFreezeV1(track.audioFreeze);
+				key = admissionKey(projectId, trackId, freeze.derivedSourceId);
+				previous = admissions.get(key);
 				const identities = await sourceIdentities(projectId, candidate, track, options.signal);
 				computeAudioTrackFreezeDigestsV1({
 					sampleRate: candidate.sampleRate as number,
@@ -119,8 +126,11 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 				prepared.push({ project, trackId, freeze, derivedSource, sourceContentIdentities: identities });
 			} catch (error) {
 				if (options.signal?.aborted) throw options.signal.reason ?? error;
+				if (key && previous) failed.set(key, previous);
 			}
 		}
+		options.signal?.throwIfAborted();
+		for (const [key, previous] of failed) if (admissions.get(key) === previous) admissions.delete(key);
 		for (const admission of prepared) admitVerifiedFreeze(admission);
 	}
 
@@ -156,15 +166,23 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 		projectId: string,
 		sourceValue: DataRecord,
 		signal?: AbortSignal,
+		inputProject?: DataRecord,
 	): Promise<string> {
 		const source = dataRecord(sourceValue, 'audio freeze PCM source');
+		const readSignal = signal ?? new AbortController().signal;
+		readSignal.throwIfAborted();
+		const bitDepth = inputProject ? legacyRecoveryModelWaveBitDepth(inputProject, source) : null;
+		const legacyWave = bitDepth === null ? null : await createRecoveryModelWaveVerifier(source, bitDepth);
 		const actual = await pcm.resolveSourceSha256(
 			stableId(projectId, 'audio freeze project'),
 			{ ...source, contentSha256: undefined } as TransientAnalysisPcmSource,
-			signal ?? new AbortController().signal,
+			readSignal,
+			legacyWave?.write,
 		);
 		if (Object.hasOwn(source, 'contentSha256') && source.contentSha256 !== undefined
 			&& source.contentSha256 !== actual) {
+			// Retain the authenticated input identity used by the saved document and its freeze record.
+			if (typeof source.contentSha256 === 'string' && legacyWave?.matches()) return source.contentSha256;
 			throw new Error(`Stored PCM for ${String(source.id)} does not match its project digest.`);
 		}
 		return actual;
@@ -262,7 +280,7 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 			const source = exactRecordById(sources, sourceId, 'frozen track source');
 			identities.push(Object.freeze({
 				sourceId,
-				contentSha256: await hashSourceContent(projectId, source, signal),
+				contentSha256: await hashSourceContent(projectId, source, signal, project),
 			}));
 		}
 		return Object.freeze(identities);
@@ -281,6 +299,9 @@ function projectVerifiedFreezes(
 	const project = dataRecord(projectValue, 'freeze playback projection');
 	const byTrack = new Map(admissions.map((entry) => [entry.trackId, entry]));
 	const tracks = dataArray(project.tracks, 'project.tracks');
+	const currentClips = dataArray(project.clips, 'project.clips');
+	const projectBin = isRecord(project.projectBin) ? project.projectBin : {};
+	const reservedClipIds = new Set([...currentClips, ...dataArray(projectBin.clips ?? [], 'project.projectBin.clips')].map(clip => clip.id));
 	const ownedClipIds = new Set<string>();
 	const renderedClips: DataRecord[] = [];
 	const projectedTracks = tracks.map((track) => {
@@ -290,8 +311,10 @@ function projectVerifiedFreezes(
 		for (const value of arrayValue(track.clipIds, `frozen track ${trackId}.clipIds`)) {
 			ownedClipIds.add(stableId(value, `frozen track ${trackId} clip`));
 		}
-		const clipId = freezePlaybackClipId(trackId);
-		assertClipIdAvailable(project, clipId);
+		const baseId = `${soundscaperAudioTrackFreezeRequirementId(trackId)}clip`;
+		let clipId = baseId;
+		for (let index = 2; reservedClipIds.has(clipId); index += 1) clipId = `${baseId}-${String(index)}`;
+		reservedClipIds.add(clipId);
 		renderedClips.push(renderedFreezeClip(clipId, admission.freeze));
 		const projected: Record<string, unknown> = {
 			...track,
@@ -303,7 +326,7 @@ function projectVerifiedFreezes(
 		return Object.freeze(projected);
 	});
 	const clips = Object.freeze([
-		...dataArray(project.clips, 'project.clips').filter((clip) => !ownedClipIds.has(String(clip.id))),
+		...currentClips.filter((clip) => !ownedClipIds.has(String(clip.id))),
 		...renderedClips,
 	]);
 	const trackIds = new Set(admissions.map(({ trackId }) => trackId));
@@ -347,19 +370,6 @@ function renderedFreezeClip(id: string, freeze: AudioTrackFreezeV1): DataRecord 
 	});
 }
 
-function freezePlaybackClipId(trackId: string): string {
-	return `${soundscaperAudioTrackFreezeRequirementId(trackId)}clip`;
-}
-
-function assertClipIdAvailable(project: DataRecord, clipId: string): void {
-	const bin = isRecord(project.projectBin) ? project.projectBin : {};
-	for (const values of [dataArray(project.clips, 'project.clips'), dataArray(bin.clips ?? [], 'project.projectBin.clips')]) {
-		if (values.some((clip) => clip.id === clipId)) {
-			throw new RangeError(`Frozen playback clip ID ${clipId} collides with canonical project state.`);
-		}
-	}
-}
-
 function identitiesMatchDescriptors(
 	sources: readonly DataRecord[],
 	identities: readonly Readonly<{ readonly sourceId: string; readonly contentSha256: string }>[],
@@ -382,6 +392,7 @@ function verifiedAdmissionStatus(
 	admission: FreezeAdmission,
 ): 'fresh' | 'stale' {
 	try {
+		if (hasSoundscaperFreezeSidechain(project, track)) return 'stale';
 		const source = exactRecordById(sources, freeze.derivedSourceId, 'freeze playback source');
 		if (source.contentSha256 !== admission.derivedSourceContentSha256
 			|| !identitiesMatchDescriptors(sources, admission.sourceContentIdentities)) return 'stale';

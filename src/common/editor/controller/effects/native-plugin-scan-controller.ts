@@ -124,8 +124,8 @@ export function createNativePluginScanController(port: ScanPort, timers: ScanTim
 				}
 				const completed = snapshot.completed + 1;
 				const issue = result.status === 'failed' && result.code !== 'unknown-root' ? result.message
-					: result.status === 'described' && result.scan.status && !['scanned', 'complete'].includes(result.scan.status)
-						? result.scan.detail || result.scan.status : '';
+					: result.status === 'described' ? result.scan.detail
+						|| (result.scan.status && !['scanned', 'complete'].includes(result.scan.status) ? result.scan.status : '') : '';
 				const detail = issue ? [snapshot.detail, `${folder.name}: ${issue}`].filter(Boolean).join('\n') : snapshot.detail;
 				publish({ completed, progress: completed / folders.length,
 					found: snapshot.found + (result.status === 'described' ? result.scan.entries.length : 0),

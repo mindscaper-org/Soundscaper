@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { pluginBridgeGrant, winePluginBridgeGrant } from './plugin-bridge-grant.ts';
 /**
  * Closed job-kind and main-to-helper authority families. Renderers never see
  * these grants: main resolves opaque renderer capabilities into the minimum
@@ -10,6 +11,7 @@ import {
 	HelperContractViolationError,
 	assertHelperWireEnvelope,
 } from './helper-wire-admission.ts';
+import { portableNativeChildFileIdentity, type NativeChildFileIdentity } from './native-child-file-identity.ts';
 import {
 	assistanceSpeechGrantInputBytes,
 	validateAssistanceSpeechJobGrant,
@@ -168,18 +170,38 @@ export interface HelperAudioDeviceJobGrant {
 }
 
 export interface HelperPluginScanJobGrant {
+	readonly linuxWineVst3?: true;
+	readonly windowsX86Vst2?: true;
 	readonly rootPath: string;
 	readonly format: HelperPluginFormat;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
+	readonly cursor?: PluginScanCursor;
+}
+
+export interface PluginScanCursor {
+	readonly candidateIndex: number;
+	readonly descriptorIndex: number;
+}
+
+export function validatePluginScanCursor(value: unknown): Readonly<PluginScanCursor> {
+	const record = grantRecord(value);
+	exactKeys(record, ['candidateIndex', 'descriptorIndex']);
+	if (!Number.isSafeInteger(record.candidateIndex) || Number(record.candidateIndex) < 0
+		|| !Number.isSafeInteger(record.descriptorIndex) || Number(record.descriptorIndex) < 0) {
+		throw new HelperContractViolationError('malformed', 'A plugin scan cursor requires non-negative safe indices.');
+	}
+	return Object.freeze({ candidateIndex: Number(record.candidateIndex), descriptorIndex: Number(record.descriptorIndex) });
 }
 
 export interface HelperPluginHostJobGrant {
+	readonly linuxWineVst3?: true;
+	readonly windowsX86Vst2?: true;
 	readonly binaryPath: string;
 	readonly binaryBytes: number;
 	readonly binarySha256: string;
 	readonly format: HelperEffectPluginFormat;
 	readonly stableId: string;
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly persistentPort?: HelperPersistentPortBinding;
 }
 
@@ -279,10 +301,12 @@ export function helperJobGrantResourceUsage(
 		);
 	}
 	if (kind === 'assistance-speech') {
+		const speech = validateAssistanceSpeechJobGrant(grant);
+		const outputBytes = speech.operation === 'enhance-speech' ? speech.output.maximumByteLength : 0;
 		return Object.freeze({
 			inputBytes: assistanceSpeechGrantInputBytes(grant),
-			outputBytes: 0,
-			scratchBytes: 0,
+			outputBytes,
+			scratchBytes: outputBytes === 0 ? 0 : 2 * outputBytes + 2 * 1024 ** 2,
 			dataPlaneBytes: 0,
 			maximumInFlightChunks: 0,
 		});
@@ -367,27 +391,32 @@ function validateAudioDeviceGrant(value: unknown): HelperAudioDeviceJobGrant {
 
 function validatePluginScanGrant(value: unknown): HelperPluginScanJobGrant {
 	const record = grantRecord(value);
-	exactKeys(record, PLUGIN_SCAN_KEYS);
+	exactOptionalKeys(record, PLUGIN_SCAN_KEYS, ['cursor', 'windowsX86Vst2', 'linuxWineVst3']);
 	return Object.freeze({
 		rootPath: absolutePath(record.rootPath, 'plug-in scan root'),
+		...pluginBridgeGrant(record.windowsX86Vst2, record.format),
+		...winePluginBridgeGrant(record.linuxWineVst3, record.format),
 		format: pluginFormat(record.format),
-		identity: fileIdentity(record.identity),
+		identity: portableNativeChildFileIdentity(record.identity),
+		...(record.cursor === undefined ? {} : { cursor: validatePluginScanCursor(record.cursor) }),
 	});
 }
 
 function validatePluginHostGrant(value: unknown): HelperPluginHostJobGrant {
 	const record = grantRecord(value);
-	exactOptionalKeys(record, PLUGIN_HOST_KEYS, ['persistentPort']);
+	exactOptionalKeys(record, PLUGIN_HOST_KEYS, ['persistentPort', 'windowsX86Vst2', 'linuxWineVst3']);
 	if (typeof record.binarySha256 !== 'string' || !SHA256.test(record.binarySha256)) {
 		unsafe('A helper plug-in binary grant must carry a lowercase SHA-256 digest.');
 	}
 	return Object.freeze({
 		binaryPath: absolutePath(record.binaryPath, 'plug-in binary'),
+		...pluginBridgeGrant(record.windowsX86Vst2, record.format),
+		...winePluginBridgeGrant(record.linuxWineVst3, record.format),
 		binaryBytes: byteCount(record.binaryBytes, 'plug-in binary'),
 		binarySha256: record.binarySha256,
 		format: effectPluginFormat(record.format),
 		stableId: stablePluginId(record.stableId),
-		identity: fileIdentity(record.identity),
+		identity: portableNativeChildFileIdentity(record.identity),
 		...(record.persistentPort === undefined ? {} : {
 			persistentPort: validateHelperPersistentPortBinding(record.persistentPort, 'plugin-rpc'),
 		}),

@@ -31,7 +31,7 @@ test('Windows Kokoro PE entrypoint is executable even without POSIX mode bits', 
 	const root = await mkdtemp(join(tmpdir(), 'assistance-win-executable-'));
 	const runtimeRoot = join(root, 'runtime');
 	try {
-		const native = await json('assistance-native-runtime-manifest.json');
+		const native = JSON.parse(await readFile(new URL('./fixtures/assistance-native-runtime-1.13.5.json', import.meta.url), 'utf8'));
 		const commonName = native.commonPackage.name;
 		const targetPackage = native.targets[TARGET_ID].package;
 		native.commonPackage.files = { 'sherpa-onnx.js': await stagedFile(runtimeRoot,

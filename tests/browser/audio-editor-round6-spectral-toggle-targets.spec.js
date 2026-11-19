@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const toggle of [false, true]) test(`a selected recording spectral band leaves its overlapping neighbor unchanged${toggle ? ' after toggling' : ''}`, async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'selected-spectral.wav', frequency: 440,
 		duration: 2, channelCount: 1, channelAmplitudes: [.2] });
 	const neighbor = createWavFixture({ name: 'untouched-spectral.wav', frequency: 880,
@@ -28,16 +28,26 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 	await display.getByRole('menu').getByRole('menuitem', { name: 'Spectrogram', exact: true }).click();
 	await clip.focus(); await clip.press('Enter');
 	const spectral = await openSpectralDialog(page, editor);
-	await spectral.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill('100');
-	await spectral.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill('1000');
+	const minimum = spectral.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u });
+	const maximum = spectral.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u });
+	for (const [field, value] of [[minimum, '100'], [maximum, '1000']]) {
+		await field.selectText();
+		await field.pressSequentially(value);
+		await expect(field).toHaveValue(value);
+	}
 	await spectral.getByRole('button', { name: 'Select range', exact: true }).click();
+	await expect(spectral).toBeHidden();
+	const band = editor.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true });
+	await expect(band).toBeVisible();
 	if (toggle) {
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral selection']);
+		await expect(band).toHaveCount(0);
 		await chooseNestedCommandAction(page, editor, 'Select', ['Spectral', 'Spectral selection']);
+		await expect(band).toBeVisible();
 	}
 	const amplify = await openSpectralDialog(page, editor);
-	await expect(amplify.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u })).toHaveValue('100');
-	await expect(amplify.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u })).toHaveValue('1000');
+	await expect(minimum).toHaveValue('100');
+	await expect(maximum).toHaveValue('1000');
 	await amplify.getByRole('button', { name: 'Spectral Amplify', exact: true }).click();
 	await expect(amplify).toBeHidden({ timeout: 30_000 });
 	const after = await exportSamples(page, editor);
@@ -48,7 +58,9 @@ for (const toggle of [false, true]) test(`a selected recording spectral band lea
 async function openSpectralDialog(page, editor) {
 	await editor.getByRole('button', { name: 'Spectrogram options', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'Select spectral frequency range', exact: true }).click();
-	return page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await expect(dialog).toBeVisible();
+	return dialog;
 }
 
 function toneAmplitude(samples, frequency) {

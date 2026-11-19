@@ -106,7 +106,7 @@ test('project view setters normalize modes and commit all changed audio tracks a
 
 	assert.equal(service.setTimelineView('multiview'), 'multiview');
 	assert.equal(service.setAllTracksView('spectrogram'), project);
-	assert.equal(state.timelineView, 'spectrogram');
+	assert.equal(state.timelineView, 'multiview');
 	assert.equal(commands.length, 1);
 	assert.deepEqual(commands[0], {
 		type: 'batch',

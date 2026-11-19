@@ -107,9 +107,8 @@ test('a media clock renders a frame and reads back as the same frame', () => {
 			);
 		}
 	}
-	// The clock lands in the middle of the frame, so a decoder rounding either
-	// way still shows the frame that was asked for.
-	assert.equal(sourceFrameToMediaSeconds(0, PAL), 0.02);
+	// A decoder can round a midpoint seek to the next picture.
+	assert.equal(sourceFrameToMediaSeconds(0, PAL), 0.01);
 	assert.equal(mediaSecondsToSourceFrame(-1, PAL, COUNT), 0);
 	assert.equal(mediaSecondsToSourceFrame(1_000, PAL, COUNT), COUNT - 1);
 });

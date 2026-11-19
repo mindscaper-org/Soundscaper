@@ -25,6 +25,7 @@ export interface FramescaperDesktopProjectLibraryExactGenerationBodyConfiguratio
 		project: unknown,
 		projectSha256: string,
 		value: unknown,
+		stored: boolean,
 	) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[];
 }
 
@@ -41,10 +42,11 @@ export function framescaperDesktopExactConfiguredBodies(
 	project: unknown,
 	projectSha256: string,
 	value: unknown,
+	stored = false,
 ): readonly Readonly<FramescaperDesktopExactBodyDescriptor>[] {
 	const maximumBodies = configuration.maximumBodies ?? MAXIMUM_BODIES;
 	if (configuration.validateBodies) {
-		const bodies = [...configuration.validateBodies(project, projectSha256, value)];
+		const bodies = [...configuration.validateBodies(project, projectSha256, value, stored)];
 		if (bodies.length > maximumBodies) throw new RangeError(`${configuration.label} has too many bodies`);
 		return Object.freeze(bodies);
 	}

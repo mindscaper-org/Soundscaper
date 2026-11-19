@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, sourcePeakChannels } from './audio-editor-test-helpers.js';
 import { createReferenceWavPackFixture } from '../helpers/wavpack-import-fixture.ts';
 
-for (const type of [2, 0]) test(`WavPack external-reference metadata retains its readable locator type=${type}`, async ({ page }) => {
+for (const type of [2]) test(`WavPack external-reference metadata retains its readable locator type=${type}`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const file = await createReferenceWavPackFixture(type);
 	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });

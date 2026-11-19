@@ -1,5 +1,8 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
+import { changeWorkingProjectAfterArchiveSave } from './helpers/scape-archive-collision.typecheck.ts';
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
+import { rm } from 'node:fs/promises';
 
 import {
 	BlobReader,
@@ -18,10 +21,15 @@ import {
 	chooseNestedCommandAction,
 	clipByName,
 	collectClientErrors,
+	commitInput,
 	disableNativeSavePicker,
 	downloadBytes,
+	getMenuItem,
 	importFiles,
+	openNestedCommandMenu,
 	registerAudioEditorHooks,
+	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import {
 	SOUNDSCAPER_DATABASE_NAME,
@@ -32,6 +40,43 @@ const SCAPE_MIME_TYPE = 'application/vnd.soundscaper.scape+zip';
 
 test.describe('project archive and checksum files', () => {
 	registerAudioEditorHooks();
+
+	test('each reopened project offers its own archive checksums', async ({ page }, result) => {
+		test.setTimeout(60_000);
+		await disableNativeSavePicker(page);
+		let editor = await bootEditor(page, '/embed/en/');
+		const archivePaths = [result.outputPath('First interview.sscape'), result.outputPath('Second interview.sscape')];
+		try {
+			await renameArchiveProject(page, editor, 'First interview');
+			await importFiles(editor, [toneA]);
+			await downloadScapeArchive(page, editor, archivePaths[0]);
+			await chooseFileAction(page, editor, 'New');
+			await waitForProjectActivation(editor);
+			await renameArchiveProject(page, editor, 'Second interview');
+			await importFiles(editor, [toneB]);
+			await downloadScapeArchive(page, editor, archivePaths[1]);
+
+			await page.reload();
+			editor = await waitForEditor(page);
+			await waitForProjectActivation(editor);
+			await reopenArchiveProject(page, editor, archivePaths[1], 'Second interview');
+			await reopenArchiveProject(page, editor, archivePaths[0], 'First interview');
+			const first = await downloadScapeArchive(page, editor);
+			await editor.getByRole('tab', { name: 'Second interview', exact: true }).click();
+			await waitForProjectActivation(editor);
+			const menu = await openNestedCommandMenu(page, editor, 'File', ['Project management']);
+			await expect.soft(getMenuItem(menu, 'Save archive checksums')).toBeDisabled({ timeout: 1_000 });
+			await page.keyboard.press('Escape');
+
+			const second = await downloadScapeArchive(page, editor);
+			expect(await downloadArchiveChecksums(page, editor, 'Second-interview')).toEqual(await archiveMembers(second));
+			await editor.getByRole('tab', { name: 'First interview', exact: true }).click();
+			await waitForProjectActivation(editor);
+			expect(await downloadArchiveChecksums(page, editor, 'First-interview')).toEqual(await archiveMembers(first));
+		} finally {
+			await Promise.all(archivePaths.map(path => rm(path, { force: true })));
+		}
+	});
 
 	test('exports, saves checksums, reopens an uppercase suffix and downloads an editable copy', async ({ browserName, page }) => {
 		test.setTimeout(60_000);
@@ -65,20 +110,7 @@ test.describe('project archive and checksum files', () => {
 			kind: 'archive-manifest',
 			manifestVersion: 1,
 		});
-		const archiveReader = new ZipReader(new Uint8ArrayReader(archive), { useWebWorkers: false });
-		const archiveEntries = (await archiveReader.getEntries()).filter((entry) => !entry.directory);
-		const expectedMembers = [];
-		for (const entry of archiveEntries) {
-			const bytes = await entry.getData(new Uint8ArrayWriter());
-			expectedMembers.push({
-				id: entry.filename,
-				path: entry.filename,
-				byteLength: bytes.byteLength,
-				sha256: createHash('sha256').update(bytes).digest('hex'),
-			});
-		}
-		await archiveReader.close();
-		expectedMembers.sort((left, right) => left.id.localeCompare(right.id));
+		const expectedMembers = await archiveMembers(archive);
 		expect(expectedMembers.map(({ id }) => id)).toEqual(expect.arrayContaining([
 			'manifest.json',
 			'project.json',
@@ -90,6 +122,7 @@ test.describe('project archive and checksum files', () => {
 			(sum, member) => sum + member.byteLength, 0,
 		));
 		await checksumDownload.delete();
+		await changeWorkingProjectAfterArchiveSave(page, editor);
 
 		const chooserPromise = page.waitForEvent('filechooser');
 		await chooseFileAction(page, editor, 'Open');
@@ -158,6 +191,7 @@ test.describe('project archive and checksum files', () => {
 		const download = await downloading;
 		const archive = await downloadBytes(download);
 		await download.delete();
+		await changeWorkingProjectAfterArchiveSave(page, editor);
 		const corrupted = await corruptLastAudioAsset(archive);
 		const storedBefore = await scapeStorageSnapshot(page);
 		expect(storedBefore.storedRows.sources).toHaveLength(2);
@@ -192,6 +226,63 @@ test.describe('project archive and checksum files', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+async function renameArchiveProject(page, editor, name) {
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
+	const dialog = page.getByRole('dialog', { name: 'Rename project', exact: true });
+	await commitInput(dialog.getByRole('textbox', { name: 'Project name', exact: true }), name);
+	await dialog.getByRole('button', { name: 'Save name', exact: true }).click();
+	await expect(dialog).toBeHidden();
+}
+
+async function downloadScapeArchive(page, editor, archivePath) {
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	try {
+		if (archivePath) await download.saveAs(archivePath);
+		return await downloadBytes(download);
+	} finally {
+		await download.delete();
+		await expect(editor.locator('[data-editor-task-progress]')).toBeHidden();
+	}
+}
+
+async function reopenArchiveProject(page, editor, archivePath, name) {
+	const choosing = page.waitForEvent('filechooser');
+	await chooseFileAction(page, editor, 'Open');
+	await (await choosing).setFiles(archivePath);
+	await expect(editor.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+}
+
+async function downloadArchiveChecksums(page, editor, projectFileStem) {
+	const downloading = page.waitForEvent('download');
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Save archive checksums']);
+	const download = await downloading;
+	try {
+		const report = JSON.parse(new TextDecoder().decode(await downloadBytes(download)));
+		expect.soft(download.suggestedFilename()).toBe(`${projectFileStem}-archive-manifest.json`);
+		return report.members.map(({ id, path, byteLength, sha256 }) => ({ id, path, byteLength, sha256 }));
+	} finally {
+		await download.delete();
+	}
+}
+
+async function archiveMembers(archive) {
+	const reader = new ZipReader(new Uint8ArrayReader(archive), { useWebWorkers: false });
+	try {
+		const members = [];
+		for (const entry of (await reader.getEntries()).filter(entry => !entry.directory)) {
+			const bytes = await entry.getData(new Uint8ArrayWriter());
+			members.push({ id: entry.filename, path: entry.filename, byteLength: bytes.byteLength,
+				sha256: createHash('sha256').update(bytes).digest('hex') });
+		}
+		return members.sort((left, right) => left.id.localeCompare(right.id));
+	} finally {
+		await reader.close();
+	}
+}
 
 async function openScapeThroughFileMenu(page, editor, bytes) {
 	const choosing = page.waitForEvent('filechooser');
@@ -234,7 +325,8 @@ async function corruptLastAudioAsset(archive) {
 }
 
 async function scapeStorageSnapshot(page) {
-	return page.evaluate(async ({ databaseName, opfsDirectoryName }) => {
+	const opfsAvailable = await originPrivateFileSystemAvailable(page);
+	return page.evaluate(async ({ databaseName, opfsDirectoryName, opfsAvailable }) => {
 		const result = (request) => new Promise((resolve, reject) => {
 			request.onsuccess = () => resolve(request.result);
 			request.onerror = () => reject(request.error);
@@ -283,7 +375,7 @@ async function scapeStorageSnapshot(page) {
 		}
 		const storedRows = await normalize(rows);
 		let opfsFiles = null;
-		if (typeof navigator.storage?.getDirectory === 'function') {
+		if (opfsAvailable) {
 			const root = await navigator.storage.getDirectory();
 			let directory;
 			try {
@@ -308,5 +400,5 @@ async function scapeStorageSnapshot(page) {
 			}
 		}
 		return { storedRows, opfsFiles };
-	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME });
+	}, { databaseName: SOUNDSCAPER_DATABASE_NAME, opfsDirectoryName: SOUNDSCAPER_OPFS_DIRECTORY_NAME, opfsAvailable });
 }

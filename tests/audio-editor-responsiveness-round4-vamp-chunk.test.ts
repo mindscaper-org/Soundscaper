@@ -31,7 +31,8 @@ test('the actual Vamp dialog and lookup hook cold-import without an owner-entry 
 			plugins: [{
 				name: 'bounded-vamp-dialog-graph',
 				resolveId(source) {
-					if (source === 'react' || source === 'react/jsx-runtime') {
+					if (source.endsWith('.css')) return { id: 'data:text/javascript,export default {}', external: true };
+					if (/^(?:react|react-dom)(?:\/|$)/u.test(source)) {
 						return { id: pathToFileURL(require.resolve(source)).href, external: true };
 					}
 					const code = externalModules[source];

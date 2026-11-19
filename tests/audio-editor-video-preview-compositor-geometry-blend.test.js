@@ -322,7 +322,14 @@ test('the outline shader samples its complete high-DPI radius with a bounded ada
 	const fixture = createRecordingFixture();
 	const compositor = createVideoPreviewCompositor(fixture.canvas);
 	try {
+		assert.equal(compositor.programs.filter(Boolean).length, 1);
+		compositor.draw({}, null, { code: 13 });
 		const outlineProgram = compositor.programs[13];
+		compositor.draw({}, null, { code: 13 });
+		assert.equal(compositor.programs[13], outlineProgram);
+		assert.equal(compositor.programs.filter(Boolean).length, 2);
+		assert.equal(outlineProgram.shaders[0], compositor.programs[0].shaders[0]);
+		assert.equal(outlineProgram.shaders[0], compositor.compositionBlend.program.shaders[0]);
 		const source = outlineProgram.shaders.map((shader) => shader.source).join('\n');
 		assert.match(source, /float sample_stride = max\(radius \/ 16\.0, 1\.0\)/u);
 		assert.match(source, /sample_offset = float\(sample_x\) \* sample_stride/u);

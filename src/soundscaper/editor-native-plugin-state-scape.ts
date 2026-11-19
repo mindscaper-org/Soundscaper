@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { ScapeAssetDescriptor } from '../common/scape/archive-envelope.ts';
+import { sessionSnapshotProjects } from '../common/editor/session-snapshots.ts';
+import { normalizeSoundscaperNativePluginStates } from './editor-native-plugin-state.ts';
 import type { ScapeManifest } from '../common/editor/scape-archive-envelope.ts';
 import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import { verifyScapeExtractedAsset } from '../common/scape/asset-bytes.ts';
@@ -52,7 +54,6 @@ export function createSoundscaperNativePluginStateScapeExtension():
 		// these references at the document root, so none is added to project.sources.
 		sourceKinds: Object.freeze([SOUNDSCAPER_SCAPE_NATIVE_PLUGIN_STATE_KIND]),
 		planExportAssets: async ({ project, store, signal }: ScapeProjectAssetExtensionExportRequest) => {
-			validateSoundscaperProject(project)
 			const bodies = uniqueProjectBodies(project)
 			if (bodies.length && typeof (store as SoundscaperScapeNativePluginStateStore)
 				.getNativePluginStateBodyMetadata !== 'function') {
@@ -138,7 +139,6 @@ function exportAsset(body: Readonly<SoundscaperNativePluginStateBody>): PlannedS
 }
 
 function validateImportAssets(project: unknown, manifest: ScapeManifest): NativeStateValidation {
-	validateSoundscaperProject(project)
 	const expected = new Map(uniqueProjectBodies(project).map((body) => [body.bodyId, body]))
 	const descriptors = manifest.assets.filter(
 		({ kind }) => kind === SOUNDSCAPER_SCAPE_NATIVE_PLUGIN_STATE_KIND,
@@ -207,7 +207,9 @@ function uniqueProjectBodies(project: SoundscaperProject | unknown):
 	validateSoundscaperProject(project)
 	const exactProject = project as SoundscaperProject
 	const unique = new Map<string, Readonly<SoundscaperNativePluginStateBody>>()
-	for (const state of exactProject.nativePluginStates) unique.set(state.stateBody.bodyId, state.stateBody)
+	for (const view of [exactProject, ...sessionSnapshotProjects(project)]) {
+		for (const state of normalizeSoundscaperNativePluginStates(view.nativePluginStates)) unique.set(state.stateBody.bodyId, state.stateBody)
+	}
 	return Object.freeze([...unique.values()])
 }
 

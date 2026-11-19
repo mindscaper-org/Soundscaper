@@ -254,6 +254,14 @@ test('PP-OCRv4 executes detection, orientation, and CTC recognition with one mod
 					body: dictionary },
 			],
 		});
+		const set = Float32Array.prototype.set;
+		let copiedRows = 0;
+		context.mock.method(Float32Array.prototype, 'set', function (
+			this: Float32Array, samples: ArrayLike<number>, offset?: number,
+		) {
+			if (this.length === 3 * 48 * 320 && samples.length < 320) copiedRows++;
+			set.call(this, samples, offset);
+		});
 		const runtime = fakeRuntime((path) => ocrSession(basename(path)));
 		await run(value, runtime);
 			const result = reviewAssistanceOcrResultV1(
@@ -265,6 +273,7 @@ test('PP-OCRv4 executes detection, orientation, and CTC recognition with one mod
 		assert.equal(result.frames[0].regions.length, 1);
 		assert.equal(result.frames[0].regions[0].text, 'A');
 		assert.ok(result.frames[0].regions[0].confidence > 0.8);
+		assert.equal(copiedRows, 3 * 48);
 	});
 
 async function fixture(context: TestContext, options: WorkerFixtureOptions) {

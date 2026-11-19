@@ -37,6 +37,13 @@ export interface FramescaperExternalDisplayFrame {
 	readonly rgba: Uint8Array;
 }
 
+export type FramescaperExternalDisplayFrameMetadata = Omit<FramescaperExternalDisplayFrame, 'rgba'>;
+
+/** A main-owned transfer handle for the sandboxed display window. */
+export interface FramescaperExternalDisplayPixelPort {
+	close(): void;
+}
+
 export interface FramescaperExternalDisplayWindowOptions {
 	readonly bounds: FramescaperExternalDisplayBounds;
 	readonly show: false;
@@ -57,7 +64,8 @@ export interface FramescaperExternalDisplayWindow {
 	readonly close: () => void;
 	readonly isDestroyed: () => boolean;
 	readonly setBounds: (bounds: FramescaperExternalDisplayBounds) => void;
-	readonly send: (channel: string, payload: unknown) => void;
+	/** Serializes the pixels synchronously and may acknowledge presentation later. */
+	readonly send: (channel: string, payload: unknown, pixels?: FramescaperExternalDisplayPixelPort) => void | Promise<void>;
 	readonly onClosed?: (listener: () => void) => void;
 }
 
@@ -155,21 +163,24 @@ export class FramescaperExternalDisplayController {
 		}
 	}
 
-	present(frameValue: FramescaperExternalDisplayFrame): void {
+	present(
+		frameValue: FramescaperExternalDisplayFrame | FramescaperExternalDisplayFrameMetadata,
+		pixels?: FramescaperExternalDisplayPixelPort,
+	): void | Promise<void> {
 		const window = this.#window;
 		if (window === null || this.#display === null || this.#dynamicRange === null || window.isDestroyed()) {
 			throw new Error('No external display session is active.');
 		}
-		const frame = admitFrame(frameValue);
+		const frame = pixels === undefined ? admitFrame(frameValue) : frameValue;
 		if (this.#lastSequence !== null && frame.sequence <= this.#lastSequence) {
 			throw new Error('External display frame sequence numbers must be strictly increasing.');
 		}
 		const dynamicRange = this.#dynamicRange === 'hdr' && frame.dynamicRange === 'hdr' ? 'hdr' : 'sdr';
 		this.#lastSequence = frame.sequence;
-		window.send(FRAME_CHANNEL, Object.freeze({
+		return window.send(FRAME_CHANNEL, Object.freeze({
 			...frame,
 			dynamicRange,
-		}));
+		}), pixels);
 	}
 
 	reconcileDisplays(displayValues: readonly FramescaperExternalDisplay[]): void {
@@ -275,8 +286,9 @@ function admitDisplay(value: FramescaperExternalDisplay): FramescaperExternalDis
 	});
 }
 
-function admitFrame(value: FramescaperExternalDisplayFrame): FramescaperExternalDisplayFrame {
+function admitFrame(value: FramescaperExternalDisplayFrameMetadata): FramescaperExternalDisplayFrame {
 	if (!value || typeof value !== 'object' || Array.isArray(value)
+		|| !('rgba' in value)
 		|| Object.keys(value).sort().join('|') !== [
 			'sequence', 'evaluationFingerprint', 'width', 'height', 'dynamicRange', 'rgbaSha256', 'rgba',
 		].sort().join('|')) {
@@ -303,7 +315,7 @@ function admitFrame(value: FramescaperExternalDisplayFrame): FramescaperExternal
 	if (!(value.rgba instanceof Uint8Array) || value.rgba.byteLength !== byteLength) {
 		throw new RangeError('An external display RGBA frame does not match its geometry.');
 	}
-	const rgba = new Uint8Array(value.rgba);
+	const rgba = value.rgba.buffer instanceof ArrayBuffer ? value.rgba : new Uint8Array(value.rgba);
 	if (createHash('sha256').update(rgba).digest('hex') !== value.rgbaSha256) {
 		throw new Error('An external display RGBA frame does not match its digest.');
 	}

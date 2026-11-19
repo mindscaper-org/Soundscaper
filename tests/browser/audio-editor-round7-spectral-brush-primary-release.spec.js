@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('a spectral brush saves its radius at primary release with middle held', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'brush recording.wav', duration: 3, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	await clipByName(editor, recording.name).locator('.clip-header').click();

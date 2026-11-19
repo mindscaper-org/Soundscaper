@@ -29,18 +29,43 @@ export function resizeAssistanceRgbaToChwFloatV1(
 ): Float32Array {
 	geometry(sourceWidth, sourceHeight, targetWidth, targetHeight, rgba);
 	const region = normalizedCrop(crop);
-	const result = new Float32Array(3 * targetWidth * targetHeight);
-	const cropWidth = region.right - region.left;
-	const cropHeight = region.bottom - region.top;
+	const planeLength = targetWidth * targetHeight;
+	const result = new Float32Array(3 * planeLength);
+	const columns = bilinearAxis(sourceWidth, targetWidth, region.left, region.right, 4);
+	const rows = bilinearAxis(sourceHeight, targetHeight, region.top, region.bottom, sourceWidth * 4);
+	const { channelOrder, mean, standardDeviation, scale } = normalization;
 	for (let y = 0; y < targetHeight; y += 1) {
-		const sourceY = (region.top + (y + 0.5) / targetHeight * cropHeight) * sourceHeight - 0.5;
+		const upperRow = rows.first[y]!, lowerRow = rows.second[y]!, yWeight = rows.weights[y]!;
 		for (let x = 0; x < targetWidth; x += 1) {
-			const sourceX = (region.left + (x + 0.5) / targetWidth * cropWidth) * sourceWidth - 0.5;
-			writeBilinearPixel(rgba, sourceWidth, sourceHeight, sourceX, sourceY, result,
-				targetWidth * targetHeight, y * targetWidth + x, normalization);
+			const left = columns.first[x]!, right = columns.second[x]!, xWeight = columns.weights[x]!;
+			const offset = y * targetWidth + x;
+			for (let channel = 0; channel < 3; channel += 1) {
+				const component = channelOrder === 'rgb' ? channel : 2 - channel;
+				const top = rgba[upperRow + left + component]! * (1 - xWeight)
+					+ rgba[upperRow + right + component]! * xWeight;
+				const bottom = rgba[lowerRow + left + component]! * (1 - xWeight)
+					+ rgba[lowerRow + right + component]! * xWeight;
+				const scaled = (top * (1 - yWeight) + bottom * yWeight) * scale;
+				result[channel * planeLength + offset] = Math.fround((scaled - mean[channel]!) / standardDeviation[channel]!);
+			}
 		}
 	}
 	return result;
+}
+
+function bilinearAxis(sourceLength: number, targetLength: number, start: number, end: number, stride: number) {
+	const first = new Uint32Array(targetLength), second = new Uint32Array(targetLength);
+	const weights = new Float64Array(targetLength);
+	const extent = end - start;
+	for (let index = 0; index < targetLength; index++) {
+		const coordinate = (start + (index + 0.5) / targetLength * extent) * sourceLength - 0.5;
+		const clamped = Math.max(0, Math.min(sourceLength - 1, coordinate));
+		const before = Math.floor(clamped);
+		first[index] = before * stride;
+		second[index] = Math.min(sourceLength - 1, before + 1) * stride;
+		weights[index] = clamped - before;
+	}
+	return { first, second, weights };
 }
 
 export function exactAssistanceFloatTensorV1(
@@ -141,35 +166,5 @@ function geometry(
 		|| !(rgba instanceof Uint8Array)
 		|| rgba.byteLength !== sourceWidth * sourceHeight * 4) {
 		throw new RangeError('Visual tensor preparation received invalid RGBA geometry.');
-	}
-}
-
-function writeBilinearPixel(
-	rgba: Uint8Array,
-	width: number,
-	height: number,
-	xValue: number,
-	yValue: number,
-	result: Float32Array,
-	planeLength: number,
-	offset: number,
-	normalization: AssistanceVisualTensorNormalizationV1,
-): void {
-	const x = Math.max(0, Math.min(width - 1, xValue));
-	const y = Math.max(0, Math.min(height - 1, yValue));
-	const x0 = Math.floor(x);
-	const y0 = Math.floor(y);
-	const x1 = Math.min(width - 1, x0 + 1);
-	const y1 = Math.min(height - 1, y0 + 1);
-	const xWeight = x - x0;
-	const yWeight = y - y0;
-	for (let channel = 0; channel < 3; channel += 1) {
-		const component = normalization.channelOrder === 'rgb' ? channel : 2 - channel;
-		const top = rgba[(y0 * width + x0) * 4 + component]! * (1 - xWeight)
-			+ rgba[(y0 * width + x1) * 4 + component]! * xWeight;
-		const bottom = rgba[(y1 * width + x0) * 4 + component]! * (1 - xWeight)
-			+ rgba[(y1 * width + x1) * 4 + component]! * xWeight;
-		const scaled = (top * (1 - yWeight) + bottom * yWeight) * normalization.scale;
-		result[channel * planeLength + offset] = Math.fround((scaled - normalization.mean[channel]!) / normalization.standardDeviation[channel]!);
 	}
 }

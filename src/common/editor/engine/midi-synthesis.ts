@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { createMidiMonoVoiceIndex } from './midi-mono-voices.ts';
+import { midiPanGains } from './midi-channel-pan.ts';
 import type { MidiInstrument, MidiNote } from '../midi-model.ts';
 import type { MidiFileEvent } from '../midi-file-types.ts';
 import { createMidiExpressionIndex, midiExpressionPhaseArea, midiExpressionStateIndex, midiNoteSoundEnd, type MidiExpressionTimeline } from './midi-expression.ts';
@@ -28,6 +30,17 @@ export function createMidiRenderer(
 	notes: readonly MidiNote[], instrument: MidiInstrument, sampleRate: number,
 	events: readonly MidiFileEvent[] = [],
 ): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer> {
+	const render = createMidiPlaneRenderer(notes, instrument, sampleRate, events, 1);
+	return (startFrame, frameCount) => render(startFrame, frameCount)[0]!;
+}
+
+/** The published source width owns the PCM contract, including legacy mono recipes. */
+export function createMidiPlaneRenderer(
+	notes: readonly MidiNote[], instrument: MidiInstrument, sampleRate: number,
+	events: readonly MidiFileEvent[] = [], channelCount: 1 | 2 = 1,
+): (startFrame: number, frameCount: number) => Float32Array<ArrayBuffer>[] {
+	if (typeof instrument !== 'string') throw new Error('Native instrument synthesis requires the desktop MIDI renderer.');
+	if (instrument === 'libadlmidi' || instrument === 'fluidsynth') throw new Error('Library instruments require the MIDI worker renderer.');
 	if (!Number.isSafeInteger(sampleRate) || sampleRate < 1) throw new RangeError('Invalid MIDI synthesis sample rate.');
 	const expression = createMidiExpressionIndex(events);
 	const prepared = notes.map((note, index): PreparedNote => {
@@ -37,6 +50,7 @@ export function createMidiRenderer(
 			frequency: 440 * 2 ** ((note.pitch - 69) / 12), amplitude: note.velocity / 127 * 0.18,
 			onsetPhaseArea: midiExpressionPhaseArea(onsetState, note.startFrame), timeline };
 	}).filter(note => note.amplitude && note.soundEnd > note.startFrame).sort((left, right) => left.startFrame - right.startFrame);
+	const mono = createMidiMonoVoiceIndex(prepared);
 	let capacity = 1;
 	while (capacity < prepared.length) capacity *= 2;
 	const ends = new Float64Array(capacity * 2);
@@ -44,9 +58,11 @@ export function createMidiRenderer(
 	for (let index = capacity - 1; index > 0; index -= 1) ends[index] = Math.max(ends[index * 2]!, ends[index * 2 + 1]!);
 	const attack = Math.max(1, Math.round(sampleRate * 0.003));
 	const release = Math.max(1, Math.round(sampleRate * 0.008));
+	const panGains: (readonly [number, number] | undefined)[] = [];
 	return (startFrame, frameCount) => {
 		assertWindow(sampleRate, startFrame, frameCount);
-		const output = new Float32Array(frameCount);
+		const left = new Float32Array(frameCount);
+		const right = channelCount === 2 ? new Float32Array(frameCount) : undefined;
 		const visible: PreparedNote[] = [];
 		const endFrame = startFrame + frameCount;
 		const visit = (node: number, left: number, right: number): void => {
@@ -64,23 +80,35 @@ export function createMidiRenderer(
 			const from = Math.max(startFrame, note.startFrame);
 			const to = Math.min(endFrame, soundEnd);
 			let stateIndex = midiExpressionStateIndex(timeline.states, from);
-			for (let fromState = from; fromState < to;) {
-				const state = timeline.states[stateIndex]!;
-				const stateEnd = Math.min(to, timeline.states[stateIndex + 1]?.frame ?? to);
-				if (frequency * state.bendRatio < sampleRate / 2) {
-					for (let frame = fromState; frame < stateEnd; frame += 1) {
+			for (let stateEnd = from; stateEnd < to;) {
+				const state = timeline.states[stateIndex++]!;
+				const stateStart = stateEnd;
+				stateEnd = Math.min(to, timeline.states[stateIndex]?.frame ?? to);
+				if (!(frequency * state.bendRatio < sampleRate / 2)) continue;
+				const gains = right ? (panGains[state.pan] ??= midiPanGains(state.pan)) : undefined;
+				const leftGain = gains?.[0] ?? 1;
+				const rightGain = gains?.[1] ?? 0;
+				// The latest held key owns the entire span up to the next winner change.
+				for (let rangeEnd = stateStart; rangeEnd < stateEnd;) {
+					const rangeStart = rangeEnd;
+					const winner = state.mono ? mono.winner(timeline, rangeStart) : undefined;
+					rangeEnd = winner ? Math.min(stateEnd, winner.end) : stateEnd;
+					if (winner && winner.index !== note.index) continue;
+					for (let frame = rangeStart; frame < rangeEnd; frame += 1) {
 						const age = frame - note.startFrame;
 						const phase = (midiExpressionPhaseArea(state, frame) - onsetPhaseArea) * frequency / sampleRate;
 						const envelope = Math.min(1, age / attack, (soundEnd - frame) / release);
-						output[frame - startFrame]! += wave(instrument, phase) * amplitude * envelope * state.volume * state.expression;
+						const sample = wave(instrument, phase) * amplitude * envelope * state.volume * state.expression;
+						const offset = frame - startFrame;
+						left[offset]! += sample * leftGain;
+						if (right) right[offset]! += sample * rightGain;
 					}
 				}
-				fromState = stateEnd;
-				stateIndex += 1;
 			}
 		}
-		for (let frame = 0; frame < frameCount; frame += 1) {
-			if (output[frame] !== 0) output[frame] = Math.tanh(output[frame]!);
+		const output = right ? [left, right] : [left];
+		for (const plane of output) for (let frame = 0; frame < frameCount; frame += 1) {
+			if (plane[frame] !== 0) plane[frame] = Math.tanh(plane[frame]!);
 		}
 		return output;
 	};

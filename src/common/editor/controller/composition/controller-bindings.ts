@@ -130,22 +130,23 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 	const { createCacheAwareRenderEngine, prepareCommittedTimePitchCaches, beginPlaybackCachePreparation, cancelPlaybackCachePreparation } = deferControllerMethods(() => services.sources().timePitchCaches, ['createCacheAwareRenderEngine', 'prepareCommittedTimePitchCaches', 'beginPlaybackCachePreparation', 'cancelPlaybackCachePreparation']);
 	const { videoEffectGestureKey, reorderVideoClipEffect, removeVideoClipEffect, beginVideoEffectGesture, cancelVideoEffectGesture } = deferControllerMethods(() => services.clips().videoEffect, ['videoEffectGestureKey', 'reorderVideoClipEffect', 'removeVideoClipEffect', 'beginVideoEffectGesture', 'cancelVideoEffectGesture']);
 	const { addEffect, updateRackEffect, beginRackEffectGesture, previewRackEffect, commitRackEffectGesture, cancelRackEffectGesture, beginParametricEqGesture, previewParametricEq, commitParametricEqGesture, cancelParametricEqGesture, copyRackEffect, copyEffectStack, pasteEffectStack } = deferControllerMethods(() => services.effects().rack, ['addEffect', 'updateRackEffect', 'beginRackEffectGesture', 'previewRackEffect', 'commitRackEffectGesture', 'cancelRackEffectGesture', 'beginParametricEqGesture', 'previewParametricEq', 'commitParametricEqGesture', 'cancelParametricEqGesture', 'copyRackEffect', 'copyEffectStack', 'pasteEffectStack']);
-	const { runEffectMacro, applyAudacityEffectFromController, repeatLastAudacityEffect, applySpectralSelection, captureSelectedNoiseProfile, runNyquistEvaluation } = deferControllerMethods(() => services.effects(), ['runEffectMacro', 'applyAudacityEffectFromController', 'repeatLastAudacityEffect', 'applySpectralSelection', 'captureSelectedNoiseProfile', 'runNyquistEvaluation']);
+	const { reduceMicrophoneBleed, runEffectMacro, applyAudacityEffectFromController, repeatLastAudacityEffect, applySpectralSelection, captureSelectedNoiseProfile, runNyquistEvaluation } = deferControllerMethods(() => services.effects(), ['reduceMicrophoneBleed', 'runEffectMacro', 'applyAudacityEffectFromController', 'repeatLastAudacityEffect', 'applySpectralSelection', 'captureSelectedNoiseProfile', 'runNyquistEvaluation']);
 	const { currentAudacityEffectParams, setAudacityEffectType, setAudacityEffectParamsFromController, setAudacityControlTrack, applyEffectPreset, saveEffectPreset, deleteEffectPreset, importEffectPresets, exportEffectPreset, cancelAudacityEffectPreview, captureRackNoiseProfileFromController } = deferControllerMethods(() => services.effects().controls, ['currentAudacityEffectParams', 'setAudacityEffectType', 'setAudacityEffectParamsFromController', 'setAudacityControlTrack', 'applyEffectPreset', 'saveEffectPreset', 'deleteEffectPreset', 'importEffectPresets', 'exportEffectPreset', 'cancelAudacityEffectPreview', 'captureRackNoiseProfileFromController']);
 	const { cancelSelectedAudacityEffect, readSelectionTargetLocked } = deferControllerMethods(() => services.effects().execution, ['cancelSelectedAudacityEffect', 'readSelectionTargetLocked']);
 	const { renderDryTrackRange } = deferControllerMethods(() => services.effects().audio, ['renderDryTrackRange']);
 	const { setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow } = deferControllerMethods(() => services.effects().sourceEditor, ['setSourceSelection', 'readSourceSelection', 'readSourceSelectionDuration', 'readSourceSelectionSampleRate', 'loadSourceAudio', 'loadSourceAudioWindow']);
 	const { cancelNyquistEvaluation } = deferControllerMethods(() => services.effects().nyquistHost, ['cancelNyquistEvaluation']);
+	const { punchAgain, setLeadInDurationSeconds } = deferControllerMethods(() => services.recording().punchAndRoll, ['punchAgain', 'setLeadInDurationSeconds']);
 	const { toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart } = deferControllerMethods(() => services.recording().session, ['toggleRecordingPause', 'toggleLeadInRecording', 'cancelRecordingStart']);
 	const { updateTransportState, updateMeters, updateZoom, setTimelineViewportWidth, setAutoFitTrackHeight, adjustTrackHeight } = deferControllerMethods(() => services.viewStateService(), ['updateTransportState', 'updateMeters', 'updateZoom', 'setTimelineViewportWidth', 'setAutoFitTrackHeight', 'adjustTrackHeight']);
 	const { toggleExport, updateExportProgress, showAnalysis, setStatus, handleError } = deferControllerMethods(() => services.presentationState(), ['toggleExport', 'updateExportProgress', 'showAnalysis', 'setStatus', 'handleError']);
 	const { refreshStorageUsage, estimateStorageForPreflight, preflightStorage } = deferControllerMethods(() => services.storageCapacityService(), ['refreshStorageUsage', 'estimateStorageForPreflight', 'preflightStorage']);
-	const { openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'saveAup3', 'saveAup4', 'saveProjectFile', 'prepareFileClose']);
+	const { openScape, saveScape, openAup4, openAudacityProject, openInterchange, openDawproject, openSesx, saveDawproject, saveAup3, saveAup4, saveProjectFile, prepareFileClose } = deferAsyncControllerMethods(() => services.nativeProjectService(), ['openScape', 'saveScape', 'openAup4', 'openAudacityProject', 'openInterchange', 'openDawproject', 'openSesx', 'saveDawproject', 'saveAup3', 'saveAup4', 'saveProjectFile', 'prepareFileClose']);
 	return Object.freeze({
 		midiController, previewMidiTransfer: services.previewMidiTransfer,
 		prepareEffectSnapshotSources: (project: DocumentProject, signal: AbortSignal) => ensureProjectSourcesAvailable(project, { signal }),
 		setSourceSelection, readSourceSelection, readSourceSelectionDuration, readSourceSelectionSampleRate, loadSourceAudio, loadSourceAudioWindow, readSelectionTargetLocked,
-		openScape, saveScape, openAup4, openAudacityProject, saveAup3, saveAup4, saveProjectFile, prepareFileClose,
+		openScape, saveScape, openAup4, openAudacityProject, openInterchange, openDawproject, openSesx, saveDawproject, saveAup3, saveAup4, saveProjectFile, prepareFileClose,
 		loadPreferences, switchProject, labels, selection, projectBin,
 		get preferenceActions() { return services.preferences().actions; },
 		sampleEditingAvailable, setSampleEditMode, applySamplePencil, smoothSelectedSamples,
@@ -184,11 +185,11 @@ export function createControllerBindings<RenderEngine extends ClipTimePitchRende
 		previewRackEffect, commitRackEffectGesture, cancelRackEffectGesture, beginParametricEqGesture,
 		previewParametricEq, commitParametricEqGesture, cancelParametricEqGesture, copyRackEffect, copyEffectStack,
 		pasteEffectStack, runEffectMacro, applyAudacityEffectFromController, repeatLastAudacityEffect,
-		applySpectralSelection, captureSelectedNoiseProfile, runNyquistEvaluation, currentAudacityEffectParams,
+		reduceMicrophoneBleed, applySpectralSelection, captureSelectedNoiseProfile, runNyquistEvaluation, currentAudacityEffectParams,
 		setAudacityEffectType, setAudacityEffectParamsFromController, setAudacityControlTrack, applyEffectPreset,
 		saveEffectPreset, deleteEffectPreset, importEffectPresets, exportEffectPreset,
 		cancelAudacityEffectPreview, cancelSelectedAudacityEffect, captureRackNoiseProfileFromController, renderDryTrackRange, cancelNyquistEvaluation,
-		toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart, updateTransportState,
+		punchAgain, setLeadInDurationSeconds, toggleRecordingPause, toggleLeadInRecording, cancelRecordingStart, updateTransportState,
 		updateMeters, updateZoom, setTimelineViewportWidth, setAutoFitTrackHeight,
 		adjustTrackHeight, toggleExport, updateExportProgress, showAnalysis,
 		setStatus, handleError, refreshStorageUsage, estimateStorageForPreflight,

@@ -53,6 +53,7 @@ import {
 	routingLayoutNodeKeyForEndpoint,
 	type RoutingLayoutNode,
 } from './soundscaper-routing-graph-layout.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface SoundscaperRoutingGraphCommit {
 	readonly kind: RoutingCommitKind;
@@ -230,7 +231,7 @@ function RoutingGraphProjectSession({
 		}}
 	>
 		<div className="kw-routing-graph__toolbar" aria-label={copy.routingControls}>
-			<label>{copy.addNode} <select aria-label={copy.addRoutingNode} disabled={graphDisabled} value="" onChange={(event) => {
+			<label><EditorControlLabel>{copy.addNode} </EditorControlLabel><select aria-label={copy.addRoutingNode} disabled={graphDisabled} value="" onChange={(event) => {
 				const kind = event.currentTarget.value;
 				event.currentTarget.value = '';
 				if (kind !== 'cue' && kind !== 'vca' && kind !== 'output') return;
@@ -389,7 +390,7 @@ function RoutingNodeCard(props: RoutingNodeCardProps) {
 			className="kw-routing-graph__node-main"
 			tabIndex={tabIndex}
 			aria-pressed={selected}
-			aria-label={fill(copy.nodeAccessibility, { detail: node.detail, label: node.label, channelDescription: node.channelCount === null ? '' : `, ${node.channelCount} ${copy.channels}`, inputs: String(counts.inputs), outputs: String(counts.outputs) })}
+			aria-description={fill(copy.nodeAccessibility, { detail: node.detail, label: node.label, channelDescription: node.channelCount === null ? '' : `, ${node.channelCount} ${copy.channels}`, inputs: String(counts.inputs), outputs: String(counts.outputs) })}
 			onClick={() => props.onSelect(selection)}
 			onKeyDown={(event) => nodeKeyDown(event, node, selection, props)}
 		>

@@ -13,7 +13,7 @@ for (const locale of ['en', 'ar']) test(`panel grip moves in the requested physi
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /General$/u }).click();
-		await preferences.getByRole('button', { name: 'Language', exact: true }).click();
+		await preferences.getByRole('button', { name: /^Language(?::|$)/u }).click();
 		await page.getByRole('option', { name: 'العربية', exact: true }).click();
 		await expect(page).toHaveURL(/\/embed\/ar\//u);
 		editor = await waitForEditor(page);

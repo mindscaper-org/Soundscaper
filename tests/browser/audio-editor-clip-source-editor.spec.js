@@ -1,14 +1,45 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { expect, test, longTone } from './audio-editor-test-fixtures.js';
-import { bootEditor, clipByName, collectClientErrors, importFiles, openSourceMonitor, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames } from './audio-editor-test-helpers.js';
+import { expect, test, createWavFixture, longTone } from './audio-editor-test-fixtures.js';
+import { bootEditor, clipByName, collectClientErrors, closeWorkspacePanel, importFiles, openClipProperties, openSourceMonitor, registerAudioEditorHooks, chooseNestedCommandAction, chooseCommandAction, projectTimelineSourceNames, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
 
 test.describe('clip source editor', () => {
 	registerAudioEditorHooks();
 	test.use({ viewport: { width: 1440, height: 1000 } });
 
+	test('source zoom keeps the ruler’s accessible position within its visible bounds', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		await importFiles(editor, [longTone]);
+		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
+		const ruler = panel.getByRole('slider', { name: 'Source timeline', exact: true });
+		await ruler.press('End');
+		const cursor = Number(await ruler.getAttribute('aria-valuenow'));
+		await zoomInSource(page, panel.getByRole('region', { name: 'Source waveform', exact: true }));
+		await expect.poll(async () => Number(await ruler.getAttribute('aria-valuemax'))).toBeLessThan(cursor);
+		const maximum = await ruler.getAttribute('aria-valuemax');
+		await expect(ruler).toHaveAttribute('aria-valuenow', maximum);
+	});
+
+	test('the global source ruler labels a clip starting on its first tick', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		const tone = createWavFixture({ name: 'Short tone.wav', sampleRate: 48_000, duration: 0.11 });
+		await importFiles(editor, [tone]);
+		const clip = clipByName(editor, tone.name);
+		const properties = await openClipProperties(page, editor, clip);
+		await showClipTimingFields(properties);
+		await setClipTimeFrames(properties, 'startFrame', 3_360);
+		await closeWorkspacePanel(editor, 'clip-properties');
+		const panel = await openSourceMonitor(page, editor, clip);
+		const ruler = panel.getByRole('slider', { name: 'Source timeline', exact: true });
+		await ruler.click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Global time', exact: true }).click();
+		await expect(ruler).toHaveAttribute('aria-valuemin', '0.07');
+		await expect(ruler.locator('text').first()).toHaveText('0:00.07');
+	});
+
 	test('shows all media, trims without moving the project anchor, and keeps moved markers attached to samples', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const before = await clip.boundingBox();
@@ -51,7 +82,7 @@ test.describe('clip source editor', () => {
 
 	test('reuses timeline fade grips, previews waveform fades, and cancels captured drags with Escape', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const panel = await openSourceMonitor(page, editor, clip);
@@ -96,7 +127,7 @@ test.describe('clip source editor', () => {
 	});
 
 	test('source fades share boundary keyboard controls and their menu previews, cancels and applies one edit', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const clip = clipByName(editor, longTone.name);
 		const panel = await openSourceMonitor(page, editor, clip);
@@ -138,7 +169,7 @@ test.describe('clip source editor', () => {
 
 	test('keeps painted waveform samples while zooming and panning across unused source media', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const panel = await openSourceMonitor(page, editor, clipByName(editor, longTone.name));
 		const waveform = panel.getByRole('region', { name: 'Source waveform', exact: true });
@@ -167,7 +198,7 @@ test.describe('clip source editor', () => {
 		}, 0));
 		await expect.poll(paintedSamples).toBeGreaterThan(100);
 		await wheel(0, -1000000);
-		await expect(ruler).toHaveAttribute('aria-valuemin', '0');
+		await expect(ruler).toHaveAttribute('aria-valuemin', '-0.1');
 		await expect(waveform.locator('[data-source-active="false"] canvas')).toHaveCount(1);
 		await expect.poll(paintedSamples).toBeGreaterThan(100);
 		await wheel(0, 1000000);
@@ -184,7 +215,7 @@ test.describe('clip source editor', () => {
 
 	test('applies a selected source effect to every instance and restores both with undo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		const original = clipByName(editor, longTone.name);
 		await original.focus(); await original.press('Enter');
@@ -208,7 +239,7 @@ test.describe('clip source editor', () => {
 
 	test('offers ruler modes and gives focused source playback its own transport', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [longTone]);
 		// Keep the timeline running while coverage checkpoints retire the source
 		// worklet; the transport assertions should not race the recording's end.
@@ -266,3 +297,12 @@ test.describe('clip source editor', () => {
 		expect(errors).toEqual([]);
 	});
 });
+
+async function zoomInSource(page, waveform) {
+	await waveform.hover({ position: { x: 10, y: 40 } });
+	await page.keyboard.down('Control');
+	try {
+		await page.mouse.wheel(0, -100);
+		await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+	} finally { await page.keyboard.up('Control'); }
+}

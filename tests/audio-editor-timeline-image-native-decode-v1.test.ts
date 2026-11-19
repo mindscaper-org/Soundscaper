@@ -13,6 +13,19 @@ import { IMAGE_IMPORT_LIMITS } from '../src/common/imaging/image-import-admissio
 
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1);
 
+test('a static image ignores a browser-synthesized frame duration', async () => {
+	const decoded = await decodeFramescaperBrowserNativeImageV1({
+		bytes: PNG, fileName: 'still.png', mimeTypeHint: 'image/png',
+		open: async () => ({
+			metadata: { width: 1, height: 1, frameCount: 1, topology: 'single', runtimeVersion: 'test-1' },
+			async decodeFrame() { return { rgba: Uint8Array.of(0, 0, 0, 255), durationMicroseconds: 100_000 }; },
+			close() {},
+		}),
+	});
+	assert.equal(decoded.publication.durationTicks, '5000000');
+	assert.equal(decoded.publication.timingMode, 'fallback');
+});
+
 test('browser-native decode creates one authenticated mixed-timing frame pack', async () => {
 	let closed = false;
 	const session: FramescaperBrowserNativeImageDecodeSessionV1 = {
@@ -90,7 +103,9 @@ test('browser-native decode closes a failing decoder session', async () => {
 
 test('an accepted native image input warning survives all repeated byte admission and frame-pack assembly checks', async () => {
 	const bytes = new Uint8Array(IMAGE_IMPORT_LIMITS.maximumFileInputBytes + 1);
-	bytes.set(PNG);
+	bytes.set(PNG.subarray(0, 8));
+	new DataView(bytes.buffer).setUint32(8, bytes.length - 20);
+	bytes.set(new TextEncoder().encode('IDAT'), 12);
 	const events: string[] = [];
 	const decoded = await decodeFramescaperBrowserNativeImageV1({
 		bytes, fileName: 'large.png', mimeTypeHint: 'image/png',

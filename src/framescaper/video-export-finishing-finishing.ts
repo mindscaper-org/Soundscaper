@@ -10,6 +10,7 @@ import {
 } from '../common/editor/video-color-management-v27.ts';
 import {
 	requireVideoMotionAnalysisBodyV1,
+	type VideoMotionAnalysisBodyV1,
 } from '../common/editor/video-motion-analysis-v27.ts';
 import type { VideoMotionAnalysisReferenceV1 } from '../common/editor/video-motion-model-v27.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
@@ -47,7 +48,7 @@ export interface FramescaperVideoExportFinishingRequestFinishing extends FileSiz
 }
 
 export interface FramescaperVideoExportFinishingAssetsFinishing {
-	readonly analyses: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
+	readonly analyses: ReadonlyMap<string, VideoMotionAnalysisBodyV1>;
 	readonly luts: ReadonlyMap<string, ParsedCubeLutV1>;
 }
 
@@ -224,7 +225,7 @@ export async function loadFramescaperVideoExportFinishingAssetsFinishing(
 		assertLutReference(reference, parsed);
 		luts.set(reference.sha256, parsed);
 	}
-	const analyses = new Map<string, Uint8Array<ArrayBuffer>>();
+	const analyses = new Map<string, VideoMotionAnalysisBodyV1>();
 	const sourceValues = (request.project as unknown as Readonly<Record<string, unknown>>).sources;
 	if (!Array.isArray(sourceValues)) throw new TypeError('Selected finishing finishing sources are unavailable.');
 	const sourceById = new Map(sourceValues.map((sourceValue) => {
@@ -235,11 +236,11 @@ export async function loadFramescaperVideoExportFinishingAssetsFinishing(
 		const bytes = await loadAsset(request, reference);
 		const stack = stackById.get(reference.processorStackId)!;
 		const source = sourceById.get(reference.sourceId) as Readonly<{ contentSha256?: unknown }> | undefined;
-		requireVideoMotionAnalysisBodyV1(reference, bytes, {
+		const analysis = requireVideoMotionAnalysisBodyV1(reference, bytes, {
 			inputSha256: source?.contentSha256 as string,
 			processorStack: stack,
 		});
-		analyses.set(reference.id, bytes);
+		analyses.set(reference.id, analysis);
 	}
 	return Object.freeze({ analyses, luts });
 }

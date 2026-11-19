@@ -125,17 +125,8 @@ export function useTimelineAnnotationInteractions({
 		});
 	};
 	const moveTo = (annotation, requestedFrame) => {
-		if (blocked) return;
-		run(() => {
-			const frame = integerFrame(requestedFrame);
-			const deltaFrames = frame - annotation.timelineStartFrame;
-			if (!deltaFrames) return null;
-			const result = actions.move(selectedEditIds(annotation.id), deltaFrames, annotation.id);
-			setStatus(message('timelineAnnotationMoved', {
-				name: annotation.name || { key: 'unnamedTimelineAnnotation' }, frames: deltaFrames,
-			}));
-			return result;
-		});
+		const bounds = timelineAnnotationEditBounds(annotation.id, model.selectedIds, projected);
+		return moveBy(annotation, bounds, integerFrame(requestedFrame) - annotation.timelineStartFrame);
 	};
 	const resizeTo = (annotation, edge, requestedFrame) => {
 		if (blocked) return;
@@ -153,11 +144,11 @@ export function useTimelineAnnotationInteractions({
 		});
 	};
 	const moveBy = (annotation, bounds, deltaFrames) => {
-		if (blocked || !deltaFrames) return;
-		run(() => {
+		if (blocked || !deltaFrames) return false;
+		return run(() => {
 			const ids = new Set(bounds.ids);
 			const move = planTimelineAnnotationMove(project, projected.filter(value => ids.has(value.id)), annotation.id, deltaFrames);
-			if (!move.deltaFrames) return null;
+			if (!move.deltaFrames) return false;
 			const result = actions.move(bounds.ids, move.deltaFrames, annotation.id);
 			setStatus(message('timelineAnnotationMoved', {
 				name: annotation.name || { key: 'unnamedTimelineAnnotation' }, frames: move.deltaFrames,

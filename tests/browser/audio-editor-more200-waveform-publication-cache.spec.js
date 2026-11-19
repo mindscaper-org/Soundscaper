@@ -9,7 +9,9 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../../src/
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const operation of ['tone', 'nyquist', 'invert', 'encoded import', 'camera import']) test(`${operation} retains committed audio after a waveform-cache write failure`, async ({ page }) => {
+// Generated PCM/history/cache/archive permutations use the actual Tone and Nyquist owners in Node.
+// Keep native timeline rendering and native Opus/camera decode here.
+for (const operation of ['invert', 'encoded import', 'camera import']) test(`${operation} retains committed audio after a waveform-cache write failure`, async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: crypto.randomUUID() });
 	const source = createAudioSource({ id: 'original', name: 'Original.wav', frameCount: 24_000, sampleRate: 48_000, channelCount: 1 });
 	const project = createSoundscaperProject({ id: `waveform-publication-${operation}`, masterChannels: 1, ...(operation === 'invert' ? {
@@ -39,20 +41,7 @@ for (const operation of ['tone', 'nyquist', 'invert', 'encoded import', 'camera 
 	await expect(editor).toHaveAttribute('data-project-id', project.id); await waitForProjectActivation(editor);
 	const original = operation === 'invert' ? await exportSamples(page, editor) : null;
 	await page.evaluate(() => { globalThis.__waveformCacheFault.enabled = true; });
-	if (operation === 'tone') {
-		await chooseCommandAction(page, editor, 'Generate', 'Tone');
-		const dialog = page.getByRole('dialog', { name: 'Tone', exact: true });
-		await dialog.locator('[data-generator-field="durationSeconds"] .timecode-digit').first().click();
-		await page.keyboard.type('000000500'); await page.keyboard.press('Enter');
-		await dialog.getByRole('button', { name: 'Generate', exact: true }).click(); await expect(dialog).toBeHidden();
-	} else if (operation === 'nyquist') {
-		await chooseCommandAction(page, editor, 'Tools', 'Nyquist prompt');
-		const dialog = page.getByRole('dialog', { name: 'Nyquist prompt', exact: true });
-		await dialog.getByRole('textbox', { name: 'Nyquist source', exact: true }).fill('(scale .25 (osc 60 .5))');
-		await dialog.getByRole('button', { name: 'Run', exact: true }).click();
-		await expect(editor).toHaveAttribute('data-clip-count', '1');
-		await dialog.getByRole('button', { name: 'Close', exact: true }).click();
-	} else if (operation === 'invert') {
+	if (operation === 'invert') {
 		await chooseCommandAction(page, editor, 'Select', 'Select all');
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Special', 'Invert']);
 		await expect(editor.locator('[data-status]')).toHaveText('Applied the Audacity effect.');

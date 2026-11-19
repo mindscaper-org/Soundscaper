@@ -37,6 +37,8 @@ export interface SelectionToolbarProps {
    * @default 'Click and drag to select audio'
    */
   instructionText?: string;
+  /** Dim the status and info slots while the host window is in the background. */
+  backgrounded?: boolean;
   /**
    * Timecode format to display for selection start/end
    * @default 'hh:mm:ss+milliseconds'
@@ -112,6 +114,7 @@ export function SelectionToolbar({
   disabled = false,
   status = 'Stopped',
   instructionText = 'Click and drag to select audio',
+  backgrounded = false,
   format = 'hh:mm:ss+milliseconds',
   durationFormat = 'hh:mm:ss+milliseconds',
   durationMusicalMap,
@@ -166,6 +169,7 @@ export function SelectionToolbar({
     <div
       ref={toolbarRef}
       className={`selection-toolbar ${className}`}
+      data-backgrounded={backgrounded || undefined}
       style={style}
       role={containerProps.role}
       aria-label={containerProps['aria-label']}
@@ -179,7 +183,7 @@ export function SelectionToolbar({
         </div>
         <div className="selection-toolbar__divider" />
         <div className="selection-toolbar__instruction">
-          <span className="selection-toolbar__instruction-text">{instructionText}</span>
+          <span className="selection-toolbar__instruction-text" title={instructionText}>{instructionText}</span>
         </div>
       </div>
 

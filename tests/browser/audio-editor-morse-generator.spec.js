@@ -13,7 +13,7 @@ test.describe('audio editor Morse code generator', () => {
 
 	test('encodes a message, previews it and keys it onto the timeline', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Generate', 'Morse code');
 		const dialog = page.getByRole('dialog', { name: 'Morse code', exact: true });
 		const encoding = dialog.locator('.kw-audio-editor-generator__morse-code');
@@ -38,7 +38,7 @@ test.describe('audio editor Morse code generator', () => {
 	});
 
 	test('refuses to send a message Morse code has no signal for', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Generate', 'Morse code');
 		const dialog = page.getByRole('dialog', { name: 'Morse code', exact: true });
 		const generate = dialog.getByRole('button', { name: 'Generate', exact: true });
@@ -54,7 +54,7 @@ test.describe('audio editor Morse code generator', () => {
 	});
 
 	test('one rapid double activation creates only one generated clip', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseCommandAction(page, editor, 'Generate', 'Morse code');
 		const dialog = page.getByRole('dialog', { name: 'Morse code', exact: true });
 		await dialog.getByRole('button', { name: 'Generate', exact: true }).evaluate((button) => {

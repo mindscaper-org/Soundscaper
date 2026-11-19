@@ -149,7 +149,7 @@ test('the privacy route names the launch after the product while the document ti
 
 	applyDocumentRoute({ ...route('soundscaper'), privacyPolicy: true });
 
-	assert.equal(document.title, 'Privacy policy · Soundscaper');
+	assert.equal(document.title, 'Privacy & Code signing policy · Soundscaper');
 	assert.deepEqual(installTitles(document), [
 		{ name: 'apple-mobile-web-app-title', content: 'Soundscaper', 'data-product-install-title': '' },
 	]);

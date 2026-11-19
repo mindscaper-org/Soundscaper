@@ -1,0 +1,27 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+export const DIALOGUE_ALIGNMENT_COPY = Object.freeze({
+	dialogueAlignmentTitle: 'Align dialogue',
+	dialogueAlignmentInstructions: 'Choose two recordings of the same line, each 0.25–30 seconds long. Match a replacement performance to the timing of a reference. Short phrases with clear speech work best.',
+	dialogueAlignmentPreservation: 'Creates an aligned copy on a new track. Both original clips remain intact. Clip processing is included; track and master processing are excluded.',
+	dialogueAlignmentReference: 'Reference clip',
+	dialogueAlignmentReplacement: 'Replacement clip',
+	dialogueAlignmentStrength: 'Alignment strength (%)',
+	dialogueAlignmentStrengthHint: 'Higher values follow the reference more closely. Lower values keep more of the replacement’s delivery. All settings fit the reference duration and preserve pitch.',
+	dialogueAlignmentAnalyze: 'Analyze and align',
+	dialogueAlignmentApply: 'Create aligned copy',
+	dialogueAlignmentAligned: 'Aligned dialogue',
+	dialogueAlignmentPreviewReference: 'Play reference',
+	dialogueAlignmentPreviewReplacement: 'Play replacement',
+	dialogueAlignmentPreviewAligned: 'Play aligned',
+	dialogueAlignmentStop: 'Stop preview',
+	dialogueAlignmentReady: 'Alignment is ready. Listen to the result before creating the copy.',
+	dialogueAlignmentUncertain: 'The acoustic match is uncertain. Check word timing, consonants, and breaths in the preview before accepting.',
+	dialogueAlignmentWorking: 'Analyzing and aligning dialogue',
+	dialogueAlignmentBlocked: 'Finish the current operation before aligning dialogue.',
+	dialogueAlignmentSelection: 'Choose two different, unlocked mono or stereo audio clips, each 0.25–30 seconds long. Unfreeze tracks and unlink video before aligning dialogue. Beat-anchored clips must first be rendered to audio.',
+	dialogueAlignmentDurations: 'The recordings must be similar in length: the replacement can be between half and twice the reference duration.',
+	dialogueAlignmentNoMatch: 'No reliable alignment was found within the stretch limits. Choose shorter takes of the same words with clearer speech.',
+	dialogueAlignmentFailed: 'The dialogue alignment result is invalid. Try shorter clips.',
+	dialogueAlignmentStale: 'The project or alignment settings changed. Analyze the dialogue again.',
+});

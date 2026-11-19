@@ -49,16 +49,26 @@ export function midiBeatsPerMeasure(signature?: Readonly<{ numerator?: number; d
 	return (signature?.numerator ?? 4) * 4 / (signature?.denominator ?? 4);
 }
 
-export function midiPanelSelection(project: MidiPanelProject | null, trackId: string | null, clipId: string | null) {
+export function midiPanelSelection(project: Pick<MidiPanelProject, 'tracks' | 'clips'> | null, trackId: string | null, clipId: string | null) {
 	if (!project) return null;
-	const selectedClip = project.clips.find((clip) => clip.id === clipId && readMidiClip(clip));
-	const track = project.tracks.find((entry) => readMidiTrack(entry) && (selectedClip
-		? entry.type === 'audio' && entry.clipIds.includes(selectedClip.id)
+	const selected = firstMidiPanelClip(project.clips, clip => clip.id === clipId);
+	const track = project.tracks.find((entry) => readMidiTrack(entry) && (selected
+		? entry.type === 'audio' && entry.clipIds.includes(selected.clip.id)
 		: entry.id === trackId)) ?? (!trackId && !clipId ? project.tracks.find((entry) => readMidiTrack(entry)) : null);
 	if (track?.type !== 'audio') return null;
-	const clip = selectedClip ?? project.clips.find((entry) => track.clipIds.includes(entry.id) && readMidiClip(entry));
-	if (clip?.kind !== 'audio') return null;
-	return { track: track as EditorAudioTrack, clip };
+	if (selected) return { track: track as EditorAudioTrack, ...selected };
+	const clipIds = track.clipIds.length > 32 ? new Set(track.clipIds) : null;
+	const fallback = firstMidiPanelClip(project.clips, clip => clipIds ? clipIds.has(clip.id) : track.clipIds.includes(clip.id));
+	return fallback ? { track: track as EditorAudioTrack, ...fallback } : null;
+}
+
+function firstMidiPanelClip(clips: MidiPanelProject['clips'], matches: (clip: MidiPanelProject['clips'][number]) => boolean) {
+	for (const clip of clips) {
+		if (!matches(clip)) continue;
+		const midi = readMidiClip(clip);
+		if (midi && clip.kind === 'audio') return { clip, notes: midi.notes };
+	}
+	return null;
 }
 
 export function designSystemMidiClip(

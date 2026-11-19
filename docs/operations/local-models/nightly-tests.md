@@ -18,6 +18,15 @@ phases and the real-model phase use one worker. Existing serial groups stay
 serial. The graphics phase requires hardware WebGL2 and records the renderer;
 a software renderer fails its hardware probe. Only Chromium is bundled.
 
+The real-model phase also runs twelve streaming-denoising regressions: mono and
+stereo at 44.1, 48 and 96 kHz in both packaged editors. They install DPDFNet2 with
+the production model manager, load the shipped AudioWorklet, and require real
+WebGPU utility-process inference to sustain output during a 500 ms renderer UI
+stall. These replace the former Linux-only four-path opt-in harness. No separate
+runtime/model environment variables are needed. The per-test
+`denoising-ports.json` attachment records the package, provider, hop timings and
+output checks.
+
 In the attended nightly runner, open **Test suite** and choose **Pause** to stop
 starting tests and cancel active workers in any of its five phases. The window
 shows **Pausing tests…** while workers shut down, then **Tests paused**. Choose
@@ -247,10 +256,30 @@ different commit or package therefore cannot satisfy the case.
 
 The diagnostic host automatically accepts its native local-assistance consent
 dialog. This is the consent test double; model downloads, model bytes, IPC, and
-inference results are real. It does not replace the existing browser UI tests
-for menus, settings, consent, progress, review, and applying results. The test
-host is packaged only in the nightly diagnostic launcher. The shipping editors'
-consent behavior and security settings are unchanged.
+inference results are real. The test host is packaged only in the nightly
+diagnostic launcher. The shipping editors' consent behavior and security
+settings are unchanged.
+
+`editor-workflows.spec.js` additionally boots the selected package's production
+main, preload, renderer, native services, and project library. It exercises all
+14 guided recipes and 16 Advanced recipes through the existing menus, including
+real transcript prerequisites and multi-stage indexing, reframe, highlights,
+and editorial generation. These cases preserve the separate primitive output
+quality checks. Source media includes mixed sample rates and two-second mono
+and stereo clips. Workflow progress, exact package identity, and measured GPU
+receipts accompany each successful run. Project edits must survive undo, redo,
+and reopen; indexed search must work before and after reopening the project.
+`editor-speech.spec.js` exercises actual preview playback, insertion, retained
+scripts, regeneration, undo, and reopen with Kokoro. Soundscaper runs editorial
+generation as well as its audio and text operations.
+Editorial acknowledgement must leave canonical state unchanged, including
+after reopening; generated prose stays transient.
+
+The editor host uses a disposable application-data directory and the selected
+product's authenticated ASAR and resources. It synchronously loads production
+main before Electron readiness, preserving production protocol and sandbox
+registration. Only the diagnostic launcher's native consent dialog is automated;
+it does not inject a replacement renderer bridge or model result.
 
 Decoded audio must remain finite, retain its geometry, contain changed PCM
 samples, and exceed the silence threshold. Transcripts and OCR must contain
@@ -272,6 +301,11 @@ required models for the target platform. The report names that model and target.
 On a catalog-supported platform, unavailable runtimes, failed downloads,
 insufficient resources, adapter errors, empty results, and inference failures
 **fail the case**. They are not converted to skips or successful stub results.
+The video menu cases are Framescaper-only. Make Highlights additionally uses
+the optional external FFmpeg shot detector: that editor case reports an explicit
+skip when the production preference service has no admitted compatible FFmpeg.
+It never silently installs a system executable. Other required model or workflow
+failures remain failures.
 
 ## Reports and model documentation
 

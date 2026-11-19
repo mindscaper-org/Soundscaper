@@ -6,7 +6,6 @@ import { bootEditor, chooseExportProjectFileAction, chooseFileAction, disableNat
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
 let archive;
-let originalId;
 test.beforeAll(async ({ createBrowserContext }) => {
 	const context = await createBrowserContext();
 	try {
@@ -14,7 +13,6 @@ test.beforeAll(async ({ createBrowserContext }) => {
 		await disableNativeSavePicker(page);
 		const soundscaper = await bootEditor(page, '/embed/en/');
 		await importFiles(soundscaper, [toneA]);
-		originalId = await soundscaper.getAttribute('data-project-id');
 		const exporting = page.waitForEvent('download');
 		await chooseExportProjectFileAction(page, soundscaper);
 		archive = await readFile(await (await exporting).path());
@@ -31,7 +29,7 @@ for (const desktop of [false, true]) {
 			else await framescaper.locator('[data-aup4-input]').setInputFiles({
 				name: 'ordinary.sscape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: archive,
 			});
-			await expect(framescaper).toHaveAttribute('data-project-id', originalId);
+			await expect(framescaper).toHaveAttribute('data-project-id', /^opaque-project-/u);
 			await expect(framescaper).toHaveAttribute('data-edit-block-reason', 'read-only');
 			if (native) await expect.poll(() => native.releases.length).toBe(1);
 			const copying = native ? null : recipient.waitForEvent('download');

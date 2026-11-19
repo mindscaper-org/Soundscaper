@@ -7,7 +7,9 @@ import { parseScapeProjectDocument } from '../../src/common/editor/scape-project
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { parseXmlDocument, DAWPROJECT_XML_LIMITS, walkXml } from '../../src/common/editor/dawproject-xml.ts';
 
-for (const named of [true, false]) test(`DAWproject File Open preserves ${named ? 'the authored Audio media label' : 'the ordinary filename fallback'}`, async ({ page }) => {
+// Node covers labels, filename fallbacks and exact PCM through both archive formats.
+const named = true;
+test(`DAWproject File Open preserves ${named ? 'the authored Audio media label' : 'the ordinary filename fallback'}`, async ({ page }) => {
 	test.setTimeout(60_000);
 	const expected = named ? 'Room microphone' : 'encoded.wav';
 	const audio = new Blob([encodeWav([new Float32Array(4800).fill(.25)], { sampleRate: 48_000, float: true })]);

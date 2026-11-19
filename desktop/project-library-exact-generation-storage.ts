@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync, unlinkSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
+import { setImmediate } from 'node:timers/promises';
 
 import {
 	framescaperDesktopProjectLibraryExactGenerationMetadataRevision as metadataRevision,
@@ -19,6 +20,7 @@ import type {
 import type { ExactGenerationProject } from './project-library-exact-generation-body-configuration.ts';
 import type { FramescaperDesktopProjectLibraryExactGenerationConfiguration } from './project-library-exact-generation-main.ts';
 import { assertDesktopExpectedProjectDocument, DesktopProjectWriteFenceConflict } from './project-library-write-fence.ts';
+import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 import {
 	concatenateFramescaperDesktopProjectLibraryChunks as concatenate,
 	framescaperDesktopProjectLibraryClosedRecord as closedRecord,
@@ -35,6 +37,8 @@ const EXPECTED_FIELDS = ['projectRevision', 'projectSha256'] as const;
 const BODY_FIELDS = ['kind', 'encoding', 'sourceId', 'storageKey', 'mimeType', 'byteLength', 'sha256'] as const;
 const PROXY_BODY_FIELDS = ['kind', 'encoding', 'bindingId', 'sourceId', 'storageKey', 'mimeType', 'byteLength', 'sha256'] as const;
 const MAXIMUM_BODIES = 4_094;
+const DELETED_FILE_BATCH = 64;
+const activeDocumentReads = new WeakMap<DatabaseSync, Map<string, number>>();
 
 interface FramescaperDesktopExactProjectRow {
 	readonly id: string;
@@ -54,6 +58,7 @@ export interface FramescaperDesktopExactBodyDescriptor {
 		| 'video-original' | 'video-proxy' | 'video-timing'
 		| 'framescaper-still' | 'framescaper-freeze-render'
 		| 'framescaper-cube-lut' | 'framescaper-motion-analysis'
+		| 'framescaper-image-asset'
 		| 'image-sequence-inventory' | 'image-sequence-source-pack'
 		| 'assistance-transcript' | 'assistance-tts-script';
 	readonly encoding: string;
@@ -90,6 +95,8 @@ export interface FramescaperDesktopExactStoredProjectRow {
 	readonly bodies_json: unknown;
 }
 
+type StoredDocumentRow = Pick<FramescaperDesktopExactStoredProjectRow, 'project_revision' | 'sha256' | 'document_file'>;
+
 export function readFramescaperDesktopExactProjectRow(database: DatabaseSync, projectId: string): FramescaperDesktopExactStoredProjectRow | null {
 	return (database.prepare(`
 		SELECT entry_id, project_id, title, updated_at_ms, project_revision,
@@ -104,10 +111,10 @@ export async function readFramescaperDesktopExactProjectBundle(
 	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
 	row: FramescaperDesktopExactStoredProjectRow,
 	configuredBodies: (configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
-		project: unknown, projectSha256: string, value: unknown) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[],
+		project: unknown, projectSha256: string, value: unknown, stored: boolean) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[],
 ): Promise<unknown> {
 	const project = framescaperDesktopExactProjectRow(row, configuration.schemaFamily ?? 'framescaper', configuration.schemaVersion);
-	const document = await readFile(join(paths.projectsRoot, text(row.document_file, 'document file')), 'utf8');
+	const document = await readCataloguedDocument(database, paths.projectsRoot, project.metadataFile);
 	if (new TextEncoder().encode(document).byteLength !== project.byteLength || sha256(document) !== project.sha256) {
 		throw new Error(`${configuration.label} project document failed integrity validation`);
 	}
@@ -115,8 +122,146 @@ export async function readFramescaperDesktopExactProjectBundle(
 	configuration.validateProject(parsed);
 	return Object.freeze({
 		metadataRevision: metadataRevision(database), project, document,
-		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown),
+		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown, true),
 	});
+}
+
+async function readCataloguedDocument(database: DatabaseSync, root: string, file: string): Promise<string> {
+	let reads = activeDocumentReads.get(database);
+	if (!reads) {
+		reads = new Map();
+		activeDocumentReads.set(database, reads);
+	}
+	reads.set(file, (reads.get(file) ?? 0) + 1);
+	try { return await readFile(join(root, file), 'utf8'); }
+	finally {
+		const remaining = reads.get(file)! - 1;
+		if (remaining) reads.set(file, remaining);
+		else reads.delete(file);
+	}
+}
+
+export function deleteFramescaperDesktopExactProject(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	lifecycle: FramescaperDesktopProjectLibraryExactGenerationLifecycle | null,
+	value: unknown,
+) {
+	const request = value as Record<string, unknown>;
+	const projectId = text(request?.projectId, 'project id');
+	const revision = nonNegative(request?.expectedMetadataRevision, 'metadata revision');
+	const expected = framescaperDesktopExactStoredExpectedProject(request?.expectedProject, configuration.label);
+	withProjectLibraryImmediateTransaction(database, () => {
+		lifecycle?.assertLeaseInTransaction(database);
+		if (revision !== metadataRevision(database)) throw new Error(`${configuration.label} metadata CAS failed`);
+		const row = readFramescaperDesktopExactProjectRow(database, projectId);
+		assertFramescaperDesktopExactExpectedProject(row, expected, configuration.label);
+		if (row && lifecycle) {
+			const insert = database.prepare('INSERT OR IGNORE INTO deleted_project_files (root, file) VALUES (?, ?)');
+			insert.run('document', retiredDocumentFile(projectId, row, configuration.label));
+			for (const file of storedBodyFiles(configuration, paths, row.bodies_json)) insert.run('body', file);
+		}
+		database.prepare('DELETE FROM projects WHERE project_id = ?').run(projectId);
+		setMetadataRevision(database, revision + 1, configuration.label);
+	}, { rollbackWhenInactive: true });
+	return Object.freeze({ projectId, metadataRevision: revision + 1, deleted: true });
+}
+
+function retiredDocumentFile(projectId: string, row: StoredDocumentRow, label: string): string {
+	const entry = sha256(projectId).slice(0, 48);
+	const file = `${entry}/${nonNegative(row.project_revision, 'project revision')}-${digest(row.sha256, 'document')}.json`;
+	if (row.document_file !== file) throw new Error(`${label} retired document path changed`);
+	return file;
+}
+
+/** Retry exact committed file retirements in short batches while the writer owns the library. */
+export async function reclaimDeletedFramescaperDesktopProjectFiles(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	lifecycle: FramescaperDesktopProjectLibraryExactGenerationLifecycle | null,
+): Promise<void> {
+	if (!lifecycle) return;
+	const upper = nonNegative(database.prepare('SELECT coalesce(max(id), 0) AS id FROM deleted_project_files').get()?.id, 'deleted file id');
+	let cursor = 0;
+	let referencedRevision = -1;
+	let referenced: ReadonlySet<string> = new Set();
+	while (cursor < upper) {
+		withProjectLibraryImmediateTransaction(database, () => {
+			lifecycle.assertLeaseInTransaction(database);
+			if (database.prepare('SELECT 1 FROM publication_journal LIMIT 1').get()) { cursor = upper; return; }
+			const batch = database.prepare('SELECT id, root, file FROM deleted_project_files WHERE id > ? AND id <= ? ORDER BY id LIMIT ?')
+				.all(cursor, upper, DELETED_FILE_BATCH);
+			if (batch.length === 0) { cursor = upper; return; }
+			const revision = metadataRevision(database);
+			if (revision !== referencedRevision) {
+				referenced = referencedDeletionFiles(configuration, database, paths, cursor, upper);
+				referencedRevision = revision;
+			}
+			const remove = database.prepare('DELETE FROM deleted_project_files WHERE id = ?');
+			for (const row of batch) {
+				cursor = nonNegative(row.id, 'deleted file id');
+				const root = text(row.root, 'deleted file root');
+				const file = text(row.file, 'deleted file name');
+				if (root === 'document' && activeDocumentReads.get(database)?.has(file)) continue;
+				if (referenced.has(`${root}:${file}`) || removeDeletedFile(paths, root, file)) remove.run(cursor);
+			}
+		}, { rollbackWhenInactive: true });
+		if (cursor < upper) await setImmediate();
+	}
+}
+
+function referencedDeletionFiles(
+	configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	database: DatabaseSync,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
+	cursor: number,
+	upper: number,
+): Set<string> {
+	const candidates = new Set<string>();
+	let includeBodies = false;
+	for (const row of database.prepare('SELECT root, file FROM deleted_project_files WHERE id > ? AND id <= ?').iterate(cursor, upper)) {
+		const root = text(row.root, 'deleted file root');
+		candidates.add(`${root}:${text(row.file, 'deleted file name')}`);
+		includeBodies ||= root === 'body';
+	}
+	const referenced = new Set<string>();
+	const fields = includeBodies ? 'document_file, bodies_json' : 'document_file';
+	for (const row of database.prepare(`SELECT ${fields} FROM projects`).iterate()) {
+		const document = `document:${text(row.document_file, 'document file')}`;
+		if (candidates.has(document)) referenced.add(document);
+		if (includeBodies) for (const file of storedBodyFiles(configuration, paths, row.bodies_json)) {
+			const body = `body:${file}`;
+			if (candidates.has(body)) referenced.add(body);
+		}
+	}
+	return referenced;
+}
+
+function storedBodyFiles(configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
+	paths: Readonly<FramescaperDesktopProjectLibraryPaths>, inventory: unknown): readonly string[] {
+	return parseFramescaperDesktopExactBodies(inventory, configuration.label,
+		configuration.validateBodyDescriptor ?? validateFramescaperDesktopExactBody, configuration.maximumBodies)
+		.map(body => relative(paths.managedMediaRoot, framescaperDesktopExactMediaPath(paths, body)).split(sep).join('/'));
+}
+
+function removeDeletedFile(paths: Readonly<FramescaperDesktopProjectLibraryPaths>, root: string, file: string): boolean {
+	const document = root === 'document';
+	if (!document && root !== 'body') return false;
+	const parts = file.split('/');
+	const name = parts.pop();
+	if (!name || parts.length !== (document ? 1 : 2) || [...parts, name].some(part => !/^[a-z0-9][a-z0-9.-]*$/u.test(part))) return false;
+	let directory = document ? paths.projectsRoot : paths.managedMediaRoot;
+	try {
+		if (!lstatSync(directory).isDirectory()) return false;
+		for (const part of parts) {
+			directory = join(directory, part);
+			if (!lstatSync(directory).isDirectory()) return false;
+		}
+		unlinkSync(join(directory, name));
+		return true;
+	} catch (error) { return (error as NodeJS.ErrnoException).code === 'ENOENT'; }
 }
 
 export async function persistFramescaperDesktopExactPublication(
@@ -191,15 +336,19 @@ export async function persistFramescaperDesktopExactPublication(
 		try {
 			assertCurrent();
 			lifecycle?.assertCanCommit(database, declaration);
+			const previous = database.prepare('SELECT project_revision, sha256, document_file FROM projects WHERE project_id = ?')
+				.get(declaration.projectId) as StoredDocumentRow | undefined;
 			if (publication.expectedDocument !== null) {
-				const row = database.prepare(`SELECT project_revision, sha256, document_file FROM projects WHERE project_id = ?`)
-					.get(String(publication.project.id)) as FramescaperDesktopExactStoredProjectRow | undefined;
-				try { assertFramescaperDesktopExactExpectedProject(row ?? null, publication.expectedProject, configuration.label); }
+				try { assertFramescaperDesktopExactExpectedProject(previous ?? null, publication.expectedProject, configuration.label); }
 				catch { throw new DesktopProjectWriteFenceConflict(); }
-				assertFramescaperDesktopExactCurrentDocument(paths, row!, publication.expectedDocument);
+				assertFramescaperDesktopExactCurrentDocument(paths, previous ?? null, publication.expectedDocument);
 			}
 			if (metadataRevision(database) !== publication.expectedMetadataRevision) {
 				throw new Error(`${configuration.label} metadata changed before publication`);
+			}
+			if (previous && lifecycle) {
+				database.prepare('INSERT OR IGNORE INTO deleted_project_files (root, file) VALUES (?, ?)')
+					.run('document', retiredDocumentFile(declaration.projectId, previous, configuration.label));
 			}
 			database.prepare(`
 				INSERT INTO projects (
@@ -234,6 +383,7 @@ export async function persistFramescaperDesktopExactPublication(
 		});
 		await lifecycle?.publicationCommitted(declaration, result);
 		await lifecycle?.publicationComplete(declaration);
+		await reclaimDeletedFramescaperDesktopProjectFiles(configuration, database, paths, lifecycle).catch(() => undefined);
 		return result;
 	} catch (error) {
 		await rm(temporaryDocument, { force: true }).catch(() => undefined);
@@ -310,12 +460,15 @@ export function framescaperDesktopExactMediaPath(
 				: body.kind === 'framescaper-cube-lut' ? '.cube'
 					: body.kind === 'framescaper-motion-analysis' ? '.json'
 						: body.kind === 'image-sequence-inventory' ? '.inventory.json'
-							: body.kind === 'image-sequence-source-pack' ? '.sequence-pack' : '.image';
-	return join(paths.managedMediaRoot, body.kind, body.sha256.slice(0, 2), `${body.sha256}${extension}`);
+							: body.kind === 'image-sequence-source-pack' ? '.sequence-pack'
+								: body.kind === 'framescaper-image-asset' ? '.frame-pack' : '.image';
+	// Timeline-image keys identify distinct sources even when their frame packs match.
+	const stem = body.kind === 'framescaper-image-asset' ? `${sha256(body.storageKey)}-${body.sha256}` : body.sha256;
+	return join(paths.managedMediaRoot, body.kind, body.sha256.slice(0, 2), `${stem}${extension}`);
 }
 
 export function assertFramescaperDesktopExactExpectedProject(
-	row: FramescaperDesktopExactStoredProjectRow | null,
+	row: StoredDocumentRow | null,
 	expected: Readonly<{ projectRevision: number; projectSha256: string }> | null,
 	label: string,
 ): void {
@@ -330,7 +483,7 @@ export function assertFramescaperDesktopExactExpectedProject(
 
 export function assertFramescaperDesktopExactCurrentDocument(
 	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
-	row: FramescaperDesktopExactStoredProjectRow | null,
+	row: StoredDocumentRow | null,
 	expected: unknown,
 ): void {
 	if (!row) throw new DesktopProjectWriteFenceConflict();

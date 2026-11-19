@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 import { publishedCopyFor } from '../../shared/presentation-localization.ts';
 import { createAddSourceCommand, createAddTrackCommand } from '../../../commands/factories.ts';
 import { hasProjectBinMediaAuthority } from '../../../project-schema-version.ts';
@@ -11,7 +12,7 @@ import type { ClipboardEditProject, ClipboardEditMediaTrack, ClipboardEditTrack,
 /** Shared placement/source preparation carries no recipe-version authority. */
 export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, selectedTrackId: string | null,
 	clipboardTracks: readonly AudioEditorClipboardTrack[], sources: readonly ClipboardEditSource[], hasCarrier: boolean,
-	createId: (prefix?: string) => string, copy: Readonly<{ track: string }>) {
+	createId: (prefix?: string) => string, copy: Readonly<{ track: string }>, rippleTrackIds?: readonly string[]) {
 	const trackMap = Object.create(null) as Record<string, string>;
 	const productImageIds = new Set(hasCarrier ? sources.filter(source => source.kind === 'image').map(source => source.id) : []);
 	const commands: AudioEditorCommand[] = missingClipboardSourcesForPaste(
@@ -20,7 +21,8 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 			? { type: 'source/add', source: structuredClone(source) } as AudioEditorCommand
 			: createAddSourceCommand(source));
 	let addedTrackCount = 0;
-	const selected = findMediaTrack(project, selectedTrackId);
+	const tracks = rippleTrackIds ? project.tracks.filter(track => rippleTrackIds.includes(track.id)) : project.tracks;
+	const selected = rippleTrackIds ? tracks.find(isClipboardMediaTrack) ?? null : findMediaTrack(project, selectedTrackId);
 	const sequencePlan = createClipboardPasteSequencePlan(project, selected?.id ?? null, clipboardTracks);
 	/**
 	 * A synthesized paste track joins the folder of the track the paste is
@@ -48,6 +50,9 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 		clipboardTrack: AudioEditorClipboardTrack,
 		laneGroupId: string | null = null,
 	): ClipboardEditMediaTrack => {
+		if (rippleTrackIds) throw createLocalizedError(RangeError, copy, 'folderClipboardTracksRequired', undefined, {
+			fallback: 'The clipboard requires more matching tracks than this folder contains.',
+		});
 		const type = clipboardPasteTrackType(clipboardTrack);
 		if (type === 'video' && !hasProjectBinMediaAuthority(project)) {
 			throw new RangeError('Video clipboard tracks require an AudioEditorProjectV4 project.');
@@ -71,7 +76,7 @@ export function prepareClipboardPasteTrackPlan(project: ClipboardEditProject, se
 		return { id: trackId, type, name: clipboardTrack.sourceTrackName, laneGroupId, clipIds: [] };
 	};
 
-	for (const group of planClipboardPasteTargets(project.tracks, selected?.id ?? null, clipboardTracks, sequencePlan)) {
+	for (const group of planClipboardPasteTargets(tracks, selected?.id ?? null, clipboardTracks, sequencePlan)) {
 		const laneGroupId = group.length === 2 && !group[0]?.target ? createId('media-lanes') : null;
 		for (const { clipboardTrack, target } of group) {
 			trackMap[clipboardTrack.sourceTrackId] = (target ?? createTargetTrack(clipboardTrack, laneGroupId)).id;

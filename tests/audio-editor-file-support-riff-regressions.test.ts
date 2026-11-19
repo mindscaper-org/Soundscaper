@@ -52,6 +52,27 @@ test('WAV region descriptions in ltxt become labels when no labl chunk exists', 
 	assert.equal(parsed[0]?.sampleLength, 32);
 });
 
+test('a blank WAV cue label cannot erase its region description when metadata follows the region', async () => {
+	const cue = createRiffMarkerChunks([{ id: 7, sampleOffset: 8 }]);
+	const description = encoder.encode('Chorus\0');
+	const region = new Uint8Array(20 + description.length);
+	const view = new DataView(region.buffer);
+	view.setUint32(0, 7, true);
+	view.setUint32(4, 32, true);
+	region.set(description, 20);
+	const label = new Uint8Array(5);
+	new DataView(label.buffer).setUint32(0, 7, true);
+	for (const parts of [[chunk('ltxt', region), chunk('labl', label)], [chunk('labl', label), chunk('ltxt', region)]]) {
+		const associated = new Uint8Array(Buffer.concat([Buffer.from('adtl'), ...parts]));
+		const file = new Blob([Uint8Array.from(encodeWav([new Float32Array(64)], {
+			preDataChunks: [cue, chunk('LIST', associated)],
+		}))]);
+		const expected = [{ id: 7, sampleOffset: 8, sampleLength: 32, label: 'Chorus', note: '' }];
+		assert.deepEqual((await inspectWavBlobPcm(file)).markers, expected);
+		assert.deepEqual((await scanEncodedAudioMarkers(file))?.markers, expected);
+	}
+});
+
 test('WAV INFO exports the album for players that read RIFF tags', () => {
 	const info = createRiffInfoChunk({ album: 'Field recordings' });
 	assert.ok(info.length > 0);

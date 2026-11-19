@@ -158,8 +158,8 @@ async function createOrdinaryOggOpusBytes(webm = false, tagged = false, metadata
 		assert.ok(decoderConfig);
 		const target = new BufferTarget();
 		const output = new Output({ format: webm ? new WebMOutputFormat() : new OggOutputFormat(), target });
-		if (metadata) output.setMetadataTags(metadata);
-		else if (tagged) output.setMetadataTags({ title: 'Authored global title', artist: 'Ada — reviewed credit' });
+		output.setMetadataTags({ creationTime: null, ...(metadata
+			?? (tagged ? { title: 'Authored global title', artist: 'Ada — reviewed credit' } : {})) });
 		const source = new EncodedAudioPacketSource('opus');
 		output.addAudioTrack(source);
 		await output.start();

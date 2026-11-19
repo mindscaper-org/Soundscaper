@@ -3,7 +3,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { audioTrackChannelCount } from '../src/common/editor/project-audio-factory.js';
 import { labeledAudioSpanRegions, selectLabeledAudioTargets } from '../src/common/editor/labeled-audio-regions.ts';
 import { createAudioGeneratorService, type AudioGeneratorDocument } from '../src/common/editor/controller/edit/generator-service.ts';
 import { parseSubRipLabels, parseWebVttLabels, serializeSubRipLabels, serializeWebVttLabels } from '../src/common/editor/label-io.js';
@@ -30,7 +29,6 @@ test('an admitted many-track labeled edit reaches storage preflight with the cor
 	const quotaFailure = new Error('Storage quota declined');
 	const estimates: number[] = [];
 	const fixture = createFixture({ getProject: () => project as unknown as AudioGeneratorDocument,
-		trackChannelCount: audioTrackChannelCount,
 		preflightStorage: async bytes => { estimates.push(bytes); throw quotaFailure; },
 	});
 	fixture.dependencies.projectGeneration.activate(project.id);

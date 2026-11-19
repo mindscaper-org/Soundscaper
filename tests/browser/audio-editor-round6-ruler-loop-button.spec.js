@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('opening the loop ruler context menu keeps the authored playback loop and redo history', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Set loop to selection']);

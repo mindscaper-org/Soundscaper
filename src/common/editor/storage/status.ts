@@ -48,6 +48,14 @@ export class EditorStoreVersionStaleError extends Error {
 	}
 }
 
+/** The reset was refused before any project records were changed. */
+export class EditorStoreClearInUseError extends Error {
+	constructor() {
+		super('Another editor session still owns local source history.');
+		this.name = 'EditorStoreClearInUseError';
+	}
+}
+
 export function memoryFallbackReason(error: unknown): string | null {
 	if (!error || typeof error !== 'object') return null;
 	const name = 'name' in error ? String(error.name || '') : '';

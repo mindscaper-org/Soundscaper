@@ -30,7 +30,8 @@ test('privacy-redacted device names remain empty in the domain and receive trans
 test('a real native session device-loss event has localized primary guidance and retains its backend reason as diagnostic detail', async () => {
 	let settings = { host: 'wasapi', recordingSampleRate: 48_000, preferredInputDeviceId: '', preferredOutputDeviceId: '', preferredInputChannelCount: 1 };
 	const controller: SoundscaperAudioHostController = { getSnapshot: () => ({ audioDevices: settings }), subscribe: () => () => undefined,
-		actions: { audioDevices: { setHostInventory: async host => { settings = { ...settings, host }; }, requestAccess: async () => undefined } } };
+		actions: { audioDevices: { setHostInventory: async host => { settings = { ...settings, host }; },
+			setRecordingSampleRate: async recordingSampleRate => { settings = { ...settings, recordingSampleRate }; }, requestAccess: async () => undefined } } };
 	const bridge = { nativeAudioHelperAvailability: async () => ({ enabled: true, quarantined: false, payload: { status: 'available', detail: '' }, backends: ['wasapi'] }),
 		setNativeAudioHelperEnabled: async () => true,
 		describeNativeAudioBackend: async () => ({ status: 'described', inventory: { backend: 'wasapi', status: 'ready', devices: [{ handle: 'input', label: '', direction: 'input', channelCount: 1 }] } }),

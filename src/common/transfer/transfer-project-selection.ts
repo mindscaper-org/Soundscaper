@@ -21,8 +21,31 @@ import type {
 	TransferStoreInventoryRow,
 	TransferStoreRefusal,
 } from './transfer-store-federation.ts';
+import type { TransferExportFailure } from './transfer-archive-stream.ts';
 
 export type TransferProduct = 'soundscaper' | 'framescaper';
+
+/** Account for selected projects that disappear before the exporter's enumeration. */
+export function trackTransferSelection(chosen: readonly TransferProjectOffer[]) {
+	const offered = new Map(chosen.flatMap(offer => offer.storeProjectId === null ? [] : [[
+		offer.schemaFamily === null ? offer.storeProjectId : `${offer.schemaFamily}:${offer.storeProjectId}`,
+		{ projectId: offer.storeProjectId, title: offer.title, code: null,
+			reason: 'This project is no longer available in the local project list. Find your projects again.' },
+	] as const]));
+	const matched = new Set<string>();
+	return {
+		select(project: { readonly id: string }): boolean {
+			const family = transferProjectIdentity(project)?.schemaFamily;
+			const key = family ? `${family}:${project.id}` : project.id;
+			if (!offered.has(key)) return false;
+			matched.add(key);
+			return true;
+		},
+		missing(): readonly TransferExportFailure[] {
+			return [...offered].filter(([key]) => !matched.has(key)).map(([, failure]) => failure);
+		},
+	};
+}
 
 /** The origins whose product identity is known without configuration. */
 const TRANSFER_ORIGIN_PRODUCTS: ReadonlyMap<string, TransferProduct> = new Map([

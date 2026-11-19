@@ -3,6 +3,7 @@
 import type { NormalizedLoop, NormalizedPlayRange, PlanarPcm } from './buffer-math.ts';
 import type { DynamicsAnalysisWindow } from './dynamics-analysis-telemetry.ts';
 import type { EffectSpectrumMetadata } from './effect-rack.ts';
+import type { PlaybackSpectrumSession } from './playback-spectrum.ts';
 import type { ProjectGraphSelection } from './project-graph-selection.ts';
 import type { AudioWarpRenderPathStatus } from '../audio-warp-runtime.ts';
 import type { SessionLoudnessHistorySnapshot } from '../production-audio/loudness-history-session.ts';
@@ -39,6 +40,7 @@ export interface EngineLoadProjectOptions {
 	/** The controller may replace its document while a candidate is still preparing. */
 	readonly isCurrent?: () => boolean;
 	readonly chunkSources?: EngineChunkSourceInput;
+	readonly positionFrame?: number;
 	/**
 	 * Keeps the running loudness measurement — its integrated reading and any manual
 	 * pause — across the load. `applyProject` sets it, because re-applying an edited
@@ -150,7 +152,7 @@ export interface EngineScrubOptions {
 	readonly durationMs?: number;
 }
 
-export type EngineEffectScope = 'track' | 'group' | 'send' | 'master';
+export type EngineEffectScope = 'clip' | 'track' | 'group' | 'send' | 'master';
 
 export interface EngineEffectMessageOptions {
 	readonly revision?: number;
@@ -185,7 +187,8 @@ export interface EngineRenderMixOptions {
 	readonly includeTrackPan?: boolean;
 	readonly respectMuteSolo?: boolean;
 	readonly outputFrames?: number | null;
-	readonly preRollFrames?: number;
+	/** false isolates the range from earlier audio; numbers retain automatic effect history. */
+	readonly preRollFrames?: number | false;
 	readonly signal?: AbortSignal | null;
 	readonly onProgress?: ((progress: EngineProgress) => void) | null;
 }
@@ -242,7 +245,8 @@ export interface EnginePublicApi {
 		data: ArrayBuffer | Blob,
 		options?: Readonly<{ sampleRate?: number | null }>,
 	): Promise<AudioBuffer>;
-	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<EngineAudioContext>;
+	/** Pass null to release the explicit clock and follow the project when the context is idle. */
+	getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number | null }>): Promise<EngineAudioContext>;
 	setOutputDevice(deviceId?: string): Promise<EngineOutputDeviceState>;
 	getOutputDeviceState(): EngineOutputDeviceState;
 	setPlaybackGain(gain: number): number;
@@ -277,7 +281,7 @@ export interface EnginePublicApi {
 	endScrub(): number;
 	setLoop(loopOrEnabled: EngineLoop | boolean, startFrame?: number, endFrame?: number): NormalizedLoop;
 	/** Bound the next run of playback to a range, or clear the bound with null. */
-	setPlayRange(range: Readonly<{ startFrame: number; endFrame: number }> | null): NormalizedPlayRange | null;
+	setPlayRange(range: NormalizedPlayRange | null): NormalizedPlayRange | null;
 	getPositionFrames(): number;
 	getState(): EngineStateSnapshot;
 	commitNativeEffectPdcRevision(request: EngineNativeEffectPdcRevision): EngineNativeEffectPdcCommit;
@@ -285,6 +289,8 @@ export interface EnginePublicApi {
 	subscribeMeters(listener: (meter: EngineMeterSnapshot) => void): () => boolean | void;
 	/** Hold the bounded live spectrum and stereo side taps while an Analysis panel is visible. */
 	acquireLiveAnalysis(): () => void;
+	/** Sample independent live track spectra until the visible plot releases them. */
+	acquirePlaybackSpectrum(): PlaybackSpectrumSession;
 	subscribeState(listener: (state: string) => void): () => boolean | void;
 	subscribePlaybackErrors(listener: (error: unknown) => void): () => boolean | void;
 	subscribeParametricEqErrors(listener: (error: unknown) => void): () => boolean | void;

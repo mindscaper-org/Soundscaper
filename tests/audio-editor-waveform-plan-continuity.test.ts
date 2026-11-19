@@ -88,6 +88,19 @@ test('zooming out preserves the covered part in place without stretching it into
 	assert.deepEqual(Array.from(channel.maximum), Array.from(new Float32Array([0.1, 0.2, 0.3, 0.4, 0, 0, 0, 0])));
 });
 
+test('multichannel retained summaries share column boundaries at the same resolution', context => {
+	const first = plan.channels[0]!;
+	const channels = Array.from({ length: 8 }, () => first);
+	const floor = context.mock.method(Math, 'floor');
+	const result = reprojectPendingWaveform({ ...plan, channels }, clip, 100, 16);
+	assert.ok(result);
+	assert.equal(floor.mock.callCount(), 16);
+	const [left, right] = result.channels;
+	assert.ok(left && 'maximum' in left && right && 'maximum' in right);
+	assert.deepEqual(left.maximum, Float32Array.from({ length: 16 }, (_, column) => column < 8 ? 0.3 : 0.4));
+	assert.notEqual(left.maximum, right.maximum);
+});
+
 test('reprojected frequency colors and bands follow the cropped audio window', async () => {
 	const { reprojectPendingFrequencyWaveform } = await import('../src/common/editor/ui/timeline/frequency-waveform-continuity.ts');
 	const projection = {

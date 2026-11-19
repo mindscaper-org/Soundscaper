@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createHash } from 'node:crypto';
-import { lstat, unlink } from 'node:fs/promises';
+import { lstatSync, unlinkSync } from 'node:fs';
+import { lstat, readdir, unlink } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import { withProjectLibraryImmediateTransaction } from './project-library-immediate-transaction.ts';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
@@ -18,6 +19,11 @@ import {
 	type SoundscaperDesktopLibraryMedia,
 	type SoundscaperDesktopLibraryMetadata,
 } from './soundscaper-project-library-metadata.ts';
+import type { SoundscaperDesktopProjectLibraryLease } from './soundscaper-project-library-persistence-codecs.ts';
+import {
+	assertSoundscaperDesktopProjectLibraryPublicationLease,
+	readSoundscaperDesktopProjectLibraryPendingPublication,
+} from './soundscaper-project-library-publication-persistence.ts';
 import {
 	validateSoundscaperDesktopProjectLibraryTransferBody,
 } from './soundscaper-project-library-transfer-contract.ts';
@@ -30,6 +36,34 @@ export interface SoundscaperDesktopProjectLibraryReclamationResult {
 interface ReclamationRow {
 	readonly relativeFile: string;
 	readonly role: 'project' | 'media';
+}
+
+/** Reclaim a crashed upload's private stages after journal recovery and before session admission. */
+export async function reclaimUnjournaledSoundscaperDesktopPublicationStages(
+	database: DatabaseSync,
+	paths: Readonly<SoundscaperDesktopProjectLibraryPaths>,
+	lease: Readonly<SoundscaperDesktopProjectLibraryLease>,
+): Promise<void> {
+	const directory = resolve(paths.libraryRoot, 'stage');
+	try {
+		if (!(await lstat(paths.libraryRoot)).isDirectory() || !(await lstat(directory)).isDirectory()) return;
+		const entries = await readdir(directory, { withFileTypes: true });
+		const candidates = entries.filter((entry) => entry.isFile() && /^[a-f0-9]{48}-[0-9]{4}\.stage$/u.test(entry.name));
+		if (candidates.length === 0) return;
+		transaction(database, () => {
+			assertSoundscaperDesktopProjectLibraryPublicationLease(database, lease, Date.now());
+			if (readSoundscaperDesktopProjectLibraryPendingPublication(database)) return;
+			// The immediate transaction prevents a new writer from taking over during unlink.
+			if (!lstatSync(paths.libraryRoot).isDirectory() || !lstatSync(directory).isDirectory()) return;
+			for (const { name } of candidates) {
+				const path = resolve(directory, name);
+				try { if (lstatSync(path).isFile()) unlinkSync(path); }
+				catch (error) { if (errorCode(error) !== 'ENOENT') throw error; }
+			}
+		});
+	} catch (error) {
+		if (errorCode(error) !== 'ENOENT') reportReclamationError(error);
+	}
 }
 
 /** Select the media owned by current project revisions, excluding a project being replaced. */

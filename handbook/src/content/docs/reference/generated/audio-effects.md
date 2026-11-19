@@ -16,8 +16,11 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 
 | Effect | Effect ID | Category | Realtime rack | Selection | Notes |
 | --- | --- | --- | --- | --- | --- |
+| AI denoising (DPDFNet2) | `ai-denoise` | Noise and repair | Yes | No | Desktop only; install DPDFNet2 through Model Manager; Mono or stereo; automatically resampled to 48 kHz and back; 85.33 ms compensated latency at 48 kHz; other rates include resampler lookahead; requires a passing device speed probe |
 | Amplify | `audacity-amplify` | Volume and dynamics | No | Yes | — |
 | Auto Duck | `audacity-auto-duck` | Volume and dynamics | Yes | Yes | Needs a control track |
+| Automatic phase correction | `automatic-phase-correction` | Noise and repair | No | Yes | Selection-only fixed stereo timing alignment, from 8 kHz to 384 kHz; Reference channel, duration and levels are preserved; ambiguous or inconsistent offsets remain unchanged; Analyze reports the offset and confidence; Original/Corrected and mono are preview-only controls |
+| Automatic pitch correction | `auto-tune` | Pitch and tempo | Yes | Yes | Solo voice or melody (65–1500 Hz); chromatic, major or natural minor pitch correction; StaffPad formant preservation; fixed rack latency (about 72 ms at 48 kHz), live controls, no timeline automation |
 | Bass and Treble | `audacity-bass-treble` | EQ and filters | Yes | Yes | — |
 | Bitcrusher | `bitcrusher` | Distortion and modulation | Yes | Yes | — |
 | Change Pitch | `audacity-change-pitch` | Pitch and tempo | No | Yes | Uses the StaffPad time and pitch library |
@@ -37,11 +40,13 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Gate | `gate` | Volume and dynamics | Yes | No | — |
 | Graphic EQ | `audacity-graphic-eq` | EQ and filters | Yes | Yes | — |
 | High-pass filter | `highpass-filter` | EQ and filters | Yes | Yes | — |
+| Hum removal | `hum-removal` | Noise and repair | Yes | Yes | Harmonic notch bank with custom fundamental, harmonic count, notch width and reduction; Live controls, zero latency, no timeline automation; selections keep their duration |
 | Invert | `audacity-invert` | Special | Yes | Yes | — |
 | Legacy Compressor | `audacity-legacy-compressor` | Volume and dynamics | No | Yes | — |
 | Limiter | `audacity-limiter` | Volume and dynamics | Yes | Yes | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Volume and dynamics | No | Yes | — |
 | Low-pass filter | `lowpass-filter` | EQ and filters | Yes | Yes | — |
+| Match EQ | `match-eq` | EQ and filters | No | Yes | Selection-only tonal matching with a saved reference or personal voice profile; Each target is analyzed independently; smoothing and bounded boost/cut protect quiet and unsupported frequency bands; Original/Matched preview is level compensated; Edit as Filter Curve EQ opens an editable fixed correction |
 | Multiband compressor | `multiband-compressor` | Volume and dynamics | Yes | Yes | — |
 | Noise Reduction | `audacity-noise-reduction` | Noise and repair | Yes | Yes | Needs a captured noise profile |
 | Noise gate | `noise-gate` | Noise and repair | Yes | Yes | Lookahead opens the gate before transients; rack and selection timing are compensated; Linked or independent channels; optional frequency-selective gating |
@@ -66,6 +71,12 @@ Audio effects are registered by Soundscaper. Effects whose ID begins with `audac
 | Vocoder | `vocoder` | Distortion and modulation | Yes | Yes | Stereo uses the left channel as voice and the right as carrier; mono uses a synthesized carrier; Output keeps the input channel count |
 | Wahwah | `audacity-wahwah` | Distortion and modulation | Yes | Yes | — |
 
+## Hum removal {#hum-removal}
+
+Choose Effect > Noise removal and repair > Hum removal to preview or apply it to selected audio, or add Hum removal to a realtime rack. Set Fundamental frequency to 50 or 60 Hz for mains hum, or a custom value between 20 and 400 Hz. Harmonics includes the fundamental; only notches whose width fits below half the sample rate are used. Notch width is the nominal full-depth notch bandwidth in Hz and stays constant across the harmonic series. Reduction sets the attenuation at each notch center; zero leaves audio unchanged. Use narrow notches and the fewest harmonics that remove the hum to preserve wanted audio.
+
+The same causal filter bank processes selection previews, playback and export with independent channel histories and no added latency. Live parameter changes crossfade over 20 ms without rebuilding the rack; timeline automation is unavailable. Rack playback and export include filter release subject to the existing combined 10-second tail limit. Applying the effect to a selection keeps its duration. The downloadable Nyquist Comb Filter and Hum Remover remain separate selection effects.
+
 ## Regular streaming replacements {#regular-streaming-replacements}
 
 Delay, High-pass filter, Low-pass filter, Noise gate, Notch filter, Shelf filter, Tremolo and Vocoder have regular selection effects and realtime rack processors. Choose them from their Effect menu categories, or open a track’s Effects panel and choose them in its rack. Their core controls are shared across both uses; Delay also offers selection-only speed and duration controls. Existing programmatic Nyquist IDs and user plug-ins remain available, and the bundled scripts retain their pinned source and notices.
@@ -79,6 +90,8 @@ Noise gate applies attack, hold and release with configurable lookahead. By defa
 Vocoder uses 10 to 240 logarithmically spaced bands from 20 Hz to just below half the sample rate, with the same band-width settings as the bundled Nyquist effect. Distance controls an eighth-order envelope low-pass filter: higher values smooth the voice envelope more slowly. In stereo, the left channel supplies the voice envelope and the right channel supplies the carrier. Mono input uses sine carriers at the band centers, mixed with optional white noise and radar pulses. Both channels preserves the voice on the left and puts vocoded audio on the right; Vocoded audio duplicates the processed signal into the first stereo pair. Additional channels pass through unchanged. The processor normalizes against its largest output peak since playback began, with a bounded gain, then applies Output gain. Unlike Nyquist’s whole-selection normalization, this cannot anticipate later peaks, so the beginning may be louder. The output keeps the input channel count. Rack playback and export include its filter and envelope release, subject to the existing combined 10-second tail limit.
 
 ## Why some effects are selection-only
+
+Automatic pitch correction corrects a solo voice or melody instrument in realtime racks or on a selection. Open Effect > Add realtime effects and add Automatic pitch correction to a track or master rack, or open Effect > Distortion and modulation > Automatic pitch correction to preview or apply a selection. Choose a key and scale; Chromatic uses every semitone. Correction amount sets how far notes move toward the scale; Retune speed sets the response time in milliseconds (0 snaps immediately). Mix blends the original and corrected audio. Detection covers 65–1500 Hz and leaves unvoiced windows unshifted. Use isolated vocals or a single melody rather than chords or a full mix. The bundled StaffPad processor preserves formants. Rack controls can change during playback without rebuilding the processor. Timeline automation is unavailable. The fixed processing delay is about 72 ms at 48 kHz, including with zero Mix or Correction amount; playback and export use rack latency compensation. Selection rendering keeps the original duration.
 
 These effects cannot be a realtime insert, because each one needs more of the selection than a live block gives it.
 
@@ -116,6 +129,15 @@ Defaults and limits come from the same definitions the editor validates against,
 | Auto Duck | `audacity-auto-duck` | Outer fade up | 0.5 | 0 to 3 | s |
 | Auto Duck | `audacity-auto-duck` | Threshold | -30 | -100 to 0 | dB |
 | Auto Duck | `audacity-auto-duck` | Maximum pause | 1 | 0 or more | s |
+| Automatic phase correction | `automatic-phase-correction` | Maximum correction (ms) | 5 | 0 to 10 | ms |
+| Automatic phase correction | `automatic-phase-correction` | Minimum confidence (%) | 85 | 50 to 100 | % |
+| Automatic phase correction | `automatic-phase-correction` | Reference channel | Left | Left; Right | — |
+| Automatic pitch correction | `auto-tune` | Correction amount | 100 | 0 to 100 | % |
+| Automatic pitch correction | `auto-tune` | Retune speed | 20 | 0 to 500 | ms |
+| Automatic pitch correction | `auto-tune` | Mix | 100 | 0 to 100 | % |
+| Automatic pitch correction | `auto-tune` | Key | C | C; C♯ / D♭; D; D♯ / E♭; E; F; F♯ / G♭; G; G♯ / A♭; A; A♯ / B♭; B | — |
+| Automatic pitch correction | `auto-tune` | Scale | Chromatic | Chromatic; Major; Natural minor | — |
+| Automatic pitch correction | `auto-tune` | Control Track Id | — | Optional MIDI control track ID; empty uses the selected key and scale | — |
 | Bass and Treble | `audacity-bass-treble` | Bass | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Treble | 0 | -30 to 30 | dB |
 | Bass and Treble | `audacity-bass-treble` | Output volume | 0 | -30 to 30 | dB |
@@ -179,6 +201,10 @@ Defaults and limits come from the same definitions the editor validates against,
 | Graphic EQ | `audacity-graphic-eq` | FIR filter length | 8191 | 21 to 8191 | — |
 | High-pass filter | `highpass-filter` | Cutoff frequency | 1000 | 0.1 to 192000 | Hz |
 | High-pass filter | `highpass-filter` | Rolloff | 6 dB/octave | 6 dB/octave; 12 dB/octave; 24 dB/octave; 36 dB/octave; 48 dB/octave | — |
+| Hum removal | `hum-removal` | Fundamental frequency | 50 | 20 to 400 | Hz |
+| Hum removal | `hum-removal` | Harmonics | 8 | 1 to 32 | — |
+| Hum removal | `hum-removal` | Notch width | 2 | 0.5 to 20 | Hz |
+| Hum removal | `hum-removal` | Reduction | 24 | 0 to 60 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Threshold | -12 | -60 to -1 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Noise floor | -40 | -80 to -20 | dB |
 | Legacy Compressor | `audacity-legacy-compressor` | Ratio | 2 | 1.1 to 10 | — |
@@ -191,6 +217,7 @@ Defaults and limits come from the same definitions the editor validates against,
 | Limiter | `audacity-limiter` | Knee width | 2 | 0 to 10 | dB |
 | Limiter | `audacity-limiter` | Lookahead | 1 | 0 to 50 | ms |
 | Limiter | `audacity-limiter` | Release | 20 | 0 to 1000 | ms |
+| Limiter | `audacity-limiter` | Limit True Peaks | Off | On or off | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Normalize | Perceived loudness | Perceived loudness; RMS | — |
 | Loudness Normalization | `audacity-loudness-normalization` | Target loudness | -23 | -145 to 0 | LUFS |
 | Loudness Normalization | `audacity-loudness-normalization` | Target RMS | -20 | -145 to 0 | dB |
@@ -198,6 +225,12 @@ Defaults and limits come from the same definitions the editor validates against,
 | Loudness Normalization | `audacity-loudness-normalization` | Treat mono as dual-mono | On | On or off | — |
 | Low-pass filter | `lowpass-filter` | Cutoff frequency | 1000 | 0.1 to 192000 | Hz |
 | Low-pass filter | `lowpass-filter` | Rolloff | 6 dB/octave | 6 dB/octave; 12 dB/octave; 24 dB/octave; 36 dB/octave; 48 dB/octave | — |
+| Match EQ | `match-eq` | Match amount | 100 | 0 to 100 | % |
+| Match EQ | `match-eq` | Smoothing (octaves) | 0.5 | 0.25 to 2 | oct |
+| Match EQ | `match-eq` | Maximum boost/cut (dB) | 6 | 0 to 18 | dB |
+| Match EQ | `match-eq` | Lowest matching frequency (Hz) | 80 | 20 to 2000 | Hz |
+| Match EQ | `match-eq` | Highest matching frequency (Hz) | 16000 | 1000 to 20000 | Hz |
+| Match EQ | `match-eq` | Reference | — | Learned reference spectrum; save as a preset to reuse a personal voice profile | — |
 | Multiband compressor | `multiband-compressor` | Low crossover | 250 | 40 to 2000 | Hz |
 | Multiband compressor | `multiband-compressor` | High crossover | 4000 | 2500 to 16000 | Hz |
 | Multiband compressor | `multiband-compressor` | Low threshold | -24 | -60 to 0 | dB |

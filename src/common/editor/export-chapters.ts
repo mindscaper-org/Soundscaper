@@ -61,7 +61,7 @@ export function resolveExportChapters(
 			? 'A chapter delivery needs at least one marker to split on; this project has none.'
 			: 'A chapter delivery needs at least one label to split on; this project has none.');
 	}
-	const regions = boundaries.filter(boundary => boundary.endFrame > boundary.startFrame);
+	const enclosingRegionEnd = createChapterRegionSweep(boundaries);
 	const chapters: ExportChapter[] = [];
 	const used = new Set<string>();
 	// Coincident labels are independent named outputs. They share the next
@@ -79,7 +79,7 @@ export function resolveExportChapters(
 			? boundary.endFrame
 			: Math.min(
 				nextStarts.get(boundary.startFrame) ?? range.endFrame,
-				enclosingRegionEnd(regions, boundary.startFrame) ?? range.endFrame,
+				enclosingRegionEnd(boundary.startFrame),
 			);
 		const startFrame = Math.max(boundary.startFrame, range.startFrame);
 		const endFrame = Math.min(openEnd, range.endFrame);
@@ -157,22 +157,39 @@ function chapterBoundaries(projectValue: unknown, source: ExportChapterSource): 
 	)));
 }
 
-/**
- * Where a point label's chapter has to stop because a region label already
- * promises the audio beyond it.
- *
- * A marker dropped inside a region would otherwise open a chapter running to
- * the next label or to the end of the delivered range, writing the region's own
- * tail a second time under another name. The region still delivers exactly its
- * own span; the nested chapter is the part of it the marker opens.
- */
-function enclosingRegionEnd(regions: readonly ChapterBoundary[], startFrame: number): number | null {
-	let end: number | null = null;
-	for (const region of regions) {
-		if (region.startFrame > startFrame || region.endFrame <= startFrame) continue;
-		if (end === null || region.endFrame < end) end = region.endFrame;
-	}
-	return end;
+/** The earliest active region end bounds a point chapter. Queries run in start order. */
+function createChapterRegionSweep(boundaries: readonly ChapterBoundary[]): (frame: number) => number {
+	const ends: number[] = [];
+	let next = 0;
+	return frame => {
+		while (next < boundaries.length && boundaries[next]!.startFrame <= frame) {
+			const { endFrame } = boundaries[next++]!;
+			if (endFrame <= frame) continue;
+			let index = ends.length;
+			ends.push(endFrame);
+			while (index > 0) {
+				const parent = (index - 1) >>> 1;
+				if (ends[parent]! <= endFrame) break;
+				ends[index] = ends[parent]!;
+				index = parent;
+			}
+			ends[index] = endFrame;
+		}
+		while (ends.length && ends[0]! <= frame) {
+			const last = ends.pop()!;
+			if (!ends.length) break;
+			let index = 0;
+			for (let left = 1; left < ends.length; left = index * 2 + 1) {
+				const right = left + 1;
+				const child = right < ends.length && ends[right]! < ends[left]! ? right : left;
+				if (ends[child]! >= last) break;
+				ends[index] = ends[child]!;
+				index = child;
+			}
+			ends[index] = last;
+		}
+		return ends[0] ?? Infinity;
+	};
 }
 
 function annotationBoundaries(project: DataRecord): readonly ChapterBoundary[] {

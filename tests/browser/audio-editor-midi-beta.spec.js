@@ -76,7 +76,10 @@ test.describe('beta MIDI editing and shared transport', () => {
 			expect(bytes.byteLength).toBeGreaterThan(20);
 			if (extension === '.mid') expect(Buffer.from(bytes).subarray(0, 4).toString('ascii')).toBe('MThd');
 			else {
+				const clips = editor.getByRole('group', { name: / clip(?:,|$)/u });
 				await importFiles(editor, [{ name: 'roundtrip.gro', mimeType: 'text/plain', buffer: Buffer.from(bytes) }]);
+				await expect(clips).toHaveCount(2);
+				await clickClipInterior(page, clips.last());
 				await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
 				await expect(noteEditor.getByRole('spinbutton', { name: 'Pitch (MIDI number)', exact: true })).toHaveValue('60');
 			}
@@ -146,6 +149,45 @@ test.describe('beta MIDI editing and shared transport', () => {
 		await expect(pitch).toHaveValue('67');
 		await pitch.press('Tab');
 		await expect(pitch).toHaveValue('67');
+	});
+
+	test('the note start field shows the authored frame after rounding a sub-sample edit', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+		const start = noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true });
+		await expect(start).toHaveValue('0');
+		await start.fill('0.000001');
+		await start.press('Enter');
+		await expect(start).toHaveValue('0');
+	});
+
+	test('an auxiliary mouse button leaves the active MIDI note drag in control', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		const start = noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true });
+		const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
+		const note = panel.locator('[data-note-id="1"]');
+		await expect(note).toBeVisible();
+		const bounds = await note.boundingBox();
+		if (!bounds) throw new Error('The imported MIDI note is outside the grid.');
+		const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
+		await page.mouse.move(x, y);
+		await page.mouse.down();
+		await page.mouse.move(x + 50, y);
+		await expect(start).toHaveValue('0.5');
+		await page.mouse.down({ button: 'right' });
+		await page.mouse.up({ button: 'right' });
+		await page.mouse.move(x + 75, y);
+		await expect(start).toHaveValue('0.75');
+		await page.mouse.up();
+		const downloading = page.waitForEvent('download');
+		await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export MIDI (beta)']);
+		await (await downloading).delete();
+		await expect(start).toHaveValue('0.75');
 	});
 
 	test('select all notes also works with Caps Lock active', async ({ page }) => {

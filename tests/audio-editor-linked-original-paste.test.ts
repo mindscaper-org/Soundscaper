@@ -115,42 +115,57 @@ test('a pasted linked audio source survives saving B and deleting A in the real 
 	assert.deepEqual([...(await store.readSourceChunk(source.storageKey, 0)).channels[0]], [-1, 0.5]);
 });
 
-test('a failed cross-project paste rolls back only its newly copied binding', async (context) => {
-	const store = createProjectStore({
-		indexedDB: null,
-		preferOpfs: false,
-		databaseName: `linked-paste-rollback-${Date.now()}-${Math.random()}`,
+for (const scenario of ['commit failed', 'switched tabs before commit'] as const) {
+	test(`a cross-project paste that ${scenario} rolls back only its newly copied binding`, async (context) => {
+		const store = createProjectStore({
+			indexedDB: null,
+			preferOpfs: false,
+			databaseName: `linked-paste-rollback-${Date.now()}-${Math.random()}`,
+		});
+		context.after(async () => { await store.close(); });
+		const source = createAudioSource({
+			id: 'source-a', storageKey: 'source-a', mimeType: 'audio/wav',
+			frameCount: 1, channelCount: 1, sampleRate: 48_000, originalSampleRate: 48_000,
+			sampleFormat: 'float32', chunkFrames: 65_536,
+		});
+		const originBinding = await store.linkedOriginalBindingRepository.putIfCurrent({
+			schemaVersion: 2, kind: 'audio', projectId: 'project-A', sourceId: source.id,
+			storageKey: source.storageKey, locatorId: 'locator_rollback_00000001',
+			locatorRevision: 'revision_rollback_000001', mimeType: source.mimeType,
+			byteLength: 1, sha256: 'a'.repeat(64),
+			sourceShape: {
+				frameCount: source.frameCount, channelCount: source.channelCount,
+				sampleRate: source.sampleRate, originalSampleRate: source.originalSampleRate,
+				sampleFormat: 'float32', chunkFrames: source.chunkFrames,
+			},
+		}, null);
+		assert.ok(originBinding);
+		const failure = new Error(scenario);
+		let activeProjectId = 'project-B';
+		let commitCount = 0;
+		await assert.rejects(async () => commitPasteWithLinkedSourceAliases({
+			command: { type: 'batch', commands: [{ type: 'source/add', source }, { type: 'clipboard/paste', clipboard: {
+				schemaVersion: 2, sampleRate: 48_000, durationFrames: 1, tracks: [],
+			}, atFrame: 0, mode: 'overlap' }] },
+			originProjectId: 'project-A', projectId: 'project-B',
+			store: {
+				copyLinkedOriginalSourceAliases: async (...args) => {
+					const aliases = await store.copyLinkedOriginalSourceAliases(...args);
+					assert.equal(aliases.length, 1);
+					if (scenario === 'switched tabs before commit') activeProjectId = 'project-C';
+					return aliases;
+				},
+				rollbackLinkedOriginalSourceAliases: aliases => store.rollbackLinkedOriginalSourceAliases(aliases),
+			},
+			assertCurrent: () => { if (activeProjectId !== 'project-B') throw failure; },
+			getCurrentProject: () => ({ id: activeProjectId, sources: [] }),
+			commit: () => { commitCount++; throw failure; },
+		}), (error: unknown) => error === failure);
+		assert.equal(commitCount, scenario === 'commit failed' ? 1 : 0);
+		assert.equal(await store.getLinkedOriginalBinding('project-B', source.id), null);
+		assert.deepEqual(await store.getLinkedOriginalBinding('project-A', source.id), originBinding);
 	});
-	context.after(async () => { await store.close(); });
-	const source = createAudioSource({
-		id: 'source-a', storageKey: 'source-a', mimeType: 'audio/wav',
-		frameCount: 1, channelCount: 1, sampleRate: 48_000, originalSampleRate: 48_000,
-		sampleFormat: 'float32', chunkFrames: 65_536,
-	});
-	const originBinding = await store.linkedOriginalBindingRepository.putIfCurrent({
-		schemaVersion: 2, kind: 'audio', projectId: 'project-A', sourceId: source.id,
-		storageKey: source.storageKey, locatorId: 'locator_rollback_00000001',
-		locatorRevision: 'revision_rollback_000001', mimeType: source.mimeType,
-		byteLength: 1, sha256: 'a'.repeat(64),
-		sourceShape: {
-			frameCount: source.frameCount, channelCount: source.channelCount,
-			sampleRate: source.sampleRate, originalSampleRate: source.originalSampleRate,
-			sampleFormat: 'float32', chunkFrames: source.chunkFrames,
-		},
-	}, null);
-	assert.ok(originBinding);
-	const failure = new Error('planned paste commit failure');
-	await assert.rejects(async () => commitPasteWithLinkedSourceAliases({
-		command: { type: 'batch', commands: [{ type: 'source/add', source }, { type: 'clipboard/paste', clipboard: {
-			schemaVersion: 2, sampleRate: 48_000, durationFrames: 1, tracks: [],
-		}, atFrame: 0, mode: 'overlap' }] },
-		originProjectId: 'project-A', projectId: 'project-B', store,
-		assertCurrent: () => undefined,
-		commit: () => { throw failure; },
-	}), (error: unknown) => error === failure);
-	assert.equal(await store.getLinkedOriginalBinding('project-B', source.id), null);
-	assert.deepEqual(await store.getLinkedOriginalBinding('project-A', source.id), originBinding);
-});
+}
 
 test('a paste commit that throws after publication retains the linked alias', async (context) => {
 	const store = createProjectStore({

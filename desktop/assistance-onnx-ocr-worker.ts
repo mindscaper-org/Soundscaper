@@ -149,6 +149,7 @@ function connectedTextRegions(
 ): readonly Readonly<{ box: AssistanceOcrRegionV1['box']; confidence: number }>[] {
 	const visited = new Uint8Array(probabilities.length);
 	const queue = new Int32Array(probabilities.length);
+	const neighbors = new Int32Array(4);
 	const result: Array<Readonly<{ box: AssistanceOcrRegionV1['box']; confidence: number }>> = [];
 	for (let start = 0; start < probabilities.length; start += 1) {
 		const probability = probabilities[start]!;
@@ -174,7 +175,13 @@ function connectedTextRegions(
 			top = Math.min(top, y);
 			bottom = Math.max(bottom, y + 1);
 			total += probabilities[index]!;
-			for (const neighbor of neighbors(index, x, y, width, height)) {
+			let neighborCount = 0;
+			if (x > 0) neighbors[neighborCount++] = index - 1;
+			if (x + 1 < width) neighbors[neighborCount++] = index + 1;
+			if (y > 0) neighbors[neighborCount++] = index - width;
+			if (y + 1 < height) neighbors[neighborCount++] = index + width;
+			for (let candidate = 0; candidate < neighborCount; candidate++) {
+				const neighbor = neighbors[candidate]!;
 				if (!visited[neighbor] && probabilities[neighbor]! >= 0.3) {
 					visited[neighbor] = 1;
 					queue[write++] = neighbor;
@@ -236,15 +243,17 @@ function paddedRecognitionTensor(
 	contentWidth: number,
 	rotate: boolean,
 ): Float32Array {
+	if (!rotate && contentWidth === RECOGNITION_WIDTH) return content;
 	const result = new Float32Array(3 * RECOGNITION_HEIGHT * RECOGNITION_WIDTH);
 	for (let channel = 0; channel < 3; channel += 1) {
 		for (let y = 0; y < RECOGNITION_HEIGHT; y += 1) {
-			for (let x = 0; x < contentWidth; x += 1) {
-				const sourceX = rotate ? contentWidth - x - 1 : x;
-				const sourceY = rotate ? RECOGNITION_HEIGHT - y - 1 : y;
-				result[channel * RECOGNITION_HEIGHT * RECOGNITION_WIDTH
-					+ y * RECOGNITION_WIDTH + x] = content[
-					channel * RECOGNITION_HEIGHT * contentWidth + sourceY * contentWidth + sourceX]!;
+			const offset = (channel * RECOGNITION_HEIGHT + y) * RECOGNITION_WIDTH;
+			const sourceY = rotate ? RECOGNITION_HEIGHT - y - 1 : y;
+			const source = (channel * RECOGNITION_HEIGHT + sourceY) * contentWidth;
+			if (rotate) {
+				for (let x = 0; x < contentWidth; x++) result[offset + x] = content[source + contentWidth - x - 1]!;
+			} else {
+				result.set(content.subarray(source, source + contentWidth), offset);
 			}
 		}
 	}
@@ -315,15 +324,6 @@ function assertSettingsAndGrants(context: AssistanceRuntimeFamilyWorkerExecution
 		|| JSON.stringify(settings.outputRoles) !== '["recognized-text"]') {
 		throw new TypeError('PP-OCR grants/settings do not bind exact OCR execution.');
 	}
-}
-
-function neighbors(index: number, x: number, y: number, width: number, height: number): number[] {
-	const result: number[] = [];
-	if (x > 0) result.push(index - 1);
-	if (x + 1 < width) result.push(index + 1);
-	if (y > 0) result.push(index - width);
-	if (y + 1 < height) result.push(index + width);
-	return result;
 }
 
 function multiple32(value: number): number {

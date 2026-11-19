@@ -32,7 +32,7 @@ test('pitch-preserving playback includes the audible rack release after the reco
 		await commitInput(effect.locator(`[data-effect-param="${parameter}"] input[type="number"]`), value);
 	}
 	await closeDialog(effect);
-	const rendered = await exportSamples(page, editor);
+	const rendered = await exportSamples(page, editor, { includeTail: true });
 	expect(rendered.length).toBeGreaterThan(90_000);
 	expect(Math.max(...rendered.slice(57_600, 76_800).map(Math.abs))).toBeGreaterThan(.1);
 	await editor.getByRole('button', { name: 'Play options', exact: true }).click();

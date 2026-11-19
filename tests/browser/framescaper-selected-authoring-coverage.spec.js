@@ -131,6 +131,8 @@ test.describe('Framescaper selected authoring coverage', () => {
 			EDITOR_ENGLISH_COPY['ui.framescaperMenus.editVideoMaskMatte'],
 		], UI_OPTIONS);
 		let dialog = page.getByRole('dialog', { name: 'Selected Mask / Matte', exact: true });
+		// Keep the physical width binding alongside this portable Create/reopen workflow.
+		await dialog.getByRole('spinbutton', { name: 'Width', exact: true }).fill('0.4');
 		await dialog.getByRole('button', { name: 'Create and attach mask', exact: true }).click();
 		await expect(dialog.getByRole('status')).toHaveText('Selected authored state applied.', UI_OPTIONS);
 		const attached = dialog.getByRole('combobox', { name: 'Attached mask', exact: true });
@@ -168,6 +170,7 @@ test.describe('Framescaper selected authoring coverage', () => {
 		dialog = page.getByRole('dialog', { name: 'Selected Mask / Matte', exact: true });
 		await expect(dialog.getByRole('combobox', { name: 'Attached mask', exact: true }))
 			.toHaveValue(maskId, UI_OPTIONS);
+		await expect(dialog.getByRole('spinbutton', { name: 'Width', exact: true })).toHaveValue('0.4', UI_OPTIONS);
 		await dialog.getByRole('button', { name: 'Remove attachment', exact: true }).click();
 		await expect(dialog.getByRole('status')).toHaveText('Selected authored state removed.', UI_OPTIONS);
 		await page.keyboard.press('Escape');

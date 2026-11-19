@@ -110,7 +110,7 @@ export function createAraEditSession(options: Readonly<{ bridge: AraBridge; clip
 				}
 				current(token)
 				await clip.apply({ channels, sampleRate: clip.sampleRate, name: `${clip.name} (ARA)` })
-				await release()
+				try { await release() } catch { /* The new track has already been published. */ }
 				if (!disposed && token === generation) publish('applied')
 			} catch (error) { await failure(error, token, 'render-failed') }
 		},

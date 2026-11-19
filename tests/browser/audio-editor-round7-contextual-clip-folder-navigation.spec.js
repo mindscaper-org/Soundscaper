@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction, clipByName, importFiles, openNes
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('contextual audio clip navigation excludes recordings in collapsed folders', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const names = ['First audio.wav', 'Folder audio.wav', 'Last audio.wav'];
 	await importFiles(editor, names.map(name => createWavFixture({ name, duration: .2 })));
 	const clips = names.map(name => clipByName(editor, name));

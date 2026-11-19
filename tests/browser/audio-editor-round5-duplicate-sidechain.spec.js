@@ -7,7 +7,7 @@ import {
 } from './audio-editor-test-helpers.js';
 
 test('Duplicate preserves the copied Gate external detector connection', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const programme = clipByName(editor, toneA.name);
 	const control = clipByName(editor, toneB.name);

@@ -17,8 +17,8 @@ import { createSplitVisualPresentationPlanner } from './editor-split-visual-pres
 
 type NativeClip = FramescaperImageClipV1 | VideoGeneratorClipV1 | VideoStillClipV1;
 
-/** Bin Overwrite lifts native picture only on the lanes receiving the incoming edit. */
-export function prepareTimelineNativeOverwriteCommand(project: FramescaperProjectTimelineImage,
+/** Apply range edits to native pictures before the inherited editor detaches them. */
+export function prepareTimelineNativeRangeCommand(project: FramescaperProjectTimelineImage,
 	command: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
 	const clips = new Map<string, NativeClip>();
 	for (const value of project.clips as readonly Readonly<Record<string, unknown>>[]) {
@@ -58,20 +58,38 @@ export function prepareTimelineNativeOverwriteCommand(project: FramescaperProjec
 
 	function visit(value: FramescaperProjectCommandTimelineImage): FramescaperProjectCommandTimelineImage {
 		if (value.type === 'batch') return { ...value, commands: (value as FramescaperProjectCommandBatchTimelineImage).commands.map(visit) };
-		if (value.type !== 'edit/overwrite') { observe(value); return value; }
-		const overwrite = value as Extract<AudioEditorCommand, { type: 'edit/overwrite' }>;
+		if (!isRangeCommand(value)) { observe(value); return value; }
+		const targetedTracks = value.trackIds ? new Set(value.trackIds) : null;
+		const targetedClips = 'clipIds' in value && value.clipIds ? new Set(value.clipIds) : null;
 		const commands: FramescaperProjectCommandTimelineImage[] = [];
 		for (const original of [...clips.values()]) {
 			const trackId = owners.get(original.id);
-			if (!trackId || !overwrite.trackIds.includes(trackId)) continue;
+			if (!trackId || targetedTracks && !targetedTracks.has(trackId) || targetedClips && !targetedClips.has(original.id)) continue;
 			const sequence = project.sequences.find(item => item.id === original.sequenceId);
-			if (!sequence) throw new ReferenceError('Native picture overwrite requires its sequence clock.');
-			const start = sampleFrameToVideoFrame(overwrite.startFrame, sequence.rate, project.sampleRate, 'point');
-			const end = sampleFrameToVideoFrame(overwrite.endFrame, sequence.rate, project.sampleRate, 'point');
-			const clipEnd = original.sequenceStartFrame + original.sequenceFrameCount;
-			if (end <= start || end <= original.sequenceStartFrame || start >= clipEnd) continue;
-			const left = original.sequenceStartFrame < start ? segment(original, original.sequenceStartFrame, start) : null;
-			const right = clipEnd > end ? segment(original, end, clipEnd) : null;
+			if (!sequence) throw new ReferenceError('A native picture range edit requires its sequence clock.');
+			const start = sampleFrameToVideoFrame(value.startFrame, sequence.rate, project.sampleRate, 'point');
+			const end = sampleFrameToVideoFrame(value.endFrame, sequence.rate, project.sampleRate, 'point');
+			if (end <= start) continue;
+			const clipStart = original.sequenceStartFrame;
+			const clipEnd = clipStart + original.sequenceFrameCount;
+			let left: NativeClip | null;
+			let right: NativeClip | null = null;
+			if (value.type === 'range/keep') {
+				const keptStart = Math.max(clipStart, start);
+				const keptEnd = Math.min(clipEnd, end);
+				if (keptStart === clipStart && keptEnd === clipEnd) continue;
+				left = keptStart < keptEnd ? segment(original, keptStart, keptEnd) : null;
+			} else if (clipStart >= end && value.type === 'range/ripple-delete') {
+				left = { ...original, sequenceStartFrame: clipStart - (end - start) };
+			} else {
+				if (clipEnd <= start || clipStart >= end) continue;
+				left = clipStart < start ? segment(original, clipStart, start) : null;
+				if (clipEnd > end) {
+					const placementStart = value.type === 'range/ripple-delete' ? start
+						: value.type === 'range/per-clip-ripple-delete' ? Math.max(clipStart, start) : end;
+					right = { ...segment(original, end, clipEnd), sequenceStartFrame: placementStart };
+				}
+			}
 			if (!left && !right) {
 				for (const row of [...presentations.values()]) if (row.owner.kind === 'clip' && row.owner.id === original.id) {
 					append({ type: 'video-visual-presentation/set', presentationId: row.id, expectedPresentation: row, presentation: null });
@@ -80,9 +98,9 @@ export function prepareTimelineNativeOverwriteCommand(project: FramescaperProjec
 					trackIds: selection.trackIds, clipIds: selection.clipIds.filter(id => id !== original.id) });
 			}
 			append(mutation(original, left ?? right, trackId));
-			if (left && right) {
-				const id = overwrite.splitClipIds?.[original.id];
-				if (!id) throw new TypeError(`Native picture overwrite requires a stable split ID for ${original.id}.`);
+			if (left && right && 'splitClipIds' in value) {
+				const id = value.splitClipIds?.[original.id];
+				if (!id) throw new TypeError(`A native picture range edit requires a stable split ID for ${original.id}.`);
 				append(mutation(null, { ...right, id }, trackId));
 				for (const copied of presentationCopies.copy(original.id, id)) append(copied);
 			}
@@ -106,6 +124,15 @@ export function prepareTimelineNativeOverwriteCommand(project: FramescaperProjec
 		if (source?.kind !== 'image' || !source.canonical) throw new ReferenceError('Native overwrite requires its exact image source.');
 		return prepareTimelineImageTrim(project, original, source as unknown as Readonly<{ canonical: Readonly<{ durationTicks: string }> }>, changes);
 	}
+}
+
+type NativeRangeCommand = Extract<AudioEditorCommand, {
+	type: 'edit/overwrite' | 'range/keep' | 'range/lift-delete' | 'range/per-clip-ripple-delete' | 'range/ripple-delete';
+}>;
+
+function isRangeCommand(value: FramescaperProjectCommandTimelineImage): value is NativeRangeCommand {
+	return value.type === 'edit/overwrite' || value.type === 'range/keep' || value.type === 'range/lift-delete'
+		|| value.type === 'range/per-clip-ripple-delete' || value.type === 'range/ripple-delete';
 }
 
 function mutation(expectedClip: NativeClip | null, clip: NativeClip | null, trackId: string): FramescaperProjectCommandTimelineImage {

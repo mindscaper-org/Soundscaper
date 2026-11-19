@@ -73,6 +73,12 @@ export class DesktopApplicationShutdown {
 	}
 }
 
+/** Launch options end at the first argument separator, after which names are positional. */
+export function desktopStartupOptionArguments(argv: readonly string[]): readonly string[] {
+	const separator = argv.indexOf('--');
+	return separator === -1 ? argv : argv.slice(0, separator);
+}
+
 /** Keeps artifact smoke probes out of the user's real product-neutral library. */
 export function resolveDesktopProjectLibraryAppData(
 	options: DesktopProjectLibraryAppDataOptions,

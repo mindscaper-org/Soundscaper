@@ -9,12 +9,17 @@ const GERMAN_COPY = localeCopy('de');
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('German native collision Copy gives the saved copy a German generated title', async ({ page }) => {
-	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
-	try { blob = (await exportScapeProject(createSoundscaperProject({ id: 'localized-native-copy', title: 'Recording' }), store)).blob; }
+	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob, workingBlob;
+	try {
+		const project = createSoundscaperProject({ id: 'localized-native-copy', title: 'Recording' });
+		blob = (await exportScapeProject(project, store)).blob;
+		workingBlob = (await exportScapeProject({ ...project, title: 'Newer working recording' }, store)).blob;
+	}
 	finally { await store.close(); }
 	const editor = await bootEditor(page, '/embed/de/');
 	const file = { name: 'Recording.sscape', mimeType: 'application/zip', buffer: Buffer.from(await blob.arrayBuffer()) };
-	await editor.locator('[data-aup4-input]').setInputFiles(file);
+	// A different working document requires Copy; importing the same archive twice resumes it.
+	await editor.locator('[data-aup4-input]').setInputFiles({ ...file, buffer: Buffer.from(await workingBlob.arrayBuffer()) });
 	await expect(editor).toHaveAttribute('data-project-id', 'localized-native-copy'); await waitForProjectActivation(editor);
 	await editor.locator('[data-aup4-input]').setInputFiles(file);
 	const collision = page.getByRole('dialog', { name: GERMAN_COPY.scapeCollisionTitle, exact: true });
@@ -23,4 +28,5 @@ test('German native collision Copy gives the saved copy a German generated title
 	await expect(editor.getByRole('tab', { name: 'Recording Kopie', exact: true })).toBeVisible();
 	const id = await editor.getAttribute('data-project-id');
 	await expect.poll(async () => (await persistedProject(page, id))?.title).toBe('Recording Kopie');
+	await expect.poll(async () => (await persistedProject(page, 'localized-native-copy'))?.title).toBe('Newer working recording');
 });

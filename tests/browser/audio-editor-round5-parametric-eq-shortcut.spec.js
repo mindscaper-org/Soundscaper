@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles
 	openParametricEqSelectionEffect } from './audio-editor-test-helpers.js';
 
 test('a suspended modified command leaves the parametric EQ band unchanged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

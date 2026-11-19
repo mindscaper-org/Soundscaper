@@ -13,12 +13,15 @@ import type { SourceProvenanceV1 } from './source-provenance.ts';
 import { buildSignatureMap, buildTempoMap } from './dawproject-import-maps.ts';
 import { dawprojectImportedClipFades } from './dawproject-import-fades.ts';
 import { dawprojectMarkerExtensions } from './dawproject-marker-metadata.ts';
+import { appendDawprojectMidi, type DawprojectMidiSource } from './dawproject-import-midi-project.ts';
+import { appendDawprojectDevices } from './dawproject-import-devices.ts';
+import { dawprojectImportedFinishing } from './dawproject-import-finishing.ts';
+import { applyAutomation } from './dawproject-import-automation.ts';
 import { dawprojectImportColor } from './dawproject-colors.ts';
 import {
 	type Build,
 	type DataRecord,
 	type DawprojectImportRoutingContext,
-	applyAutomation,
 	resolveRouting,
 	stripRecord,
 	trackForEvent,
@@ -40,8 +43,9 @@ import {
  * The report has the export report's shape and dispositions with the
  * direction reversed, so the same dialog shows what an import could not carry
  * as shows what an export left behind. Anything the format states that the
- * project cannot hold — notes, plug-ins, clip looping, non-volume automation,
- * a marker's colour — is itemized rather than dropped on the way in.
+ * project cannot execute — unsupported device state, clip launching, looping,
+ * or unsupported automation targets — is preserved inertly where possible
+ * and itemized rather than dropped silently.
  */
 
 export type DawprojectImportReport = Omit<DeliveryReport, 'direction'> & Readonly<{ direction: 'import' }>;
@@ -65,6 +69,7 @@ export interface DawprojectImportOptions {
 	readonly stagedSourceIds?: ReadonlyMap<string, string>;
 	readonly sourceProvenance?: ReadonlyMap<string, SourceProvenanceV1>;
 	readonly sampleRate?: number;
+	readonly deviceStates?: ReadonlyMap<string, string>;
 }
 
 export interface DawprojectImportMediaBinding {
@@ -78,6 +83,7 @@ export interface DawprojectImportPlan {
 	/** Options for `createCurrentAudioEditorProject`. */
 	readonly project: Record<string, unknown>;
 	readonly media: readonly DawprojectImportMediaBinding[];
+	readonly midiSources: readonly DawprojectMidiSource[];
 	readonly report: DawprojectImportReport;
 	readonly routingContext: DawprojectImportRoutingContext;
 }
@@ -91,7 +97,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		format: DAWPROJECT_DELIVERY_FORMAT, container: 'DAWproject', codec: null, sampleRate, channelCount: null, lossless: null,
 	});
 	const build: Build = {
-		draft, sampleRate, createStableId: options.createStableId,
+		draft, sampleRate, automationLanes: [], createStableId: options.createStableId,
 		tracks: [], trackByDawId: new Map(), folderByDawId: new Map(), trackNodes: [], folders: [], groups: [], sends: [],
 		stripByChannelId: new Map(), busByChannelId: new Map(), nodeRoutes: [], parameters: new Map(), routes: new Map(), sendTaps: [], parentFolderIds: new Map(),
 		masterChannels: 2,
@@ -158,7 +164,9 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		// The regular native width is the maximum physical source width, as in audioTrackChannelCount.
 		trackWidths.set(track.id, Math.max(trackWidths.get(track.id) ?? 0, info.channelCount));
 	}
+	const midiSources = appendDawprojectMidi(flattened.midi, build, document, sources, clips, trackWidths);
 	reportTrackChannelWidths(document.tracks, build, trackWidths);
+	appendDawprojectDevices(document, build, options.deviceStates);
 	applyAutomation(flattened.automation, build);
 	const annotations = createMarkers(flattened.markers, build);
 	reportOmissions(document, flattened.omitted, disabledClips, build);
@@ -174,6 +182,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		},
 		message: 'Tracks, channels, routing, clips, fades, tempo, and markers are read from DAWproject 1.0 vocabulary; embedded audio becomes float32 sources at its own rate.',
 	});
+	const finishing = dawprojectImportedFinishing(build, trackWidths);
 	const project: DataRecord = {
 		id: build.createStableId('project'),
 		title,
@@ -193,7 +202,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		tracks: build.tracks.map((track) => ({
 			type: 'audio', id: track.id, name: track.name, gain: track.gain, pan: track.pan,
 			...(track.color ? { color: track.color } : {}),
-			mute: track.mute, solo: track.solo, clipIds: track.clipIds, envelope: track.envelope,
+			mute: track.mute, solo: track.solo, effects: track.effects ?? [], clipIds: track.clipIds, envelope: track.envelope,
+			...(track.opaqueExtensions ? { opaqueExtensions: track.opaqueExtensions } : {}),
 		})),
 		trackFolders: build.folders,
 		sequences: [{ id: 'main-sequence', trackNodes: build.trackNodes }],
@@ -202,10 +212,12 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			sends: build.sends.map(stripRecord),
 			routes: Object.fromEntries([...build.routes].map(([trackId, route]) => [trackId, route])),
 		},
-		master: { gain: build.master.gain, pan: build.master.pan, mute: build.master.mute, envelope: build.master.envelope },
+		master: { gain: build.master.gain, pan: build.master.pan, mute: build.master.mute, envelope: build.master.envelope, effects: build.master.effects ?? [] },
 		timelineAnnotations: annotations,
 		tempoMap,
 		signatureMap,
+		automationLanes: build.automationLanes,
+		finishing,
 	};
 	const sealed = sealDeliveryReport(draft);
 	return Object.freeze({
@@ -213,6 +225,8 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 		sampleRate,
 		project,
 		routingContext: Object.freeze({
+			mixerGraph: finishing.mixer,
+			automationLanes: Object.freeze(build.automationLanes),
 			sendTaps: Object.freeze(build.sendTaps.map(tap => Object.freeze(tap))),
 			nodeRoutes: Object.freeze(build.nodeRoutes.map(route => Object.freeze({ ...route,
 				sends: Object.freeze(route.sends.map(send => Object.freeze(send))),
@@ -222,6 +236,7 @@ export function buildDawprojectProject(document: DawprojectDocument, options: Da
 			}))),
 		}),
 		media: Object.freeze(media),
+		midiSources,
 		report: Object.freeze({ ...sealed, direction: 'import' as const }),
 	});
 }
@@ -449,7 +464,6 @@ function reportOmissions(
 		['dawproject.clip-references-unresolved', omitted.unresolvedReferences, 'Alias clips whose referenced timeline is missing or circular are not imported.'],
 		['dawproject.content-unsupported', omitted.unsupportedContent, 'Timeline content outside the audio, warp, clip, and marker vocabulary is not imported.'],
 		['dawproject.disabled-clips-omitted', disabledClips, 'Disabled clips are not played and are not imported.'],
-		['dawproject.devices-omitted', build.devices, 'Plug-ins and built-in devices are not imported; channels come in dry.'],
 		['dawproject.mixer-nodes-omitted', build.omittedNodes, 'VCA channels have no equivalent here and are not imported.'],
 		['dawproject.scenes-omitted', document.scenes, 'Clip launcher scenes have no arrangement position and are not imported.'],
 	];

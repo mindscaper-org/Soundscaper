@@ -72,8 +72,13 @@ test('sample timecode permits replacing a small duration with a larger sample co
 	await duration.locator('.timecode-digit').first().click();
 	await page.keyboard.type('000000001');
 	await page.keyboard.press('Enter');
+	await expect(dialog.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled();
+	expect(await dialog.locator('form').evaluate(form => form.checkValidity())).toBe(true);
 	await duration.getByRole('button', { name: 'Duration (seconds): format', exact: true }).click();
 	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
+	await expect(dialog).toBeVisible();
+	await expect(dialog.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled();
+	await expect(page.locator('[data-clip-id]')).toHaveCount(0);
 	await expect(duration.locator('.timecode-digit')).toHaveCount(12);
 	await duration.locator('.timecode-digit').first().click();
 	await page.keyboard.type('000000048000');
@@ -81,13 +86,6 @@ test('sample timecode permits replacing a small duration with a larger sample co
 	await expect.poll(async () => Number(await dialog.locator('[data-generator-field="durationSeconds"] [data-timecode-direct-entry]').inputValue())).toBeCloseTo(1, 8);
 });
 
-test('the duration format button leaves generation to the Generate button', async ({ page }) => {
-	const dialog = await openTone(page);
-	await dialog.getByRole('button', { name: 'Duration (seconds): format', exact: true }).click();
-	await page.getByRole('menuitem', { name: 'samples', exact: true }).click();
-	await expect(dialog).toBeVisible();
-	await expect(page.locator('[data-clip-id]')).toHaveCount(0);
-});
 
 test('clicking a timecode digit edits it without activating its enclosing label', async ({ page }) => {
 	const dialog = await openTone(page);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { WINDOWS_VST2_X86_ARTIFACT } from './windows-vst2-x86-artifact.mjs';
 /** Target-native build-result assembly, verification, and ephemeral package staging. */
 
 import { spawnSync } from 'node:child_process';
@@ -7,6 +8,7 @@ import {
 	chmod, copyFile, mkdir, mkdtemp, open, rename, rm, writeFile,
 } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
+import { copyBundledPluginPayload } from './bundled-plugin-payload.ts';
 
 import {
 	absentPath,
@@ -158,13 +160,21 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 			brokerPolicy: await copyBuildResultFile(installed.brokerPolicy,
 				join(payloadRoot, 'native-isolation-broker-v1.json'), temporary, 0o444),
 		};
-		const runtimeClosure = runtimeRoot === null
-			? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary);
+		const runtimeClosure = [
+			...(runtimeRoot === null ? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary)),
+			...(target === 'win-x64' ? [await copyBuildResultFile(
+				join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'),
+				resolve(temporary, WINDOWS_VST2_X86_ARTIFACT), temporary, 0o755)] : []),
+		];
+		const bundled = await copyBundledPluginPayload({ target, installRoot: professionalInstallRoot,
+			payloadRoot, resultRoot: temporary, copyArtifact: copyBuildResultFile });
+		const completeRuntimeClosure = [...runtimeClosure, ...bundled.code].sort((a, b) => a.path.localeCompare(b.path));
+		if (completeRuntimeClosure.length > MAXIMUM_RUNTIME_FILES) throw new RangeError('The professional runtime closure exceeds 128 files.');
 		const dependencyInspections = await validateSoundscaperProfessionalNativeDependencyClosure({
 			target,
 			artifacts: [copied.payload, ...(copied.osAudioCodec === null ? [] : [copied.osAudioCodec]),
-				copied.pluginPeer, copied.deliveryFilesystem, copied.launcher, ...runtimeClosure],
-			runtimeArtifacts: runtimeClosure,
+				copied.pluginPeer, copied.deliveryFilesystem, copied.launcher, ...completeRuntimeClosure],
+			runtimeArtifacts: completeRuntimeClosure,
 			root: temporary,
 			inspectDependencies,
 		});
@@ -180,7 +190,7 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 				descriptorOnly(copied.pluginPeer),
 				descriptorOnly(copied.deliveryFilesystem),
 			descriptorOnly(copied.launcher), descriptorOnly(copied.sandboxProfile),
-			descriptorOnly(copied.brokerPolicy), ...runtimeClosure.map(descriptorOnly),
+				descriptorOnly(copied.brokerPolicy), ...completeRuntimeClosure.map(descriptorOnly), ...bundled.resources,
 		];
 		const verificationChecks = [
 			bindVerificationCheck('build', target, {
@@ -224,7 +234,8 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 				sandboxProfile: descriptorOnly(copied.sandboxProfile),
 				brokerPolicy: descriptorOnly(copied.brokerPolicy),
 				entrypointPath: copied.pluginPeer.path,
-				runtimeClosure: runtimeClosure.map(descriptorOnly),
+				runtimeClosure: completeRuntimeClosure.map(descriptorOnly),
+				pluginResources: bundled.resources,
 			},
 		});
 		await writeFile(join(temporary, RECEIPT_NAME), canonicalJson(receipt), { flag: 'wx', mode: 0o444 });
@@ -461,6 +472,7 @@ export function stagedManifestRow(receipt, targetRoot, buildResult) {
 			brokerPolicy: staged(receipt.isolation.brokerPolicy),
 			entrypointPath: staged({ ...receipt.pluginPeer }).path,
 			runtimeClosure: receipt.isolation.runtimeClosure.map(staged),
+			pluginResources: receipt.isolation.pluginResources.map(staged),
 		},
 	};
 }

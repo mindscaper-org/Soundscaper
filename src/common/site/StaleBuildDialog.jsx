@@ -27,6 +27,8 @@ export default function StaleBuildDialog({ copy }) {
 
 	useEffect(() => {
 		if (!open) return undefined;
+		const previousFocus = document.activeElement;
+		const dialog = surface.current;
 		reloadButton.current?.focus();
 		const onKeyDown = (event) => {
 			if (event.key === 'Escape') {
@@ -43,7 +45,14 @@ export default function StaleBuildDialog({ copy }) {
 			(event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
 		};
 		document.addEventListener('keydown', onKeyDown, true);
-		return () => document.removeEventListener('keydown', onKeyDown, true);
+		return () => {
+			document.removeEventListener('keydown', onKeyDown, true);
+			const active = document.activeElement;
+			if (previousFocus instanceof HTMLElement && previousFocus.isConnected
+				&& (active === document.body || dialog?.contains(active))) {
+				previousFocus.focus({ preventScroll: true });
+			}
+		};
 	}, [open]);
 
 	if (!open) return null;

@@ -10,10 +10,11 @@ import { COPY, createAudioEditorController, createMemoryEngine, createProjectSto
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 
-for (const kind of ['track', 'folder', 'group', 'clip'] as const) for (const name of ['   ', kind === 'folder' ? 'Voice' : ' Voice ']) test(`P020 ancillary: DAWproject ${kind} display name ${JSON.stringify(name)} retains a usable session`, async context => {
-	const leaf = `<Track id="voice" name="${kind === 'track' ? name : 'Voice'}" contentType="audio"><Channel role="regular" audioChannels="2"${kind === 'group' ? ' destination="bus"' : ''}/></Track>`;
+for (const kind of ['track', 'folder', 'group', 'send', 'clip'] as const) for (const name of ['   ', kind === 'folder' ? 'Voice' : ' Voice ']) test(`P020 ancillary: DAWproject ${kind} display name ${JSON.stringify(name)} retains a usable session`, async context => {
+	const leafSend = kind === 'send' ? '<Sends><Send destination="bus" type="post"><Volume unit="linear" value="0.5"/></Send></Sends>' : '';
+	const leaf = `<Track id="voice" name="${kind === 'track' ? name : 'Voice'}" contentType="audio"><Channel role="regular" audioChannels="2"${kind === 'group' ? ' destination="bus"' : ''}>${leafSend}</Channel></Track>`;
 	const structure = kind === 'folder' ? `<Track id="folder" name="${name}" contentType="tracks"><Channel role="submix" audioChannels="2"/>${leaf}</Track>`
-		: leaf + (kind === 'group' ? `<Track id="group" name="${name}" contentType="audio"><Channel id="bus" role="submix" audioChannels="2"/></Track>` : '');
+		: leaf + (kind === 'group' || kind === 'send' ? `<Track id="group" name="${name}" contentType="audio"><Channel id="bus" role="${kind === 'group' ? 'submix' : 'effect'}" audioChannels="2"/></Track>` : '');
 	const xml = `<Project version="1.0"><Application name="Blank names" version="1"/><Structure>${structure}</Structure><Arrangement><Lanes timeUnit="seconds"><Lanes track="voice"><Clips><Clip time="0" duration=".1" name="${kind === 'clip' ? name : 'Voice'}"><Audio channels="2" sampleRate="48000" duration=".1"><File path="voice.wav"/></Audio></Clip></Clips></Lanes></Lanes></Arrangement></Project>`;
 	const pcm = new Float32Array(4800).fill(.25); const archive = await writeDawprojectArchive({ projectXml: xml, metadataXml: '<MetaData/>', files: [{ path: 'voice.wav', blob: new Blob([Uint8Array.from(encodeWav([pcm, pcm], { sampleRate: 48_000, float: true }))]) }] });
 	const runtime = createSoundscaperProjectRuntimeSelection();
@@ -23,9 +24,17 @@ for (const kind of ['track', 'folder', 'group', 'clip'] as const) for (const nam
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	await controller.actions.project.openDawproject(new File([archive], 'Blank names.dawproject'));
 	const project: unknown = controller.project; assert.ok(validateSoundscaperProject(project)); assert.equal(project.clips.length, 1);
-	const owner = kind === 'folder' ? project.trackFolders[0] : kind === 'group' ? project.mixer.groups[0]
+	const owner = kind === 'folder' ? project.trackFolders[0] : kind === 'group' ? project.mixer.groups[0] : kind === 'send' ? project.mixer.sends[0]
 		: kind === 'clip' ? project.clips[0] : project.tracks.find(track => track.type === 'audio');
 	assert.ok(owner); const actual = 'title' in owner ? owner.title : owner.name;
 	if (kind === 'group') assert.equal(actual, name.trim() || 'Group 1');
+	else if (kind === 'send') {
+		assert.equal(actual, name.trim() || 'Send 1');
+		assert.match(owner.id, /^send-bus-/u);
+		const voice = project.tracks.find(track => track.type === 'audio'); assert.ok(voice);
+		assert.ok(project.mixer.edges.some(edge => edge.kind === 'send' && edge.source.kind === 'track'
+			&& edge.source.id === voice.id && edge.destination.kind === 'mixer-node'
+			&& edge.destination.id === owner.id && edge.level === 0.5));
+	}
 	else if (name.trim()) assert.equal(actual, name); else assert.ok(typeof actual === 'string' && actual.trim());
 });

@@ -29,6 +29,7 @@ import type { createSettingPersistence } from '../preferences/setting-persistenc
 
 /** Action assembly preserves the contracts declared by the owning services. */
 export interface EditorActionFunctions {
+	readonly reduceMicrophoneBleed: ReturnType<typeof createEffectsComposition>['reduceMicrophoneBleed'];
 	readonly readSelectionTargetLocked: ReturnType<typeof createEffectsComposition>['execution']['readSelectionTargetLocked'];
 	readonly setSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['setSourceSelection'];
 	readonly readSourceSelection: ReturnType<typeof createEffectsComposition>['sourceEditor']['readSourceSelection'];
@@ -128,6 +129,7 @@ export interface EditorActionFunctions {
 	readonly openAup4: ReturnType<typeof createNativeProjectService>['openAudacityProject'];
 	readonly openDawproject: ReturnType<typeof createNativeProjectService>['openDawproject'];
 	readonly openSesx: ReturnType<typeof createNativeProjectService>['openSesx'];
+	readonly openInterchange: ReturnType<typeof createNativeProjectService>['openInterchange'];
 	readonly openProject: ReturnType<typeof createProjectSwitchService>['openProject'];
 	readonly openScape: ReturnType<typeof createNativeProjectService>['openScape'];
 	readonly openScapeFile: ReturnType<typeof createScapeProjectFileService>['openScapeFile'];
@@ -227,6 +229,8 @@ export interface EditorActionFunctions {
 	readonly swapTrackChannels: ReturnType<typeof createTrackAudioComposition>['swapTrackChannels'];
 	readonly switchProject: ReturnType<typeof createProjectSwitchService<DocumentProject, DocumentHistory>>['switchProject'];
 	readonly timelineDurationFrames: () => number;
+	readonly punchAgain: ReturnType<typeof createRecordingComposition>['punchAndRoll']['punchAgain'];
+	readonly setLeadInDurationSeconds: ReturnType<typeof createRecordingComposition>['punchAndRoll']['setLeadInDurationSeconds'];
 	readonly toggleLeadInRecording: ReturnType<typeof createRecordingComposition>['session']['toggleLeadInRecording'];
 	readonly toggleMetronome: ReturnType<typeof createTransportComposition>['transport']['toggleMetronome'];
 	readonly togglePinnedPlayhead: ReturnType<typeof createTrackAudioComposition>['selectionView']['togglePinnedPlayhead'];

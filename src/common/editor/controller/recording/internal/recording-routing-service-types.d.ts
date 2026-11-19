@@ -67,7 +67,7 @@ export interface RecordingRoutingCapturePool<Stream = unknown> {
 	getSnapshot?(): readonly RecordingPoolSource[];
 	releaseHardware(deviceId: string): boolean;
 	releaseDisplay(): boolean;
-	releaseAll(): boolean | number;
+	releaseAll(options?: Readonly<{ retainHardwareDeviceId?: string }>): boolean | number;
 }
 
 export interface RecordingRoutingState {

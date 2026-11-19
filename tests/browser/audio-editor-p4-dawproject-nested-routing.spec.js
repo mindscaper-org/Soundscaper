@@ -5,7 +5,9 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { writeDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 
-for (const nested of [true, false]) test(`File Open DAWproject ${nested ? 'nested' : 'ordinary'} child recording reaches its authored folder bus`, async ({ page }) => {
+// Node closes ordinary/nested hierarchy, routing, automation and PCM custody.
+const nested = true;
+test(`File Open DAWproject ${nested ? 'nested' : 'ordinary'} child recording reaches its authored folder bus`, async ({ page }) => {
 	test.setTimeout(90_000);
 	const clip = '<Clips><Clip time="0" duration=".1" contentTimeUnit="seconds"><Audio channels="2" sampleRate="48000" duration=".1"><File path="audio/voice.wav"/></Audio></Clip></Clips>';
 	const inner = nested ? '<Track id="nested" name="Nested" contentType="tracks audio"><Channel id="inner-bus" role="submix" audioChannels="2" destination="bus"><Volume unit="linear" value=".7"/></Channel>' : '';

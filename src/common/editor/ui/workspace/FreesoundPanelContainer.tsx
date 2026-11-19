@@ -6,7 +6,7 @@ import { isCurrentAssertion, type EditorProjectToken } from '../../controller/sh
 
 import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../../i18n/freesound-attribution-copy.js';
 import { useTranslationScope } from '../use-translation-scope.ts';
-import { restoreMediaListeningGainOnMetadata } from '../media-listening-gain-readiness.ts';
+import { restoreMediaListeningGainOnMetadata } from '../../media-listening-gain-readiness.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import FreesoundPanel, {
 	type FreesoundPanelState,
@@ -126,11 +126,13 @@ export function FreesoundPanelContainer({
 		...attributionCopy,
 	}), [copy, attributionCopy]);
 	const [state, setState] = useState<FreesoundPanelState>(INITIAL_STATE);
+	const [importError, setImportError] = useState<string | null>(null);
 	const [pendingSoundId, setPendingSoundId] = useState<number | null>(null);
 	const pendingImport = useRef<AbortController | null>(null);
 	const projectIdentity = editorProjectEditSessionKey(controller, dataRecord(snapshot.project)?.id);
 	useEffect(() => {
 		setPendingSoundId(null);
+		setImportError(null);
 		return () => { pendingImport.current?.abort(); pendingImport.current = null; };
 	}, [controller, projectIdentity]);
 	const [fallbackImport, setFallbackImport] = useState<Readonly<{ request: FreesoundImportRequest; projectToken: EditorProjectToken }> | null>(null);
@@ -166,10 +168,13 @@ export function FreesoundPanelContainer({
 	}, []);
 	const routePreviewOutput = useCallback((active: ActiveFreesoundPreview, deviceId: string) => {
 		if (typeof active.audio.setSinkId !== 'function') return;
-		active.outputReady = active.outputReady.then(async () => {
-			if (preview.current === active && active.audio.sinkId !== deviceId) await active.audio.setSinkId(deviceId);
+		const output = active.outputReady.catch(() => undefined).then(async () => {
+			if (preview.current === active && active.outputReady === output && active.audio.sinkId !== deviceId) {
+				await active.audio.setSinkId(deviceId);
+			}
 		});
-		void active.outputReady.catch(() => { if (preview.current === active) stopPreview(); });
+		active.outputReady = output;
+		void output.catch(() => { if (preview.current === active && active.outputReady === output) stopPreview(); });
 	}, [stopPreview]);
 	useEffect(() => {
 		if (preview.current) routePreviewOutput(preview.current, outputDeviceId);
@@ -177,11 +182,17 @@ export function FreesoundPanelContainer({
 
 	const playPreview = useCallback((active: ActiveFreesoundPreview) => {
 		const request = ++active.playRequest;
-		void active.outputReady.then(() => {
-			if (preview.current === active && active.playRequest === request) return active.audio.play();
-		}).catch(() => {
-			if (preview.current === active && active.playRequest === request) stopPreview();
-		});
+		const current = () => preview.current === active && active.playRequest === request;
+		void Promise.resolve().then(async () => {
+			while (current()) {
+				const output = active.outputReady;
+				try { await output; }
+				catch (error) { if (active.outputReady === output) throw error; }
+				if (active.outputReady !== output) continue;
+				if (current()) await active.audio.play();
+				return;
+			}
+		}).catch(() => { if (current()) stopPreview(); });
 	}, [stopPreview]);
 
 	useEffect(() => {
@@ -306,15 +317,14 @@ export function FreesoundPanelContainer({
 		pendingImport.current = abort;
 		const signal = request.signal ? AbortSignal.any([request.signal, abort.signal]) : abort.signal;
 		setPendingSoundId(request.soundId);
+		setImportError(null);
 		void actions.importSound({ ...request, signal }).catch((error: unknown) => {
 			if (signal.aborted || !projectIsCurrent(projectToken)) return;
 			if (error instanceof FreesoundOriginalTooLargeError && request.variant === 'original') {
 				setFallbackImport({ request, projectToken });
 				return;
 			}
-			setState((current) => ({
-				...current, status: 'error', searchFailure: undefined, errorMessage: errorMessage(error, localizedCopy.importError),
-			}));
+			setImportError(errorMessage(error, localizedCopy.importError));
 		}).finally(() => {
 			if (pendingImport.current !== abort) return;
 			pendingImport.current = null;
@@ -344,6 +354,7 @@ export function FreesoundPanelContainer({
 	return <><FreesoundPanel
 		copy={localizedCopy}
 		state={presentationState}
+		importError={importError}
 		disabled={disabled || pendingSoundId !== null}
 		projectBinVisible={projectBinVisible}
 		onSearch={search}

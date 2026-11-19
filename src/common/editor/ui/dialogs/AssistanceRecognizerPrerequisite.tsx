@@ -2,6 +2,7 @@
 
 import type { AssistanceWorkflowSettingsV1 } from '../../assistance/workflow-settings-v1.ts';
 import { LOCAL_ASSISTANCE_ADDITIONAL_COPY } from '../../../i18n/editor-local-assistance-additional-copy.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type TranscriptSettings = Extract<AssistanceWorkflowSettingsV1, { workflowId: 'transcribe-captions' }>;
 type Copy = Readonly<Record<string, string | undefined>>;
@@ -14,7 +15,7 @@ export default function AssistanceRecognizerPrerequisite({ settings, copy, disab
 	onChange(settings: TranscriptSettings): void;
 }>) {
 	const label = text(copy, 'localAssistanceRecognizer');
-	return <label>{label}<select aria-label={label} value={settings.recognizer} disabled={disabled}
+	return <label><EditorControlLabel>{label}</EditorControlLabel><select aria-label={label} value={settings.recognizer} disabled={disabled}
 		onChange={(event) => onChange({ ...settings,
 			recognizer: event.currentTarget.value === 'whisper' ? 'whisper' : 'parakeet' })}>
 		<option value="parakeet">{text(copy, 'localAssistanceRecognizerParakeet')}</option>

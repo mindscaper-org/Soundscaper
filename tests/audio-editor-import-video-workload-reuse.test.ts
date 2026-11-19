@@ -5,7 +5,7 @@ import { createVideoAudioWorkloadReader } from '../src/common/editor/controller/
 import { decodeImportedVideoAudio } from '../src/common/editor/controller/import/internal/video-import-audio-decode.ts';
 import { videoAudioRouteWorkloadFixture } from './browser/fixtures/video-audio-route-workload-fixture.ts';
 
-test('video import admits every native audio programme with one bounded movie read', async () => {
+test('legacy video audio recovery admits every native programme with one bounded movie read', async () => {
 	const file = videoAudioRouteWorkloadFixture('shared-long', [2, 2]);
 	const bytes = new Uint8Array(await file.arrayBuffer()), view = new DataView(bytes.buffer);
 	let movieStart = 0, movieEnd = 0;
@@ -26,7 +26,7 @@ test('video import admits every native audio programme with one bounded movie re
 	}
 	const calls: string[] = [], decoded = { channels: [Float32Array.of(.25)], sampleRate: 8_000 };
 	const result = await decodeImportedVideoAudio({
-		file: new Counted([file]), hasAudio: true, durationSeconds: 2,
+		file: new Counted([file]), hasAudio: true, durationSeconds: 2, audioProgramme: 'legacy',
 		projectSampleRate: 8_000, nativeContextSampleRate: 8_000,
 		inspectEncodedSampleRate: () => null,
 		async decodeNative() { calls.push('native'); return decoded; },

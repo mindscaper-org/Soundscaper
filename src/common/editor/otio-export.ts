@@ -383,7 +383,7 @@ function buildClip(
 			? {
 				OTIO_SCHEMA: 'ExternalReference.1',
 				target_url: target,
-				metadata: { [OTIO_METADATA_NAMESPACE]: { sourceId, addressing: 'managed-storage-key' } },
+				metadata: { [OTIO_METADATA_NAMESPACE]: { sourceId, sourceName: String(source.name ?? ''), addressing: 'managed-storage-key' } },
 			}
 			: { OTIO_SCHEMA: 'MissingReference.1', name: sourceId, metadata: {} },
 		metadata: {

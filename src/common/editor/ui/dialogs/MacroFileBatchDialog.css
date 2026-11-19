@@ -1,0 +1,58 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+.audio-editor-macro-batch__section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-block: 10px 6px;
+}
+
+.audio-editor-macro-batch__files {
+	max-height: min(220px, 35vh);
+	overflow: auto;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+}
+
+.audio-editor-macro-batch__files table {
+	width: 100%;
+	border-collapse: collapse;
+	text-align: start;
+}
+
+.audio-editor-macro-batch__files th,
+.audio-editor-macro-batch__files td {
+	padding: 8px 10px;
+	text-align: start;
+	overflow-wrap: anywhere;
+}
+
+.audio-editor-macro-batch__files th {
+	position: sticky;
+	top: 0;
+	background: var(--panel);
+}
+
+.audio-editor-macro-batch__files td {
+	border-top: 1px solid var(--line);
+}
+
+.audio-editor-macro-batch__files th:last-child {
+	width: 35%;
+}
+
+.audio-editor-macro-batch__detail {
+	display: block;
+	color: var(--muted);
+}
+
+.audio-editor-macro-batch__output-path {
+	margin: 0;
+	padding: 8px 10px;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	background: var(--bg);
+	overflow-wrap: anywhere;
+	user-select: text;
+}

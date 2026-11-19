@@ -12,7 +12,7 @@ import type { SoundscaperDesktopCurrentWitness } from './desktop-project-library
 import { resolveSoundscaperDesktopProjectRecoveryBridge } from './desktop-project-recovery-bridge.ts';
 import { hasSoundscaperProjectRecoveryEvidence, isSoundscaperRecoveryBlockedFailure } from './editor-project-recovery-evidence.ts';
 
-const PREFIX = 'soundscaper.desktop-v1.delete-intent.v1:';
+export const SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX = 'soundscaper.desktop-v1.delete-intent.v1:';
 const FIELDS = [
 	'kind', 'version', 'projectId', 'metadataRevision', 'projectRevision', 'projectSha256',
 ] as const;
@@ -120,7 +120,7 @@ export class SoundscaperDesktopDeleteIntents {
 	}
 
 	async list(): Promise<readonly SoundscaperDesktopDeleteIntent[]> {
-		const rows = intentRows(await this.#store.listByPrefix(PREFIX));
+		const rows = intentRows(await this.#store.listByPrefix(SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX));
 		const projectIds = new Set<string>();
 		return Object.freeze(rows.map((row) => {
 			const intent = validate(row.value);
@@ -132,7 +132,7 @@ export class SoundscaperDesktopDeleteIntents {
 	}
 }
 
-function key(projectId: string): string { return `${PREFIX}${encodeURIComponent(projectId)}`; }
+function key(projectId: string): string { return `${SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX}${encodeURIComponent(projectId)}`; }
 
 function validate(value: unknown): SoundscaperDesktopDeleteIntent {
 	if (!value || typeof value !== 'object' || Array.isArray(value)

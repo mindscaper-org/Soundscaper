@@ -1,20 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
-import { encodeWav } from '../../src/common/editor/wav.js';
 import { sunPcmAu48_000Fixture } from '../helpers/os-audio-codec-fixtures.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 
-for (const format of ['au', 'wav']) test(`native ${format} File Import retains its source clock on a44.1k output device`, async ({ page }) => {
+// Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
+// audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
+for (const format of ['au']) test(`native ${format} File Import retains its source clock on a44.1k output device`, async ({ page }) => {
 	await page.addInitScript(() => {
 		const Native = globalThis.AudioContext;
 		globalThis.AudioContext = class extends Native {
 			constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 44_100 }); }
 		};
 	});
-	const tone = Float32Array.from({ length: 4800 }, (_, frame) => Math.sin(2 * Math.PI * 997 * frame / 48_000) * .2);
-	const file = format === 'au' ? sunPcmAu48_000Fixture()
-		: new File([Uint8Array.from(encodeWav([tone], { sampleRate: 48_000 }))], 'Control.wav', { type: 'audio/wav' });
+	const file = sunPcmAu48_000Fixture();
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
 	const expected = await page.evaluate(async bytes => {
 		try {

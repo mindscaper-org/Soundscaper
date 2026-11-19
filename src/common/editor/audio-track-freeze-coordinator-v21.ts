@@ -67,6 +67,7 @@ export interface AudioTrackFreezeCoordinatorPortsV21<Project, Ticket, Body, Stag
 		readonly project: Project;
 		readonly trackId: string;
 		readonly source: DataRecord;
+		readonly sourceRole: 'input' | 'derived';
 		readonly signal?: AbortSignal;
 	}>) => Promise<string>;
 	readonly render: (request: Readonly<{
@@ -328,7 +329,7 @@ async function commit<Project extends object, Ticket, Body, Stage extends object
 	});
 	const derivedSource = exactSource(project, expectedFreeze.derivedSourceId);
 	const derivedSourceContentSha256 = digest(await ports.hashSourceContent({
-		project: capture.project, trackId, source: derivedSource, ...signalOption(signal),
+		project: capture.project, trackId, source: derivedSource, sourceRole: 'derived', ...signalOption(signal),
 	}), 'derived source body');
 	guardCurrent(ports.controller, capture.ticket, signal);
 	if (derivedSource.contentSha256 !== derivedSourceContentSha256) {
@@ -368,7 +369,7 @@ async function sourceContentIdentities<Project extends object, Ticket, Body, Sta
 	for (const source of sources) {
 		const sourceId = stableId(source.id, 'audio source');
 		const contentSha256 = digest(await ports.hashSourceContent({
-			project: capture.project, trackId, source, ...signalOption(signal),
+			project: capture.project, trackId, source, sourceRole: 'input', ...signalOption(signal),
 		}), `audio source ${sourceId}`);
 		guardCurrent(ports.controller, capture.ticket, signal);
 		if (Object.hasOwn(source, 'contentSha256') && source.contentSha256 !== contentSha256) {

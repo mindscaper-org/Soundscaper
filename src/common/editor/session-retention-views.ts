@@ -3,6 +3,7 @@
 import { compareCodeUnits } from './code-unit-order.ts';
 import { collectProjectStorageKeys, editorHistoryProjects } from './retention.js';
 import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
+import { collectAlternativeSourceIds } from './alternative-source-references.ts';
 import type { ProjectLinkedOriginalSourceReference } from './storage/project-publication-options.ts';
 import type { AudioEditorSessionClipboard } from './session-clipboard-codec.ts';
 
@@ -51,6 +52,8 @@ export function collectHistoryLinkedOriginalSourceReferences(
 					?? (fallback.kind === undefined ? sourceKind(fallback.sourceId) : null), fallback.sourceId);
 			}
 			for (const sourceId of collectTakeGroupSourceIds(project)) add(sourceKind(sourceId), sourceId);
+			// A reopened alternative can own the only original, including after its deletion enters Undo.
+			for (const sourceId of collectAlternativeSourceIds(project)) add(sourceKind(sourceId), sourceId);
 			for (const asset of project.assistanceAssets || []) {
 				if (typeof asset.sourceId === 'string' && asset.sourceId) add(sourceKind(asset.sourceId), asset.sourceId);
 			}

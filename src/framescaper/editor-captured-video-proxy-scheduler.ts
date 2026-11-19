@@ -470,6 +470,7 @@ async function reconcileLandedProject(
 	await reconcileLandedCapturedVideoProxyProject({
 		session: dependencies.session,
 		claimCleanup: dependencies.claimCleanup,
+		recordPersistedSnapshot: dependencies.recordPersistedSnapshot,
 		synchronizeActiveProject: dependencies.synchronizeActiveProject,
 		sameProject: (left, right) => (
 			projectFingerprint(dependencies, left) === projectFingerprint(dependencies, right)

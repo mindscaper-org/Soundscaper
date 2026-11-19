@@ -10,7 +10,7 @@ const quiet = createWavFixture({ name: 'repeat-quiet.wav', frequency: 330, chann
 
 test('Repeat last effect retains its Amplify gain after a new dialog is canceled', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [loud, quiet]);
 	const original = clipByName(editor, loud.name);
 	const trackId = await original.locator('xpath=ancestor::div[@data-track-row]').getAttribute('data-track-id');

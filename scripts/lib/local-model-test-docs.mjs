@@ -24,6 +24,7 @@ const FIXTURES = Object.freeze({
 	'reverberant-speech-44100hz': 'The Kennedy speech resampled to 44.1 kHz with four reproducible delayed reflections.',
 	'speech-tags-32khz': 'The Kennedy speech resampled to mono 32 kHz for the real event-classification network.',
 	'rhythmic-music-22050hz': 'Sixteen seconds of reproducible synthesized percussion and changing tones at 22.05 kHz, with a regular beat.',
+	'melody-chords-22050hz': 'Six seconds of original synthesized harmonic tones: A4 and C5 followed by a C-major chord, at 22.05 kHz.',
 	'visual-shot-frames': 'A 120-frame sequence at 30 frames per second switching from the NASA astronaut portrait to the CC0 cat photograph halfway through, prepared at the model’s 48 × 27 raster size.',
 	'editorial-candidates': 'Two fixed highlight candidates about restoring and comparing a recording, supplied through the production editorial-plan builder with all text fields requested.',
 	'tts-script': 'Nine short UTF-8 scripts, one for each Kokoro v1.0 language variant, each paired with a published matching voice at speed 1.',
@@ -41,6 +42,7 @@ const VALIDATION = Object.freeze({
 	'separated-audio': 'All dialogue, music, and effects stems must have the expected audio geometry, finite samples, and a non-silent signal. Each must differ from the mixture, and duplicated stems are rejected.',
 	'audio-tags': 'Tags must use readable supported labels, finite bounded confidence scores, and valid audio timing.',
 	'beat-grid': 'Beat positions must be nonempty, ordered, and inside the audio; tempo data must be finite and positive.',
+	'midi-notes': 'Notes must have bounded pitches, velocities and timing. The melody and simultaneous C-major chord must be recovered near their known times; exact note boundaries and velocities are not prescribed.',
 	'shot-boundaries': 'Model-derived shot boundaries must be nonempty, ordered, and inside the supplied source-frame range.',
 	'editorial-proposal': 'Strict JSON must contain every authorized candidate exactly once and readable titles, hooks, and explanations with valid chapter text. The production reviewer rejects unsafe or foreign content.',
 	'synthesized-audio': 'Each of the nine selected Kokoro voices must produce non-silent, bounded, 24 kHz mono PCM audio in a valid WAV container. The test requires a complete offline G2P runtime and cannot be satisfied by an unavailable-adapter response or substitute model.',
@@ -56,13 +58,14 @@ const SHERPA_TASKS = new Set([
 
 /** Build target support, not a claim that a particular machine completed inference. */
 export function localModelRuntimeAvailability(entry, { nativeRuntime, onnxRuntime, whisperBuild, llamaBuild,
-	sherpaArm64Build, kokoroG2pBuild }) {
+	sherpaArm64Build, sherpaGpuBuild, kokoroG2pBuild }) {
 	const familyId = entry.task === 'editorial-generation' ? 'llama-cpp' : entry.modelId.startsWith('whisper-') ? 'whisper-cpp'
-		: SHERPA_TASKS.has(entry.task) ? 'sherpa-onnx-node' : 'onnxruntime-node';
+		: SHERPA_TASKS.has(entry.task) || ['gtcrn', 'dpdfnet2-48khz', 'voxlock'].includes(entry.modelId) ? 'sherpa-onnx-node' : 'onnxruntime-node';
 	let version, targets;
 	if (familyId === 'sherpa-onnx-node') {
 		version = nativeRuntime.version;
 		targets = Object.keys(nativeRuntime.targets).filter((target) => nativeRuntime.targets[target].status === 'built');
+		if (sherpaGpuBuild?.version === version) targets.push(...sherpaGpuBuild.targets.map(({ id }) => id));
 		if (sherpaArm64Build?.recipeId === 'sherpa-onnx-node-win-arm64-package-build-v1'
 			&& sherpaArm64Build.version === version) targets.push('win-arm64');
 	} else if (familyId === 'onnxruntime-node') {
@@ -229,7 +232,7 @@ function indexPage(catalog, cases, runtimeSources) {
 }
 
 export async function generateLocalModelTestDocuments(repositoryRoot, { write = false } = {}) {
-	const [catalog, manifest, nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild, catalogTasks] = await Promise.all([
+	const [catalog, manifest, nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild, catalogTasks, sherpaGpuBuild] = await Promise.all([
 		readFile(resolve(repositoryRoot, 'config/local-model-catalog.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/local-model-real-test-cases.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/assistance-native-runtime-manifest.json'), 'utf8').then(JSON.parse),
@@ -237,6 +240,7 @@ export async function generateLocalModelTestDocuments(repositoryRoot, { write = 
 		readFile(resolve(repositoryRoot, 'config/assistance-sherpa-win-arm64-build.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/assistance-kokoro-g2p-build-candidate.json'), 'utf8').then(JSON.parse),
 		readFile(resolve(repositoryRoot, 'config/milestone-7-model-catalog-tasks.json'), 'utf8').then(JSON.parse),
+		readFile(resolve(repositoryRoot, 'config/assistance-sherpa-gpu-build.json'), 'utf8').then(JSON.parse),
 	]);
 	const cases = validateLocalModelRealTestCases(manifest, catalog, { candidateTasks: catalogTasks.tasks });
 	const publishedIds = new Set(catalog.entries.map(({ modelId }) => modelId));
@@ -248,7 +252,7 @@ export async function generateLocalModelTestDocuments(repositoryRoot, { write = 
 	}), ...catalogTasks.tasks.filter(({ catalogModelId }) => !publishedIds.has(catalogModelId))
 		.map((task) => ({ ...task, modelId: task.catalogModelId, pendingPublication: true,
 			artifacts: task.artifacts.map((artifact) => ({ ...artifact, fileName: artifact.distributionFileName })) }))];
-	const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, kokoroG2pBuild,
+	const runtimeSources = { nativeRuntime, onnxRuntime, sherpaArm64Build, sherpaGpuBuild, kokoroG2pBuild,
 		whisperBuild: { version: WHISPER_RUNTIME_VERSION, targets: WHISPER_RUNTIME_BUILD_TARGETS },
 		llamaBuild: { version: LLAMA_RUNTIME_VERSION, targets: LLAMA_RUNTIME_BUILD_TARGETS } };
 	const documents = new Map([['index.md', indexPage({ ...catalog, entries }, cases, runtimeSources)],

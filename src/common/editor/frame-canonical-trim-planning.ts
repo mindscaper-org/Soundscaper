@@ -21,14 +21,17 @@ import {
 } from './timeline-time.ts';
 import { validateVideoTrackComposition as validateLegacyVideoTrackComposition } from './video-timeline.js';
 
-export interface FrameCanonicalTrimParticipant {
-	readonly clip: FrameTrimDataRecord;
+export interface FrameCanonicalTrackSpan {
 	readonly clipId: string;
+	readonly timelineStart: number;
+	readonly timelineEnd: number;
+}
+
+export interface FrameCanonicalTrimParticipant extends FrameCanonicalTrackSpan {
+	readonly clip: FrameTrimDataRecord;
 	readonly track: FrameTrimDataRecord;
 	readonly trackId: string;
 	readonly source: FrameTrimDataRecord;
-	readonly timelineStart: number;
-	readonly timelineEnd: number;
 	readonly sourceStart: number;
 	readonly sourceEnd: number;
 	readonly trimStart: number;
@@ -73,9 +76,8 @@ export function frameCanonicalTrimParticipant(
 	const source = index.sourceById.get(sourceId);
 	if (!source) throw new ReferenceError(`Clip ${clipId} references missing source ${sourceId}.`);
 	if (source.kind !== clip.kind) throw new RangeError(`Clip ${clipId} and source ${sourceId} have different media kinds.`);
-	const timelineStart = nonNegativeSafeInteger(clip.timelineStartFrame, `clip ${clipId}.timelineStartFrame`);
-	const timelineDuration = positiveSafeInteger(clip.durationFrames, `clip ${clipId}.durationFrames`);
-	const timelineEnd = safeAdd(timelineStart, timelineDuration, `clip ${clipId} timeline range`);
+	const { timelineStart, timelineEnd } = frameCanonicalTrackSpan(clip, clipId);
+	const timelineDuration = timelineEnd - timelineStart;
 	const sourceStart = nonNegativeSafeInteger(clip.sourceStartFrame, `clip ${clipId}.sourceStartFrame`);
 	const sourceDuration = positiveSafeInteger(clip.sourceDurationFrames, `clip ${clipId}.sourceDurationFrames`);
 	const sourceEnd = safeAdd(sourceStart, sourceDuration, `clip ${clipId} source range`);
@@ -113,19 +115,27 @@ export function frameCanonicalStableParticipants(
 		.map((clip) => frameCanonicalTrimParticipant(index, nonEmptyString(clip.id, 'clip.id')));
 }
 
-/** Resolve one lane in its persisted clip order. */
-export function frameCanonicalTrackParticipants(
+/** Read lane geometry before deciding which clips the operation needs to transform. */
+export function frameCanonicalTrackSpans(
 	index: FrameTrimProjectIndex,
 	trackId: string,
-): readonly FrameCanonicalTrimParticipant[] {
+): readonly FrameCanonicalTrackSpan[] {
 	const track = index.trackById.get(trackId);
 	if (!track || !Array.isArray(track.clipIds)) {
 		throw new RangeError(`Media lane ${trackId} is missing clip ownership.`);
 	}
-	return track.clipIds.map((value) => frameCanonicalTrimParticipant(
-		index,
-		nonEmptyString(value, `track ${trackId} clip ID`),
-	));
+	return track.clipIds.map((value) => {
+		const clipId = nonEmptyString(value, `track ${trackId} clip ID`);
+		const clip = index.clipById.get(clipId);
+		if (!clip) throw new ReferenceError(`Missing participant clip ${clipId}.`);
+		return frameCanonicalTrackSpan(clip, clipId);
+	});
+}
+
+function frameCanonicalTrackSpan(clip: FrameTrimDataRecord, clipId: string): FrameCanonicalTrackSpan {
+	const timelineStart = nonNegativeSafeInteger(clip.timelineStartFrame, `clip ${clipId}.timelineStartFrame`);
+	const duration = positiveSafeInteger(clip.durationFrames, `clip ${clipId}.durationFrames`);
+	return { clipId, timelineStart, timelineEnd: safeAdd(timelineStart, duration, `clip ${clipId} timeline range`) };
 }
 
 export function frameCanonicalVideoAuthority(

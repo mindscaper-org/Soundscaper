@@ -15,6 +15,7 @@ import {
 	type EditorCommandMutationTransaction,
 } from '../common/editor/commands/mutation-transaction.ts';
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
+import { pruneMissingProjectSelections } from '../common/editor/commands/shared-runtime.js';
 import {
 	PROJECT_SCHEMA_VERSION, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 } from '../common/editor/project-schema-identity.ts';
@@ -81,15 +82,8 @@ export function applySoundscaperProjectFoundationCommand(
 	}
 	draft.revision = revision;
 	draft.updatedAt = timestamp(options.now);
-	stripAudioFreezeRequirements(draft);
-	draft.featureRequirements = reconcileProjectOwnedFeatureRequirements(
-		draft,
-		draft.featureRequirements as never,
-	);
-	draft.featureRequirements = reconcileSoundscaperProjectFeatureRequirements(
-		draft,
-		draft.featureRequirements as never,
-	);
+	// The completed command tree reconciles features before the revision stamp.
+	draft.featureRequirements = applied.featureRequirements;
 	validateSoundscaperProject(draft);
 	transaction.assertPersistedResult(draft);
 	return draft as SoundscaperProject;
@@ -126,6 +120,7 @@ function applyCommandTree(
 			PRODUCTION_HANDLERS['audio-freeze/remove'](draft, command);
 		} else {
 			PRODUCTION_HANDLERS['audio-freeze/commit'](draft, command);
+			pruneMissingProjectSelections(draft);
 			// Committing swaps the track's clips for the derived render, which is the one
 			// inherited command that can move a track's resolved width. Restating the graph
 			// first repairs any map left aimed at the pre-freeze width; the lane pass then
@@ -207,10 +202,6 @@ function elevateInheritedCommandResult(
 		commanded,
 		command,
 		reconcileLanesAfterInheritedCommand(previous.automationLanes, commanded),
-	);
-	commanded.featureRequirements = reconcileProjectOwnedFeatureRequirements(
-		commanded,
-		commanded.featureRequirements as never,
 	);
 	return finalizeIntermediate(commanded, validateResult);
 }

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { isEarLayout } from './ear/layouts.ts';
 import { MEDIA_EXPORT_FORMATS } from './media-export.js';
 import { VIDEO_EXPORT_FORMATS } from './video-export.js';
 import { captureImageExportTextV1 } from './image-export-text-v1.ts';
@@ -32,7 +33,7 @@ export type DeliveryPresetKind = (typeof DELIVERY_PRESET_KINDS)[number];
 export const DELIVERY_PRESET_SETTINGS: Readonly<Record<DeliveryPresetKind, readonly string[]>> = Object.freeze({
 	audio: Object.freeze([
 		'sampleRate', 'channelMapping', 'sampleFormat', 'dither',
-		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'binaural',
+		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'renderAsLoop', 'binaural', 'earLayout',
 		'loudnessNormalization', 'embedLabelChapters',
 		/* MP3 carries Audacity's bit-rate mode plus the value each mode keeps. */
 		'bitRateMode', 'bitRatePreset', 'vbrQuality', 'averageBitRate',
@@ -113,6 +114,9 @@ export function validateDeliveryPreset(value: unknown): DeliveryPreset {
 	}
 	if (kind === 'audio' && Object.hasOwn(rawSettings, 'binaural') && typeof rawSettings.binaural !== 'boolean') {
 		throw new DeliveryPresetError('The binaural delivery setting must be a boolean.');
+	}
+	if (kind === 'audio' && rawSettings.earLayout !== undefined && !isEarLayout(rawSettings.earLayout)) {
+		throw new DeliveryPresetError('The EBU EAR output layout is unsupported.');
 	}
 	const textWatermark = Object.hasOwn(rawSettings, 'textWatermark')
 		? captureImageExportTextV1(readClosedDomainField(rawSettings, 'textWatermark', 'Delivery preset settings')) : undefined;

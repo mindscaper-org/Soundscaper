@@ -28,3 +28,11 @@ test('ruler time origins place local zero and project time at the clip start, in
 	const global = sourceRulerTicks({ startFrame: 0, endFrame: 672_000, width: 700, sampleRate: 48_000, originFrame: 864_000 });
 	assert.ok(global.some(tick => tick.frame === 96_000 && tick.label === '0:20'));
 });
+
+test('a clip starting on a global centisecond tick labels its left boundary', () => {
+	const ticks = sourceRulerTicks({
+		startFrame: 0, endFrame: 5_280, width: 900, sampleRate: 48_000, originFrame: 3_360,
+	});
+	assert.deepEqual(ticks[0], { frame: 0, label: '0:00.07' });
+	assert.deepEqual(ticks[1], { frame: 480, label: '0:00.08' });
+});

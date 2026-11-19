@@ -17,7 +17,7 @@ export default function ClipPropertiesColorPicker({ color, copy, disabled, onCha
 	const close = () => { setPosition(null); trigger.current?.focus({ preventScroll: true }); };
 	const label = color === 'mixed' ? copy.clipMixed : !color || color === 'track' || color === 'auto' ? copy.followTrackColor : colorName(copy, color);
 	return <>
-		<button ref={trigger} type="button" className="clip-properties__palette-trigger" aria-label={copy.clipColor}
+		<button ref={trigger} type="button" className="clip-properties__palette-trigger" aria-label={`${copy.clipColor}: ${label}`}
 			aria-haspopup="menu" aria-expanded={Boolean(position)} disabled={disabled} data-open-clip-color
 			onClick={event => { const bounds = event.currentTarget.getBoundingClientRect(); setPosition({ x: bounds.left, y: bounds.bottom }); }}>
 			{label}

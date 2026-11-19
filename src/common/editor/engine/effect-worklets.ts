@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ensureCpuProfileWorklet } from './cpu-profile-instrumentation.ts';
 import { isAudacityLiveEffect } from '../audacity-effects/live-capabilities.js';
 import { BITCRUSHER_EFFECT_TYPE } from '../first-party-effects/bitcrusher/definition.js';
 import { isBandDynamicsEffect } from '../first-party-effects/dynamics/definition.ts';
@@ -12,9 +13,11 @@ import { isParametricEqType, projectEffectRacks } from './project-effects.ts';
 import type { EngineEffect, EngineProject } from './types.ts';
 import { ensureNativePluginRealtimeWorklet } from '../native-plugin-realtime-node.js';
 import { createAudioWorkletLoadOnce, type AudioWorkletLoadOnce } from '../audio-worklet-load-once.ts';
+import { ensureAutoTuneWorklet } from './auto-tune-node.ts';
+import { prepareAiDenoise } from './ai-denoise-node.ts';
 
 const dynamicsWorklet = workletModuleLoadOnce(dynamicsWorkletModuleUrl);
-const delayWorklet = workletModuleLoadOnce(() => new URL('../delay-worklet.js', import.meta.url));
+const delayWorklet = workletModuleLoadOnce(delayWorkletModuleUrl);
 const bitcrusherWorklet = workletModuleLoadOnce(bitcrusherWorkletModuleUrl);
 const audacityWorklet = workletModuleLoadOnce(audacityWorkletModuleUrl);
 const audacityReadyContexts = new WeakSet<BaseAudioContext>();
@@ -56,7 +59,10 @@ export function getParametricEqWasmModule(context: BaseAudioContext): WebAssembl
 export async function ensureProjectWorklets(
 	context: BaseAudioContext,
 	project: EngineProject,
+	options: Readonly<{ trackId?: unknown; includeMaster?: boolean }> = {},
 ): Promise<void> {
+	await ensureCpuProfileWorklet(context);
+	await prepareAiDenoise(context, project, options);
 	const needsDynamics = projectUsesDynamicsWorklet(project) && !dynamicsWorklet.isLoaded(context);
 	const needsDelay = projectUsesDelayWorklet(project) && !delayWorklet.isLoaded(context);
 	const needsBitcrusher = projectUsesBitcrusherWorklet(project) && !bitcrusherWorklet.isLoaded(context);
@@ -70,9 +76,11 @@ export async function ensureProjectWorklets(
 	const needsParametricEq = usesParametricEq && !parametricEqWorklet.isLoaded(context);
 	const needsParametricEqWasm = usesParametricEq && !parametricEqWasmModules.has(context);
 	const usesNativePlugin = projectUsesNativePluginWorklet(project);
+	const usesAutoTune = projectUsesEffect(project, type => type === 'auto-tune');
 	if (!needsDynamics && !needsDelay && !needsBitcrusher && !needsBandDynamics && !needsAudacity && !needsParametricEq
-		&& !needsParametricEqWasm && !usesNativePlugin && !needsStandard && !usesStandardDelay) return;
+		&& !needsParametricEqWasm && !usesNativePlugin && !needsStandard && !usesStandardDelay && !usesAutoTune) return;
 	if (!context.audioWorklet?.addModule || typeof globalThis.AudioWorkletNode !== 'function') {
+		if (usesAutoTune) throw new Error('This browser cannot run Automatic pitch correction in realtime.');
 		if (needsStandard) throw new Error('This browser cannot run the selected real-time effect without bypassing it.');
 		if (needsBandDynamics) throw new Error('This browser cannot run the de-esser or multiband compressor without bypassing it.');
 		if (needsAudacity) throw new Error('This browser cannot run Audacity real-time effects without bypassing them.');
@@ -82,6 +90,7 @@ export async function ensureProjectWorklets(
 		return;
 	}
 	const loads: Promise<unknown>[] = [];
+	if (usesAutoTune) loads.push(ensureAutoTuneWorklet(context));
 	if (needsStandard) loads.push(ensureStandardEffectWorklet(context));
 	if (usesStandardDelay) loads.push(ensureStandardDelayRuntime(context));
 	if (needsBandDynamics) loads.push(ensureBandDynamicsWorklet(context));
@@ -224,6 +233,14 @@ async function dynamicsWorkletModuleUrl(): Promise<URL | string> {
 		return module.default;
 	}
 	return new URL('../dynamics-worklet.js', import.meta.url);
+}
+
+async function delayWorkletModuleUrl(): Promise<URL | string> {
+	if (import.meta.env?.DEV || import.meta.env?.PROD) {
+		const module = await import('../delay-worklet.js?worker&url');
+		return module.default;
+	}
+	return new URL('../delay-worklet.js', import.meta.url);
 }
 
 async function bitcrusherWorkletModuleUrl(): Promise<URL | string> {

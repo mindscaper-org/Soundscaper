@@ -8,11 +8,11 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 for (const channelCount of [2, 4]) {
 	test(`a macro Invert captures every channel of an ordinary ${channelCount}-channel recording`, async ({ page }) => {
 		const { editor, original } = await importRecording(page, channelCount, true);
-		await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-		const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+		await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+		const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 		await manager.getByRole('button', { name: 'New program', exact: true }).click();
 		await manager.getByRole('textbox', { name: 'Program', exact: true }).fill("await sound.effect('audacity-invert');");
-		await manager.getByRole('button', { name: 'Run program', exact: true }).click();
+		await manager.getByRole('button', { name: 'Run macro', exact: true }).click();
 		await expect(manager.locator('[data-macro-script-log]')).toHaveAttribute('data-outcome', 'completed', { timeout: 10_000 });
 		await manager.getByRole('button', { name: 'Close', exact: true }).click();
 		const actual = await exportSamples(page, editor);
@@ -33,7 +33,7 @@ for (const channelCount of [2, 4]) {
 		await rack.getByRole('button', { name: 'Get noise profile', exact: true }).click();
 		await expect(rack.getByRole('button', { name: 'Replace noise profile', exact: true })).toBeVisible({ timeout: 10_000 });
 		await closeDialog(rack);
-		const profiled = await exportSamples(page, editor);
+		const profiled = await exportSamples(page, editor, { includeTail: true });
 		expect(profiled).toHaveLength(48_000 + 2_047);
 		expect(profiled.every(Number.isFinite)).toBe(true);
 	});
@@ -41,7 +41,7 @@ for (const channelCount of [2, 4]) {
 
 async function importRecording(page, channelCount, renderDryBaseline = false) {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: `capture-${channelCount}-channels.wav`,
 		frequency: 750, duration: 1, channelCount })]);
 	const original = renderDryBaseline ? await exportSamples(page, editor) : null;

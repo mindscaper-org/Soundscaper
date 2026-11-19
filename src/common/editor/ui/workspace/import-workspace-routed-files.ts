@@ -2,16 +2,27 @@
 
 import { withWebFileLoadLimitContext } from '../../web-file-limit-failure.ts';
 import { partitionWorkspaceFiles } from './workspace-file-routing.js';
+import { isTimelineInterchangeFile } from '../../timeline-interchange-file.ts';
+import { scaleSampleFrame } from '../../timeline-time.ts';
+import { isLegacyAupFile } from '../../controller/shared/app-helpers.ts';
+import type { EditorProjectToken } from '../../controller/shared/lifecycle.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { isExpectedWorkspaceCancellation } from './scape-open-decision-continuation.ts';
 
 interface RoutedImportController {
-	readonly project?: Readonly<{ id?: unknown }> | null;
+	readonly project?: Readonly<{ id?: unknown; sampleRate?: unknown }> | null;
+	captureProjectGeneration?(projectId: string | null): EditorProjectToken;
 	readonly actions: Readonly<{
 		readonly project: Readonly<{
 			importFiles(files: readonly File[], options: Readonly<Record<string, unknown>>): PromiseLike<unknown> | unknown;
+			openInterchange?(file: File, options: Readonly<{ mediaFiles: readonly File[] }>): RoutedInterchangeResult | PromiseLike<RoutedInterchangeResult>;
 		}>;
 		readonly labels: Readonly<{ importFile(file: File): PromiseLike<unknown> | unknown }>;
 	}>;
 }
+
+type RoutedInterchangeResult = Readonly<{ companionFiles?: readonly File[]; cancelled?: boolean }> | null | undefined;
+export type ImportFilesToProjectBin = (files: readonly File[], options: Readonly<{ destination: 'project-bin' }>) => unknown;
 
 /** One load boundary for picker, drop, launch, and desktop file handoff routes. */
 export function importWorkspaceRoutedFiles({
@@ -26,17 +37,41 @@ export function importWorkspaceRoutedFiles({
 }>): Promise<number> {
 	return withWebFileLoadLimitContext(async () => {
 		const routed = partitionWorkspaceFiles(files);
-		for (const file of routed.projects) await openProjectFile(file);
-		if (routed.media.length) {
-			const result = await controller.actions.project.importFiles(routed.media, {
-				destination: 'auto', projectBinVisible, ...importOptions,
-			});
-			if (result && typeof result === 'object' && 'cancelled' in result && result.cancelled === true) return 0;
-		}
-		const projectId = controller.project?.id;
+		const activeSession = () => editorProjectEditSessionKey(controller, controller.project?.id);
+		const outgoing = activeSession();
+		const outgoingRate = controller.project?.sampleRate;
 		const failures: unknown[] = [];
+		const companionMedia = new Set<File>();
+		for (const file of routed.projects) {
+			try {
+				if (isTimelineInterchangeFile(file.name) && controller.actions.project.openInterchange) {
+					const result = await controller.actions.project.openInterchange(file, { mediaFiles: routed.media });
+					if (importWasCancelled(result)) return 0;
+					for (const companion of result?.companionFiles ?? []) companionMedia.add(companion);
+				} else if (importWasCancelled(await openProjectFile(file))) return 0;
+			} catch (error) {
+				if (isExpectedWorkspaceCancellation(error)) throw error;
+				failures.push(error);
+			}
+		}
+		let session = activeSession();
+		const looseMedia = routed.media.filter(file => !companionMedia.has(file));
+		if (looseMedia.length) {
+			const placement = session === outgoing ? importOptions : rebaseImportPlacement(importOptions, outgoingRate, controller.project?.sampleRate);
+			try {
+				const result = await controller.actions.project.importFiles(looseMedia, {
+					destination: 'auto', projectBinVisible, ...placement,
+				});
+				if (importWasCancelled(result)) return 0;
+			} catch (error) {
+				if (isExpectedWorkspaceCancellation(error)) throw error;
+				failures.push(error);
+			}
+			// A legacy project and its selected audio blocks open through the media importer.
+			if (looseMedia.some(isLegacyAupFile)) session = activeSession();
+		}
 		const assertCurrent = (): void => {
-			if (controller.project?.id !== projectId) throw new DOMException('The project changed during file import.', 'AbortError');
+			if (activeSession() !== session) throw new DOMException('The project changed during file import.', 'AbortError');
 		};
 		for (const [group, consume] of [
 			[routed.labels, (file: File) => controller.actions.labels.importFile(file)],
@@ -44,16 +79,43 @@ export function importWorkspaceRoutedFiles({
 		] as const) {
 			for (const file of group) {
 				assertCurrent();
-				try { await consume(file); assertCurrent(); }
+				try {
+					const result = await consume(file);
+					assertCurrent();
+					if (group === routed.cues && result === null) return 0;
+				}
 				catch (error) {
 					assertCurrent();
-					if (error && typeof error === 'object' && 'name' in error && error.name === 'AbortError') throw error;
+					if (isExpectedWorkspaceCancellation(error)) throw error;
 					failures.push(error);
 				}
 			}
 		}
-		if (failures.length === 1) throw failures[0];
-		if (failures.length) throw new AggregateError(failures, failures.map(error => error instanceof Error ? error.message : String(error)).join('\n'));
+		throwImportFailures(failures);
 		return files.length;
 	});
+}
+
+function rebaseImportPlacement(options: Readonly<Record<string, unknown>>, fromRate: unknown, toRate: unknown) {
+	const placement = { ...options };
+	delete placement.trackId;
+	delete placement.trackIndex;
+	delete placement.trackPlacement;
+	const frame = placement.timelineStartFrame;
+	if (typeof frame === 'number' && Number.isSafeInteger(frame) && frame >= 0
+		&& typeof fromRate === 'number' && fromRate > 0 && Number.isSafeInteger(fromRate)
+		&& typeof toRate === 'number' && toRate > 0 && Number.isSafeInteger(toRate)) {
+		placement.timelineStartFrame = scaleSampleFrame(frame, fromRate, toRate, 'point');
+	}
+	return placement;
+}
+
+function importWasCancelled(result: unknown): boolean {
+	return result != null && typeof result === 'object' && 'cancelled' in result && result.cancelled === true;
+}
+
+function throwImportFailures(failures: unknown[]): void {
+	if (failures.length === 1) throw failures[0];
+	if (failures.length) throw new AggregateError(failures,
+		failures.map(error => error instanceof Error ? error.message : String(error)).join('\n'));
 }

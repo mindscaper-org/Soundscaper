@@ -18,6 +18,7 @@ import {
 	auditDesktopFfmpegAbsence,
 } from './lib/desktop-codec-policy.mjs';
 import { verifyDesktopOsAudioCodecNativePackageTree } from './lib/desktop-os-audio-codec-native-package-verification.mjs';
+import { verifyStagedYabridge } from './lib/yabridge-staging.mjs';
 import {
 	nativeAddonPayloadOutputRoot,
 	nativeAddonPayloadTargetForPackagingContext,
@@ -57,6 +58,7 @@ export default async function verifyDesktopRuntimeBeforePack(context = {}, depen
 		?? verifyStagedOsAudioCodecNativeBeforePack;
 	const verifyProfessional = dependencies.verifyStagedSoundscaperProfessionalNativeBeforePack
 		?? verifyStagedSoundscaperProfessionalNativeBeforePack;
+	const verifyYabridge = dependencies.verifyStagedYabridge ?? verifyStagedYabridge;
 	if (context.electronPlatformName === 'darwin' && process.env.SCAPE_MAC_SIGNING === 'true') {
 		await captureMacSigningInputs(context);
 	}
@@ -70,6 +72,7 @@ export default async function verifyDesktopRuntimeBeforePack(context = {}, depen
 		verifyProfessional({ repositoryRoot, stageManifestPath, packagedTarget }),
 		verifyNativeHosts({ repositoryRoot, stageManifestPath, packagedTarget }),
 		verifyOsAudioCodec({ repositoryRoot, stageManifestPath, packagedTarget }),
+		verifyYabridge({ repositoryRoot, stageManifestPath, packagedTarget }),
 	]);
 	await signVerifiedMacStage(context);
 }

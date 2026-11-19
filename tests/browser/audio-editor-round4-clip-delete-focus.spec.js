@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, clickClipInterior, clipByName, importFiles } from './audio-editor-test-helpers.js';
 
 test('deleting a focused clip keeps keyboard continuation on the surviving recording', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const split = editor.getByRole('button', { name: 'Split tool', exact: true });
 	await split.click();
@@ -24,7 +24,7 @@ test('deleting a focused clip keeps keyboard continuation on the surviving recor
 });
 
 test('deleting the only focused clip returns keyboard focus to its empty track', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	await clip.locator('.clip-header').click();

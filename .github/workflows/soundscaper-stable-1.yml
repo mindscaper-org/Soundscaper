@@ -1,9 +1,9 @@
-name: Soundscaper Stable 1
+name: Soundscaper stable release
 
 on:
   push:
     tags:
-      - 'v1.0.0'
+      - 'Soundscaper.[0-9]*'
 
 permissions: {}
 concurrency: { group: soundscaper-stable-1, cancel-in-progress: false }
@@ -30,7 +30,7 @@ jobs:
           from './scripts/prepare-soundscaper-release.mjs';
           const release = await verifyCheckedInSoundscaperRelease({
           repositoryRoot: process.cwd(), tag: process.env.RELEASE_TAG });
-          if (release.version !== '1.0.0') throw new Error('The tag does not match Soundscaper Stable 1');"
+          if (release.channel !== 'stable') throw new Error('The tag does not match the Soundscaper stable release');"
       - run: npm ci
       - name: Resolve the interchange download cache identity
         id: interchange-cache-key
@@ -50,7 +50,6 @@ jobs:
         env: { NODE_OPTIONS: --max-old-space-size=8192 }
       - name: Stage and preflight the checked Soundscaper Pages site
         run: |
-          node scripts/stage-handbook-build.mjs
           node scripts/check-cloudflare-assets.mjs
           node scripts/preflight-pages-deploy.mjs
         env: { SCAPE_PRODUCT: soundscaper }
@@ -128,6 +127,10 @@ jobs:
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
         run: node scripts/ci-test-prerequisites.mjs --node-module-shard=${{ matrix.shard }} >> "$GITHUB_OUTPUT"
+
+      - name: Install headless Chromium for the WebGL pixelation regression
+        if: steps.test-prerequisites.outputs.chromium == 'true'
+        run: node node_modules/playwright-core/cli.js install --with-deps --only-shell chromium
 
       - name: Resolve the interchange download cache identity
         if: steps.test-prerequisites.outputs.interchange == 'true'
@@ -527,7 +530,7 @@ jobs:
         env: { GH_TOKEN: "${{ github.token }}", GH_REPO: "${{ github.repository }}" }
         run: >-
           gh release create "$GITHUB_REF_NAME" release/desktop/*
-          --draft --verify-tag --title "Soundscaper 1.0.0" --generate-notes
+          --draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
 
   deploy-web:
     name: Deploy the web release
@@ -567,7 +570,7 @@ jobs:
           retention-days: 90
 
   publish-release:
-    name: Publish Soundscaper 1.0.0
+    name: Publish Soundscaper stable release
     needs: deploy-web
     permissions:
       contents: write

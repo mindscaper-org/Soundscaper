@@ -14,9 +14,11 @@ import { openExternalMediaPcm } from './external-media-pcm-reader.ts';
 import { aggregateScapeErrors } from '../scape/abort.ts';
 
 export type ExternalAudioDecoder = (file: Blob, source: Readonly<Record<string, unknown>>,
-	signal?: AbortSignal) => Promise<readonly Float32Array[]>;
+	signal?: AbortSignal, options?: Readonly<{ videoAudioTiming: 'import' }>) => Promise<readonly Float32Array[]>;
 export type ExternalMediaResolver = (reference: ExternalMedia, sourceId: string,
 	signal?: AbortSignal) => Promise<Blob | { readonly file: Blob; release(): Promise<void> }>;
+
+class ExternalAudioSampleMismatch extends Error {}
 
 interface ExternalMediaImportStore {
 	beginSourceWrite(sourceId: string, metadata: Readonly<Record<string, unknown>>): Promise<{
@@ -107,28 +109,40 @@ async function persistExternalMedia(
 		return;
 	}
 	const pcm = await openExternalMediaPcm(file, source, signal);
-	const channels = pcm ? null : await request.decodeExternalAudio?.(file, source, signal);
-	if (!pcm && !channels) throw new Error('The desktop external-audio decoder is unavailable.');
-	if (channels && (channels.length !== source.channelCount || channels.some((channel) => channel.length !== source.frameCount))) {
-		throw new Error(`External audio ${String(source.name)} does not match its recorded sample shape.`);
-	}
-	const writer = await store.beginSourceWrite(String(source.id), source);
-	const digest = createScapeDigest();
+	const decode = request.decodeExternalAudio;
 	try {
-		const write = async (chunk: readonly Float32Array[]): Promise<void> => {
-			signal?.throwIfAborted();
-			const header = new Uint8Array(4);
-			new DataView(header.buffer).setUint32(0, chunk[0]!.length, true);
-			digest.update(header); digest.update(new Uint8Array(packPlanarFloat32(chunk)));
-			await writer.write(chunk, { signal });
-		};
-		if (pcm) await pcm.stream(write);
-		else for (let position = 0; position < Number(source.frameCount); position += Number(source.chunkFrames)) {
-			await write(channels!.map((channel) => channel.subarray(position, position + Number(source.chunkFrames))));
+		await publishAudio(pcm ? null : await decode?.(file, source, signal));
+	} catch (error) {
+		if (!(error instanceof ExternalAudioSampleMismatch) || pcm || reference.role !== 'video-audio' || !decode) throw error;
+		// Older archives may match the original whole-file route. Only a PCM digest
+		// mismatch after writer retirement admits the bounded import timing retry.
+		signal?.throwIfAborted();
+		await publishAudio(await decode(file, source, signal, { videoAudioTiming: 'import' }));
+	}
+
+	async function publishAudio(channels: readonly Float32Array[] | null | undefined): Promise<void> {
+		if (!pcm && !channels) throw new Error('The desktop external-audio decoder is unavailable.');
+		if (channels && (channels.length !== source.channelCount || channels.some((channel) => channel.length !== source.frameCount))) {
+			throw new Error(`External audio ${String(source.name)} does not match its recorded sample shape.`);
 		}
-		if (reference.contentSha256 !== null && scapeHex(digest.digest()) !== reference.contentSha256) {
-			throw new Error(`External audio ${String(source.name)} decoded to different samples.`);
-		}
-		transaction.trackProvisionalSource(await writer.commit(source, { signal, ifAbsent: true }));
-	} catch (error) { await writer.abort(); throw error; }
+		const writer = await store.beginSourceWrite(String(source.id), source);
+		const digest = createScapeDigest();
+		try {
+			const write = async (chunk: readonly Float32Array[]): Promise<void> => {
+				signal?.throwIfAborted();
+				const header = new Uint8Array(4);
+				new DataView(header.buffer).setUint32(0, chunk[0]!.length, true);
+				digest.update(header); digest.update(new Uint8Array(packPlanarFloat32(chunk)));
+				await writer.write(chunk, { signal });
+			};
+			if (pcm) await pcm.stream(write);
+			else for (let position = 0; position < Number(source.frameCount); position += Number(source.chunkFrames)) {
+				await write(channels!.map((channel) => channel.subarray(position, position + Number(source.chunkFrames))));
+			}
+			if (reference.contentSha256 !== null && scapeHex(digest.digest()) !== reference.contentSha256) {
+				throw new ExternalAudioSampleMismatch(`External audio ${String(source.name)} decoded to different samples.`);
+			}
+			transaction.trackProvisionalSource(await writer.commit(source, { signal, ifAbsent: true }));
+		} catch (error) { await writer.abort(); throw error; }
+	}
 }

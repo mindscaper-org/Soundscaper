@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { wrapLoopRender } from '../../../../export-loop.ts';
 import { isProjectAudioFallbackIntegrityError } from '../../../../project-fallback-integrity-audio.ts'; import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
 import { hasProductionMixerProjectAuthority } from '../../../../project-schema-version.ts';
 import type { LoudnessNormalizationDecision } from '../../../../loudness-normalization.ts';
@@ -31,6 +32,7 @@ interface ExportRenderPlan extends RenderedAudioEncodingPlan {
 	}>;
 	readonly render: Readonly<{ readonly strategy: string }>;
 	readonly tailFrames: number;
+	readonly renderAsLoop?: boolean;
 }
 
 interface ExportRenderSettings {
@@ -61,7 +63,7 @@ interface OfflineRenderRange {
 	readonly includeTail: number | false;
 	readonly includeMaster?: boolean;
 	readonly outputFrames: number;
-	readonly preRollFrames: number;
+	readonly preRollFrames: number | false;
 	readonly respectMuteSolo?: boolean;
 	readonly startFrame: number;
 	readonly trackId?: string | null;
@@ -199,11 +201,12 @@ export async function renderAndEncodeAudioExport(
 				...renderTarget,
 				startFrame: plan.range.startFrame,
 				endFrame: plan.range.endFrame,
-				includeTail: settings.includeTail ? plan.tailFrames / renderSampleRate : false,
+				includeTail: plan.renderAsLoop || settings.includeTail ? plan.tailFrames / renderSampleRate : false,
 				outputFrames: plan.range.durationFrames + plan.tailFrames,
-				preRollFrames: Math.min(plan.range.startFrame, renderSampleRate * 10),
+				preRollFrames: plan.renderAsLoop ? false : Math.min(plan.range.startFrame, renderSampleRate * 10),
 			}, renderSources.sourceMap, signal, renderSources.chunkSources, renderSources.prepareTimePitchCaches);
 		throwIfAborted(signal);
+		if (plan.renderAsLoop) rendered = wrapLoopRender(encodingRuntime.audioBufferChannels(rendered), plan.range.durationFrames, rendered.sampleRate);
 	} catch (error) {
 		if (signal.aborted
 			|| (error as Readonly<{ name?: string }>)?.name === 'AbortError'
@@ -270,7 +273,7 @@ function allowsRealtimeFallback(
 	// renders the programme and maps it to the plan's two channels by index, so a
 	// fallback would deliver the bed's first two channels — the rest of the bed
 	// and every object silently absent — under a report claiming a binaural render.
-	if (plan.binaural) return false;
+	if (plan.binaural || plan.ear) return false;
 	return settings.measureLoudness !== true || (plan.format !== 'bwf' && plan.format !== 'bw64');
 }
 

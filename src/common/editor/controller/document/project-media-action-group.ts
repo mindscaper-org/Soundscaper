@@ -167,20 +167,19 @@ export function createProjectMediaActionGroup(runtime: ProjectMediaActionRuntime
 			return result;
 		},
 		/**
-		 * Save the checksum manifest of the archive this session last wrote.
+		 * Save the checksum manifest of the last archive written for this project.
 		 *
 		 * It answers with a reason rather than nothing when there is none, because
 		 * a streamed save leaves no bytes to have measured and that is a different
 		 * answer from an archive that checked out.
 		 */
 		saveArchiveManifest: async (): Promise<Readonly<{ saved: boolean; reason: string | null }>> => {
+			const projectId = runtime.getProject()?.id;
 			const result = await saveCurrentScapeArchiveManifest({
 				state: runtime.state,
 				...(runtime.fileService ? { fileService: runtime.fileService } : {}),
-				...(runtime.publishDocumentSnapshot
-					? { publishDocumentSnapshot: runtime.publishDocumentSnapshot }
-					: {}),
-			});
+			}, projectId);
+			if (runtime.getProject()?.id !== projectId) return result;
 			if (result.saved) {
 				if (runtime.setStatus) setLocalizedStatus(runtime.setStatus, runtime.copy ?? {},
 					'archiveManifestSaved', undefined, 'success', { fallback: 'Archive checksums saved' });

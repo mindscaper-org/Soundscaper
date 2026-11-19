@@ -32,6 +32,10 @@ test('an OS-opened Framescaper project can import captions while an outgoing rea
 	await chooseNestedCommandAction(page, editor, 'Tracks', ['Caption Tracks']);
 	const dialog = page.getByRole('dialog', { name: 'Caption Tracks', exact: true });
 	const body = Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nIncoming caption\n');
+	const sidecar = dialog.getByRole('textbox', { name: 'Sidecar text', exact: true });
+	const document = dialog.locator('[data-framescaper-finishing-document]');
+	await sidecar.fill('Unsaved outgoing sidecar');
+	await document.fill('[{"id":"unsaved-outgoing-caption"}]');
 	await dialog.locator('[data-framescaper-caption-file]').setInputFiles({ name: 'delayed.srt', mimeType: 'application/x-subrip', buffer: Buffer.from(body.toString().replace('Incoming caption', 'Outgoing stale caption')) });
 	await expect.poll(() => page.evaluate(() => globalThis.__nextCaptionReadPending)).toBe(true);
 	await page.evaluate(base64 => {
@@ -40,8 +44,10 @@ test('an OS-opened Framescaper project can import captions while an outgoing rea
 	}, project);
 	await expect(editor).toHaveAttribute('data-project-id', 'caption-incoming');
 	await expect(dialog.getByRole('button', { name: 'Choose sidecar file', exact: true })).toBeEnabled();
+	await expect(sidecar).toHaveValue('');
+	await expect(document).toHaveValue('[]');
 	await dialog.locator('[data-framescaper-caption-file]').setInputFiles({ name: 'incoming.srt', mimeType: 'application/x-subrip', buffer: body });
 	await expect(dialog.getByRole('button', { name: 'Export selected track', exact: true })).toBeEnabled();
 	await page.evaluate(() => globalThis.__nextCaptionReadRelease());
-	await expect(dialog.getByRole('textbox', { name: 'Sidecar text', exact: true })).toHaveValue(body.toString());
+	await expect(sidecar).toHaveValue(body.toString());
 });

@@ -16,6 +16,12 @@
 
 set -euo pipefail
 
+install_options=(--yes)
+if [[ "${1:-}" == '--no-install-recommends' ]]; then
+	install_options+=(--no-install-recommends)
+	shift
+fi
+
 if [[ "$#" -eq 0 ]]; then
 	echo 'ci-apt-install.sh needs at least one package name.' >&2
 	exit 64
@@ -93,4 +99,4 @@ run_apt() {
 }
 
 run_apt 'apt-get update' no-repair update
-run_apt 'apt-get install' repair install --yes "${missing[@]}"
+run_apt 'apt-get install' repair install "${install_options[@]}" "${missing[@]}"

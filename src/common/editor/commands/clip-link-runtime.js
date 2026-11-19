@@ -421,7 +421,9 @@ function clipsHaveContiguousSource(project, left, right, loopJoin = false) {
 		|| Boolean(left.stretchToTempo) !== Boolean(right.stretchToTempo)
 		|| left.warpMap != null
 		|| right.warpMap != null
-		|| !videoEffectStacksEquivalent(left.videoEffects, right.videoEffects)
+		|| (left.effectsActive !== false) !== (right.effectsActive !== false)
+		|| !effectStacksEquivalent(left.effects, right.effects)
+		|| !effectStacksEquivalent(left.videoEffects, right.videoEffects)
 		|| !videoCompositionCarriersEqual(left, right)
 		|| !frameCommandCarriersV2(project).videoKeyframeCarriersJoinable(left, right)
 	) return false;
@@ -433,7 +435,7 @@ function clipsHaveContiguousSource(project, left, right, loopJoin = false) {
 		: left.sourceStartFrame + leftDuration === right.sourceStartFrame;
 }
 
-function videoEffectStacksEquivalent(left, right) {
+function effectStacksEquivalent(left, right) {
 	const leftStack = Array.isArray(left) ? left : [];
 	const rightStack = Array.isArray(right) ? right : [];
 	if (leftStack.length !== rightStack.length) return false;
@@ -442,6 +444,9 @@ function videoEffectStacksEquivalent(left, right) {
 		return Boolean(candidate)
 			&& effect.type === candidate.type
 			&& effect.enabled === candidate.enabled
+			&& effect.bypassed === candidate.bypassed
+			&& JSON.stringify(effect.context) === JSON.stringify(candidate.context)
+			&& JSON.stringify(effect.state) === JSON.stringify(candidate.state)
 			&& JSON.stringify(effect.params) === JSON.stringify(candidate.params);
 	});
 }

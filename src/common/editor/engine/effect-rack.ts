@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { profileEffectBoundary } from './cpu-profile-instrumentation.ts';
+import { delayAudioNodeFrames } from './frame-delay.ts';
+import { effectSignalChannelCount } from '../effect-signal-width.ts';
 import {
 	audacityLiveEffectCapability,
 	isAudacityLiveEffect,
@@ -55,10 +58,17 @@ import { isStandardEffect } from '../first-party-effects/standard/definition.ts'
 import { noiseGateLatencyFrames } from '../first-party-effects/standard/noise-gate-definition.ts';
 import { standardDelayLatencyFrames } from '../first-party-effects/standard/delay-definition.ts';
 import { createStandardEffectNode, disposeStandardEffectNode } from './standard-effect-node.ts';
+import { autoTuneRealtimeGeometry } from '../first-party-effects/auto-tune/realtime-contract.ts';
+import { createAutoTuneNode, disposeAutoTuneNode } from './auto-tune-node.ts';
+import { createAiDenoiseNode, disposeAiDenoiseNode } from './ai-denoise-node.ts';
+import { aiDenoiseLatencyFrames } from '../first-party-effects/ai-denoise/contract.ts';
+import { registerAutoTuneControl } from './auto-tune-control.ts';
 import type { ScheduledParameterRegistry } from './scheduled-parameter-registry.ts';
 import type { EngineEffect, UnknownRecord } from './types.ts';
 import { effectSupportsExplicitSidechain } from '../effect-explicit-sidechain-capability.ts';
 import { secondsToSampleFrame } from '../timeline-time.ts';
+import { effectPluginKey } from '../effect-plugin-identity.ts';
+import { registerIdleEffectNode, releaseIdleEffectNode } from './idle-effect-host.ts';
 import { noiseReductionClockGeometry, noiseReductionProfileRate } from '../audacity-effects/noise-reduction-clock.ts';
 import {
 	createNativePluginEffectNode,
@@ -74,6 +84,8 @@ export interface EffectRackOptions {
 	readonly sidechainInputByEffectId?: ReadonlyMap<string, AudioNode>;
 	readonly baseSidechainDelayFrames?: unknown;
 	readonly sidechainDelayFrames?: unknown;
+	readonly inputDelayFramesByEffectId?: ReadonlyMap<string, number>;
+	readonly detectorDelayFramesByEffectId?: ReadonlyMap<string, number>;
 	readonly scope?: string;
 	readonly targetId?: unknown;
 	readonly effectAnalysis?: boolean;
@@ -106,6 +118,7 @@ export function effectRackLatencyFrames(
 }
 
 export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): number {
+	if (effect.type === 'ai-denoise') return aiDenoiseLatencyFrames(sampleRate);
 	if (isNativePluginEffect(effect)) {
 		const fallback = nonNegativeInteger(effect.params?.latencyFrames, 0);
 		return nativePluginRuntimeLatencyFrames(effect.params?.instanceId, fallback);
@@ -118,6 +131,7 @@ export function effectLatencyFrames(effect: EngineEffect, sampleRate: number): n
 	}
 	if (effect.type === 'noise-gate') return noiseGateLatencyFrames(effect.params || {}, sampleRate);
 	if (effect.type === 'multi-tap-delay') return standardDelayLatencyFrames(effect.params || {}, sampleRate);
+	if (effect.type === 'auto-tune') return autoTuneRealtimeGeometry(sampleRate, 1).latencyFrames;
 	if (!isAudacityLiveEffect(effect.type)) return 0;
 	const capability = audacityLiveEffectCapability(effect.type);
 	if (effect.type === 'audacity-noise-reduction') {
@@ -139,19 +153,40 @@ export function applyEffectRack(
 ): AudioNode {
 	let output = input;
 	let upstreamLatencyFrames = 0;
+	let channelCount = positiveInteger(options.effectChannelCount, 2);
 	for (const effect of Array.isArray(effects) ? effects : []) {
 		if (!effect || effect.enabled === false || effect.bypassed === true) continue;
+		const inputDelay = options.inputDelayFramesByEffectId?.get(String(effect.id)) ?? 0;
+		output = delayAudioNodeFrames(context, output, inputDelay, nodes);
+		upstreamLatencyFrames += inputDelay;
+		output = profileEffectBoundary(context, output, effect, nodes, options, 'begin');
 		output = applyEffect(context, output, effect, nodes, {
 			...options,
-			sidechainDelayFrames: nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
+			effectChannelCount: channelCount,
+			parametricEqChannelCount: Math.max(channelCount, positiveInteger(options.parametricEqChannelCount, 2)),
+			sidechainDelayFrames: options.detectorDelayFramesByEffectId?.get(String(effect.id))
+				?? nonNegativeInteger(options.baseSidechainDelayFrames, 0) + upstreamLatencyFrames,
 			parameterLatencyFrames: nonNegativeInteger(options.baseParameterLatencyFrames, 0) + upstreamLatencyFrames,
 		});
+		output = profileEffectBoundary(context, output, effect, nodes, options, 'end');
 		upstreamLatencyFrames += effectLatencyFrames(effect, context.sampleRate || DEFAULT_SAMPLE_RATE);
+		channelCount = effectSignalChannelCount(effect, channelCount);
 	}
 	return output;
 }
 
 export function applyEffect(
+	context: BaseAudioContext, input: AudioNode, effect: EngineEffect,
+	nodes: AudioNodeCollection, options: EffectRackOptions = {},
+): AudioNode {
+	const output = buildEffect(context, input, effect, nodes, options);
+	if (output !== input && effect.type !== 'native-plugin' && effect.type !== 'auto-tune' && effect.type !== 'bitcrusher') {
+		registerIdleEffectNode(context, output, effectPluginKey(effect));
+	}
+	return output;
+}
+
+function buildEffect(
 	context: BaseAudioContext,
 	input: AudioNode,
 	effect: EngineEffect,
@@ -168,6 +203,14 @@ export function applyEffect(
 	if (explicitSidechainInput && !explicitSidechainCapable) {
 		if (nativePlugin) throw new Error('Native plug-ins do not admit a sidechain in host contract v1.');
 		throw new Error(`Effect ${String(effect.id)} does not expose a sidechain input.`);
+	}
+	if (type === 'ai-denoise') {
+		const processor = addNode(nodes, createAiDenoiseNode(context, effectGraphKey(options.scope, options.targetId, effect.id), positiveInteger(options.effectChannelCount, 2)));
+		connect(input, processor);
+		registerEffectNode(effect, processor, options);
+		if (options.onParametricEqError) attachEffectProcessorErrorPort(processor, options.onParametricEqError,
+			effectProcessorErrorContext(options, effect.id, { fallbackMessage: 'AI denoising failed.', processorErrorMessage: 'AI denoising missed its processing deadline.' }));
+		return processor;
 	}
 	if (nativePlugin) {
 		if (!isNativePluginRealtimeWorkletLoaded(context)) {
@@ -241,11 +284,14 @@ export function applyEffect(
 		}
 		return processor;
 	}
-	if (isStandardEffect(type)) {
+	if (type === 'auto-tune' || isStandardEffect(type)) {
 		const width = clamp(positiveInteger(options.effectChannelCount, 2), 1, 32);
-		const processor = addNode(nodes, createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
+		const processor = addNode(nodes, type === 'auto-tune'
+			? createAutoTuneNode(context, audioWorkletNodeConstructor(), params, width, nonNegativeInteger(options.parameterLatencyFrames, 0))
+			: createStandardEffectNode(context, audioWorkletNodeConstructor(), type, params, width));
 		connect(input, processor);
 		registerEffectNode(effect, processor, options);
+		if (type === 'auto-tune') registerAutoTuneControl(options.parameterRegistry, processor.port, String(params.controlTrackId || ''), nonNegativeInteger(options.parameterLatencyFrames, 0));
 		if (typeof options.onParametricEqError === 'function') {
 			attachEffectProcessorErrorPort(processor, options.onParametricEqError, effectProcessorErrorContext(
 				options, effect.id, { fallbackMessage: 'The real-time effect processor failed.',
@@ -312,7 +358,9 @@ export function applyEffect(
 				effectId: effect.id,
 				params,
 				wasmModule: options.parametricEqWasmModule,
-				channelCount: clamp(positiveInteger(options.parametricEqChannelCount, 2), 1, 32),
+				// Mono sources can arrive in stereo after clip reverb or an upstream
+				// stereo processor. Capacity does not change the input's channel count.
+				channelCount: clamp(positiveInteger(options.parametricEqChannelCount, 2), 2, 32),
 			},
 		}));
 		connect(input, processor);
@@ -442,6 +490,9 @@ export function safeMessageSequence(value: unknown, name: string): number {
 }
 
 export function disposeEffectNodeBindings(node: AudioNode): void {
+	releaseIdleEffectNode(node);
+	disposeAiDenoiseNode(node);
+	disposeAutoTuneNode(node);
 	disposeStandardEffectNode(node);
 	releaseDynamicsAnalysisTelemetry(node as AudioWorkletNode);
 	releaseEffectProcessorErrorPort(node);

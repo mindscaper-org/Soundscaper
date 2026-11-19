@@ -2,6 +2,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { importWorkspaceRoutedFiles } from '../src/common/editor/ui/workspace/import-workspace-routed-files.ts';
+import { selectionControllerCustody, selectionWav } from './helpers/selection-controller-custody.tsx';
+import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { registerMockModuleUrls } from './helpers/mock-module-urls.ts';
 import { createMacroScriptHost } from '../src/common/editor/controller/effects/internal/macro/macro-script-host.ts';
 
 for (const hasAudio of [true, false]) {
@@ -30,3 +34,35 @@ for (const hasAudio of [true, false]) {
 		assert.deepEqual(selectionWrites, [[0, 144_000]], 'the complete range is selected in one write');
 	});
 }
+
+
+test('the real program selects the original two-second point label after stereo recording EOF without authoring', async context => {
+	const hooks = registerMockModuleUrls({ '../../macro-script/browser-sandbox.ts': new URL('./helpers/macro-vm-worker-transport.ts', import.meta.url).href });
+	context.after(() => { hooks.deregister(); });
+	const input = selectionWav('browser-tone-a.wav', 38_400, 2, 48_000, 330);
+	const f = await selectionControllerCustody(context, input), { controller } = f;
+	try {
+		assert.equal(await importWorkspaceRoutedFiles({ controller, files: [new File(['2\t2\tEnd cue\n'], 'cue-labels.txt', { type: 'text/plain' })],
+			importOptions: {}, projectBinVisible: false, openProjectFile() { assert.fail('A TXT sidecar cannot open a project.'); },
+			requestCueImport() { assert.fail('The original TXT sidecar is not CUE.'); } }), 1);
+		const before = clipboardProject(controller.project), history = structuredClone(controller.getSnapshot().history);
+		assert.equal(before.clips.length, 1); assert.equal(before.sources.length, 1);
+		const labelTrack = before.tracks.find(track => track.type === 'label'); assert.ok(labelTrack);
+		assert.ok(Array.isArray(labelTrack.labels)); assert.equal(labelTrack.labels.length, 1);
+		const label: unknown = labelTrack.labels[0]; assert.ok(label && typeof label === 'object');
+		assert.deepEqual([Reflect.get(label, 'title'), Reflect.get(label, 'startFrame'), Reflect.get(label, 'endFrame')], ['End cue', 96_000, 96_000]);
+		const result: unknown = await controller.actions.macros.runScript({ name: 'Select all later cue', source: [
+			'const selected = await sound.select.all();',
+			"sound.log.info('All content ends at ' + selected.endFrame);",
+		].join('\n') });
+		assert.ok(result && typeof result === 'object'); assert.equal(Reflect.get(result, 'calls'), 1);
+		assert.deepEqual(Reflect.get(result, 'log'), [{ level: 'info', text: 'All content ends at 96000', at: 1 }]);
+		const after = clipboardProject(controller.project);
+		assert.deepEqual([after.selection.startFrame, after.selection.endFrame], [0, 96_000]);
+		assert.deepEqual(new Set(after.selection.trackIds), new Set(before.tracks.map(track => track.id)));
+		assert.deepEqual(clipboardDocument(after), clipboardDocument(before));
+		assert.deepEqual(controller.getSnapshot().history, history);
+		const reopened = await f.archive();
+		assert.deepEqual(clipboardDocument(reopened), clipboardDocument(before));
+	} finally { await f.dispose(); }
+});

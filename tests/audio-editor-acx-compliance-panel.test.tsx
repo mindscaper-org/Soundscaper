@@ -31,7 +31,7 @@ test('ACX panel checks on request, exports its measurement and clears results af
 	const controller = { actions: { analysis: { run: (scope: string) => {
 		assert.equal(scope, 'master'); calls += 1; return request.promise;
 	} } } };
-	const render = (revision: number, importing = false) => root.render(<AcxCompliancePanel controller={controller}
+	const render = (revision: number, importing = false, locale = 'en') => root.render(<AcxCompliancePanel controller={controller} locale={locale}
 		snapshot={{ ready: true, project: { id: 'acx-project', revision, title: 'Chapter 1', clips: [{}] }, importing }}
 		copy={ACX_COMPLIANCE_COPY} commonCopy={ENGLISH_COPY} fileService={{ saveFile: value => { saved.push(value); } }} />);
 	const click = async (label: string) => {
@@ -45,6 +45,11 @@ test('ACX panel checks on request, exports its measurement and clears results af
 	assert.equal(calls, 1);
 	await act(async () => { request.resolve(measurement); await request.promise; });
 	assert.ok(dom.container.textContent.includes(ACX_COMPLIANCE_COPY.passSummary));
+	await act(async () => render(1, false, 'de'));
+	assert.ok(dom.container.textContent.includes('44.100 Hz'));
+	assert.ok(dom.container.textContent.includes('-4,00 dBFS'));
+	assert.ok(dom.container.textContent.includes('1,00 s'));
+	assert.equal(calls, 1, 'changing display locale retains the completed measurement');
 	await click(ENGLISH_COPY.export);
 	assert.equal(saved.length, 1);
 	assert.equal(saved[0].suggestedName, 'Chapter-1-acx-compliance.json');

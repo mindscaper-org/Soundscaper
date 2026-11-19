@@ -1,5 +1,8 @@
 import { createResampleHistoryBuffer } from './resample-history-buffer.ts';
 import { createWindowedSincChannelSampler } from './windowed-sinc-kernel.ts';
+import { defaultWindowedSincRadius } from './resample-geometry.ts';
+
+export { defaultWindowedSincRadius } from './resample-geometry.ts';
 
 /**
  * Bounded, stateful linear resampler for recordings and streamed renders. It
@@ -203,11 +206,6 @@ export function createStreamingWindowedSincResampler(inputSampleRate, outputSamp
 		buffered = historyBuffer.prune(buffered, dropFrames);
 		bufferStartFrame = retainFrom;
 	}
-}
-
-/** Input lookahead for the default bounded, output-clock antialias window. */
-export function defaultWindowedSincRadius(inputRate, outputRate) {
-	return Math.max(24, Math.min(4096, Math.ceil(24 * inputRate / outputRate)));
 }
 
 function validateStreamingChannels(values, channelCount) {

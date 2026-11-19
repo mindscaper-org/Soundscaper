@@ -176,7 +176,7 @@ test('a beats arrangement resolves through the imported tempo map, tempo change 
 	const tempo = plan.project.tempoMap as { events: { beat: { num: number; den: number }; bpm: { num: number; den: number } }[] };
 	assert.deepEqual(tempo.events.map((event) => [event.beat.num / event.beat.den, event.bpm.num / event.bpm.den]), [[0, 120], [8, 60]]);
 	const clips = plan.project.clips as Record<string, number | string>[];
-	assert.equal(clips.length, 1);
+	assert.equal(clips.length, 2);
 	const [clip] = clips;
 	// Beat 4 at 120 BPM is two seconds; beats 4–12 span two seconds at 120 and four at 60.
 	assert.equal(clip?.timelineStartFrame, 96_000);
@@ -204,19 +204,20 @@ test('open-ended beats-content warps convert the audio duration to beats', () =>
 	assert.equal((plan.project.clips as Array<{ durationFrames: number }>)[0]?.durationFrames, 352_800);
 });
 
-test('channels become tracks with gain, pan, mute and solo, and the notes track is reported not imported', () => {
+test('channels become tracks with gain, pan, mute and solo, including editable MIDI notes', () => {
 	const plan = importBitwig();
 	const tracks = plan.project.tracks as Record<string, unknown>[];
-	assert.deepEqual(tracks.map((track) => track.name), ['Drumloop']);
+	assert.deepEqual(tracks.map((track) => track.name), ['Drumloop', 'Bass']);
 	assert.equal(tracks[0]?.gain, 1, 'absolute Volume points replace the static fader, rather than multiplying it');
 	assert.equal(tracks[0]?.pan, 0.5, 'normalized 0.75 is half right');
 	assert.equal(tracks[0]?.mute, false);
 	const master = plan.project.master as Record<string, unknown>;
 	assert.equal(master.gain, 0.8);
 	const omitted = plan.report.items.find((item) => item.code === 'dawproject.track-content-omitted');
-	assert.deepEqual(omitted?.data, { name: 'Bass', contentTypes: ['notes'] });
-	assert.ok(codes(plan).includes('dawproject.notes-omitted'));
-	assert.ok(codes(plan).includes('dawproject.devices-omitted'));
+	assert.equal(omitted, undefined);
+	assert.ok(codes(plan).includes('dawproject.midi-notes-preserved'));
+	assert.equal(codes(plan).includes('dawproject.notes-omitted'), false);
+	assert.ok(codes(plan).includes('dawproject.device-state-preserved'));
 	assert.ok(codes(plan).includes('dawproject.scenes-omitted') === false, 'an empty Scenes element is nothing to report');
 });
 
@@ -224,7 +225,8 @@ test('volume automation becomes the track envelope and markers become timeline m
 	const plan = importBitwig();
 	const [track] = plan.project.tracks as { envelope: { frame: number; value: number }[] }[];
 	assert.deepEqual(track?.envelope, [{ frame: 0, value: 0.5 }, { frame: 192_000, value: 1 }]);
-	assert.ok(codes(plan).includes('dawproject.automation-hold-converted'));
+	assert.equal(codes(plan).includes('dawproject.automation-hold-converted'), false);
+	assert.equal(plan.routingContext.automationLanes?.[0]?.segments[0]?.kind, 'linear');
 	const annotations = plan.project.timelineAnnotations as Record<string, unknown>[];
 	assert.deepEqual(annotations.map((marker) => [marker.name, marker.positionFrame, marker.kind]), [['Drop', 96_000, 'marker']]);
 	assert.equal(plan.report.direction, 'import');
@@ -235,8 +237,8 @@ test('the plan creates a valid current project document', () => {
 	const plan = importBitwig();
 	const project = createCurrentAudioEditorProject(plan.project as never) as Record<string, unknown>;
 	assert.equal(project.title, 'Night drive');
-	assert.equal((project.tracks as unknown[]).length, 1);
-	assert.equal((project.clips as unknown[]).length, 1);
+	assert.equal((project.tracks as unknown[]).length, 2);
+	assert.equal((project.clips as unknown[]).length, 2);
 	assert.deepEqual(plan.media, [{ path: 'audio/loop.wav', sourceId: 'source-1' }]);
 	assert.equal((project.metadata as Record<string, unknown>).artist, 'Band');
 });

@@ -4,6 +4,7 @@ import { generatorSourceWindowSequenceFrames } from '../../timeline-generator-so
 import { videoFrameToSampleFrame } from '../../timeline-time.ts';
 import AudioEditorTimeCodeInput, { audioEditorProjectSampleRate } from '../AudioEditorTimeCodeInput.tsx';
 import { feedbackFailure, usePresentationFeedback } from '../presentation-feedback.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Props {
 	readonly controller: object;
@@ -51,11 +52,11 @@ export default function GeneratorClipPropertiesBody({ controller, project, clipI
 			<details className="audio-editor-clip-properties__drawer" data-clip-properties-drawer="media">
 				<summary><h3>{copy.clipMediaSettings}</h3></summary>
 				<div className="audio-editor-clip-properties__drawer-content">
-					<label className="audio-editor-field"><span>{copy.clipName}</span>
+					<label className="audio-editor-field"><EditorControlLabel>{copy.clipName}</EditorControlLabel>
 						<input value={String(source.name ?? copy.clip)} readOnly /></label>
 					<div className="audio-editor-clip-properties__time-grid">
 						{(['startFrame', 'durationFrame'] as const).map(field => <label key={field} className="audio-editor-field" data-clip-field={field}>
-							<span>{field === 'startFrame' ? copy.clipStart : copy.clipDuration}</span>
+							<EditorControlLabel>{field === 'startFrame' ? copy.clipStart : copy.clipDuration}</EditorControlLabel>
 							<AudioEditorTimeCodeInput label={field === 'startFrame' ? copy.clipStart : copy.clipDuration}
 								value={Number(field === 'startFrame' ? clip.timelineStartFrame : clip.durationFrames)}
 								unit="samples" rate={sampleRate} frameRate={rate.num / rate.den} format="hh:mm:ss+milliseconds"

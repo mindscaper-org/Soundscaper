@@ -5,15 +5,15 @@ import type {
 	VideoKeyframeVideoEncoderResult,
 	VideoKeyframeVideoSinkEncoderResult,
 } from '../video-keyframe-video-encoder.ts';
-import type { VideoKeyframeOfflineHtmlVideoSourceResolver } from './video-keyframe-offline-html-video-source-resolver.ts';
+import type { VideoKeyframeOfflineSourceSession } from './video-keyframe-offline-rgba-source.ts';
 import type { VideoKeyframeOfflineRgbaRenderer } from './video-keyframe-offline-rgba-renderer.ts';
 
 type Awaitable<Value> = PromiseLike<Value> | Value;
 
 export async function runVideoKeyframeOfflineVideoResources<Output>(
-	createResolver: () => VideoKeyframeOfflineHtmlVideoSourceResolver,
+	createResolver: () => VideoKeyframeOfflineSourceSession,
 	createRenderer: (
-		resolver: VideoKeyframeOfflineHtmlVideoSourceResolver,
+		resolver: VideoKeyframeOfflineSourceSession,
 	) => Readonly<{
 		renderer: VideoKeyframeOfflineRgbaRenderer;
 		request: VideoKeyframeVideoEncoderRequest;
@@ -23,7 +23,7 @@ export async function runVideoKeyframeOfflineVideoResources<Output>(
 	) => Promise<VideoKeyframeVideoEncoderResult | VideoKeyframeVideoSinkEncoderResult<Output>>,
 	assertCurrent?: () => void,
 ): Promise<VideoKeyframeVideoEncoderResult | VideoKeyframeVideoSinkEncoderResult<Output>> {
-	let resolver: VideoKeyframeOfflineHtmlVideoSourceResolver | null = null;
+	let resolver: VideoKeyframeOfflineSourceSession | null = null;
 	let renderer: VideoKeyframeOfflineRgbaRenderer | null = null;
 	let result: VideoKeyframeVideoEncoderResult | VideoKeyframeVideoSinkEncoderResult<Output> | null = null;
 	let primary: unknown;

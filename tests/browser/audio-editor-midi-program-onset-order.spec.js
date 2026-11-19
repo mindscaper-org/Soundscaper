@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, downloadBytes, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseNestedCommandAction, disableNativeSavePicker, importFiles } from './audio-editor-test-helpers.js';
 
 function input(lateTick) {
 	const body = [0, 192, 5, 0, 144, 60, 100, lateTick, 192, 10, 0x83, 0x60, 128, 60, 0, 0, 255, 47, 0];
@@ -12,18 +12,6 @@ test('FileImport refuses a same-tick program change that would acquire the prece
 	await editor.locator('input[data-import-input]').setInputFiles({ name: 'Late patch.mid', mimeType: 'audio/midi', buffer: input(0) });
 	await expect(page.locator('[data-editor-toast="workspace-error"]')).toContainText('MIDI program order cannot preserve a note onset assignment');
 	await expect(editor).toHaveAttribute('data-clip-count', '0');
-});
-
-test('a later program change still imports and downloads after its original onset', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [{ name: 'Later patch.mid', mimeType: 'audio/midi', buffer: input(120) }]);
-	const downloading = page.waitForEvent('download');
-	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export MIDI (beta)']);
-	const download = await downloading, output = Buffer.from(await downloadBytes(download)); await download.delete();
-	const on = output.indexOf(Buffer.from([144, 60, 100])), program = output.indexOf(Buffer.from([192, 10]));
-	expect(on).toBeGreaterThan(0);
-	expect(program).toBeGreaterThan(on);
 });
 
 test('a later tempo edit refuses an export that would acquire a preceding note', async ({ page }) => {

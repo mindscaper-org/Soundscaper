@@ -10,45 +10,28 @@ import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { readDawprojectArchive } from '../../src/common/editor/dawproject-archive.ts';
 
-for (const format of ['FCPXML', 'edit list (EDL)', 'OpenTimelineIO', 'DAWproject']) {
-	test(`${format} carries a normal video trim into its source in-point`, async ({ page }) => {
-		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/framescaper/embed/en/');
-		await importFiles(editor, [createDeterministicSilentVideoFixture('trimmed-interchange.webm')]);
-		const clip = editor.getByRole('group', { name: /^Video clip:/u }).first();
-		await clip.press('Enter');
-		await seekFramescaperTimecode(page, editor, '00:00:00:12');
-		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Trim left edge to playhead']);
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-		await expect.poll(() => savedSourceInPoint(page, editor)).toBe(6);
-		const downloading = page.waitForEvent('download');
-		await chooseNestedCommandAction(page, editor, 'File', ['Export other', `Export ${format}`]);
-		const bytes = await downloadBytes(await downloading);
-		const text = new TextDecoder().decode(bytes);
-		if (format === 'FCPXML') {
-			const sourceStart = /<asset-clip[^>]*\bstart="([^"]+)"/u.exec(text)?.[1];
-			// FCPXML retains the captured WebM's sixth source ordinal at PTS
-			// 456/1000s on the native media clock, reduced to its exact rational.
-			expect(sourceStart).toBe('57/125s');
-		} else if (format === 'edit list (EDL)') {
-			const event = text.split('\n').find((line) => /^001\s/u.test(line));
-			expect(event?.trim().split(/\s+/u)[4]).toBe('00:00:00:14');
-		} else if (format === 'OpenTimelineIO') {
-			const timeline = JSON.parse(text);
-			const video = timeline.tracks.children.find((track) => track.kind === 'Video');
-			const delivered = video.children.find((child) => child.OTIO_SCHEMA === 'Clip.1');
-			// OTIO preserves the same native456ms boundary as FCPXML above:
-			// its30fps RationalTime can retain a fractional13.68-frame in-point.
-			expect(delivered.source_range.start_time).toEqual({ OTIO_SCHEMA: 'RationalTime.1', value: 13.68, rate: 30 });
-		} else {
-			const archive = await readDawprojectArchive(new Blob([bytes]));
-			try {
-				const projectXml = archive.projectXml;
-				expect(/<Clip[^>]*\bplayStart="([^"]+)"/u.exec(projectXml)?.[1]).toBe('0.456');
-			} finally { await archive.close(); }
-		}
-	});
-}
+// The four real writers and persisted native PTS are covered by
+// audio-editor-interchange-trim-archive-custody.test.ts. Keep DAWproject's
+// native decoder/clock hydration, trim menu and download integration here.
+test('DAWproject carries a normal video trim into its source in-point', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await importFiles(editor, [createDeterministicSilentVideoFixture('trimmed-interchange.webm')]);
+	const clip = editor.getByRole('group', { name: /^Video clip:/u }).first();
+	await clip.press('Enter');
+	await seekFramescaperTimecode(page, editor, '00:00:00:12');
+	await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Trim left edge to playhead']);
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await expect.poll(() => savedSourceInPoint(page, editor)).toBe(6);
+	const downloading = page.waitForEvent('download');
+	await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export DAWproject']);
+	const bytes = await downloadBytes(await downloading);
+	const archive = await readDawprojectArchive(new Blob([bytes]));
+	try {
+		const projectXml = archive.projectXml;
+		expect(/<Clip[^>]*\bplayStart="([^"]+)"/u.exec(projectXml)?.[1]).toBe('0.456');
+	} finally { await archive.close(); }
+});
 
 test('EDL assigns different reels to ordinary camera takes with a shared filename prefix', async ({ page }) => {
 	await disableNativeSavePicker(page);

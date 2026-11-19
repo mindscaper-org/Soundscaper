@@ -7,22 +7,46 @@ import {
 	type VideoColorOutputSpaceV1,
 } from './video-color-management-v27.ts';
 
-/** Prepare the canonical scalar transfer once, without allocating a tuple per pixel. */
+const LINEAR_BYTE_STEPS = 4096;
+const linearByteEncoders = new Map<VideoColorOutputSpaceV1, (channel: number) => number>();
+
+/** Reuse the exact quantized transfer for each output space. */
 export function createManagedSdrLinearByteEncoderV1(
 	output: VideoColorOutputSpaceV1,
 ): (channel: number) => number {
+	const cached = linearByteEncoders.get(output);
+	if (cached) return cached;
 	const transfer = output === 'linear-rec709-d65' ? (value: number) => value
 		: output === 'srgb' ? (value: number) => (value <= 0.0031308
 			? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055)
 			: output === 'rec709' ? (value: number) => (value < 0.018
 				? value * 4.5 : 1.099 * value ** 0.45 - 0.099) : null;
 	if (!transfer) throw new RangeError('The managed SDR output space is unsupported.');
-	return (channel) => {
+	const quantize = (channel: number) => Math.round(transfer(channel) * 255);
+	const lookup = output === 'linear-rec709-d65' ? null : exactLinearByteBins(quantize);
+	const encode = (channel: number) => {
 		if (!Number.isFinite(channel) || channel < 0 || channel > 1) {
 			throw new RangeError('The managed SDR channel must be between zero and one.');
 		}
-		return Math.round(transfer(channel) * 255);
+		if (channel === 0) return channel;
+		const byte = lookup?.[(channel * LINEAR_BYTE_STEPS) | 0] ?? -1;
+		return byte >= 0 ? byte : quantize(channel);
 	};
+	linearByteEncoders.set(output, encode);
+	return encode;
+}
+
+function exactLinearByteBins(quantize: (channel: number) => number): Int16Array<ArrayBuffer> {
+	const bins = new Int16Array(LINEAR_BYTE_STEPS + 1);
+	let lower = quantize(0);
+	for (let index = 0; index < LINEAR_BYTE_STEPS; index += 1) {
+		const upper = quantize((index + 1) / LINEAR_BYTE_STEPS);
+		// The rounded transfers are monotone. Recompute bins that straddle a byte boundary.
+		bins[index] = lower === upper ? lower : -1;
+		lower = upper;
+	}
+	bins[LINEAR_BYTE_STEPS] = lower;
+	return bins;
 }
 
 /** Ungraded byte channels are independent: evaluate each through the oracle once per frame. */

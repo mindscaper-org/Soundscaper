@@ -4,7 +4,7 @@ import { expect, test, monoTone } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('a group bus effect dialog identifies its actual rack owner', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Mixer']);
 	const mixer = editor.locator('[data-mixer-panel]');

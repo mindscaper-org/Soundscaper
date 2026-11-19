@@ -6,13 +6,16 @@ import { bootEditor, chooseCommandAction, clipByName, closeClipProperties,
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('Clip properties retains live track lock and unlock admission', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row]');
 	const panel = await openClipProperties(page, editor, clip);
-	const name = panel.getByRole('textbox', { name: 'Clip name', exact: true });
 	const invert = panel.getByRole('switch', { name: 'Invert', exact: true });
+	const name = panel.getByRole('textbox', { name: 'Clip name', exact: true });
+	await panel.getByText('Effects', { exact: true }).click();
+	const addEffect = panel.getByRole('button', { name: 'Add effect', exact: true });
+	await expect(addEffect).toBeEnabled();
 	await expect(name).toBeEnabled();
 	await expect(invert).toBeEnabled();
 	await name.fill('Programme');
@@ -22,12 +25,13 @@ test('Clip properties retains live track lock and unlock admission', async ({ pa
 	await expect(clip).toBeVisible();
 	await chooseTrackMenuAction(page, editor, track, 'Lock track');
 	await expect(name).toBeDisabled();
-	await expect(invert).toBeDisabled();
+	await expect(addEffect).toBeDisabled();
+	await expect(panel.getByRole('switch', { name: 'Invert', exact: true })).toBeDisabled();
 	const source = await openSourceMonitor(page, editor);
 	await expect(source.locator('.audio-editor-source-ruler__transport').getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
 	await chooseTrackMenuAction(page, editor, track, 'Unlock track');
 	await expect(name).toBeEnabled();
-	await expect(invert).toBeEnabled();
+	await expect(addEffect).toBeEnabled();
 	await name.fill('Restored programme');
 	await name.press('Enter');
 	await expect(clipByName(editor, 'Restored programme')).toBeVisible();

@@ -7,9 +7,7 @@ import { readMidiClip } from '../src/common/editor/midi-model.ts';
 
 for (const mode of ['ordinary', 'new-track', 'sound-activated', 'timed'] as const) test(`${mode} Record includes the MIDI note edit requested before its capture snapshot`, async context => {
 	const f = await midiRecordingPendingFixture(context);
-	f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	const editOutcome = Promise.allSettled([editing]); await f.entered.promise;
+	const { editOutcome } = await f.holdNoteEdit();
 	const starting = mode === 'new-track' ? f.controller.actions.recording.startNewTrack()
 		: mode === 'sound-activated' ? f.controller.actions.recording.startSoundActivated({ trackId: f.recordingTrackId })
 			: mode === 'timed' ? f.controller.actions.recording.schedule(Date.now() + 60_000, { trackId: f.recordingTrackId })
@@ -29,9 +27,8 @@ for (const mode of ['ordinary', 'new-track', 'sound-activated', 'timed'] as cons
 
 
 for (const stop of ['recording', 'transport'] as const) test(`${stop} Stop cancels a pending Record admission while allowing the earlier MIDI edit to finish`, async context => {
-	const f = await midiRecordingPendingFixture(context); f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	const editOutcome = Promise.allSettled([editing]); await f.entered.promise;
+	const f = await midiRecordingPendingFixture(context);
+	const { editOutcome } = await f.holdNoteEdit();
 	const starting = f.controller.actions.recording.start({ trackId: f.recordingTrackId });
 	const startOutcome = Promise.allSettled([starting]);
 	await waitFor(() => f.controller.getSnapshot().recordingStarting, 'pending Record visible as Starting');
@@ -47,9 +44,8 @@ for (const stop of ['recording', 'transport'] as const) test(`${stop} Stop cance
 });
 
 test('Stop allows a fresh Record intent while the prior MIDI publication remains pending', async context => {
-	const f = await midiRecordingPendingFixture(context); f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	const editOutcome = Promise.allSettled([editing]); await f.entered.promise;
+	const f = await midiRecordingPendingFixture(context);
+	const { editOutcome } = await f.holdNoteEdit();
 	const first = f.controller.actions.recording.start({ trackId: f.recordingTrackId });
 	const firstOutcome = Promise.allSettled([first]);
 	await waitFor(() => f.controller.getSnapshot().recordingStarting, 'first Record admission');
@@ -72,9 +68,7 @@ for (const change of ['selection', 'authored'] as const) test(`Record preserves 
 			await permission.promise; return pool.acquireHardware(...args);
 		} };
 	} });
-	f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	await f.entered.promise;
+	const { editing } = await f.holdNoteEdit();
 	const starting = f.controller.actions.recording.start({ trackId: f.recordingTrackId });
 	const startOutcome = Promise.allSettled([starting]);
 	f.release.resolve(); await editing; await settle();
@@ -88,9 +82,8 @@ for (const change of ['selection', 'authored'] as const) test(`Record preserves 
 });
 
 test('canceling Timer Record cancels MIDI admission before the prior source publication completes', async context => {
-	const f = await midiRecordingPendingFixture(context); f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	const editOutcome = Promise.allSettled([editing]); await f.entered.promise;
+	const f = await midiRecordingPendingFixture(context);
+	const { editOutcome } = await f.holdNoteEdit();
 	const starting = f.controller.actions.recording.schedule(Date.now() + 60_000, { trackId: f.recordingTrackId });
 	const startOutcome = Promise.allSettled([starting]);
 	await waitFor(() => f.controller.getSnapshot().recordingStarting, 'Timer Record waiting for prior MIDI');
@@ -102,9 +95,8 @@ test('canceling Timer Record cancels MIDI admission before the prior source publ
 });
 
 test('pending Record admission owns public play and seek until its earlier MIDI edit publishes', async context => {
-	const f = await midiRecordingPendingFixture(context); f.holdWrites();
-	const editing = f.controller.actions.midi.updateNote(f.clipId, 'note', { pitch: 67 });
-	await f.entered.promise;
+	const f = await midiRecordingPendingFixture(context);
+	const { editing } = await f.holdNoteEdit();
 	const starting = f.controller.actions.recording.start({ trackId: f.recordingTrackId });
 	await waitFor(() => f.controller.getSnapshot().recordingStarting, 'Record admission');
 	await f.controller.actions.transport.playPause();

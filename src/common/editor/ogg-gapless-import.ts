@@ -2,6 +2,7 @@
 
 import { inspectOpusInitialGranule } from './opus-initial-granule.ts';
 import { inspectVorbisInitialGeometry, type VorbisPacketGeometry } from './vorbis-initial-granule.ts';
+import { CHAINED_AUDIO_MESSAGE, ChainedOpusAudioError } from './chained-opus-audio-error.ts';
 
 export interface OggGaplessGeometry {
 	readonly sampleRate: number;
@@ -44,7 +45,7 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 		const view = new DataView(tail.buffer, tail.byteOffset + offset, size);
 		if (view.getUint32(14, true) !== serial) continue;
 		const geometry = endPageGeometry(tail.subarray(offset, offset + size), preSkip, sampleRate, origin, vorbis?.minimumEncodedFrames);
-		await rejectChainedAudio(file, file.size - tail.length + offset + size, signal);
+		await rejectChainedAudio(file, file.size - tail.length + offset + size, codec, signal);
 		return geometry;
 	}
 	// A secondary logical stream can continue long after the primary audio ends.
@@ -52,7 +53,7 @@ export async function inspectOggGaplessGeometry(file: Blob, codec: 'opus' | 'vor
 	const end = await findEarlierEndPage(file, serial, signal);
 	if (end) {
 		const geometry = endPageGeometry(end.page, preSkip, sampleRate, origin, vorbis?.minimumEncodedFrames);
-		await rejectChainedAudio(file, end.endOffset, signal);
+		await rejectChainedAudio(file, end.endOffset, codec, signal);
 		return geometry;
 	}
 	throw new Error('The Ogg audio source has no final granule for its primary stream.');
@@ -90,7 +91,7 @@ async function findEarlierEndPage(file: Blob, serial: number, signal?: AbortSign
 }
 
 /** The maintained decoder selects a track from the first link, not a full chain. */
-async function rejectChainedAudio(file: Blob, start: number, signal?: AbortSignal): Promise<void> {
+async function rejectChainedAudio(file: Blob, start: number, codec: 'opus' | 'vorbis', signal?: AbortSignal): Promise<void> {
 	for (let offset = start, count = 0; offset < file.size; count++) {
 		signal?.throwIfAborted();
 		if (count >= MAXIMUM_SCAN_PAGES) throw new RangeError('The Ogg source exceeds its bounded page inspection count.');
@@ -103,11 +104,13 @@ async function rejectChainedAudio(file: Blob, start: number, signal?: AbortSigna
 		if (size > file.size - offset) return;
 		if ((header[5]! & 3) === 2 && bodyBytes >= 8) {
 			const body = new Uint8Array(await file.slice(offset + 27 + laces.length, offset + 35 + laces.length).arrayBuffer());
-			if (ascii(body, 0, 8) === 'OpusHead' || body[0] === 1 && ascii(body, 1, 6) === 'vorbis') {
+			const opus = ascii(body, 0, 8) === 'OpusHead';
+			if (opus || body[0] === 1 && ascii(body, 1, 6) === 'vorbis') {
 				const page = new Uint8Array(await file.slice(offset, offset + size).arrayBuffer());
 				signal?.throwIfAborted();
 				verifyPageChecksum(page);
-				throw new Error('This Ogg file contains chained audio recordings. Split it into individual recordings before importing to avoid losing later audio.');
+				if (opus && codec === 'opus' && offset === start) throw new ChainedOpusAudioError();
+				throw new Error(CHAINED_AUDIO_MESSAGE);
 			}
 		}
 		offset += size;

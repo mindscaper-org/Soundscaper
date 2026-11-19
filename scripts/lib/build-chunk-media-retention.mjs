@@ -8,7 +8,7 @@ export const mediaRetentionChunkGroups = [{
 	// Retention and both scalar resource facades share their exact extracted
 	// custody kernel; no product, body reader or render authority is opened.
 	name: 'editor-media-storage-contracts',
-	test: /src[\\/]common[\\/](?:imaging[\\/]cube-lut-reference-contract\.ts|editor[\\/](?:(?:retention|project-lock)\.js|(?:project-schema-version|publication-byte-estimates|take-group-source-references|video-cube-lut-(?:profile-v1|project-references-(?:v1|current-v1))|video-source-characteristics|sequence-timecode|waveform-peak-contract|video-timing-asset-reference)\.ts|internal[\\/]video-cube-lut-project-references-kernel-v1\.ts))$/,
+	test: /src[\\/]common[\\/](?:imaging[\\/]cube-lut-reference-contract\.ts|editor[\\/](?:(?:retention|project-lock)\.js|(?:alternative-source-references|session-snapshots|subprojects|track-playlist-records|project-schema-version|publication-byte-estimates|take-group-source-references|video-cube-lut-(?:profile-v1|project-references-(?:v1|current-v1))|video-source-characteristics|sequence-timecode|waveform-peak-contract|video-timing-asset-reference)\.ts|internal[\\/]video-cube-lut-project-references-kernel-v1\.ts))$/,
 	priority: 99,
 	minSize: 0,
 	maxSize: 400_000,

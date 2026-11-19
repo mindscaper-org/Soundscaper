@@ -22,7 +22,7 @@ import { audacityShortcutCommandDisabled } from './audacity-shortcut-command-inv
 import { selectLabeledAudioRegions } from './labeled-audio-regions.ts';
 import { selectAudioEditorEditBlock } from './edit-blocking.ts';
 import { selectAudioEditorLabelEditBlock } from './label-edit-blocking.ts';
-import { audioTrackChannelCount } from './project-audio-factory.js';
+import { createAudioTrackChannelCounter } from './project-audio-factory.js';
 import { audioSelectionEffectAppliesToAllAudio } from './effects.js';
 import { AUDACITY_ACTION_ALIASES } from './audacity-action-aliases.js';
 import { AUDACITY_ACTION_DEFINITIONS, AUDACITY_ACTION_STATUS } from './audacity-action-inventory.js';
@@ -62,26 +62,41 @@ export function audacityActionReason(id, copyOrLocale = 'en') {
 	return localizedAudacityReason(reason, copyOrLocale);
 }
 
-/**
- * Evaluate a manifest predicate against a controller/runtime snapshot.
- * Disabled and excluded records always evaluate false, regardless of state.
- */
 export function evaluateAudacityActionEnablement(id, context) {
+	return evaluateActionWithPredicates(id, context);
+}
+
+/** Reuse project facts while evaluating several actions against the same snapshot. */
+export function createAudacityActionEnablementEvaluator(context) {
+	let predicates;
+	const readPredicates = resolvedContext => predicates ??= resolvePredicates(resolvedContext);
+	return id => evaluateActionWithPredicates(id, context, readPredicates);
+}
+
+function evaluateActionWithPredicates(id, context, readPredicates = resolvePredicates) {
 	const definition = audacityActionDefinition(id);
 	if (!definition || definition.status !== AUDACITY_ACTION_STATUS.IMPLEMENTED) return false;
 	const resolvedContext = resolveActionContext(context);
 	if (resolvedContext?.snapshot?.selectedLabels?.length && ['action://copy', 'action://cut', 'cut-leave-gap', 'cut-per-clip-ripple', 'cut-per-track-ripple', 'cut-all-tracks-ripple'].includes(definition.id))
 		return Boolean(resolvedContext.snapshot.project) && !selectAudioEditorEditBlock(definition.id === 'action://copy' ? { ...resolvedContext.snapshot, readOnly: false } : resolvedContext.snapshot).blocked && !resolvedContext.telemetry?.recording;
-	return evaluateAudacityEnableWhen(definition.enableWhen, resolvedContext);
+	return evaluateResolvedPredicate(definition.enableWhen, resolvedContext, readPredicates);
 }
 
 /** Evaluate one of the closed predicate vocabulary entries used by the manifest. */
 export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
+	return evaluateResolvedPredicate(enableWhen, resolveActionContext(context));
+}
+
+function evaluateResolvedPredicate(enableWhen, resolvedContext, readPredicates = resolvePredicates) {
 	if (typeof enableWhen !== 'string' || !enableWhen) throw new TypeError('An Audacity enableWhen predicate is required.');
-	const resolvedContext = resolveActionContext(context);
 	const override = resolvedContext?.predicates?.[enableWhen];
 	if (typeof override === 'boolean') return override;
+	const predicates = readPredicates(resolvedContext);
+	if (!Object.hasOwn(predicates, enableWhen)) throw new ReferenceError(`Unknown Audacity enableWhen predicate: ${enableWhen}.`);
+	return Boolean(predicates[enableWhen]);
+}
 
+function resolvePredicates(resolvedContext) {
 	const snapshot = resolvedContext?.snapshot || {};
 	const {
 		project, tracks, selection, selectedClipIds, selectedClips, selectedTrackIds,
@@ -122,7 +137,9 @@ export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
 	// ships can only be applied, exported, or saved onward under a new name.
 	const effectPresetEditable = Boolean(effectPreset && effectPreset.custom !== false);
 	const hasSelection = timeSelection || selectedTrackIds.length > 0 || selectedClipIds.length > 0;
-	const predicates = {
+	const countChannels = createAudioTrackChannelCounter(project);
+	const selectedWidth = countChannels(selectedAudioTrack);
+	return {
 		always: true,
 		never: false,
 		'project-opened': projectOpened,
@@ -166,9 +183,9 @@ export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
 		'editable-selected-media-tracks': editable && selectedMediaTrack,
 		'editable-focused-audio-track': editable && focusedTrack?.type === 'audio',
 		'editable-focused-media-track': editable && Boolean(focusedTrack && focusedTrack.type !== 'label'),
-		'stereo-track-selected': audioTrackChannelCount(project, selectedAudioTrack) === 2,
-		'compatible-mono-tracks': editable && audioTrackChannelCount(project, selectedAudioTrack) === 1 && tracks.some((track) => (
-			track.id !== selectedAudioTrack.id && track.type === 'audio' && audioTrackChannelCount(project, track) === 1
+		'stereo-track-selected': selectedWidth === 2,
+		'compatible-mono-tracks': editable && selectedWidth === 1 && tracks.some((track) => (
+			track.id !== selectedAudioTrack.id && track.type === 'audio' && countChannels(track) === 1
 		)),
 		'label-track-present': tracks.some((track) => track.type === 'label'),
 		'editable-labeled-audio': editable && selectLabeledAudioRegions(project, selection, selectedTrackIds).length > 0,
@@ -200,18 +217,9 @@ export function evaluateAudacityEnableWhen(enableWhen, context = {}) {
 			? realtimeEffectIndex >= 0 && realtimeEffectIndex < realtimeEffects.length - 1
 			: editable && Boolean(selectedAudioClip) && selectedClipPitchCents >= -1_100,
 	};
-	if (!Object.hasOwn(predicates, enableWhen)) throw new ReferenceError(`Unknown Audacity enableWhen predicate: ${enableWhen}.`);
-	return Boolean(predicates[enableWhen]);
 }
-/**
- * Resolve an implemented manifest action against a concrete runtime action
- * tree. Disabled and excluded actions are deliberately never resolved, even
- * when an object happens to expose a property with the same name.
- *
- * Runtime actions are closures and must not depend on a dynamic `this` value;
- * returning the function unchanged keeps this check honest (and makes it
- * possible for tests to prove that the callable belongs to the real runtime).
- */
+
+/** Resolve only implemented handlers. A runtime action is a closure without a dynamic receiver. */
 export function resolveAudacityActionHandler(id, actionRuntime) {
 	const match = matchAudacityAction(id);
 	const definition = match?.definition;
@@ -268,20 +276,16 @@ export function applyAudacityParityToMenus(menus, {
 		: menus;
 	const normalizedLocale = normalizeBcp47Locale(locale);
 	const localization = copy || normalizedLocale;
-	const resolvedContext = actionContext === undefined
+	const context = actionContext === undefined
 		? resolveRuntimeActionContext(actionRuntime)
 		: resolveActionContext(actionContext);
-	return cleanMenuItems(completeMenus.map((item) => decorateMenuItem(
-		item,
-		localization,
-		actionRuntime,
-		resolvedContext,
-		normalizedLocale === 'en',
-		shortcuts,
-	)).filter(Boolean));
+	const isEnabled = context === undefined ? undefined : createAudacityActionEnablementEvaluator(context);
+	const options = { localization, actionRuntime, isEnabled, canonicalEnglish: normalizedLocale === 'en', shortcuts };
+	return cleanMenuItems(completeMenus.map(item => decorateMenuItem(item, options)).filter(Boolean));
 }
 
-function decorateMenuItem(item, localization, actionRuntime, actionContext, canonicalEnglish, shortcuts) {
+function decorateMenuItem(item, options) {
+	const { localization, actionRuntime, isEnabled, canonicalEnglish, shortcuts } = options;
 	if (!item || typeof item !== 'object') throw new TypeError('Each menu item must be an object.');
 	if (item.divider) return { ...item };
 	if (item.id && AUDACITY_ACTION_MANIFEST[item.id]?.menuVisible === false) return null;
@@ -289,14 +293,7 @@ function decorateMenuItem(item, localization, actionRuntime, actionContext, cano
 	if (definition?.status === AUDACITY_ACTION_STATUS.EXCLUDED || definition?.menuVisible === false) return null;
 
 	const children = item.items
-		? cleanMenuItems(item.items.map((child) => decorateMenuItem(
-			child,
-			localization,
-			actionRuntime,
-			actionContext,
-			canonicalEnglish,
-			shortcuts,
-		)).filter(Boolean))
+		? cleanMenuItems(item.items.map(child => decorateMenuItem(child, options)).filter(Boolean))
 		: undefined;
 	const result = { ...item };
 	if (children) result.items = children;
@@ -325,13 +322,11 @@ function decorateMenuItem(item, localization, actionRuntime, actionContext, cano
 		result.disabledReason = localizedAudacityReason(definition.reason, localization);
 	} else if (!children?.length && definition?.status === AUDACITY_ACTION_STATUS.IMPLEMENTED) {
 		const hadHandler = typeof result.onClick === 'function';
-		const stateDisabled = result.disabled || (
-			actionContext !== undefined && !evaluateAudacityActionEnablement(definition.id, actionContext)
-		);
+		const stateDisabled = result.disabled || (isEnabled && !isEnabled(definition.id));
 		if (stateDisabled) {
 			result.disabled = true;
 			result.onClick = undefined;
-			const reason = actionContext === undefined && !hadHandler ? DISABLED_REASONS.pending : DISABLED_REASONS.state;
+			const reason = !isEnabled && !hadHandler ? DISABLED_REASONS.pending : DISABLED_REASONS.state;
 			result.disabledReason ||= localizedAudacityReason(reason, localization);
 		} else if (typeof result.onClick !== 'function') {
 			const handler = resolveAudacityActionHandler(item.id, actionRuntime);

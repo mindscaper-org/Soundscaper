@@ -41,7 +41,7 @@ export function exportDialogHasDeliveredChapterLabels(projectValue: unknown, set
 		if (!selected) return false;
 		const range = { startFrame: Number(selected.startFrame), endFrame: Number(selected.endFrame) };
 		const sampleRate = Number(settings.sampleRate ?? project.sampleRate);
-		const rangeOutputFrames = Math.max(1, scaleSampleFrame(range.endFrame - range.startFrame, Number(project.sampleRate), sampleRate, 'point'));
+		const rangeOutputFrames = Math.max(1, scaleSampleFrame(range.endFrame - range.startFrame, Number(project.sampleRate), sampleRate, 'enclosingEnd'));
 		return resolveEmbeddedExportChapters(project, range, sampleRate, { rangeOutputFrames }).length > 0;
 	} catch { return false; }
 }

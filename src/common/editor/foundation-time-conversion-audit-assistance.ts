@@ -12,6 +12,16 @@ import type { FoundationTimeConversionSite } from './foundation-time-conversion-
  */
 const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 	{
+		id: 'transcript-word-timeline-projection',
+		file: 'src/common/editor/transcript-editing.ts',
+		behavior: 'Transcript word ranges enclose their source intervals on the current clip timeline, including warped, musical and looped placements.',
+		conversions: [
+			{ helper: 'beatToSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] },
+			{ helper: 'roundRational', policies: ['enclosingStart', 'enclosingEnd'] },
+			{ helper: 'scaleSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] },
+		],
+	},
+	{
 		id: 'assistance-owned-audio-workflow-transforms',
 		file: 'src/common/editor/assistance/owned-audio-workflow-transforms-v1.ts',
 		behavior: 'Owned diarization turns and word alignments cross from their model rate to the source rate by outward-enclosing each start and end, so an accepted span never trims the audio it was recognised from.',
@@ -24,9 +34,39 @@ const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['enclosingStart', 'enclosingEnd'] }],
 	},
 	{
+		id: 'selected-media-identity-timing',
+		file: 'src/common/editor/assistance/selected-media-identity-timing.ts',
+		behavior: 'Selected media compares the authored source duration with the nearest source sample count for the visible project extent before accepting a forward identity read.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
 		id: 'local-assistance-audio-geometry-conversion',
 		file: 'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-geometry.ts',
 		behavior: 'Prepared assistance audio resolves its complete project-rate frame count once to the nearest model-rate output length before bounded streaming resampling.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'local-assistance-audio-publication-conversion',
+		file: 'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-publication.ts',
+		behavior: 'Publication validates selected timeline boundaries against the nearest source frames before accepting reviewed audio.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'local-assistance-guided-fence-conversion',
+		file: 'src/common/editor/controller/assistance/internal/guided/local-assistance-guided-fence.ts',
+		behavior: 'Guided fences point-resolve each source start to the project clock to check linked occurrence placement.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'local-assistance-audio-acceptance-authority-conversion',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-audio-acceptance-authority.ts',
+		behavior: 'Acceptance point-resolves selection geometry and maps reviewed source rows to project frames using the requested point or enclosing boundary policy.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point', 'enclosingStart', 'enclosingEnd'] }],
+	},
+	{
+		id: 'local-assistance-selected-media-conversion',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-selected-media.ts',
+		behavior: 'Selected media point-resolves timeline boundaries and duration to the source clock to authenticate forward identity timing.',
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 	{
@@ -82,6 +122,18 @@ const ASSISTANCE_SITES: readonly FoundationTimeConversionSite[] = [
 		file: 'src/common/editor/controller/assistance/internal/local-assistance-range-label-acceptance.ts',
 		behavior: 'Reviewed voice and speaker ranges point-resolve the selected source extent at the model rate, then outward-enclose each accepted label on the project timeline.',
 		conversions: [{ helper: 'scaleSampleFrame', policies: ['point', 'enclosingStart', 'enclosingEnd'] }],
+	},
+	{
+		id: 'music-transcription-note-clock',
+		file: 'src/common/editor/assistance/music-transcription-v1.ts',
+		behavior: 'Reviewed transcription note endpoints scale from the fixed model sample rate to nearest project sample points before editable MIDI is authored.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
+	},
+	{
+		id: 'music-transcription-selection-extent',
+		file: 'src/common/editor/controller/assistance/internal/local-assistance-music-acceptance.ts',
+		behavior: 'Music acceptance compares the selected duration at the project clock with its nearest model sample count before accepting the reviewed transcription.',
+		conversions: [{ helper: 'scaleSampleFrame', policies: ['point'] }],
 	},
 ];
 

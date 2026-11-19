@@ -7,7 +7,7 @@ const albumCue = { name: 'album.cue', mimeType: 'application/x-cue',
 	buffer: Buffer.from('FILE "album.wav" WAVE\n  TRACK 01 AUDIO\n    TITLE "Introduction"\n    INDEX 01 00:00:00\n') };
 
 test('Cancel while choosing a CUE destination leaves the existing project and tabs unchanged', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const projectId = await editor.getAttribute('data-project-id');
 	const tabs = editor.getByRole('navigation', { name: 'Project tabs' }).getByRole('tab');
@@ -25,7 +25,7 @@ test('Cancel while choosing a CUE destination leaves the existing project and ta
 });
 
 test('choosing Markers opens the CUE in its named new project without changing the original audio', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const originalId = await editor.getAttribute('data-project-id');
 	const originalTab = editor.getByRole('navigation', { name: 'Project tabs' }).getByRole('tab').first();

@@ -19,6 +19,7 @@ import {
 import { manifestMenuItem } from './TimelineOverlayComponents.jsx';
 import { moveMediaTrackBlock } from './timeline-navigation.js';
 import { removeTimelineFolderWithFocus } from './track-folder-removal-focus.ts';
+import { createFolderEditMenu } from '../folder-edit-menu.ts';
 
 const trackVisualizationIcon = (name) => createElement('span', {
 	className: 'musescore-icon',
@@ -252,6 +253,8 @@ export function createTimelineMenuModel({
 		]),
 	] : [];
 	const folderMenuItems = menuFolder ? [
+		createFolderEditMenu({ project, folderId: menuFolder.id, copy, blocked: mutationsBlocked, hasClipboard: Boolean(snapshot.history?.hasClipboard) },
+			(id) => run(() => { controller.actions.trackFolders.select(menuFolder.id); return controller.actions.edit.execute(id, { folderId: menuFolder.id }); })),
 		{
 			label: menuFolder.collapsed ? copy.expandTrackFolder : copy.collapseTrackFolder,
 			disabled: mutationsBlocked,

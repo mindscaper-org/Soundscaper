@@ -17,6 +17,7 @@ export const DESKTOP_AUDACITY_EFFECT_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/audacity-effects/live-capability-policy.js',
 	'src/common/editor/audacity-effects/manifest.js',
 	'src/common/editor/audacity-effects/noise-reduction-clock.js',
+	'src/common/editor/audacity-effects/noise-reduction-gain-envelope.js',
 	'src/common/editor/audacity-effects/prepared-live-noise-reduction.js',
 	'src/common/editor/audacity-effects/rate-converted-noise-reduction.js',
 	'src/common/editor/audacity-effects/spectral.js',

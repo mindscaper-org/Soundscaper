@@ -6,7 +6,8 @@ import { createAudioTrack } from '../../src/common/editor/project-media-factory.
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
 
-for (const available of [true, false]) test(`Add label finds an editable destination; existing peer=${available}`, async ({ page }) => {
+// Existing/new destination permutations have actual command/history/Scape custody in Node.
+for (const available of [false]) test(`Add label finds an editable destination; existing peer=${available}`, async ({ page }) => {
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` });
 	let blob;
 	try {

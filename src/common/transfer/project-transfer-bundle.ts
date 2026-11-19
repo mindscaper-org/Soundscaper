@@ -38,6 +38,8 @@ import {
 	readCrossProductHandoffProvenance,
 } from './cross-product-handoff-provenance.ts';
 import { confirmFileSizeWarning } from '../editor/controller/shared/file-size-warning.ts';
+import { raceAbortableRead } from '../foundation/abort-race.ts';
+import { isManualTransferReadFailure } from './transfer-manual-refusal.ts';
 import {
 	admitProjectTransferBytes,
 	admitProjectTransferEntry,
@@ -169,7 +171,7 @@ async function exportOneProject(
 			`The .scape archive for ${project.id} is ${blob.size} bytes, over the ${maximumEntryBytes} byte entry limit.`);
 	}
 	const admittedBytes = await confirmFileSizeWarning(blob.size, maximumEntryBytes, `Project transfer archive ${project.id}`, admitted);
-	const bytes = new Uint8Array(await blob.arrayBuffer());
+	const bytes = new Uint8Array(await raceAbortableRead(() => blob.arrayBuffer(), signal, 'immediate'));
 	admitProjectTransferBytes(bytes, admittedBytes, `The .scape archive for ${project.id}`);
 	const exportedIdentity = result as ProjectTransferArchiveExportResult;
 	const projectId = exportedIdentity.projectId === undefined
@@ -233,9 +235,17 @@ export async function importProjectTransferBundle(
 	const records: ProjectTransferImportRecord[] = [];
 	let index = 0;
 	try {
+		throwIfScapeAborted(signal);
 		for await (const raw of admitted.entries) {
 			throwIfScapeAborted(signal);
 			if (index >= maximumEntries) throw projectTransferEntryLimitRefusal(maximumEntries);
+			if (isManualTransferReadFailure(raw)) {
+				onProgress?.(Object.freeze({ stage: 'import', completed: index, total: null, projectId: null, title: raw.title }));
+				records.push(transferRecord({ index, outcome: 'failed', projectId: null, title: raw.title, byteLength: 0,
+					reasonCode: 'archive-unreadable', reason: raw.reason, residue: 'none' }));
+				index += 1;
+				continue;
+			}
 			const entry = admitProjectTransferEntry(raw, admitted.confirmFileSizeWarning ? Number.MAX_SAFE_INTEGER : admitted.maximumEntryBytes, index);
 			if (admitted.confirmFileSizeWarning) await confirmFileSizeWarning(entry.bytes.byteLength, admitted.maximumEntryBytes, 'Project transfer archive', admitted);
 			onProgress?.(Object.freeze({

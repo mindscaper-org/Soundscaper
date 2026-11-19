@@ -9,6 +9,19 @@ import {
 
 const ORIGIN = 'soundscaper-app://bundle';
 
+test('timecode MIDI and SysEx permissions belong only to the live trusted main editor', () => {
+	const harness = captureHarness(); harness.configure();
+	const details = { requestingUrl: `${ORIGIN}/`, securityOrigin: ORIGIN, isMainFrame: true };
+	for (const permission of ['midi', 'midiSysex']) {
+		assert.equal(harness.permissionCheck(harness.webContents, permission, ORIGIN, details), true);
+		assert.equal(harness.permissionRequest(harness.webContents, permission, details), true);
+		assert.equal(harness.permissionCheck({}, permission, ORIGIN, details), false);
+		assert.equal(harness.permissionCheck(harness.webContents, permission, 'https://example.com', details), false);
+		assert.equal(harness.permissionRequest(harness.webContents, permission, { ...details, isMainFrame: false }), false);
+		assert.equal(harness.permissionRequest(harness.webContents, permission, { ...details, securityOrigin: 'https://example.com' }), false);
+	}
+});
+
 interface PermissionDetails {
 	readonly requestingUrl?: string;
 	readonly securityOrigin?: string;

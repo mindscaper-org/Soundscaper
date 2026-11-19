@@ -49,7 +49,7 @@ test('the macro surface keeps its hand-clicked golden paths', async () => {
 	for (const name of MACRO_SURFACE_SPECS) {
 		const source = specs.get(name);
 		assert.ok(source, `${name} is the golden-path spec for the macro surface and must exist`);
-		assert.match(source, /chooseCommandAction\(page, editor, 'Tools', 'Macros palette'\)/u,
-			`${name} must reach the Macros palette from Tools the way a user does`);
+		assert.match(source, /chooseCommandAction\(page, editor, 'Tools', 'Macro manager'\)/u,
+			`${name} must reach the Macro manager from Tools the way a user does`);
 	}
 });

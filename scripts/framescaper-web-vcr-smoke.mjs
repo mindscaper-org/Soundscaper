@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
 	validateFramescaperWebVcrDormantSmokeResult,
@@ -26,6 +25,7 @@ import {
 import {
 	createFramescaperWebVcrHttpsFixture,
 } from './lib/framescaper-web-vcr-https-fixture.mjs';
+import { runBoundedSmokeChild } from './lib/desktop-smoke-child.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUTPUT_ROOT = resolve(ROOT, 'release/desktop');
@@ -34,53 +34,56 @@ const PRODUCT_ID = 'framescaper';
 const PRODUCT_NAME = 'Framescaper';
 const PARTITION_NAME = 'framescaper-web-vcr-v1';
 const WORKFLOW_PREFIX = 'FRAMESCAPER_WEB_VCR_PACKAGED_WORKFLOW ';
-const executable = await findPackagedExecutable();
-const temporaryRoot = await mkdtemp(join(tmpdir(), 'framescaper-web-vcr-smoke-'));
-const fixture = await createFramescaperWebVcrHttpsFixture();
 
-try {
-	const dormantProfile = join(temporaryRoot, 'dormant-profile');
-	const dormantPlan = planFor(FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_MODE);
-	const dormant = validateFramescaperWebVcrDormantSmokeResult(
-		await launch(dormantPlan, dormantProfile, FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_PREFIX, 60_000),
-		dormantPlan,
-	);
-	const dormantFiles = await recursiveFiles(dormantProfile);
-	if (dormantFiles.some((path) => path.split(/[\\/]/u).includes(PARTITION_NAME))) {
-		throw new Error('Dormant packaged smoke materialized the persistent Web VCR partition.');
+/** Shared by the standalone smoke command and the distributed nightly suite. */
+export async function runFramescaperWebVcrPackagedSmoke({ executable }) {
+	const temporaryRoot = await mkdtemp(join(tmpdir(), 'framescaper-web-vcr-smoke-'));
+	const fixture = await createFramescaperWebVcrHttpsFixture();
+
+	try {
+		const dormantProfile = join(temporaryRoot, 'dormant-profile');
+		const dormantPlan = planFor(FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_MODE);
+		const dormant = validateFramescaperWebVcrDormantSmokeResult(
+			await launch(executable, dormantPlan, dormantProfile, FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_PREFIX, 60_000),
+			dormantPlan,
+		);
+		const dormantFiles = await recursiveFiles(dormantProfile);
+		if (dormantFiles.some((path) => path.split(/[\\/]/u).includes(PARTITION_NAME))) {
+			throw new Error('Dormant packaged smoke materialized the persistent Web VCR partition.');
+		}
+
+		const activeProfile = join(temporaryRoot, 'active-profile');
+		const activePlan = planFor(FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_MODE);
+		const active = validateFramescaperWebVcrPackagedSmokeResult(
+			await launch(executable, activePlan, activeProfile, FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_PREFIX, 140_000),
+			activePlan,
+		);
+		return Object.freeze({
+			schemaVersion: 1,
+			productId: PRODUCT_ID,
+			diagnosticOnly: true,
+			diagnosticScope: 'packaged-feasibility-only',
+			dormant: { ...dormant, persistentGuestProfileMaterialized: false },
+			active,
+		});
+	} finally {
+		await fixture.close();
+		await rm(temporaryRoot, { recursive: true, force: true });
 	}
 
-	const activeProfile = join(temporaryRoot, 'active-profile');
-	const activePlan = planFor(FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_MODE);
-	const active = validateFramescaperWebVcrPackagedSmokeResult(
-		await launch(activePlan, activeProfile, FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_PREFIX, 140_000),
-		activePlan,
-	);
-	console.log(`${WORKFLOW_PREFIX}${JSON.stringify({
-		schemaVersion: 1,
-		productId: PRODUCT_ID,
-		diagnosticOnly: true,
-		diagnosticScope: 'packaged-feasibility-only',
-		dormant: { ...dormant, persistentGuestProfileMaterialized: false },
-		active,
-	})}`);
-} finally {
-	await fixture.close();
-	await rm(temporaryRoot, { recursive: true, force: true });
+	function planFor(mode) {
+		return Object.freeze({
+			schemaVersion: 1,
+			mode,
+			productId: PRODUCT_ID,
+			token: randomBytes(16).toString('hex'),
+			origin: fixture.origin,
+			certificateSha256: fixture.certificateSha256,
+		});
+	}
 }
 
-function planFor(mode) {
-	return Object.freeze({
-		schemaVersion: 1,
-		mode,
-		productId: PRODUCT_ID,
-		token: randomBytes(16).toString('hex'),
-		origin: fixture.origin,
-		certificateSha256: fixture.certificateSha256,
-	});
-}
-
-async function launch(plan, profile, prefix, timeoutMs) {
+async function launch(executable, plan, profile, prefix, timeoutMs) {
 	const smokeAppData = join(profile, 'application-data');
 	const appArguments = [
 		`--user-data-dir=${profile}`,
@@ -128,37 +131,17 @@ async function recursiveFiles(root) {
 	}
 }
 
-function run(command, args, timeoutMs, label) {
-	return new Promise((resolvePromise, reject) => {
-		const env = { ...process.env };
-		delete env.ELECTRON_RUN_AS_NODE;
-		const child = spawn(command, args, {
-			cwd: ROOT,
-			env,
-			stdio: ['ignore', 'pipe', 'pipe'],
-		});
-		let output = '';
-		let settled = false;
-		const finish = (operation) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeout);
-			operation();
-		};
-		const append = (chunk) => {
-			output += String(chunk);
-			if (output.length > 2 * 1024 * 1024) {
-				child.kill();
-				finish(() => reject(new Error(`Packaged Web VCR ${label} smoke produced too much output.`)));
-			}
-		};
-		child.stdout.on('data', append);
-		child.stderr.on('data', append);
-		child.once('error', (error) => finish(() => reject(error)));
-		const timeout = setTimeout(() => {
-			child.kill();
-			finish(() => reject(new Error(`Packaged Web VCR ${label} smoke timed out.\n${output}`)));
-		}, timeoutMs);
-		child.once('exit', (code) => finish(() => resolvePromise({ code, output })));
+async function run(command, args, timeoutMs, label) {
+	const environment = { ...process.env };
+	delete environment.ELECTRON_RUN_AS_NODE;
+	const result = await runBoundedSmokeChild(command, args, {
+		cwd: ROOT, environment, timeout: timeoutMs, outputLimit: 2 * 1024 * 1024,
+		label: `Web VCR ${label}`, errorEvent: 'once',
 	});
+	return { code: result.code, output: `${result.stdout}\n${result.stderr}` };
+}
+
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+	const result = await runFramescaperWebVcrPackagedSmoke({ executable: await findPackagedExecutable() });
+	console.log(`${WORKFLOW_PREFIX}${JSON.stringify(result)}`);
 }

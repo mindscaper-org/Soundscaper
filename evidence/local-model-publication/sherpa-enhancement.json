@@ -1,0 +1,44 @@
+{
+	"schemaVersion": 1,
+	"checkedAt": "2026-11-10T21:13:47.955Z",
+	"checks": [
+		"public-head",
+		"byte-range",
+		"cors",
+		"full-sha256"
+	],
+	"artifacts": [
+		{
+			"modelId": "gtcrn",
+			"version": "1.0.0",
+			"fileName": "gtcrn_simple.onnx",
+			"byteLength": 535638,
+			"sha256": "e77603ac0c23dac3227dd2d7135b3a585cbee2679048aecfa886657d3ae1b534",
+			"url": "https://assets.soundscaper.org/models/gtcrn/1.0.0/gtcrn_simple.onnx"
+		},
+		{
+			"modelId": "dpdfnet2-48khz",
+			"version": "1.0.0",
+			"fileName": "dpdfnet2_48khz_hr.onnx",
+			"byteLength": 10596848,
+			"sha256": "0b399f8a58dc4d70d8cd97541f5c39869406145193b957d00a03b66070944928",
+			"url": "https://assets.soundscaper.org/models/dpdfnet2-48khz/1.0.0/dpdfnet2_48khz_hr.onnx"
+		},
+		{
+			"modelId": "voxlock",
+			"version": "1.1.1",
+			"fileName": "voxlock_enroll.onnx",
+			"byteLength": 12476014,
+			"sha256": "5d06048c156bb8cd422d29848e6d38fb26a7b39f6f7fd92eccf2a6ed1ce003c6",
+			"url": "https://assets.soundscaper.org/models/voxlock/1.1.1/voxlock_enroll.onnx"
+		},
+		{
+			"modelId": "voxlock",
+			"version": "1.1.1",
+			"fileName": "voxlock_chunk_int8.onnx",
+			"byteLength": 66608910,
+			"sha256": "df61a9d0062b0adbcf1182302b1eb8b815f15ac47ea4923e8e164c1aff64121d",
+			"url": "https://assets.soundscaper.org/models/voxlock/1.1.1/voxlock_chunk_int8.onnx"
+		}
+	]
+}

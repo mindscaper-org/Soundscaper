@@ -56,6 +56,27 @@ not certify it for partial coverage: the manifest's `independent` flag requires
 complete owned-source coverage at its inherited floors. Source moves retain
 their original coverage cohort and chunk/startup budgets.
 
+## Menu presentation
+
+Menu explanations are rendered by `ui/MenuTooltipProvider.tsx` in a body portal
+so scrolling menus cannot clip rich text or images. Menus pass a stable
+`tooltipKey` through `ContextMenuItem`; custom menu controls use
+`data-menu-tooltip-id`. The editor resolves those identities before localized
+label aliases, preserving the different meanings of similarly named commands.
+English purposes live in `i18n/editor-menu-tooltip-*-copy.ts` and the
+`ui.menuTooltips` translation scope. Describe the operation’s useful result
+instead of repeating its label. New dynamic entries need a stable purpose key;
+rich content is supplied as React nodes, without HTML string injection.
+
+## Control labels
+
+Control captions use `ui/EditorControlLabel.tsx`, including the shared field
+helpers, effect parameters, metadata and analysis readouts. Its stylesheet owns
+the semibold weight and preserves localized sentence case, acronyms and units.
+Keep control geometry and colors in feature styles; do not add weight, casing or
+letter-spacing overrides to individual label layouts. Choice controls use the
+same typography through the shared checkbox adapter and generator radio helper.
+
 ## Controller ownership
 
 Shared stateful editor coordination belongs in strict TypeScript under
@@ -94,6 +115,23 @@ files, barrels, new dependency directions, runtime upgrades of type-only edges,
 and cross-domain imports of internal files. Consumers import the narrow owner
 directly. After removing a direction, run
 `npm run check:controller-domains:tighten` to claim it.
+
+Container and standalone MIDI imports share stateless SMF channel routing,
+destination handling and track preparation in the flat `midi-file-import-*.ts`
+modules. The import and track-audio controllers consume these narrow owners;
+their file-menu entry points defer loading so archive/MIDI parsing stays outside
+the product startup graph.
+
+Import production state uses the existing automation and mixer authorities.
+`interchange-automation.ts` owns bounded unit conversion, origin clipping and
+curve admission; `interchange-clip-envelope.ts` adapts that vocabulary to legacy
+clip envelopes. `timeline-interchange-mix.ts` and `dawproject-import-finishing.ts`
+materialize native graph identities before admitting send/effect addresses.
+Format readers retain their own clock, parameter and processor semantics.
+`interchange-effect-state.ts` only creates inert missing-effect records; foreign
+state does not create an execution path. Both product constructors receive
+explicit production state rather than trying to carry it through the V17
+interchange foundation's legacy strip envelopes.
 
 Domain compositions accept declared dependencies and return typed ports; the
 composition root wires them without granting one domain mutable access to
@@ -178,6 +216,21 @@ Soundscaper and Framescaper browser project environments load their desktop
 library bridge only when the preload global is present; ordinary browser startup keeps that renderer code out
 of its static graph.
 
+Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
+editing states, without project identity or media bodies. The enclosing document
+owns one source inventory. Snapshot source IDs are retention roots, independently
+of ordinary revision pruning. A source rewrite retains the previous descriptor
+under an inventory alias pointing at the existing immutable media; per-snapshot
+bindings preserve its logical source IDs. Restore uses the normal undoable command
+and keeps the other alternatives. Scape import rebinds each snapshot against that
+shared inventory, including freeze authority, transcript/TTS bodies and native
+plug-in state. These alternatives share the project's storage and lifetime.
+
+Track playlists replace only their audio arrangement. A camera link survives
+recall when its picture partner still shares the same range and media lane group;
+otherwise recall retires that link and leaves picture placement intact. Replacing
+linked audio requires the picture track to be unlocked if its link must change.
+
 The project library is the working/recovery copy. General's Saving preference
 controls separate publication to an opened or explicitly saved Scape file:
 automatic file saving defaults off on desktop and on in browsers. Internal
@@ -191,14 +244,54 @@ restores permission only if the exact original remains current. File writes
 use the existing atomic publisher and refresh permission after commit. Browser
 file handles require granted write permission; download-only contexts retain
 internal saves and offer an explicit export.
+Collision and recovery copies choose their own destination when first saved.
 
 Desktop close prompts default on and enumerate every open writable project.
 Save and canceled/failed picker results are awaited before allowing shutdown;
-discard decisions apply only after all projects accept closing. The temporary
-project limit defaults to ten and prunes oldest closed copies under their
-project locks and exact-current deletion. Open projects can exceed the limit.
-A native-selected temporary root moves the closed library on the next startup;
-non-overwriting storage migration preserves conflicting destination data.
+discard decisions apply only after all projects accept closing. Renderer loss
+or replacement retires unconfirmed close requests and their pending quit intent.
+Shell project opens awaiting workspace admission return to the main-process queue
+when their renderer retires. The replacement renderer gets a fresh read capability.
+The temporary project limit defaults to ten and prunes oldest closed copies
+under their project locks and exact-current deletion. Open projects can exceed the limit.
+The native folder picker checks for existing destination conflicts before saving
+a temporary root selection. The closed library moves on the next startup, with
+another conflict check before migration. If preflight refuses a fresh
+selection or its location becomes unsupported, startup cancels that choice,
+reports the cause, and opens the current library.
+If the selected directory is missing, unwritable, or locked before migration
+starts, startup continues with the current library and keeps the pending move.
+Windows tests this by opening a delete-on-close file under the selected root,
+so its directory access controls are applied before a move is recorded.
+Once the move may have started, startup requires the destination to be available
+because the old location may contain only part of the library.
+On Linux and Windows, a hard-link-capable destination can publish completed
+copies from a private stage and use that stage to resume an interrupted move.
+Startup upgrades from the former project library also register a private copy
+stage when the destination supports hard links.
+
+Desktop working storage is admitted before database open, profile startup, and
+temporary-folder selection or migration. The database opener also checks storage
+before creating a missing parent directory. Canonical paths must be on a
+positively identified local volume and outside recognized cloud-sync roots. Linux admits
+known local filesystem types; Windows probes drive type (including mapped
+drives), and macOS queries the volume's local-resource flag. Unknown locality
+fails closed. Symlinks are resolved for directory admission. Provider path
+names, OneDrive environment roots, and Dropbox registrations detect common sync
+configurations; arbitrary sync software and external mutation remain outside
+this detection boundary. Save completed Scape archives for sharing or backup
+instead of synchronizing working storage.
+
+Both project catalogs and the delivery/native-services databases use DELETE
+rollback journaling with FULL synchronous commits. The shared database opener
+refuses existing WAL/SHM sidecars before SQLite construction, preserving both
+main and sidecars for recovery review: a legitimate interrupted legacy WAL is
+indistinguishable from a stale restored one. A clean, checkpointed legacy
+database changes journal mode without changing schema or storage identity.
+Hot rollback journals retain SQLite's normal crash recovery. Revision and
+digest checks establish consistency, not freshness against a coherent rollback
+of all stored state. These guards do not fence arbitrary same-user filesystem
+writers or a volume that changes after admission.
 
 Autosave retains an immutable document generation during its debounce and only
 materializes the snapshot when saving starts. Preparation and persistence share
@@ -219,6 +312,13 @@ publication and rollback. A same-ID replacement installs the committed document
 as fresh session history; rollback leaves staged assets intact if ownership has
 changed and they may now be referenced by another writer.
 
+An unchanged Scape file resumes its existing library project and session history.
+Canonical document digests select this path; import rechecks equality after pending
+edits are flushed and performs no project or media publication. Archive bodies are
+verified against their descriptors and local audio or video before activation. A changed working
+copy returns to the collision decision. Recovery and feature compatibility still
+require their existing explicit choices.
+
 Project startup, direct activation, recent projects, library opens, Scape archives,
 and Audacity imports share one bounded recovery attempt. Cancellation,
 lost ownership, inaccessible storage, and quota failures remain errors. Stored
@@ -227,6 +327,38 @@ open request without overwriting the damaged original. A failure before activati
 retains the current workspace while the user chooses a new copy.
 Startup uses an empty workspace and defers saving and maintenance while that
 choice is pending.
+
+Audacity project recovery tries live SQLite page chains when normal audio
+reads fail. Its bounded asynchronous range reader excludes the freelist and
+never guesses broken links. Readable PCM prefixes augment the ordinary recovery
+inventory; unreadable tails remain timed silence in the existing compatibility
+report. Import pulls recheck recovered block identity and keep one block cached.
+The original selected file is never modified. Browser Files and desktop selected
+range capabilities use the same worker path.
+
+The Audacity recovery menu inspects the original native documents, full SQLite
+integrity, referenced and unreferenced blocks, and named missing audio ranges
+before importing. Its separate native-copy action is restricted to missing
+blocks in an otherwise readable active document and intact database. It patches
+only those block-ID bytes, retains the native dictionary and unrelated rows,
+and verifies the private copy before publication. Editing-copy recovery remains
+available for damage outside that narrower repair. Unsaved `.aup4unsaved`
+projects are admitted and produce `.aup4` native copies in a separate save
+destination.
+
+Desktop selected Audacity files automatically inspect accompanying WAL/SHM
+files. A nonempty WAL is copied with its main file into private scratch, checked
+for frame identity and checksums, then checkpointed there. SHM is rebuilt in the
+copy. Original identities are rechecked before admission, and the selected
+capability owns scratch cleanup through release and renderer revocation. Recovery
+save targets refuse the original input path and hard-link aliases. Browsers
+continue to accept a single project file without companion discovery.
+
+Recovery first retains all imported metadata. If native clip XML exceeds the
+editor document node budget, it retries without native-only clip XML and source
+block-boundary hints, reporting that omission. Editable audio, timing, envelopes,
+track state and project/track extension data remain. Ordinary imports do not use
+this fallback, and all existing document limits remain in force.
 
 Soundscaper Scape recovery reads the owning-family document through the bounded
 archive reader, verifies its digest, and streams media verification before

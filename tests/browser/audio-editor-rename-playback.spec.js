@@ -18,7 +18,7 @@ test('track and clip renaming keeps the running audio graph and remains usable w
 		};
 	});
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [halfMinuteTone]);
 	let clip = clipByName(editor, halfMinuteTone.name);
 	const track = editor.locator('[data-track-row]').filter({ has: page.getByRole('group', { name: clipNameAccessiblePattern(halfMinuteTone.name) }) });

@@ -50,7 +50,7 @@ export const PROJECT_GUIDES = Object.freeze([
 			openProjectFile({ see: 'The project opens with its track and clip exactly as exported.' }),
 		],
 		tips: [
-			'A read-only copy cannot be edited until you save it as a project of its own from the File menu.',
+			'If the local library already has the same version, Soundscaper resumes that project. If the versions differ, it offers to open a separate copy.',
 			'The file is a ZIP archive with the audio inside; do not unpack it by hand.',
 		],
 	},

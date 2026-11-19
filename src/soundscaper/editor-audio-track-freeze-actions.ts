@@ -18,10 +18,12 @@ import {
 	type SoundscaperAudioFreezeRenderEngine,
 } from './editor-audio-track-freeze-render.ts';
 import {
-	dataArray, dataRecord, exactRecordById, nonNegativeInteger, positiveInteger,
+	dataRecord, exactRecordById, nonNegativeInteger, positiveInteger,
 	stableId, throwIfAborted, type DataRecord,
 } from './editor-audio-track-freeze-values.ts';
 export type { SoundscaperAudioFreezeRenderEngine } from './editor-audio-track-freeze-render.ts';
+import { EditorProjectChangedError } from '../common/editor/controller/shared/lifecycle.ts';
+import { assertSoundscaperFreezeHasNoSidechain } from './editor-audio-track-freeze-sidechain.ts';
 import type {
 	SoundscaperAudioTrackFreezePlaybackService,
 	SoundscaperAudioTrackFreezeStatus,
@@ -90,7 +92,6 @@ export function createSoundscaperAudioFreezeActions(
 				const track = exactRecordById(project.tracks, trackId, 'audio freeze track');
 				if (track.type !== 'audio') throw new RangeError(`Track ${trackId} is not audio.`);
 				if (track.locked === true) throw new Error(`Audio track ${trackId} is locked.`);
-				assertNoSidechainIntoRack(project, track, trackId);
 				return Object.freeze({
 					project,
 					ticket: captureSoundscaperFreezeProject(controller, project, trackId),
@@ -110,8 +111,8 @@ export function createSoundscaperAudioFreezeActions(
 		},
 		planRenderRange: ({ project, trackId }) => planFreezeRange(project, trackId),
 		allocateDerivedSourceId: () => stableId(createId('source'), 'audio freeze derived source'),
-		hashSourceContent: ({ project, source, signal }) => environment.playback.hashSourceContent(
-			project.id, source, signal,
+		hashSourceContent: ({ project, source, sourceRole, signal }) => environment.playback.hashSourceContent(
+			project.id, source, signal, sourceRole === 'input' ? project : undefined,
 		),
 		render: async (request) => renderFreezeBody(
 			environment.store, controller, createRenderEngine, request, options,
@@ -153,24 +154,32 @@ export function createSoundscaperAudioFreezeActions(
 	});
 	let active: Readonly<{ trackId: string; abort: AbortController; promise: Promise<unknown> }> | null = null;
 	let disposed = false;
-	const run = (trackId: string, operation: (signal: AbortSignal) => Promise<unknown>): Promise<unknown> => {
+	const run = (trackId: string, operation: (signal: AbortSignal, assertOwner: () => void) => Promise<unknown>): Promise<unknown> => {
 		if (disposed) return Promise.reject(new Error('Soundscaper audio freeze actions are disposed.'));
 		const previous = active;
 		previous?.abort.abort(new DOMException('A newer audio freeze operation replaced this task.', 'AbortError'));
 		const abort = new AbortController();
 		const promise = (async () => {
+			const projectId = (controller.project as SoundscaperProject | null)?.id;
+			const generation = projectId === undefined ? undefined : controller.captureProjectGeneration?.(projectId);
+			const assertOwner = (): void => {
+				if (generation) controller.assertProjectGeneration?.(generation);
+				if ((controller.project as SoundscaperProject | null)?.id !== projectId) throw new EditorProjectChangedError();
+			};
 			if (previous) await previous.promise.catch(() => undefined);
 			throwIfAborted(abort.signal);
-			return operation(abort.signal);
+			assertOwner();
+			return operation(abort.signal, assertOwner);
 		})();
 		const entry = Object.freeze({ trackId, abort, promise });
 		active = entry;
 		void promise.finally(() => { if (active === entry) active = null; }).catch(() => undefined);
 		return promise;
 	};
-	const freeze = (trackId: string) => run(trackId, async (signal) => {
+	const freeze = (trackId: string) => run(trackId, async (signal, assertOwner) => {
 		await options.prepareProject?.();
 		throwIfAborted(signal);
+		assertOwner();
 		return coordinator.freeze({ trackId, signal });
 	});
 	const actions = Object.freeze({
@@ -180,6 +189,7 @@ export function createSoundscaperAudioFreezeActions(
 		commit: (trackId: string) => run(trackId, (signal) => {
 			const project = exactCurrentProject(controller, validateProject);
 			const track = exactRecordById(project.tracks, trackId, 'committed frozen track');
+			assertSoundscaperFreezeHasNoSidechain(project, track);
 			const freezeValue = dataRecord(track.audioFreeze, 'committed audio freeze');
 			return coordinator.commit({
 				trackId,
@@ -205,41 +215,6 @@ export function createSoundscaperAudioFreezeActions(
 			await pending?.promise.catch((error: unknown) => { if (!(error instanceof Error) || error.name !== 'AbortError') throw error; });
 		},
 	});
-}
-
-/**
- * Refuse to bake a rack another strip is keying.
- *
- * The freeze renders the track alone, through a graph built for it, so an
- * authored sidechain edge feeding an effect in its rack does not exist during
- * that render. The dynamics worklet then keys itself from its own input, and
- * what gets baked is a self-keyed limiter or gate — audibly not what plays.
- * Rendering the key track alongside would mean pulling its media, its identity,
- * and its own staleness into the freeze, so until that exists this refuses
- * rather than committing a render that disagrees with playback.
- */
-function assertNoSidechainIntoRack(
-	project: SoundscaperProject,
-	track: DataRecord,
-	trackId: string,
-): void {
-	const effectIds = new Set(dataArray(track.effects, 'audio freeze track.effects').map(({ id }) => String(id)));
-	if (effectIds.size === 0) return;
-	const edges = dataArray(
-		dataRecord((project as unknown as DataRecord).mixer, 'project.mixer').edges,
-		'project.mixer.edges',
-	);
-	for (const edge of edges) {
-		if (edge.enabled === false) continue;
-		const destination = edge.destination as DataRecord | undefined;
-		if (destination?.kind !== 'effect-sidechain') continue;
-		const strip = destination.strip as DataRecord | undefined;
-		if (strip?.kind !== 'track' || String(strip.id) !== trackId) continue;
-		if (!effectIds.has(String(destination.effectId))) continue;
-		throw new Error(
-			`Audio track ${trackId} has an effect keyed by a sidechain, which a freeze cannot render.`,
-		);
-	}
 }
 
 function committedFreezeClip(id: string, freeze: DataRecord): DataRecord {

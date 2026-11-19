@@ -8,6 +8,7 @@ import {
 } from './delivery-report.ts';
 import { type DeliveryConversion } from './delivery-conversion-inventory.ts';
 import { VIDEO_EXPORT_FORMATS } from './video-export.js';
+import { videoPictureCaptionStage } from './video-picture-caption-stage.ts';
 
 /**
  * What a video delivery plan does to the material.
@@ -134,7 +135,10 @@ export function inventoryVideoDeliveryConversions(
 			},
 		});
 	}
-	const captions = isRecord(plan_.captions) ? plan_.captions : null;
+	const pictureCaptions = videoPictureCaptionStage(plan);
+	const captions: Readonly<Record<string, unknown>> | null = pictureCaptions
+		? { trackId: pictureCaptions.trackId, burnIn: true }
+		: isRecord(plan_.captions) ? plan_.captions : null;
 	if (captions) {
 		if (captions.mux === true) {
 			conversions.push({
@@ -149,9 +153,9 @@ export function inventoryVideoDeliveryConversions(
 			});
 		}
 		if (captions.burnIn === true) {
-			const stage = isRecord(plan.filterPlan) && isRecord(plan.filterPlan.burnIn)
+			const stage = pictureCaptions?.stage ?? (isRecord(plan.filterPlan) && isRecord(plan.filterPlan.burnIn)
 				? plan.filterPlan.burnIn
-				: null;
+				: null);
 			conversions.push({
 				code: 'delivery.captions-burned',
 				disposition: 'converted',
@@ -164,7 +168,7 @@ export function inventoryVideoDeliveryConversions(
 					fontSizePx: numberOrNull(stage?.fontSizePx) ?? 0,
 				},
 			});
-			if (burnedCuesOverlap(stage)) {
+			if (burnedCuesOverlap(stage?.cues)) {
 				conversions.push({
 					code: 'delivery.captions-overlapping',
 					disposition: 'converted',
@@ -177,7 +181,7 @@ export function inventoryVideoDeliveryConversions(
 			// characters no staged subset can draw. They are blanks in the picture;
 			// naming them is the difference between a stated omission and a
 			// delivery quietly missing words.
-			const undrawable = burnedUndrawableCharacters(stage);
+			const undrawable = burnedUndrawableCharacters(stage?.cues);
 			if (undrawable.length > 0) {
 				conversions.push({
 					code: 'delivery.captions-undrawable',
@@ -261,15 +265,15 @@ export function createVideoDeliveryReportForPlan(
  * other. Label tracks may legitimately overlap; a burned delivery cannot show
  * both, so the report says so rather than the picture quietly saying it.
  */
-function burnedCuesOverlap(stage: Readonly<Record<string, unknown>> | null): boolean {
-	const cues = Array.isArray(stage?.cues) ? [...(stage.cues as Record<string, unknown>[])] : [];
+function burnedCuesOverlap(value: unknown): boolean {
+	const cues = Array.isArray(value) ? [...(value as Record<string, unknown>[])] : [];
 	cues.sort((left, right) => Number(left.startSeconds) - Number(right.startSeconds));
 	return cues.some((cue, index) => index > 0 && Number(cue.startSeconds) < Number(cues[index - 1]!.endSeconds));
 }
 
 /** Characters no staged font subset could draw, deduplicated across the cues. */
-function burnedUndrawableCharacters(stage: Readonly<Record<string, unknown>> | null): readonly string[] {
-	const cues = Array.isArray(stage?.cues) ? (stage.cues as Record<string, unknown>[]) : [];
+function burnedUndrawableCharacters(value: unknown): readonly string[] {
+	const cues = Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
 	const characters: string[] = [];
 	for (const cue of cues) {
 		if (!Array.isArray(cue.undrawable)) continue;

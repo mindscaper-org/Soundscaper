@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createMasteringSequenceRuntimeHandlers } from '../common/editor/commands/mastering-sequence-runtime.ts';
+import { hasTrackPlaylistCommand, applyTrackPlaylistCommandTree } from './editor-track-playlist-commands.ts';
+import { applySessionSnapshotCommand } from '../common/editor/commands/session-snapshot-runtime.ts';
+import { SESSION_SNAPSHOT_COMMAND_TYPES, type SessionSnapshotCommand } from '../common/editor/commands/session-snapshot.ts';
 import {
 	applyAssistanceAssetUpsertCommandV1,
 	hasAssistanceAssetUpsertCommandTypeV1,
@@ -87,6 +90,20 @@ export function applySoundscaperProjectCommand(
 	validateSoundscaperProject(projectValue);
 	const project = projectValue as SoundscaperProject;
 	const command = snapshotSoundscaperProjectCommand(commandValue);
+	if (command.type === 'batch' && command.commands.some(containsSnapshotCommand)) {
+		let result = project;
+		for (const child of command.commands) result = applySoundscaperProjectCommand(result, child, options);
+		return finalize(structuredClone(result) as Record<string, unknown>, project, options);
+	}
+	if (hasTrackPlaylistCommand(command)) {
+		return finalize(applyTrackPlaylistCommandTree(project, command,
+			(current, child) => applySoundscaperProjectCommand(current, child, options)), project, options);
+	}
+	if (SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)) {
+		const draft = structuredClone(project) as Record<string, unknown>;
+		applySessionSnapshotCommand(draft, command as SessionSnapshotCommand);
+		return finalize(draft, project, options);
+	}
 	if (hasAssistanceAssetUpsertCommandTypeV1(command)) {
 		return applyAssistanceCommand(project, command, options);
 	}
@@ -98,6 +115,11 @@ export function applySoundscaperProjectCommand(
 		return applyMasteringSequenceCommand(project, command, options);
 	}
 	return applyInheritedCommand(project, command, options);
+}
+
+function containsSnapshotCommand(command: AudioEditorCommand): boolean {
+	return SESSION_SNAPSHOT_COMMAND_TYPES.some(type => type === command.type)
+		|| command.type === 'batch' && command.commands.some(containsSnapshotCommand);
 }
 
 function commandTouchesNativePluginStates(
@@ -127,9 +149,9 @@ function applyNativePluginStateTree(
 		const state = normalizeSoundscaperNativePluginStates([
 			(command as unknown as { readonly state: unknown }).state,
 		])[0];
-		draft.nativePluginStates = normalizeSoundscaperNativePluginStates([
-			...values.filter((entry) => entry.instanceId !== state.instanceId), state,
-		]);
+		const exists = values.some(entry => entry.instanceId === state.instanceId);
+		draft.nativePluginStates = normalizeSoundscaperNativePluginStates(exists
+			? values.map(entry => entry.instanceId === state.instanceId ? state : entry) : [...values, state]);
 		return;
 	}
 	if (command.type === 'native-plugin-state/remove') {
@@ -316,14 +338,19 @@ function applyInheritedCommand(
 		? withSoundscaperDefaultMicrofades(project, inherited) : inherited;
 	assertNoNewNativePluginRackBindings(project, applied);
 	assertNoNewSidechainsIntoFrozenRacks(project, applied);
-	const retainedInstanceIds = nativePluginRackInstanceIds(applied);
-	const removedInstanceIds = new Set([...nativePluginRackInstanceIds(project)]
-		.filter((instanceId) => !retainedInstanceIds.has(instanceId)));
-	if (removedInstanceIds.size === 0) return applied;
-	const retainedStates = applied.nativePluginStates.filter(({ instanceId }) => (
-		!removedInstanceIds.has(instanceId)
-	));
-	if (retainedStates.length === applied.nativePluginStates.length) return applied;
+	if (applied.nativePluginStates.length === 0) return applied;
+	const before = nativePluginRackProjections(project);
+	const after = nativePluginRackProjections(applied);
+	const retainedStates = applied.nativePluginStates.flatMap((state) => {
+		const prior = before.get(state.instanceId);
+		const current = after.get(state.instanceId);
+		if (!prior) return [state];
+		if (!current) return [];
+		if (prior.bypassed === current.bypassed || (!current.bypassed && !state.enabled)) return [state];
+		return [{ ...state, bypassed: current.bypassed, continuity: current.bypassed ? 'bypass' as const : 'live' as const }];
+	});
+	if (retainedStates.length === applied.nativePluginStates.length
+		&& retainedStates.every((state, index) => state === applied.nativePluginStates[index])) return applied;
 	const draft = structuredClone(applied) as unknown as Record<string, unknown>;
 	draft.nativePluginStates = normalizeSoundscaperNativePluginStates(retainedStates);
 	stripNativePluginRequirements(draft);
@@ -393,8 +420,8 @@ function nativePluginRackSlots(project: SoundscaperProject): ReadonlySet<string>
 	return slots;
 }
 
-function nativePluginRackInstanceIds(project: SoundscaperProject): ReadonlySet<string> {
-	const instanceIds = new Set<string>();
+function nativePluginRackProjections(project: SoundscaperProject): ReadonlyMap<string, NativePluginRackEffect> {
+	const effects = new Map<string, NativePluginRackEffect>();
 	const collect = (ownerValue: unknown): void => {
 		if (!ownerValue || typeof ownerValue !== 'object' || Array.isArray(ownerValue)) return;
 		const owner = ownerValue as Readonly<Record<string, unknown>>;
@@ -402,7 +429,8 @@ function nativePluginRackInstanceIds(project: SoundscaperProject): ReadonlySet<s
 		for (const effect of owner.effects) {
 			if (!effect || typeof effect !== 'object' || Array.isArray(effect)
 				|| (effect as Readonly<Record<string, unknown>>).type !== 'native-plugin') continue;
-			instanceIds.add(normalizeNativePluginEffect(effect).params.instanceId);
+			const projection = normalizeNativePluginEffect(effect);
+			effects.set(projection.params.instanceId, projection);
 		}
 	};
 	for (const track of project.tracks) collect(track);
@@ -410,7 +438,7 @@ function nativePluginRackInstanceIds(project: SoundscaperProject): ReadonlySet<s
 	for (const owners of [project.mixer.groups, project.mixer.sends, project.mixer.cues]) {
 		for (const owner of owners) collect(owner);
 	}
-	return instanceIds;
+	return effects;
 }
 
 function applyAssistanceCommand(

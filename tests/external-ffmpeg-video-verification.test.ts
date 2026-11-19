@@ -25,6 +25,28 @@ import type {
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
 
+test('MOV availability requires its own successful H264/AAC execution canary', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-mov-verification-'));
+	const registered = admission({ webm: false });
+	const movAdmission = { ...registered, capabilities: { ...registered.capabilities, muxers: ['mov'] } };
+	try {
+		for (const valid of [true, false]) {
+			const inspected: string[] = [];
+			const bytes = valid ? validMp4() : Uint8Array.of(1, 2, 3);
+			if (valid) bytes.set([0x71, 0x74, 0x20, 0x20], 8);
+			const result = await verifyExternalFfmpegVideoAdmission({
+				scratchRoot: root, admission: movAdmission, environment: {},
+				digestExecutable: exactDigest, spawn: finiteOutputSpawn(bytes),
+				inspectOutput: async request => { inspected.push(request.format); },
+			});
+			assert.equal(result.formats.mov.available, valid);
+			assert.equal(result.formats.mp4.available, false);
+			assert.deepEqual(inspected, valid ? ['mov'] : []);
+			assert.deepEqual(await readdir(root), []);
+		}
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('verification executes exact shell-free A/V plans and cleans private output', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-video-verification-'));
 	const launches: Array<Readonly<{

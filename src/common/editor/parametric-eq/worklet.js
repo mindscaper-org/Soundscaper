@@ -3,6 +3,8 @@ import {
 	designParametricEqWasmConfiguration,
 } from './wasm-runtime.js';
 import { PARAMETRIC_EQ_WORKLET_NAME } from './protocol.js';
+import { IdleEffectGate } from '../idle-effect-processing.ts';
+import { idleEffectHoldFrames } from '../idle-effect-policy.ts';
 
 const ProcessorBase = globalThis.AudioWorkletProcessor || class {
 	constructor() {
@@ -24,6 +26,8 @@ export class ParametricEqWorkletProcessor extends ProcessorBase {
 		this.effectId = settings.effectId;
 		this.revision = revisionOf(settings.revision, 0);
 		this.params = settings.packet ?? settings.params;
+		this.idle = new IdleEffectGate(this.sampleRate,
+			idleEffectHoldFrames('parametric-eq', this.params, this.sampleRate), () => this.runtime.reset());
 		this.auditionBandId = null;
 		this.configuration = designParametricEqWasmConfiguration(
 			this.params,
@@ -60,7 +64,11 @@ export class ParametricEqWorkletProcessor extends ProcessorBase {
 				throw this.fatalError;
 			}
 			this.#drainQueuedConfiguration();
-			this.runtime.process(input, output);
+			if (this.runtime.transitioning || this.queuedConfiguration || this.auditionBandId !== null) this.idle.wake();
+			if (this.idle.before(inputs, output, output[0].length)) {
+				this.runtime.process(input, output);
+				this.idle.after(output, output[0].length);
+			}
 			this.lastError = null;
 			return true;
 		} catch (error) {
@@ -71,6 +79,7 @@ export class ParametricEqWorkletProcessor extends ProcessorBase {
 	}
 
 	#handleMessage(message) {
+		if (this.idle.handleMessage(message)) return;
 		const incomingRevision = revisionOf(message.revision ?? message.sequence, this.revision + 1);
 		if (incomingRevision <= this.revision) return;
 		try {
@@ -90,7 +99,9 @@ export class ParametricEqWorkletProcessor extends ProcessorBase {
 					transitionFrames: message.transitionFrames,
 				});
 				this.params = params;
+				this.idle.wake(idleEffectHoldFrames('parametric-eq', params, this.sampleRate));
 				this.auditionBandId = auditionBandId;
+				this.idle.wake();
 				this.revision = incomingRevision;
 				this.#postStatus('configured');
 			} else if (message.type === 'audition') {
@@ -108,6 +119,7 @@ export class ParametricEqWorkletProcessor extends ProcessorBase {
 				this.revision = incomingRevision;
 				this.#postStatus('audition');
 			} else if (message.type === 'reset') {
+				this.idle.wake();
 				this.queuedConfiguration = null;
 				if (this.runtime) {
 					this.runtime.reset();

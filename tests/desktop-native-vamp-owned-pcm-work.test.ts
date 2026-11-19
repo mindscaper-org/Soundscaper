@@ -20,7 +20,7 @@ const observation: VampAnalyzerLibraryObservation = {
 	}],
 };
 
-test('the real session and persistent native helper transfer only private PCM capture once', async (context) => {
+test('the real session and persistent native helper clone owned PCM over the Electron port', async (context) => {
 	const registry = new DesktopVampAnalyzerRegistry({ isQuarantined: () => false });
 	const recorded = registry.recordLibrary(observation);
 	assert.equal(recorded.status, 'recorded');
@@ -38,6 +38,11 @@ test('the real session and persistent native helper transfer only private PCM ca
 	});
 	const backend = createNativeVampAnalyzerBackendFactory({ createChannel: () => {
 			const channel = new MessageChannel();
+			const send = channel.port2.postMessage.bind(channel.port2);
+			context.mock.method(channel.port2, 'postMessage', (message: unknown, transfer: readonly unknown[] = []) => {
+				if (transfer.length) throw new TypeError('Port at index 0 is not a valid port');
+				return send(message);
+			});
 			return { port1: channel.port1 as never, port2: channel.port2 as never };
 		},
 		supervisorFor: () => {

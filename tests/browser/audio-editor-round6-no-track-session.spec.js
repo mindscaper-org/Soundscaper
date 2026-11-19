@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction, clipByName, getMenuItem, importFiles, openNestedCommandMenu, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 for (const noTracks of [true, false]) test(`project tabs retain ${noTracks ? 'explicit No tracks' : 'the focused recording'}`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Select', ['Select all']);

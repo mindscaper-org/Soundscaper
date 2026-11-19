@@ -7,20 +7,20 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 	const activationFocusRef = useRef(false);
 	useEffect(() => {
 		const closing = closingProjectRef.current;
-		if (!closing || closing.isConnected || disabled) return;
+		if (!closing || disabled) return;
+		const { button } = closing;
+		if (button.isConnected && !closing.refused) return;
 		closingProjectRef.current = null;
-		const ownerDocument = closing.ownerDocument;
-		if (ownerDocument.activeElement === ownerDocument.body) {
-			tabListRef.current?.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
-		}
+		focusIfBodyFocused(button.isConnected ? button : tabListRef.current?.querySelector('[aria-selected="true"]'));
 	}, [disabled, projects]);
 	useEffect(() => {
-		if (disabled || !activationFocusRef.current) return;
-		activationFocusRef.current = false;
+		if (disabled) return;
 		const activeTab = tabListRef.current?.querySelector('[aria-selected="true"]');
-		if (activeTab?.ownerDocument.activeElement === activeTab.ownerDocument.body) {
+		if (activationFocusRef.current && activeTab?.ownerDocument.activeElement === activeTab.ownerDocument.body) {
 			activeTab.focus({ preventScroll: true });
 		}
+		activationFocusRef.current = false;
+		scrollToProjectTab(activeTab);
 	}, [activeProjectId, disabled]);
 	const unique = [];
 	const tabIds = [];
@@ -49,8 +49,9 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 			activationFocusRef.current = true;
 			onSelect(next.id);
 		}
+		const target = tabListRef.current?.querySelectorAll('[role="tab"]')[nextIndex];
 		requestAnimationFrame(() => {
-			tabListRef.current?.querySelectorAll('[role="tab"]')[nextIndex]?.focus({ preventScroll: true });
+			if (target?.isConnected && !target.disabled) focusProjectTab(target);
 		});
 	};
 	return (
@@ -80,8 +81,21 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 						tabIndex={project.id === focusableProjectId ? 0 : -1}
 						disabled={disabled}
 						onClick={(event) => {
-							closingProjectRef.current = event.currentTarget;
-							onClose(project.id);
+							const button = event.currentTarget;
+							const closing = { button, refused: false };
+							closingProjectRef.current = closing;
+							const refuseClose = () => {
+								if (closingProjectRef.current !== closing) return;
+								closing.refused = true;
+								if (button.isConnected && !button.disabled) {
+									closingProjectRef.current = null;
+									focusIfBodyFocused(button);
+								}
+							};
+							const result = onClose(project.id);
+							if (result && typeof result.then === 'function') {
+								void Promise.resolve(result).then(outcome => { if (outcome?.closed === false) refuseClose(); }, refuseClose);
+							}
 						}}
 					>×</button>
 				</div>)}
@@ -92,4 +106,17 @@ export default function ProjectTabs({ projects, activeProjectId, copy, disabled,
 			}} aria-label={copy.newProject}>+</button>
 		</nav>
 	);
+}
+
+function focusIfBodyFocused(button) {
+	if (button?.ownerDocument.activeElement === button.ownerDocument.body) focusProjectTab(button);
+}
+
+function focusProjectTab(tab) {
+	tab?.focus({ preventScroll: true });
+	scrollToProjectTab(tab);
+}
+
+function scrollToProjectTab(tab) {
+	tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }

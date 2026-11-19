@@ -7,6 +7,9 @@ test('the public privacy URL renders only the Soundscaper policy dialog', async 
 	await expect(dialog).toBeVisible();
 	await expect(dialog.getByRole('heading', { name: '1. Scope and overview', exact: true })).toBeVisible();
 	await expect(dialog.getByText('privacy@support.soundscaper.org', { exact: true }).first()).toBeVisible();
+	await expect(dialog.getByRole('heading', { name: '14. Code signing policy', exact: true })).toBeVisible();
+	await expect(dialog.getByRole('link', { name: 'SignPath.io', exact: true })).toHaveAttribute('href', 'https://about.signpath.io');
+	await expect(dialog.getByRole('link', { name: 'SignPath Foundation', exact: true })).toHaveAttribute('href', 'https://signpath.org');
 	await expect(page.locator('[data-audio-editor]')).toHaveCount(0);
 	await expect(page.locator('.website-site-shell')).toHaveCount(0);
 });
@@ -16,7 +19,7 @@ test('the sidebar and Help menu open the same policy dialog without leaving the 
 	const editor = page.locator('[data-audio-editor]');
 	await expect(editor).toHaveAttribute('data-audio-editor-bound', 'true');
 
-	await page.getByRole('link', { name: 'Privacy policy', exact: true }).click();
+	await page.getByRole('link', { name: 'Privacy & Code signing policy', exact: true }).click();
 	let dialog = page.getByRole('dialog', { name: 'Privacy Policy', exact: true });
 	await expect(dialog).toBeVisible();
 	await expect(page).toHaveURL(/\/en\/$/u);
@@ -26,8 +29,9 @@ test('the sidebar and Help menu open the same policy dialog without leaving the 
 		.getByRole('menuitem', { name: 'Help', exact: true });
 	await help.click();
 	await page.getByRole('menu', { name: 'Help', exact: true })
-		.getByRole('menuitem', { name: 'Privacy policy', exact: true })
+		.getByRole('menuitem', { name: 'Privacy & Code signing policy', exact: true })
 		.click();
 	dialog = page.getByRole('dialog', { name: 'Privacy Policy', exact: true });
 	await expect(dialog).toBeVisible();
+	await expect(dialog.getByRole('heading', { name: '14. Code signing policy', exact: true })).toBeVisible();
 });

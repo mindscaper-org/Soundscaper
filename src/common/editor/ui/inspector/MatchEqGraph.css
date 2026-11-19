@@ -1,0 +1,9 @@
+.audio-editor-match-eq-graph { margin: 12px 0; }
+.audio-editor-match-eq-graph svg { display: block; width: 100%; max-height: 180px; color: var(--audio-editor-text-muted, #aaa); }
+.audio-editor-match-eq-graph text { fill: currentColor; font-size: 11px; }
+.audio-editor-match-eq-graph__grid { fill: none; stroke: currentColor; opacity: .25; }
+.audio-editor-match-eq-graph__reference, .audio-editor-match-eq-graph__target { fill: none; stroke: #70b6ff; stroke-width: 2; }
+.audio-editor-match-eq-graph__target { stroke: #f6c56f; stroke-dasharray: 5 3; }
+.audio-editor-match-eq-graph__legend { display: flex; gap: 16px; margin: 0 0 12px 40px; }
+.audio-editor-match-eq-graph__legend span:first-child { color: #70b6ff; }
+.audio-editor-match-eq-graph__legend span:nth-child(2) { color: #f6c56f; }

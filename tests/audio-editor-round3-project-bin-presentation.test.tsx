@@ -6,6 +6,8 @@ import { installReactTestDom } from './helpers/react-test-dom.ts';
 import { useProjectBinItems, useProjectBinSources, useProjectBinWaveformPath, useProjectBinTransformBadges,
 	useProjectBinDuration, useProjectBinInstanceCount, useProjectBinMediaTiming } from '../src/common/editor/ui/workspace/useProjectBinPresentation.ts';
 import { projectBinWaveformPath, projectBinTransformBadges, formatProjectBinDuration } from '../src/common/editor/ui/workspace/project-bin-model.ts';
+import ProjectBinCard from '../src/common/editor/ui/workspace/ProjectBinCard.jsx';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 
 void test('bin grouping, source joins, PCM paths, badges, durations and instance scans survive preview publications', async () => {
 	const dom = installReactTestDom();
@@ -46,4 +48,42 @@ void test('bin grouping, source joins, PCM paths, badges, durations and instance
 		project = { ...project, sequences: [{ ...project.sequences[0]!, rate: { num: 50, den: 1 } }] };
 		await act(async () => root.render(<Harness revision={32} />)); assert.equal(result[6], 96000);
 	} finally { await act(async () => root.unmount()); Intl.NumberFormat = numberFormat; globals.IS_REACT_ACT_ENVIRONMENT = previous; dom.restore(); }
+});
+
+void test('preview publications keep settled card content while polling current visual availability', async () => {
+	const dom = installReactTestDom();
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const previous = globals.IS_REACT_ACT_ENVIRONMENT; globals.IS_REACT_ACT_ENVIRONMENT = true;
+	const react = Object.getOwnPropertyDescriptor(globalThis, 'React');
+	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	let reads = 0, formatReads = 0, available = true;
+	const clip = { id: 'clip', kind: 'audio', sourceId: 'source', durationFrames: 48_000 };
+	const source = { id: 'source', channelCount: 1, get mimeType() { formatReads++; return 'audio/wav'; } };
+	const controller = { actions: { projectBin: {
+		getVisualData: () => { reads++; return { available }; }, instanceCount: () => 0,
+	} } };
+	const props = { clip, source, sources: [source], itemClips: [clip], controller,
+		project: { id: 'project', sampleRate: 48_000 }, copy: ENGLISH_COPY, locale: 'en',
+		mutationBlocked: false, missing: false, selectedMediaTrack: null,
+		run: () => undefined, onOpenMenu: () => undefined, onDragEnd: () => undefined,
+	};
+	try {
+		await act(async () => root.render(<ProjectBinCard {...props} preview={null} />));
+		const settledReads = formatReads;
+		const priorReads = reads;
+		for (const positionFrame of [1, 2, 3]) {
+			await act(async () => root.render(<ProjectBinCard {...props} preview={{ clipId: 'other', state: 'playing', positionFrame }} />));
+		}
+		assert.equal(formatReads, settledReads);
+		assert.equal(reads, priorReads + 3);
+		available = false;
+		await act(async () => root.render(<ProjectBinCard {...props} preview={null} />));
+		assert.equal(dom.one('[data-project-bin-item="clip"]').getAttribute('data-unavailable'), 'true');
+	} finally {
+		await act(async () => root.unmount()); globals.IS_REACT_ACT_ENVIRONMENT = previous; dom.restore();
+		if (react) Object.defineProperty(globalThis, 'React', react);
+		else Reflect.deleteProperty(globalThis, 'React');
+	}
 });

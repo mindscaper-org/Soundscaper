@@ -21,14 +21,14 @@ test.describe('opaque archive tab custody', () => {
 		await page.addInitScript(() => { Object.defineProperty(window, 'showSaveFilePicker', { configurable: true, value: undefined }); });
 		const errors = collectClientErrors(page), editor = await bootEditor(page, '/embed/en/');
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'future.sscape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(await future.arrayBuffer()) });
-		await expect(editor).toHaveAttribute('data-project-id', 'opaque-tab');
 		await expect(editor).toHaveAttribute('data-edit-block-reason', 'read-only');
+		const opaqueTab = await editor.getAttribute('data-project-id');
 		await editor.getByRole('button', { name: 'New project', exact: true }).click();
 		await waitForProjectActivation(editor);
 		await editor.locator('[data-aup4-input]').setInputFiles({ name: 'current.sscape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: Buffer.from(await current.arrayBuffer()) });
 		await expect(editor).toHaveAttribute('data-project-id', 'current-tab');
 		await editor.getByRole('tab', { name: 'Opaque archive tab', exact: true }).click();
-		await expect(editor).toHaveAttribute('data-project-id', 'opaque-tab');
+		await expect(editor).toHaveAttribute('data-project-id', opaqueTab);
 		await waitForProjectActivation(editor);
 		const download = page.waitForEvent('download', { timeout: 8_000 });
 		await chooseExportProjectFileAction(page, editor);

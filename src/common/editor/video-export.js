@@ -1,3 +1,4 @@
+import { getVideoExportFormat } from './video-export-formats.ts';
 import { compareCodeUnits } from './code-unit-order.ts';
 import {
 	isProductVisualClip,
@@ -42,54 +43,7 @@ const DEFAULT_MAXIMUM_HEIGHT = 720;
 const DEFAULT_MAXIMUM_FRAME_RATE = 30;
 const DEFAULT_BACKGROUND_COLOR = '#000000';
 
-export const VIDEO_EXPORT_FORMATS = deepFreeze({
-	mp4: {
-		id: 'mp4',
-		label: 'MP4',
-		extension: 'mp4',
-		mimeType: 'video/mp4',
-		container: 'mp4',
-		videoCodec: 'h264',
-		videoEncoder: 'libx264',
-		audioCodec: 'aac',
-		audioEncoder: 'aac',
-		// 3GPP timed text is what an MP4 carries captions as; a container with no
-		// caption codec states null here and delivers a sidecar instead.
-		subtitleCodec: 'mov_text',
-		pixelFormat: 'yuv420p',
-		requiredEncoders: ['libx264', 'aac'],
-		requiredMuxers: ['mp4'],
-	},
-	webm: {
-		id: 'webm',
-		label: 'WebM',
-		extension: 'webm',
-		mimeType: 'video/webm',
-		container: 'webm',
-		videoCodec: 'vp9',
-		videoEncoder: 'libvpx-vp9',
-		audioCodec: 'opus',
-		audioEncoder: 'libopus',
-		subtitleCodec: 'webvtt',
-		pixelFormat: 'yuv420p',
-		requiredEncoders: ['libvpx-vp9', 'libopus'],
-		requiredMuxers: ['webm'],
-	},
-});
-
-export function canonicalVideoExportFormat(format) {
-	const value = String(format || 'mp4').trim().toLowerCase();
-	if (value === 'h264' || value === 'mpeg4') return 'mp4';
-	if (value === 'vp9') return 'webm';
-	return value;
-}
-
-export function getVideoExportFormat(format = 'mp4') {
-	const id = canonicalVideoExportFormat(format);
-	const descriptor = VIDEO_EXPORT_FORMATS[id];
-	if (!descriptor) throw new RangeError(`Unsupported video export format: ${format}.`);
-	return descriptor;
-}
+export { VIDEO_EXPORT_FORMATS, canonicalVideoExportFormat, getVideoExportFormat } from './video-export-formats.ts';
 
 /**
  * Resolve the delivery canvas, either automatically or as the caller stated it.

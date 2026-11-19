@@ -11,10 +11,10 @@ interface Port {
 	onmessage(event: { data: Record<string, unknown> }): void;
 }
 
-function processorFixture(startFrame = 0, stopFrame?: number) {
+function processorFixture(startFrame = 0, stopFrame?: number, chunkFrames = 128) {
 	const previousRate: unknown = Reflect.get(globalThis, 'sampleRate');
 	Reflect.set(globalThis, 'sampleRate', 128);
-	const processor = new StreamingRecorderProcessor({ processorOptions: { channelCount: 1, chunkFrames: 128 } });
+	const processor = new StreamingRecorderProcessor({ processorOptions: { channelCount: 1, chunkFrames } });
 	if (previousRate === undefined) Reflect.deleteProperty(globalThis, 'sampleRate');
 	else Reflect.set(globalThis, 'sampleRate', previousRate);
 	const messages: Record<string, unknown>[] = [];
@@ -26,9 +26,11 @@ function processorFixture(startFrame = 0, stopFrame?: number) {
 	port.onmessage({ data: { type: 'start', startFrame, stopFrame } });
 	return {
 		messages,
-		process(available: boolean, seconds = 1) {
+		process(available: boolean, seconds = 1, nativeEnded = false) {
 			for (let index = 0; index < seconds; index += 1) {
-				processor.process([available ? [new Float32Array(128)] : []], [[new Float32Array(128)]]);
+				const ended = new Float32Array(128);
+				if (nativeEnded) ended[0] = 1;
+				processor.process([available ? [new Float32Array(128)] : [], [ended]], [[new Float32Array(128)]]);
 			}
 		},
 	};
@@ -47,6 +49,14 @@ test('absent input-channel delivery recovers within grace and then stops a susta
 test('valid digital silence is present input and never triggers loss', () => {
 	const fixture = processorFixture(); fixture.process(true, 20);
 	assert.equal(fixture.messages.some(message => message.type === 'input-lost' || message.type === 'input-status'), false);
+});
+
+test('terminal native capture flushes the good prefix before the recorder can append silence', () => {
+	const fixture = processorFixture(0, undefined, 256);
+	fixture.process(true);
+	fixture.process(true, 3, true);
+	assert.deepEqual(fixture.messages.map(message => message.type), ['started', 'input-lost', 'audio-chunk', 'stopped']);
+	assert.equal(fixture.messages[2]?.frames, 128);
 });
 
 test('the absence grace starts at scheduled capture and respects an earlier scheduled stop', () => {

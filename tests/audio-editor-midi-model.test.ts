@@ -14,6 +14,7 @@ import {
 	readMidiTrack,
 	removeMidiNoteData,
 	updateMidiNoteData,
+	validateProjectMidiCarriers,
 	withMidiClipData,
 	type MidiNote,
 	type MidiClipInterchange,
@@ -24,6 +25,22 @@ import { createAudioEditorProjectV17, validateAudioEditorProjectV17 } from '../s
 const note: MidiNote = {
 	id: 'note-c4', pitch: 60, startFrame: 12_000, durationFrames: 24_000, velocity: 100, channel: 0,
 };
+
+test('project MIDI carrier validation shares source lookup across clips and preserves first-match authority', () => {
+	let idReads = 0;
+	const sources = Array.from({ length: 250 }, (_, index) => ({
+		get id() { idReads++; return `source-${index}`; }, kind: 'audio', frameCount: 48_000,
+	}));
+	const clips = sources.map((_, index) => withMidiClipData({
+		id: `clip-${index}`, kind: 'audio', sourceId: `source-${index}`,
+	}, { version: 1, notes: [note] }));
+	validateProjectMidiCarriers({ tracks: [], clips, sources });
+	assert.ok(idReads <= sources.length + 1, `each source ID should be read at most once, got ${idReads}`);
+	assert.throws(() => validateProjectMidiCarriers({ tracks: [], clips,
+		sources: [{ id: 'source-0', kind: 'audio', frameCount: 1 }, ...sources] }), /complete audio fallback/u);
+	assert.throws(() => validateProjectMidiCarriers({ tracks: [], clips: [{ ...clips[0], sourceId: NaN }],
+		sources: [{ id: NaN, kind: 'audio', frameCount: 48_000 }] }), /complete audio fallback/u);
+});
 
 test('MIDI clips retain editable notes alongside a normal audio fallback through project reload', () => {
 	const source = createAudioSource({ id: 'fallback', frameCount: 96_000, channelCount: 1 });

@@ -3,12 +3,13 @@
 import { digestMediaContent } from '../common/media/content-digest.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import type { GrayVideoFrameV1 } from '../common/editor/video-motion-processing-v27.ts';
+import type { VideoMotionAnalysisFrameV1 } from '../common/editor/video-motion-analysis-v27.ts';
 import { videoBoundaryTime, type VideoSourceTimingView } from '../common/editor/video-source-timing-view.ts';
 import { exactVideoMidpointSeconds } from '../common/editor/video-exact-time-midpoint.ts';
 import { loadVideoTimingAsset } from '../common/editor/video-timing-storage.ts';
 import type { VideoTimingAssetReference } from '../common/editor/video-timing-asset.ts';
 import type {
-	FramescaperMotionAnalysisFrameProviderFinishing,
+	FramescaperMotionAnalysisFrameProviderFinishing, FramescaperMotionAnalysisFrameRequestFinishing,
 	FramescaperMotionAnalysisProgressFinishing,
 } from './editor-motion-analysis-actions-finishing.ts';
 
@@ -34,6 +35,10 @@ interface MotionFrameExtractorFinishing {
 			readonly signal?: AbortSignal;
 		}>,
 	): PromiseLike<Readonly<{ readonly blob: Blob }>>;
+	capturePixels?(
+		timestampSeconds: number,
+		options?: Readonly<{ readonly maximumWidth?: number; readonly maximumHeight?: number; readonly signal?: AbortSignal }>,
+	): PromiseLike<Readonly<{ readonly width: number; readonly height: number; readonly pixels: Uint8Array }>>;
 	dispose(): unknown;
 }
 
@@ -51,18 +56,38 @@ type MotionGrayDecoderFinishing = (
 const MAXIMUM_DECODE_WIDTH = 320;
 const MAXIMUM_DECODE_HEIGHT = 180;
 
-/** Build authenticated source-domain gray frames for the selected finishing built-in analyzer. */
-export function createFramescaperMotionAnalysisFrameProviderFinishing(options: Readonly<{
+interface MotionFrameProviderOptions {
 	readonly store: MotionFrameStoreFinishing;
 	readonly createExtractor?: MotionFrameExtractorFactoryFinishing;
 	readonly decodeGray?: MotionGrayDecoderFinishing;
-}>): FramescaperMotionAnalysisFrameProviderFinishing {
+}
+
+export function createFramescaperMotionAnalysisFrameProviderFinishing(options: MotionFrameProviderOptions): (
+	request: FramescaperMotionAnalysisFrameRequestFinishing,
+) => Promise<readonly VideoMotionAnalysisFrameV1[]> {
+	const stream = createFrameStream(options);
+	return async (request) => {
+		const frames: VideoMotionAnalysisFrameV1[] = [];
+		for await (const frame of stream(request)) frames.push(frame);
+		return Object.freeze(frames);
+	};
+}
+
+/** Decode each authenticated source picture as the paired tracker requests it. */
+export function createFramescaperMotionAnalysisFrameStreamProviderFinishing(
+	options: MotionFrameProviderOptions,
+): FramescaperMotionAnalysisFrameProviderFinishing {
+	const stream = createFrameStream(options);
+	return (request) => ({ count: request.endFrame - request.startFrame, frames: stream(request) });
+}
+
+function createFrameStream(options: MotionFrameProviderOptions) {
 	if (!options.store || typeof options.store.loadMediaAsset !== 'function') {
 		throw new TypeError('The selected finishing motion frame provider requires an original-media store.');
 	}
 	const createExtractor = options.createExtractor ?? defaultExtractor;
 	const decodeGray = options.decodeGray ?? decodeGrayImage;
-	return async (request) => {
+	return async function* (request: FramescaperMotionAnalysisFrameRequestFinishing): AsyncGenerator<VideoMotionAnalysisFrameV1> {
 		throwIfAborted(request.signal);
 		const source = sourceRecord(request.source);
 		const storageKey = stableId(source.storageKey ?? source.id, 'finishing motion source storage key');
@@ -83,48 +108,55 @@ export function createFramescaperMotionAnalysisFrameProviderFinishing(options: R
 		if (!extractor || typeof extractor.capture !== 'function' || typeof extractor.dispose !== 'function') {
 			throw new TypeError('The selected finishing motion frame extractor is invalid.');
 		}
-		const frames: Array<Readonly<{ readonly frameNumber: number; readonly frame: GrayVideoFrameV1 }>> = [];
 		let failure: unknown;
 		try {
 			const total = request.endFrame - request.startFrame;
 			for (let frameNumber = request.startFrame; frameNumber < request.endFrame; frameNumber += 1) {
 				throwIfAborted(request.signal);
 				const timestamp = timestampAt(frameNumber);
-				const captured = await extractor.capture(timestamp, {
+				const captureOptions = {
 					maximumWidth: MAXIMUM_DECODE_WIDTH,
 					maximumHeight: MAXIMUM_DECODE_HEIGHT,
-					mimeType: 'image/png',
 					...(request.signal ? { signal: request.signal } : {}),
-				});
-				throwIfAborted(request.signal);
-				if (!(captured?.blob instanceof Blob)) {
-					throw new TypeError('The finishing motion frame extractor returned no pathless image body.');
+				};
+				let frame: GrayVideoFrameV1;
+				if (options.decodeGray === undefined && extractor.capturePixels) {
+					const { width, height, pixels } = await extractor.capturePixels(timestamp, captureOptions);
+					frame = await grayFrameFromPixels(width, height, pixels, request.signal);
+				} else {
+					const captured = await extractor.capture(timestamp, { ...captureOptions, mimeType: 'image/png' });
+					throwIfAborted(request.signal);
+					if (!(captured?.blob instanceof Blob)) {
+						throw new TypeError('The finishing motion frame extractor returned no pathless image body.');
+					}
+					frame = await decodeGray(captured.blob, frameNumber, request.signal);
 				}
-				const frame = await decodeGray(captured.blob, frameNumber, request.signal);
 				throwIfAborted(request.signal);
-				frames.push(Object.freeze({ frameNumber, frame }));
 				progress(request.onProgress, {
-					phase: 'decoding', completed: frames.length, total,
+					phase: 'decoding', completed: frameNumber - request.startFrame + 1, total,
 				});
+				yield Object.freeze({ frameNumber, frame });
 			}
 		} catch (error) {
 			failure = error;
+			throw error;
+		} finally {
+			await disposeExtractor(extractor, failure);
 		}
-		try {
-			await extractor.dispose();
-		} catch (cleanupError) {
-			if (failure !== undefined) {
-				throw new AggregateError(
-					[failure, cleanupError],
-					'Motion frame decoding and extractor cleanup both failed.',
-					{ cause: failure },
-				);
-			}
-			throw cleanupError;
-		}
-		if (failure !== undefined) throw failure;
-		return Object.freeze(frames);
 	};
+}
+
+async function disposeExtractor(extractor: MotionFrameExtractorFinishing, failure: unknown): Promise<void> {
+	try {
+		await extractor.dispose();
+	} catch (cleanupError) {
+		if (failure === undefined) throw cleanupError;
+		throw new AggregateError(
+			[failure, cleanupError],
+			'Motion frame decoding and extractor cleanup both failed.',
+			{ cause: failure },
+		);
+	}
 }
 
 async function loadOriginal(
@@ -220,18 +252,30 @@ async function decodeGrayImage(
 		}
 		context.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height);
 		const rgba = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
-		const samples = new Array<number>(bitmap.width * bitmap.height);
-		for (let pixel = 0, offset = 0; pixel < samples.length; pixel += 1, offset += 4) {
-			samples[pixel] = (
-				0.2126 * rgba[offset]! + 0.7152 * rgba[offset + 1]! + 0.0722 * rgba[offset + 2]!
-			) / 255;
-		}
-		throwIfAborted(signal);
-		const module = await import('../common/editor/video-motion-processing-v27.ts');
-		return module.createGrayVideoFrameV1({ width: bitmap.width, height: bitmap.height, samples });
+		return await grayFrameFromPixels(bitmap.width, bitmap.height, rgba, signal);
 	} finally {
 		bitmap.close();
 	}
+}
+
+async function grayFrameFromPixels(
+	width: number, height: number, rgba: Uint8Array | Uint8ClampedArray, signal?: AbortSignal,
+): Promise<GrayVideoFrameV1> {
+	throwIfAborted(signal);
+	const pixelCount = width * height;
+	if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1
+		|| rgba.length !== pixelCount * 4) {
+		throw new RangeError('The finishing motion frame readback changed geometry.');
+	}
+	const samples = new Array<number>(pixelCount);
+	for (let pixel = 0, offset = 0; pixel < samples.length; pixel += 1, offset += 4) {
+		samples[pixel] = (
+			0.2126 * rgba[offset]! + 0.7152 * rgba[offset + 1]! + 0.0722 * rgba[offset + 2]!
+		) / 255;
+	}
+	throwIfAborted(signal);
+	const module = await import('../common/editor/video-motion-processing-v27.ts');
+	return module.createGrayVideoFrameV1({ width, height, samples });
 }
 
 function createCanvas(width: number, height: number): HTMLCanvasElement {

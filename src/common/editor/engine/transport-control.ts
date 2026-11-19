@@ -108,11 +108,7 @@ async play({ clockedStart = false, onBeforeStart } = {}) {
 				// A normal exact run ends at authored content; an explicit loop may
 				// also include selected silence from the extended editor timeline.
 				if (this.positionFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) this.positionFrame = 0;
-				await prepareExactAudioWarpPlayback(
-					this,
-					this.positionFrame,
-					isPlaybackLoopEnabled(this) ? this.loop.endFrame : this.durationFrames,
-				);
+				await prepareExactAudioWarpPlayback(this, this.positionFrame);
 				if (!playbackRequestIsCurrent(this, generation)) return;
 				this.playbackMode = 'audio-warp-exact';
 				await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);
@@ -230,11 +226,7 @@ async playAt(this: EngineRuntimeHost, contextTime, fromFrame = this.positionFram
 			if (scheduledFrame >= this.durationFrames && !isPlaybackLoopEnabled(this)) {
 				return Math.max(context.currentTime, Number(contextTime) || context.currentTime);
 			}
-			await prepareExactAudioWarpPlayback(
-				this,
-				scheduledFrame,
-				isPlaybackLoopEnabled(this) ? this.loop.endFrame : this.durationFrames,
-			);
+			await prepareExactAudioWarpPlayback(this, scheduledFrame);
 			assertPlaybackRequestCurrent(this, generation);
 			this.playbackMode = 'audio-warp-exact';
 			await this[ENGINE_ENSURE_MASTER_LOUDNESS_METER](context);

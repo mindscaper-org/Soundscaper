@@ -106,7 +106,7 @@ test('the host resolver rejects a packaged Linux runtime before loader inspectio
 			invokedPort = true;
 			return { signal: null, status: 0, stdout: '', stderr: '' };
 		},
-	}), /packaged ELF runtime closure must be empty/u);
+	}), /packaged ELF runtime closure may contain only the verified bundled plug-ins/u);
 	assert.equal(invokedPort, false);
 });
 
@@ -156,6 +156,37 @@ test('an authenticated host loader resolves only its exact runtime closure and d
 	const completion = await child.completion;
 	assert.equal(completion.exitCode, 0, completion.stderr);
 	assert.deepEqual(JSON.parse(completion.stdout), { marker: 42, deniedSibling: true });
+});
+
+test('bundled effect and instrument dependencies enter the exact system closure without becoming library search roots', {
+	skip: process.platform !== 'linux' || process.arch !== 'x64',
+}, async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-juce-loader-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const effects = join(root, 'runtime/effects');
+	await mkdir(effects, { recursive: true });
+	const peer = join(root, 'soundscaper_professional_peer');
+	const effect = join(effects, 'soundscaper_juce_effects.clap');
+	const instrumentRoot = join(root, 'runtime/instruments/Surge XT.vst3/Contents/x86_64-linux');
+	await mkdir(instrumentRoot, { recursive: true });
+	const instrument = join(instrumentRoot, 'Surge XT.so');
+	await writeFile(join(root, 'peer.c'), 'int main(void) { return 0; }\n');
+	await execute('cc', [join(root, 'peer.c'), '-o', peer]);
+	await writeFile(join(root, 'plugin.c'), 'extern int uuid_is_null(const unsigned char *); int plugin(void) { unsigned char id[16] = {0}; return uuid_is_null(id); }\n');
+	for (const output of [effect, instrument]) await execute('cc', ['-shared', '-fPIC', join(root, 'plugin.c'), '-o', output, '-l:libuuid.so.1']);
+	const [peerArtifact, effectArtifact, instrumentArtifact] = await Promise.all([descriptor(peer), descriptor(effect), descriptor(instrument)]);
+	const runtime = await resolveSoundscaperProfessionalLinuxSystemRuntime({
+		target: 'linux-x64', peer: peerArtifact, runtimeClosure: [effectArtifact, instrumentArtifact],
+	});
+	assert.ok(runtime.runtimeClosure.some(({ path, sha256 }) => path === effect && sha256 === effectArtifact.sha256));
+	assert.ok(runtime.runtimeClosure.some(({ path, sha256 }) => path === instrument && sha256 === instrumentArtifact.sha256));
+	assert.ok(runtime.runtimeClosure.some(({ path }) => /\/libuuid\.so\./u.test(path)));
+	assert.equal(runtime.loaderArguments.some((argument) => argument.includes(effects)), false);
+	assert.equal(runtime.loaderArguments.some((argument) => argument.includes(instrumentRoot)), false);
+	await writeFile(effect, 'changed effect');
+	await assert.rejects(resolveSoundscaperProfessionalLinuxSystemRuntime({
+		target: 'linux-x64', peer: peerArtifact, runtimeClosure: [effectArtifact],
+	}), /bundled.*changed|bundled.*authentic/iu);
 });
 
 async function descriptor(path: string): Promise<NativeChildIsolationArtifactDescriptor> {

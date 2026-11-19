@@ -11,6 +11,8 @@ import { resolveSoundscaperMasteringSequenceCopy } from '../soundscaper-workflow
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import WorkspaceEffectWindows from './WorkspaceEffectWindows.tsx';
+import WorkspaceAudioAnalysisOverlays from './WorkspaceAudioAnalysisOverlays.tsx';
+import WorkspaceExportOverlay from './WorkspaceExportOverlay.jsx';
 import { recoverySurfaceAfterClose } from '../recovery-surface-close.ts';
 import WebDesktopFeatureOverlay from './WebDesktopFeatureOverlay.tsx';
 import LazyInspectorFallback from './LazyInspectorFallback.tsx';
@@ -41,12 +43,11 @@ const FramescaperImageDevelopOwnerSurfaceV1 = FRAMESCAPER_BUILD
 	? lazyEditorModule(() => import('../dialogs/FramescaperImageDevelopOwnerSurfaceV1.tsx')) : null;
 const FramescaperImageHdrMergeOwnerSurfaceCurrentV1 = FRAMESCAPER_BUILD
 	? lazyEditorModule(() => import('../dialogs/FramescaperImageHdrMergeOwnerSurfaceCurrentV1.tsx')) : null;
-const ExportDialog = lazyEditorModule(() => import('../inspector/ExportDialog.jsx'));
 const DeliveryQueueDialog = lazyEditorModule(() => import('../inspector/DeliveryQueueDialog.jsx'));
 const LabelExportDialog = lazyEditorModule(() => import('../inspector/LabelExportDialog.jsx'));
 const SelectionEffectsDialog = lazyEditorModule(() => import('../inspector/SelectionEffectsDialog.jsx'));
 const MixRenderDialog = lazyEditorModule(() => import('../dialogs/MixRenderDialog.tsx'));
-const AnalysisDialog = lazyEditorModule(() => import('../dialogs/AnalysisDialog.jsx'));
+const MacroFileBatchDialog = lazyEditorModule(() => import('../dialogs/MacroFileBatchDialog.tsx'));
 const EditorDialog = lazyEditorModule(() => import('../dialogs/EditorDialog.jsx'));
 const GeneratorDialog = lazyEditorModule(() => import('../dialogs/GeneratorDialog.jsx'));
 const NyquistDialog = lazyEditorModule(() => import('../dialogs/NyquistDialog.jsx'));
@@ -59,11 +60,14 @@ const AudacityRecoveryDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import
 const WorkspacePreferencesDialog = lazyEditorModule(() => import('../dialogs/WorkspacePreferencesDialog.jsx'));
 const RawPcmImportDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RawPcmImportDialog })));
 const RegularIntervalAnnotationDialog = lazyEditorModule(() => import('../dialogs/ImportAnalysisDialogs.tsx').then((module) => ({ default: module.RegularIntervalAnnotationDialog })));
+const CpuProfilingPanel = lazyEditorModule(() => import('../dialogs/CpuProfilingPanel.tsx'));
 const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDiagnosticsDialog.tsx'));
+const TimecodeSyncDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import('../dialogs/TimecodeSyncDialog.tsx')) : null;
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
 
 export default function AudioEditorWorkspaceOverlays({ model }) {
+	const [batchMacro, setBatchMacro] = React.useState(null);
 	const {
 		activeSurface, surfaceRequestId,
 		applicationMenus,
@@ -111,12 +115,13 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 	// layer; the workspace behind it stays.
 	return <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 		<EditorSurfaceBoundary copy={copy} surface="dialogs" resetKey={snapshot.project}>
+			{productId === 'soundscaper' && activeSurface === 'timecode-sync' && TimecodeSyncDialog && <TimecodeSyncDialog controller={controller} copy={copy} onClose={() => setActiveSurface(null)} />}
 			{productId === 'soundscaper' && activeSurface === 'project-recovery' && ProjectRecoveryDialog && controller.actions.project.recovery && (
 				<ProjectRecoveryDialog actions={controller.actions.project.recovery} copy={copy} run={run}
 					initialProjectId={snapshot.projectRecovery?.projectId} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'project-recovery'))} />
 			)}
 			{productId === 'soundscaper' && activeSurface === 'audacity-recovery' && AudacityRecoveryDialog && (
-				<AudacityRecoveryDialog open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
+				<AudacityRecoveryDialog fileService={fileService} open={controller.actions.project.openAudacityProject} copy={copy} run={run} onClose={() => setActiveSurface((current) => recoverySurfaceAfterClose(current, 'audacity-recovery'))} />
 			)}
 			{(typeof __SCAPE_DESKTOP_RENDERER__ === 'undefined' || __SCAPE_DESKTOP_RENDERER__)
 				&& productId === 'soundscaper' && fileService.isDesktop && activeSurface === 'desktop-mcp'
@@ -172,6 +177,8 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
+			{activeSurface === 'cpu-profiling' && fileService.isDesktop && fileService.cpuProfiler && <CpuProfilingPanel
+				bridge={fileService.cpuProfiler} project={snapshot.project} copy={copy} locale={locale} onClose={() => setActiveSurface(null)} />}
 			{activeSurface === 'local-diagnostics' && (
 				<div data-editor-surface="local-diagnostics">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
@@ -343,8 +350,8 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
-			{capabilities.audioMacros && activeSurface === 'macros-palette' && (
-				<div data-editor-surface="macros-palette">
+			{capabilities.audioMacros && activeSurface === 'macro-manager' && (
+				<div data-editor-surface="macro-manager">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 						<AudioEditorMacroManagerDialog
 							isOpen
@@ -356,11 +363,15 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 							fileService={fileService}
 							draft={macroDraft}
 							onDraftChange={setMacroDraft}
+							onApplyToFiles={(macro) => { setBatchMacro(macro); setActiveSurface('macro-files'); }}
 							onClose={() => setActiveSurface(null)}
 						/>
 					</React.Suspense>
 				</div>
 			)}
+			{capabilities.audioMacros && fileService.isDesktop && activeSurface === 'macro-files' &&
+				<MacroFileBatchDialog controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} initialMacro={batchMacro}
+					onClose={() => { setBatchMacro(null); setActiveSurface(null); }} />}
 			{capabilities.audioSpectralEditing && activeSurface === 'spectral-selection' && (
 				<div data-editor-surface="spectral-selection">
 					<SpectralSelectionDialog
@@ -443,22 +454,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					/>
 				</div>
 			)}
-			{activeSurface === 'export' && (
-				<div data-editor-surface="export">
-					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
-						<ExportDialog
-							isOpen
-							controller={controller}
-							snapshot={snapshot}
-							copy={copy}
-							productId={productId}
-							fileService={fileService}
-							locale={locale}
-							onClose={() => setActiveSurface(null)}
-						/>
-					</React.Suspense>
-				</div>
-			)}
+			<WorkspaceExportOverlay model={model} />
 			{activeSurface === 'delivery-queue' && (
 				<div data-editor-surface="delivery-queue">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
@@ -509,9 +505,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					/>
 				</div>
 			)}
-			{activeSurface?.startsWith('offline-analysis-') && <div data-editor-surface={activeSurface}>
-				<AnalysisDialog mode={activeSurface.slice('offline-analysis-'.length)} requestId={surfaceRequestId} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
-			</div>}
+			<WorkspaceAudioAnalysisOverlays activeSurface={activeSurface} surfaceRequestId={surfaceRequestId} controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} onClose={() => setActiveSurface(null)} />
 			<LocalProcessingOverlays activeSurface={activeSurface} fileService={fileService} controller={controller}
 				capabilities={capabilities} snapshot={snapshot} copy={copy} locale={locale}
 				selectedMediaPreparation={selectedMediaPreparation}

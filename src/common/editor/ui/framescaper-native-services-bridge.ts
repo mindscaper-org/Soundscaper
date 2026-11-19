@@ -175,6 +175,8 @@ export interface FramescaperNativeServicesRendererSnapshot {
 export interface FramescaperNativeServicesStore
 	extends FramescaperNativeServicesLifecycleStore<FramescaperNativeServicesRendererSnapshot> {
 	getSnapshot(): FramescaperNativeServicesRendererSnapshot | null;
+	/** Identity of the current display session, including reselection of the same display. */
+	externalDisplayTarget(): object | null;
 	subscribe(listener: () => void): () => void;
 	refresh(): Promise<FramescaperNativeServicesRendererSnapshot>;
 	refreshIfStale(now?: number): void;
@@ -234,6 +236,8 @@ export function createFramescaperNativeServicesStore(
 	let refreshedAt = Number.NEGATIVE_INFINITY;
 	let inFlight: Promise<FramescaperNativeServicesRendererSnapshot> | null = null;
 	let generation = 0;
+	let displayTarget = {};
+	let displayChanges = 0;
 	const listeners = new Set<() => void>();
 	const refresh = async (): Promise<FramescaperNativeServicesRendererSnapshot> => {
 		const issued = ++generation;
@@ -269,6 +273,7 @@ export function createFramescaperNativeServicesStore(
 		if (issued !== generation) return snapshot ?? next;
 		const shared = shareNativeServiceSnapshot(snapshot, next);
 		const changed = shared !== snapshot;
+		if (snapshot?.activeExternalDisplayId !== shared.activeExternalDisplayId) displayTarget = {};
 		snapshot = shared;
 		refreshedAt = clock();
 		if (changed) for (const listener of listeners) listener();
@@ -282,6 +287,7 @@ export function createFramescaperNativeServicesStore(
 	return Object.freeze({
 		...lifecycle,
 		getSnapshot: () => snapshot,
+		externalDisplayTarget: () => displayChanges === 0 && snapshot?.activeExternalDisplayId ? displayTarget : null,
 		subscribe: (listener: () => void) => {
 			listeners.add(listener);
 			return () => { listeners.delete(listener); };
@@ -341,9 +347,11 @@ export function createFramescaperNativeServicesStore(
 				return Promise.reject(new Error('This desktop build cannot open an external display.'));
 			}
 			const request = Object.freeze({ displayId: optionalDisplayId(displayId) });
+			displayTarget = {};
+			displayChanges += 1;
 			return refreshAfter(async () => {
 				normalizeExternalDisplays(await setter.call(bridge, request));
-			});
+			}).finally(() => { displayChanges -= 1; });
 		},
 	});
 }

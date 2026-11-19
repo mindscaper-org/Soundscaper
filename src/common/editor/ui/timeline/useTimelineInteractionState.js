@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useElementSize } from '../DesignSystemRuntime.jsx';
 
-export function useTimelineInteractionState() {
+export function useTimelineInteractionState({ waveformRulerState, setWaveformRulerState }) {
 	const [timelineRef, timelineSize] = useElementSize();
 	// The scroll viewport excludes the annotation panel and the output dock, so
 	// it is the only measurement that reflects the space tracks can occupy.
@@ -25,7 +25,6 @@ export function useTimelineInteractionState() {
 	const [clipMenu, setClipMenu] = useState(null);
 	const [timelineRulerMenu, setTimelineRulerMenu] = useState(null);
 	const [trackRulerFlyout, setTrackRulerFlyout] = useState(null);
-	const [waveformRulerState, setWaveformRulerState] = useState({});
 	const [addTrackFlyout, setAddTrackFlyout] = useState(null);
 	const addTrackTriggerRef = useRef(null);
 	const closeAddTrackFlyout = useCallback(() => setAddTrackFlyout(null), []);

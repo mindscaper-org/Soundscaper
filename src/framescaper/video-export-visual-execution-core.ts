@@ -24,7 +24,7 @@ export interface FramescaperVideoExportPictureDispositionCore<Version extends 13
 		readonly kind: string;
 		readonly disposition: 'executed' | 'verified-inventory' | 'inactive';
 	}>[];
-	readonly captionDisposition: 'sidecar-only';
+	readonly captionDisposition: 'sidecar-only' | 'burn-in';
 	readonly captionTrackIds: readonly string[];
 	readonly audioDisposition: 'shared-v21-delivery';
 	readonly originalSourceIds: readonly string[];

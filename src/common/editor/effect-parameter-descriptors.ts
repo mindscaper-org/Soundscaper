@@ -27,6 +27,7 @@ import {
 import { standardEffectParamRange } from './first-party-effects/standard/parameter-range.ts';
 import { noiseGateLatencyFrames } from './first-party-effects/standard/noise-gate-definition.ts';
 import { standardDelayLatencyFrames } from './first-party-effects/standard/delay-definition.ts';
+import { autoTuneRealtimeGeometry } from './first-party-effects/auto-tune/realtime-contract.ts';
 
 const DEFAULT_SAMPLE_RATE = 48_000;
 const WORKLET_PARAMETER_AUTOMATION_BLOCK_REASON =
@@ -272,6 +273,7 @@ export function stripParameterDescriptor(
 }
 
 function effectLatency(type: string, params: Readonly<Record<string, unknown>>, sampleRate: number): number {
+	if (type === 'auto-tune') return autoTuneRealtimeGeometry(sampleRate, 1).latencyFrames;
 	if (type === 'limiter') return Math.max(0, Math.ceil(Number(params.lookahead || 0) * sampleRate));
 	if (type === 'noise-gate') return noiseGateLatencyFrames(params, sampleRate);
 	if (type === 'multi-tap-delay') return standardDelayLatencyFrames(params, sampleRate);

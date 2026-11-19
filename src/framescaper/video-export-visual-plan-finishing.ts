@@ -6,6 +6,7 @@ import type {
 } from '../common/editor/controller/export/product-video-export-strategy.ts';
 import { compareCodeUnits } from '../common/editor/code-unit-order.ts';
 import { sequenceFrameBoundarySample } from '../common/editor/sequence-frame-navigation.ts';
+import { projectTrackFolderMediaStateV12 } from '../common/editor/track-folder-media-runtime.ts';
 import { normalizeVideoDeliveryAudioLayout } from '../common/editor/video-delivery-audio-layout.ts';
 import { normalizeVideoDeliveryColor } from '../common/editor/video-delivery-color.ts';
 import { normalizeVideoDeliveryQuality } from '../common/editor/video-delivery-quality.ts';
@@ -98,7 +99,7 @@ function visualProjectRange(
 ) {
 	const trackIds = new Set(strings(sequence.trackIds, 'finishing sequence track IDs'));
 	const clipIds = new Set(records(project.tracks, 'finishing visual tracks')
-		.filter((track) => trackIds.has(String(track.id)))
+		.filter((track) => track.type !== 'label' && trackIds.has(String(track.id)))
 		.flatMap((track) => strings(track.clipIds, 'finishing visual track clip IDs')));
 	// Playback plays every clip on the timeline, so the 'project' range must
 	// cover every clip too — matching the keyed route's shared resolver. A
@@ -161,7 +162,8 @@ function activeVisualPlacements(
 		.map((source) => [String(source.id), source]));
 	const sequenceTrackIds = strings(sequence.trackIds, 'finishing sequence track IDs');
 	const sequenceTrackIndex = new Map(sequenceTrackIds.map((id, index) => [id, index]));
-	const tracks = records(project.tracks, 'finishing visual tracks');
+	const tracks = records(projectTrackFolderMediaStateV12(project).tracks, 'finishing visual tracks')
+		.filter(({ id }) => sequenceTrackIndex.has(String(id)));
 	const visible = createVisibleVideoTrackPredicate(tracks);
 	const result: Array<Readonly<{
 		clip: Readonly<Record<string, unknown>>;

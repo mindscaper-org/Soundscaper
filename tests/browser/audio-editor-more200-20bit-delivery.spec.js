@@ -5,7 +5,7 @@ import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { createWavBlobPcmChunkReader } from '../../src/common/editor/wav-pcm-chunk-reader.ts';
 
 for (const bits of [20, 24]) test(`File Export delivers${bits}bit stereo PCM`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]); await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await waitForProjectActivation(editor); const dialog = await openExportDialog(page, editor);
 	await dialog.getByRole('radio', { name: 'Stereo', exact: true }).check();

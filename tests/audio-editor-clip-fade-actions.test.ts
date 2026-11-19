@@ -40,12 +40,37 @@ test('captured fade previews use each owning track and the same per-clip changes
 	assert.deepEqual(command?.commands, draft.previews.map(({ clipId, trackId: _trackId, ...changes }) => ({ type: 'clip/update', clipId, changes })));
 });
 
+test('fade previews read only the tracks needed for changed captured clips', () => {
+	let membershipReads = 0;
+	const unrelated = Array.from({ length: 500 }, (_, index) => ({ id: `earlier-${index}`, get clipIds() {
+		membershipReads++;
+		return index === 0 ? ['one'] : [];
+	} }));
+	const tracks = [...unrelated, ...project.tracks];
+	const edit = { kind: 'length', edge: 'in', frames: 300 } as const;
+	assert.deepEqual(clipFadeSessionPreviews(session, { ...project, tracks }, 1000, edit).previews.map(({ trackId }) => trackId), ['a', 'b']);
+	assert.equal(membershipReads, 0);
+	assert.throws(() => clipFadeSessionPreviews(session, { ...project, tracks: [{ id: 'a', clipIds: ['one'] }] }, 1000, edit), /two/);
+});
+
 test('a gesture retains captured targets when selection changes and refuses a stale companion', () => {
 	const edit = { kind: 'shape', edge: 'out', shape: 3 } as const;
 	assert.equal(clipFadeSessionCommand(session, { ...project, selection: { clipIds: [] } }, 1000, edit)?.commands.length, 2);
 	for (const clips of [[first], [first, { ...second, fadeOutFrames: 51 }], [first, { ...second, timelineStartFrame: 2001 }]]) {
 		assert.equal(clipFadeSessionCommand(session, { ...project, clips }, 1000, edit), null);
 	}
+});
+
+test('committing a multi-clip fade reads each live clip identity once', () => {
+	const clips = Array.from({ length: 200 }, (_, index) => ({ ...first, id: String(index), timelineStartFrame: index * 1000 }));
+	let reads = 0;
+	const live = clips.map(clip => ({ ...clip, get id() { reads++; return clip.id; } }));
+	const selected = { clipId: clips[0]!.id, original: clips[0]!, fadeTargets: clips };
+	const edit = { kind: 'shape', edge: 'out', shape: 3 } as const;
+	const command = clipFadeSessionCommand(selected, { clips: live, tracks: [] }, 1000, edit);
+	assert.equal(command?.commands.length, clips.length);
+	assert.ok(reads <= 2 * clips.length, `read ${reads} clip IDs in one commit`);
+	assert.equal(clipFadeSessionCommand(selected, { clips: [{ ...clips[0]!, fadeOutFrames: 1 }, ...live], tracks: [] }, 1000, edit), null);
 });
 
 test('keyboard length intent pushes each opposite independently while property edits suppress no-op history', () => {

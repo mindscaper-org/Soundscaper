@@ -4,7 +4,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
 
 test('a Nyquist Prompt error cannot publish its earlier successful number', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Tools', 'Nyquist prompt');
 	const dialog = page.getByRole('dialog', { name: 'Nyquist prompt', exact: true });
 	const source = dialog.getByRole('textbox', { name: 'Nyquist source', exact: true });

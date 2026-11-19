@@ -140,10 +140,8 @@ test('canonical EQ selection processing uses pre-roll and commits all selected t
 
 		const snapshot = controller.getSnapshot();
 		assert.deepEqual(renders, [
-			{ trackId: 'effect-track-a', startFrame, endFrame },
-			{ trackId: 'effect-track-b', startFrame, endFrame },
-			{ trackId: 'effect-track-a', startFrame: 0, endFrame: startFrame },
-			{ trackId: 'effect-track-b', startFrame: 0, endFrame: startFrame },
+			{ trackId: 'effect-track-a', startFrame: 0, endFrame },
+			{ trackId: 'effect-track-b', startFrame: 0, endFrame },
 		]);
 		assert.equal(snapshot.history.undoEntries.length, historyBefore + 1);
 		assert.deepEqual(snapshot.history.undoEntries[0], {

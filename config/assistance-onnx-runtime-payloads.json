@@ -257,7 +257,7 @@
 		{
 			"id": "license",
 			"kind": "file",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/LICENSE",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/LICENSE",
 			"byteLength": 1073,
 			"sha256": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
 			"destination": "licenses/ONNXRuntime-LICENSE"
@@ -265,7 +265,7 @@
 		{
 			"id": "third-party-notices",
 			"kind": "file",
-			"url": "https://raw.githubusercontent.com/microsoft/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/ThirdPartyNotices.txt",
+			"url": "https://raw.githubusercontent.com/ROCm/onnxruntime/2e2543fbe9fae542f921d47a72d21d5a4ef0b710/ThirdPartyNotices.txt",
 			"byteLength": 336906,
 			"sha256": "53d3fa5821ac016ac24dd35775c996efec86e2ae0841e9a3a5e146c0ae916845",
 			"destination": "licenses/ONNXRuntime-ThirdPartyNotices.txt"

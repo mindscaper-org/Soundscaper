@@ -5,7 +5,7 @@ import test from 'node:test';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MotionAnalysisControls } from '../src/common/editor/ui/dialogs/FramescaperFinishingPanels.tsx';
-import { motionSourceFrameClock } from '../src/common/editor/ui/dialogs/MotionSourceFrameTimeCodeField.tsx';
+import { sourceFrameTimeCodeClock } from '../src/common/editor/ui/source-frame-timecode-clock.ts';
 import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
 import { registerVideoTimingIndex, unregisterVideoTimingIndex } from '../src/common/editor/video-source-time.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
@@ -50,7 +50,7 @@ test('the mounted motion range reads native source frames at the source rate', a
 });
 
 test('motion source time resolves CFR boundaries and the exclusive end without sequence conversion', () => {
-	const clock = motionSourceFrameClock({ id: 'camera', kind: 'video', frameRate: { num: 15, den: 1 },
+	const clock = sourceFrameTimeCodeClock({ id: 'camera', kind: 'video', frameRate: { num: 15, den: 1 },
 		sourceFrameCount: 32, timingDecision: { mode: 'conform-cfr-at-ingest', rate: { num: 15, den: 1 } } });
 	assert.equal(clock.rate, 15);
 	assert.equal(clock.secondsAt(15), 1);
@@ -70,7 +70,7 @@ test('motion timestamps retain authenticated variable source boundaries instead 
 		timingDecision: { mode: 'exact', rate: { num: 25, den: 1 } }, timingAsset: publication.reference };
 	registerVideoTimingIndex(source, validateVideoTimingAssetBytes(publication.reference, publication.bytes));
 	try {
-		const clock = motionSourceFrameClock(source);
+		const clock = sourceFrameTimeCodeClock(source);
 		assert.equal(clock.secondsAt(2), 0.105);
 		assert.equal(clock.frameAt(0.105), 2);
 		assert.equal(clock.frameAt(0.09), 2);

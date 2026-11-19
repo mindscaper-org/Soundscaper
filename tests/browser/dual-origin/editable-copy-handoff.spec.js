@@ -2,6 +2,8 @@
 
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { createSoundscaperProject } from '../../../src/soundscaper/editor-project.ts';
+import { createSoundscaperScapeNativeRuntime } from '../../../src/soundscaper/editor-scape-native.ts';
 
 import {
 	expect,
@@ -13,9 +15,11 @@ import {
 import {
 	bootEditor,
 	chooseFileAction,
+	chooseNestedCommandAction,
 	clipByName,
 	closeWorkspacePanel,
 	importFiles,
+	waitForProjectActivation,
 } from '../audio-editor-test-helpers.js';
 import {
 	FRAMESCAPER_DATABASE_NAME,
@@ -25,6 +29,52 @@ import { resolveBrowserProductTestUrl } from '../helpers/browser-product-test-ur
 
 const SOUNDSCAPER_ORIGIN = new URL(resolveBrowserProductTestUrl('/')).origin;
 const FRAMESCAPER_ORIGIN = new URL(resolveBrowserProductTestUrl('/framescaper/')).origin;
+
+test('the receiver imports the next selected archive after a local file becomes unreadable', async ({ page }) => {
+	await page.addInitScript(() => {
+		const read = File.prototype.arrayBuffer;
+		File.prototype.arrayBuffer = function () {
+			return this.name === 'Offline recording.sscape'
+				? Promise.reject(new DOMException('The file is offline.', 'NotReadableError'))
+				: read.call(this);
+		};
+	});
+	const archive = await createSoundscaperScapeNativeRuntime().exportScapeProject(
+		createSoundscaperProject({ id: 'healthy-manual-transfer', title: 'Healthy manual transfer' }),
+		{ async loadMediaAsset() { return null; }, async *readSourceChunks() {} },
+	);
+	await page.goto(`${SOUNDSCAPER_ORIGIN}/transfer/receive/`);
+	await page.getByLabel('Import downloaded project archives and conversion-report sidecars').setInputFiles([
+		{ name: 'Offline recording.sscape', mimeType: 'application/zip', buffer: Buffer.from('missing') },
+		{ name: 'Healthy manual transfer.sscape', mimeType: 'application/zip', buffer: Buffer.from(await archive.blob.arrayBuffer()) },
+	]);
+	await expect(page.locator('li[data-outcome="failed"]')).toContainText('The file is offline.');
+	await expect(page.locator('li[data-outcome="stored"]')).toContainText('Healthy manual transfer');
+	expect(await persistedProject(page, SOUNDSCAPER_DATABASE_NAME, 'healthy-manual-transfer')).toMatchObject({
+		title: 'Healthy manual transfer',
+	});
+});
+
+test('the sender reports that a selected project was deleted from another tab', async ({ context, page }) => {
+	const edit = await context.newPage();
+	try {
+		const editor = await bootEditor(edit, `${SOUNDSCAPER_ORIGIN}/embed/en/`);
+		await importFiles(editor, [toneA]);
+		const projectId = await editor.getAttribute('data-project-id');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.goto(`${SOUNDSCAPER_ORIGIN}/transfer/send/`);
+		await page.getByRole('button', { name: 'Find my projects', exact: true }).click();
+		await page.locator('input[data-transfer-choice]').check();
+		await chooseNestedCommandAction(edit, editor, 'File', ['Project management', 'Delete project']);
+		await edit.getByRole('dialog', { name: 'Delete this project?', exact: true })
+			.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+		await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		await page.getByRole('button', { name: 'Download the ticked archives' }).click();
+		await expect(page.locator('li[data-outcome="failed"]')).toContainText('no longer available');
+		await expect(page.locator('[data-complete]')).toHaveAttribute('data-complete', 'false');
+	} finally { await edit.close(); }
+});
 
 test('the built product origins exchange independent editable copies in both directions', async ({ context }) => {
 	await assertTransferResponsePolicies(context.request);
@@ -123,10 +173,12 @@ test('a blocked editable-copy popup recovers through downloaded archive and repo
 		expect(sidecar.archiveSha256).toBe(createHash('sha256').update(archiveBytes).digest('hex'));
 		await expect(source.getByRole('listitem').filter({ hasText: sidecarName })).toBeVisible();
 
+		const repeatedArchiveName = archiveName.replace(/\.fscape$/u, ' (1).fscape');
+		const repeatedSidecarName = sidecarName.replace(/\.json$/u, ' (1).json');
 		await receiver.getByLabel('Import downloaded project archives and conversion-report sidecars')
 			.setInputFiles([
-				{ name: archiveName, mimeType: 'application/octet-stream', buffer: archiveBytes },
-				{ name: sidecarName, mimeType: 'application/json', buffer: sidecarBytes },
+				{ name: repeatedArchiveName, mimeType: 'application/octet-stream', buffer: archiveBytes },
+				{ name: repeatedSidecarName, mimeType: 'application/json', buffer: sidecarBytes },
 			]);
 		await expect(receiver.getByText(/Imported 1 of 1 archive\. Conversion ledger: 1 invocation, \d+ classified roots\./u))
 			.toBeVisible();

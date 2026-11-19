@@ -6,7 +6,7 @@ import { createSoundscaperProject, validateSoundscaperProject } from '../src/sou
 import { createAudioGeneratorService, type AudioGeneratorDocument } from '../src/common/editor/controller/edit/generator-service.ts';
 import { createLabeledAudioEditService } from '../src/common/editor/controller/edit/internal/labeled-audio-edit-service.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
-import { createFixture } from './helpers/audio-editor-generator-service-fixture.ts';
+import { createFixture, project as generatorProject } from './helpers/audio-editor-generator-service-fixture.ts';
 
 function fixture() {
 	const count = 500;
@@ -37,6 +37,26 @@ test('labeled silence intersects sorted interval unions without comparing every 
 		assert.deepEqual(estimates, [(12 + 1) * Float32Array.BYTES_PER_ELEMENT]);
 		assert.ok(intersections <= count * 20, `received ${intersections} interval minimum calculations`);
 	} finally { Math.min = original; }
+});
+
+test('silencing many tracks indexes the channel inventory once per edit', async () => {
+	const count = 48;
+	let sourceReads = 0;
+	const sources = Array.from({ length: count }, (_, index) => ({
+		get id() { sourceReads++; return `source-${index}`; }, channelCount: index % 2 + 1,
+	}));
+	const clips = sources.map((source, index) => ({ id: `clip-${index}`, sourceId: source.id,
+		timelineStartFrame: 0, durationFrames: 32, sourceStartFrame: 0, sourceDurationFrames: 32 }));
+	const tracks = clips.map(clip => ({ id: `track-${clip.id}`, type: 'audio' as const, clipIds: [clip.id] }));
+	const project = { ...generatorProject(), sources, clips, tracks };
+	const estimates: number[] = [];
+	const generator = createFixture({ getProject: () => project,
+		preflightStorage: async bytes => { estimates.push(bytes); } });
+	sourceReads = 0;
+	const service = createAudioGeneratorService(generator.dependencies);
+	assert.equal(await service.generateLabeledSilence([{ startFrame: 0, endFrame: 32 }], tracks.map(track => track.id)), true);
+	assert.deepEqual(estimates, [33 * 3 * Float32Array.BYTES_PER_ELEMENT]);
+	assert.ok(sourceReads <= count * 2, `read ${sourceReads} source IDs for ${count} sources`);
 });
 
 test('joining disjoint labeled pairs resolves and emits each participating clip with bounded work', () => {

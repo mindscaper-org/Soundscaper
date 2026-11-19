@@ -96,6 +96,7 @@ export interface ProjectAdminServiceRuntime<
 	persistSetting(key: string, value: unknown, options: Readonly<{ policy: 'required' }>): Awaitable<unknown>;
 	readonly projectSaveService: Readonly<{
 		suspend(): void; resume(): void;
+		scheduleAutosave?(): unknown;
 		suspendProject(projectId: string): void; resumeProject(projectId: string): void;
 		retireProjectSaves(projectId: string): void;
 		drain(): Awaitable<unknown>;
@@ -115,7 +116,7 @@ export interface ProjectAdminServiceRuntime<
 		}>): PromiseLike<Readonly<{ storageRoots: readonly string[] }>>;
 	}>;
 	clearStorage?(): Awaitable<unknown>;
-	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown> }>;
+	readonly projectSessionService: Readonly<{ clearRecentProjects(): Awaitable<unknown>; persistActiveSessionUiState?(): void }>;
 	publishDocumentSnapshot(): void;
 	recordingRoutingSettingKey(projectId: string): string;
 	releaseProjectLock(): Awaitable<unknown>;
@@ -156,6 +157,7 @@ export interface ProjectAdminServiceRuntime<
 		): Promise<unknown | null>;
 		duplicateProject(projectId: string, options: Readonly<{ title: string; confirmFileSizeWarning?: FileSizeWarningConfirmation; assertCurrent?: () => void }>): Awaitable<AdminProject>;
 		deleteProject(projectId: string): Awaitable<unknown>;
+		deleteProjectSnapshot?(project: Project): Awaitable<boolean>;
 		deleteProjectIfCurrent?(project: AdminProject): Awaitable<boolean>;
 		clear(): Awaitable<unknown>;
 		preservesProjectsOnClear?(): boolean;

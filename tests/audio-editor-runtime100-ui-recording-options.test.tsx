@@ -35,8 +35,8 @@ for (const width of [1, 2] as const) test(`U38 recording channel options avoid t
 	finally { Object.defineProperty(Array, 'from', descriptor); }
 	const digest = createHash('sha256').update(markup).digest('hex');
 	context.diagnostic(`U38 width ${width}: conflict arrays ${allocations}; exact markup SHA256 ${digest}`);
-	assert.equal(digest, width === 1 ? 'cea9b9e0f19393ed6abf744733e5e7a4afa2928dbffad448c20ae7b4e3a4c74b'
-		: 'a8532ee2a41c6dfe169b29dc8fde385a9a5d956d1dd8f96a457d953e3fc75784');
+	assert.equal(digest, width === 1 ? '667f3e2d240476cd7c697375f59aa4b4af4dee458fb87df1d0b2263ee2522fc5'
+		: '49aa14f8b09aad8db441bc11d3598380766237069195b9930ea9470347fe33f8');
 	assert.equal(JSON.stringify(props.recordingInputs), before);
 	assert.match(markup, /<option value="device:device-31">Interface 31<\/option>/u);
 	assert.equal(allocations, 0);

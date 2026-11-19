@@ -23,9 +23,12 @@ for (const locale of ['de', 'en'] as const) test(`NP055: native ${locale} collis
 	context.after(async () => { await controller.dispose(); }); await controller.ready;
 	await controller.actions.project.openScapeFile(new File([archive.blob], 'Recording.sscape'), () => 'copy');
 	assert.equal(controller.project?.title, 'Recording');
-	await controller.actions.project.openScapeFile(new File([archive.blob], 'Recording.sscape'), () => 'copy');
+	await controller.actions.project.rename('Newer working recording');
+	const decisions: string[] = [];
+	await controller.actions.project.openScapeFile(new File([archive.blob], 'Recording.sscape'), request => { decisions.push(request.kind); return 'copy'; });
+	assert.deepEqual(decisions, ['collision']);
 	const copied = controller.project; assert.ok(copied); assert.notEqual(copied.id, original.id);
 	assert.equal(copied.title, locale === 'de' ? 'Recording Kopie' : 'Recording copy');
-	assert.equal((await store.loadProject(original.id))?.title, 'Recording');
+	assert.equal((await store.loadProject(original.id))?.title, 'Newer working recording');
 	assert.equal((await store.loadProject(copied.id))?.title, copied.title);
 });

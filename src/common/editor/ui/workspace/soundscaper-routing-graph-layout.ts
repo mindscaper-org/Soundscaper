@@ -113,33 +113,47 @@ export function layoutSoundscaperRoutingGraph(
 		if (!controlById.has(vca.id)) controlById.set(vca.id, node);
 	}
 
-	const audioKeys = new Set(pending.filter(({ rail }) => rail === 'audio').map(({ key }) => key));
-	const initialRank = new Map(pending.map((node) => [node.key, node.initialRank]));
+	const initialRank = new Map<string, number>();
+	const orderIndex = new Map<string, number>();
+	for (const node of pending) {
+		if (node.rail === 'audio') initialRank.set(node.key, node.initialRank);
+		orderIndex.set(node.key, node.semanticOrder);
+	}
 	const predecessors = new Map<string, string[]>();
+	const parallels = new Map<string, { count: number; seen: number }>();
+	const visibleEdges: { edge: MixerEdgeV21; sourceKey: string; destinationKey: string; parallel: { count: number; seen: number } }[] = [];
 	for (const edge of graph.edges) {
+		const sourceKey = routingLayoutNodeKeyForEndpoint(edge.source);
+		const destinationKey = routingLayoutNodeKeyForEndpoint(edge.destination);
+		if (!initialRank.has(sourceKey) || !initialRank.has(destinationKey)) continue;
+		const key = `${sourceKey}\u0000${destinationKey}`;
+		let parallel = parallels.get(key);
+		if (!parallel) {
+			parallel = { count: 0, seen: 0 };
+			parallels.set(key, parallel);
+		}
+		parallel.count += 1;
+		visibleEdges.push({ edge, sourceKey, destinationKey, parallel });
 		if (!edge.enabled || edge.kind === 'sidechain') continue;
-		const source = mixerEndpointKeyV21(edge.source);
-		const destination = edge.destination.kind === 'effect-sidechain'
-			? mixerEndpointKeyV21(edge.destination.strip) : mixerEndpointKeyV21(edge.destination);
-		if (!audioKeys.has(source) || !audioKeys.has(destination)) continue;
-		const entries = predecessors.get(destination) ?? [];
-		entries.push(source);
-		predecessors.set(destination, entries);
+		const entries = predecessors.get(destinationKey);
+		if (entries) entries.push(sourceKey);
+		else predecessors.set(destinationKey, [sourceKey]);
 	}
 	const rank = routingLayoutRanks(initialRank, predecessors, pending.length);
 
 	const byRank = new Map<number, PendingNode[]>();
-	for (const node of pending.filter(({ rail }) => rail === 'audio')) {
+	for (const node of pending) {
+		if (node.rail !== 'audio') continue;
 		const nodeRank = rank.get(node.key) ?? node.initialRank;
-		const entries = byRank.get(nodeRank) ?? [];
-		entries.push(node);
-		byRank.set(nodeRank, entries);
+		const entries = byRank.get(nodeRank);
+		if (entries) entries.push(node);
+		else byRank.set(nodeRank, [node]);
 	}
-	const orderIndex = new Map(pending.map((node) => [node.key, node.semanticOrder]));
 	const orderedRanks = [...byRank].sort(([left], [right]) => left - right);
 	for (const [nodeRank, entries] of orderedRanks) {
 		if (nodeRank === 0) continue;
-		const medians = new Map(entries.map(node => [node.key, median((predecessors.get(node.key) ?? []).map(key => orderIndex.get(key) ?? 0))]));
+		const medians = new Map<string, number>();
+		for (const { key } of entries) medians.set(key, predecessorMedian(predecessors.get(key), orderIndex));
 		entries.sort((left, right) => medians.get(left.key)! - medians.get(right.key)! || left.semanticOrder - right.semanticOrder);
 		entries.forEach((node, index) => orderIndex.set(node.key, index));
 	}
@@ -160,53 +174,44 @@ export function layoutSoundscaperRoutingGraph(
 			node, 0, GRAPH_PADDING + index * (CARD_WIDTH + 18), CONTROL_Y,
 		));
 	});
-	positioned.sort((left, right) => left.rail.localeCompare(right.rail) || left.x - right.x || left.y - right.y);
-
-	const nodeByKey = new Map(positioned.map((node) => [node.key, node]));
-	const edges: RoutingLayoutEdge[] = [];
-	const visibleEdges = graph.edges.flatMap((edge) => {
-		const sourceKey = mixerEndpointKeyV21(edge.source);
-		const destinationKey = edge.destination.kind === 'effect-sidechain'
-			? mixerEndpointKeyV21(edge.destination.strip) : mixerEndpointKeyV21(edge.destination);
-		const source = nodeByKey.get(sourceKey);
-		const destination = nodeByKey.get(destinationKey);
-		return source && destination ? [{ edge, sourceKey, destinationKey, source, destination }] : [];
-	});
-	const parallelCounts = new Map<string, number>();
-	for (const { sourceKey, destinationKey } of visibleEdges) {
-		const key = `${sourceKey}\u0000${destinationKey}`;
-		parallelCounts.set(key, (parallelCounts.get(key) ?? 0) + 1);
+	// The rank/row walk already emits audio nodes in increasing X then Y,
+	// followed by the controls in their horizontal display order.
+	const nodeByKey = new Map<string, RoutingLayoutNode>();
+	let width = 640, height = 300;
+	for (const node of positioned) {
+		nodeByKey.set(node.key, Object.freeze(node));
+		width = Math.max(width, node.x + node.width + GRAPH_PADDING);
+		height = Math.max(height, node.y + node.height + GRAPH_PADDING);
 	}
-	const parallelSeen = new Map<string, number>();
-	for (const { edge, sourceKey, destinationKey, source, destination } of visibleEdges) {
-		const parallelKey = `${sourceKey}\u0000${destinationKey}`;
-		const index = parallelSeen.get(parallelKey) ?? 0;
-		const count = parallelCounts.get(parallelKey) ?? 1;
-		parallelSeen.set(parallelKey, index + 1);
-		const parallelOffset = (index - (count - 1) / 2) * 24;
-		edges.push({
+	const edges: RoutingLayoutEdge[] = [];
+	for (const { edge, sourceKey, destinationKey, parallel } of visibleEdges) {
+		const source = nodeByKey.get(sourceKey)!;
+		const destination = nodeByKey.get(destinationKey)!;
+		const parallelOffset = (parallel.seen++ - (parallel.count - 1) / 2) * 24;
+		edges.push(Object.freeze({
 			key: `edge:${edge.id}`, id: edge.id, kind: edge.kind, sourceKey, destinationKey,
 			enabled: edge.enabled, parallelOffset, path: curvePath(source, destination, parallelOffset),
-		});
+		}));
 	}
-	for (const vca of graph.vcas) for (const [index, member] of vca.members.entries()) {
+	for (const vca of graph.vcas) {
 		const sourceKey = `vca:${vca.id}`;
-		const destinationKey = mixerEndpointKeyV21(member);
 		const source = nodeByKey.get(sourceKey);
-		const destination = nodeByKey.get(destinationKey);
-		if (!source || !destination) continue;
-		edges.push({
-			key: `vca:${vca.id}:${destinationKey}:${index}`, id: vca.id,
-			kind: 'vca-membership', sourceKey, destinationKey, enabled: true,
-			parallelOffset: 0,
-			path: controlPath(source, destination),
-		});
+		if (!source) continue;
+		for (const [index, member] of vca.members.entries()) {
+			const destinationKey = mixerEndpointKeyV21(member);
+			const destination = nodeByKey.get(destinationKey);
+			if (!destination) continue;
+			edges.push(Object.freeze({
+				key: `vca:${vca.id}:${destinationKey}:${index}`, id: vca.id,
+				kind: 'vca-membership', sourceKey, destinationKey, enabled: true,
+				parallelOffset: 0,
+				path: controlPath(source, destination),
+			}));
+		}
 	}
-	const width = Math.max(640, ...positioned.map((node) => node.x + node.width + GRAPH_PADDING));
-	const height = Math.max(300, ...positioned.map((node) => node.y + node.height + GRAPH_PADDING));
 	return Object.freeze({
-		nodes: Object.freeze(positioned.map((node) => Object.freeze(node))),
-		edges: Object.freeze(edges.map((edge) => Object.freeze(edge))),
+		nodes: Object.freeze(positioned),
+		edges: Object.freeze(edges),
 		width,
 		height,
 	});
@@ -244,11 +249,12 @@ function controlPath(source: RoutingLayoutNode, destination: RoutingLayoutNode):
 	return `M ${startX} ${startY} C ${startX} ${midpointY}, ${endX} ${midpointY}, ${endX} ${endY}`;
 }
 
-function median(values: readonly number[]): number {
-	if (values.length === 0) return Number.MAX_SAFE_INTEGER;
-	const sorted = [...values].sort((left, right) => left - right);
-	const middle = Math.floor(sorted.length / 2);
-	return sorted.length % 2 === 0 ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2 : sorted[middle] ?? 0;
+function predecessorMedian(predecessors: readonly string[] | undefined, order: ReadonlyMap<string, number>): number {
+	if (!predecessors?.length) return Number.MAX_SAFE_INTEGER;
+	if (predecessors.length === 1) return order.get(predecessors[0]!) ?? 0;
+	const values = predecessors.map(key => order.get(key) ?? 0).sort((left, right) => left - right);
+	const middle = Math.floor(values.length / 2);
+	return values.length % 2 === 0 ? (values[middle - 1]! + values[middle]!) / 2 : values[middle]!;
 }
 
 function outputDetail(role: string, text: Readonly<{ main: string; controlRoom: string; auxiliary: string; outputDescription: string }>): string {

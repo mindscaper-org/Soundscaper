@@ -14,6 +14,7 @@ const DEFAULT_MAX_LABELS = 100_000;
 const DEFAULT_MAX_TITLE_CHARS = 1_000_000;
 const DEFAULT_MAX_TOTAL_TITLE_CHARS = 8 * 1024 * 1024;
 const WEBVTT_METADATA_HEADER = /^(?:NOTE(?:[ \t]|$)|(?:STYLE|REGION)[ \t]*$)/u;
+const SUBTITLE_SEPARATOR = /^[ \t]*$/u;
 const TIME_ARROW = /\s+-->\s+/;
 
 /** Error with machine-readable context for a malformed label file. */
@@ -204,21 +205,22 @@ function parseTxtEntries(text, context) {
 
 function parseTimedEntries(text, context, format) {
 	const lines = text.split('\n');
+	const contentLine = format === 'vtt' ? (line) => !SUBTITLE_SEPARATOR.test(line) : (line) => !!line.trim();
 	let index = 0;
 	if (format === 'vtt') {
 		if (!/^WEBVTT(?:[ \t].*)?$/i.test(lines[0] || '')) {
 			throw labelError('A WebVTT file must begin with WEBVTT.', 'MISSING_WEBVTT_HEADER', { line: 1 });
 		}
 		index = 1;
-		while (index < lines.length && lines[index].trim()) index += 1;
+		while (index < lines.length && contentLine(lines[index])) index += 1;
 	}
 	const entries = [];
 	while (index < lines.length) {
-		while (index < lines.length && !lines[index].trim()) index += 1;
+		while (index < lines.length && !contentLine(lines[index])) index += 1;
 		if (index >= lines.length) break;
 		const cueStartLine = index + 1;
 		if (format === 'vtt' && WEBVTT_METADATA_HEADER.test(lines[index])) {
-			while (index < lines.length && lines[index].trim()) index += 1;
+			while (index < lines.length && contentLine(lines[index])) index += 1;
 			continue;
 		}
 		let identifier = null;
@@ -226,12 +228,12 @@ function parseTimedEntries(text, context, format) {
 		if (index >= lines.length || !TIME_ARROW.test(lines[index])) {
 			const error = labelError('A subtitle cue is missing its timing line.', 'MISSING_CUE_TIMING', { line: cueStartLine });
 			handleEntryError(error, context, { line: cueStartLine });
-			while (index < lines.length && lines[index].trim()) index += 1;
+			while (index < lines.length && contentLine(lines[index])) index += 1;
 			continue;
 		}
 		const timingLine = lines[index++];
 		const titleLines = [];
-		while (index < lines.length && lines[index].trim()) titleLines.push(lines[index++]);
+		while (index < lines.length && contentLine(lines[index])) titleLines.push(lines[index++]);
 		try {
 			assertCanAddLabel(entries, context, cueStartLine);
 			const timing = parseCueTiming(timingLine, format, cueStartLine + (identifier == null ? 0 : 1));
@@ -349,13 +351,9 @@ function serializeTxt(labels, context) {
 
 function serializeTimed(labels, context, format) {
 	const lines = format === 'vtt' ? ['WEBVTT', ''] : [];
+	const identify = format === 'vtt' && context.includeCueIdentifiers ? webVttLabelIdentifiers(labels) : null;
 	labels.forEach((label, index) => {
-		if (context.includeCueIdentifiers) {
-			const identifier = String(label.opaqueExtensions?.cueIdentifier || index + 1);
-			const safe = !/[\r\n\0]/u.test(identifier) && !identifier.includes('-->')
-				&& !WEBVTT_METADATA_HEADER.test(identifier);
-			lines.push(String(format === 'srt' || !safe ? index + 1 : identifier));
-		}
+		if (context.includeCueIdentifiers) lines.push(identify ? identify(index) : String(index + 1));
 		const startMilliseconds = Math.round(label.startFrame * 1000 / context.sampleRate);
 		// Subtitle cues must last at least one representable millisecond. A point
 		// label or a shorter range would otherwise disappear during playback.
@@ -367,7 +365,7 @@ function serializeTimed(labels, context, format) {
 		// and fall back to the single-space placeholder exactly as the maintained
 		// caption exporter does, which keeps an unnamed label visually empty.
 		const titleLines = label.title.replace(/\r\n?/g, '\n').split('\n')
-			.filter((line) => line.trim().length > 0);
+			.filter((line) => format === 'vtt' ? !SUBTITLE_SEPARATOR.test(line) : line.trim().length > 0);
 		if (format === 'srt' && containsSubRipLabelMarkup(titleLines.join('\n'))) throw labelError('SubRip cannot preserve literal markup in a plain label. Export WebVTT or TXT instead.', 'UNREPRESENTABLE_TEXT', { index });
 		if (titleLines.length === 0) lines.push(' ');
 		for (const line of titleLines) lines.push(format === 'vtt' ? encodeWebVttLabelText(line) : line);
@@ -376,6 +374,24 @@ function serializeTimed(labels, context, format) {
 	let text = lines.join(context.lineEnding);
 	if (format === 'vtt' && labels.length === 0) text += context.lineEnding;
 	return withEncodingOptions(text, context);
+}
+
+function webVttLabelIdentifiers(labels) {
+	const authored = new Map();
+	for (const [index, label] of labels.entries()) {
+		const identifier = String(label.opaqueExtensions?.cueIdentifier ?? '').trim();
+		if (!identifier || /[\r\n\0]/u.test(identifier) || identifier.includes('-->')
+			|| WEBVTT_METADATA_HEADER.test(identifier) || authored.has(identifier)) continue;
+		authored.set(identifier, index);
+	}
+	const retained = new Map([...authored].map(([identifier, index]) => [index, identifier]));
+	let next = 1;
+	return (index) => {
+		if (retained.has(index)) return retained.get(index);
+		next = Math.max(next, index + 1);
+		while (authored.has(String(next))) next += 1;
+		return String(next++);
+	};
 }
 
 function serializePodcastJson(labels, context) {

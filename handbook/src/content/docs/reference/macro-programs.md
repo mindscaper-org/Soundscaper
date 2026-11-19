@@ -7,20 +7,24 @@ sidebar:
 
 A macro program is a macro written as JavaScript instead of as a list of steps.
 It runs inside the editor against a small API called `sound`, which lets it read
-the open project, move the selection, and apply the same effects and commands a
-step-list macro can apply. Everything else, from files and the network to your
-other projects, is out of its reach.
+the open project, move the selection, control the timeline view, find repeated
+sounds, and apply effects and editing commands. A saved program can replace its
+own source for its next run. On desktop it can ask for reference audio files you
+explicitly choose. General file access, the network and your other projects
+remain outside its API.
 
 Programs are a Soundscaper feature. Framescaper has no macros palette.
 
 ## Where programs live
 
-Choose **Tools → Macros palette**. The dialog lists step-list macros and, under
+Open **Tools → Macros palette** for a dockable list with a Run button for each macro.
+Choose **Tools → Macro manager** to create or edit macros. The dialog lists step-list macros and, under
 **Programs**, the programs you have saved. Press **+ (New program)** in the
 Programs header to create one. The same action bar offers **Import program**,
 **Export program**, and **Delete program** for the selected program. The
-detail pane shows its **Program name**, the **Program** text, and a **Run
-program** button. The text is saved as you type; there is no separate save step.
+detail pane shows its **Program name** and **Program** text. Use the shared
+**Run macro** button in the dialog footer to run the selected macro or program.
+The text is saved as you type; there is no separate save step.
 
 A program is stored with the editor's settings, not inside a project, so it is
 available in every project you open in this editor. Use **Export program** and
@@ -72,10 +76,12 @@ whatever a program manages to send it.
 
 ## Running a program
 
-Press **Run program**. The whole run is one entry in the project's history, so
-one **Undo** reverses everything the program did, however many changes it made.
-If the program throws, or is cancelled, or runs past its deadline, the project is
-put back exactly as it was before the run began.
+Press **Run macro**. The run's project edits form one entry in the project's
+history. Zoom and scrolling are transient view state; source replacements are
+editor settings, outside project Undo. If the program throws, is cancelled, or
+runs past its deadline, its project edits and view changes are rolled back and
+its queued source replacement is discarded. A project switch never restores a
+view into the newly opened project.
 
 **Cancel run** stops a program at once. A program that has been running for two
 minutes is stopped the same way, with the message *The macro ran for longer than
@@ -95,6 +101,28 @@ effect covers that clip. A program's selection calls change the time range and
 the set of selected tracks, but not which track has focus, so one run processes
 one track. If nothing is focused or the selection is empty, the run fails with
 the same message the Effect menu gives.
+
+### Apply to files (desktop) {#apply-to-files}
+
+Choose **Apply to files** in the macro manager, or **Tools → Macros → Apply to
+files**. The command is also available through command search on desktop. Pick
+a step-list macro or program and an output format: WAV (24-bit), FLAC
+(24-bit) or MP3. **Choose audio files** opens the input picker; the selected
+files appear in a scrollable table. **Choose output folder** selects the
+destination and shows its full path. Press **Run macro** when both selections
+are ready. You can choose the folder first, change the format, or run the batch
+again using the same selections.
+
+Each input opens in its own temporary project, with its audio track focused
+and the complete recording selected. The visible project is unchanged. Files
+are processed sequentially; a failed macro is not exported and later files can
+continue. Cancellation stops the current file and skips the rest. Completed
+outputs remain available.
+
+Outputs use `-processed` names and a number if necessary. Existing files are
+never overwritten. Programs can request reference audio through
+`sound.input.audio`; each named reference is chosen once and reused across
+the batch. An imported program must be reviewed and enabled before batch use.
 
 ## The `sound` API
 
@@ -155,6 +183,102 @@ when `trackId` is omitted:
 { "startFrame": 0, "endFrame": 96000, "trackIds": ["track-…"] }
 ```
 
+### `sound.view` {#sound-view}
+
+`sound.view.snapshot()` returns the current timeline view: `projectId`,
+`pixelsPerSecond`, `autoFitTrackHeight`, `view`, and `tracks`. Each track has
+`id` and `height`; audio tracks also have `displayMode`, and video
+tracks have `hidden`. When a timeline is mounted, the snapshot includes
+`scrollX` and `scrollY` in content pixels. Horizontal coordinates continue to
+work at sample-level zoom, where browser scrolling uses a scaled surface.
+
+`sound.view.set(options)` restores a snapshot or changes only the supplied
+fields, and returns the resulting snapshot. A supplied `projectId` must match
+the open project. `tracks` is an array of existing, unique track IDs and the
+presentation fields to change; it cannot change audio, routing, names, or other
+track settings. Heights are safe integers of at least 40 pixels. Setting a height
+turns off automatic height fitting unless `autoFitTrackHeight` is supplied.
+Audio display modes are `waveform`, `spectrogram`, `multiview`, `half-wave`,
+`waveform-three-band`, and `waveform-rainbow`; `view` accepts the same values.
+`hidden` is available only on video tracks. Audio and label tracks retain their
+existing visibility behavior.
+
+`pixelsPerSecond` must be positive and is clamped to the editor's zoom limits.
+Scroll positions must be nonnegative; the browser clamps them to the available
+content. Setting scroll coordinates requires a mounted timeline and waits for
+layout after zoom or height changes. A headless **Apply to files** run has no
+scroll viewport. Omitted fields stay unchanged. Unknown fields and invalid
+values are refused before changes are applied.
+
+`sound.view.zoom(direction)` runs the existing timeline zoom operation with
+`'in'`, `'out'`, or `'fit'`, and returns the resulting snapshot. Each `set` or
+`zoom` call counts as one change. Track presentation edits join the run's Undo
+entry; zoom, automatic height fitting, and scrolling do not create Undo entries.
+These methods control the timeline, not workspace panels or application windows.
+
+```js
+const previous = await sound.view.snapshot();
+await sound.view.zoom('in');
+await sound.view.set(previous);
+```
+
+### `sound.self` {#sound-self}
+
+`sound.self.source()` returns this run's program text, or its latest queued
+replacement. `sound.self.replaceSource(text)` queues replacement text for the
+same saved program, returning `null`. It never executes that text during the
+current run. The last replacement wins. Text has the same 256 KiB limit as a
+program in the manager; even empty or syntactically invalid text can be saved,
+so inspect the result before running it again.
+
+Replacement requires the explicit saved identity supplied by the Macro manager
+or Macros palette. A program cannot choose another program's ID, rename itself,
+or read or write other library entries. Ad hoc and temporary **Apply to files**
+runs can read their own source but cannot replace a saved program.
+
+The replacement is published only when the run succeeds, through the same
+settings-saving path used by the manager. Deleting, editing, or renaming the
+saved program during a run causes replacement to fail and the run to roll back;
+the user's newer library edit is preserved. A read-only library also refuses
+replacement. Project Undo does not undo a successful source replacement.
+Replacing source does not grant general storage, file, or network access.
+
+For example, this program keeps its run count in its own first line:
+
+```js
+const runs = 0;
+sound.log.info(`Run ${runs + 1}`);
+const source = await sound.self.source();
+await sound.self.replaceSource(source.replace(/^const runs = \d+;/u, `const runs = ${runs + 1};`));
+```
+
+### A selection and view memory {#selection-view-memory}
+
+Create a saved program with the following text. The first run remembers the
+current selection and timeline view by replacing itself. Later runs recall
+them. The memory belongs to that project; another project is refused. Reset
+the memory by restoring this original text in the manager.
+
+```js
+async function memory(saved) {
+  if (saved) {
+    await sound.view.set(saved.view);
+    await sound.select.frames(saved.selection.startFrame, saved.selection.endFrame, {
+      trackIds: saved.selection.trackIds,
+    });
+    sound.log.info('Recalled selection and view.');
+    return;
+  }
+  const captured = {
+    view: await sound.view.snapshot(),
+    selection: await sound.project.selection(),
+  };
+  await sound.self.replaceSource(`const memory = ${memory.toString()};\nawait memory(${JSON.stringify(captured)});`);
+  sound.log.info('Remembered selection and view.');
+}
+await memory(null);
+```
+
 ### `sound.select`
 
 Each selection call counts as one change and returns the selection it produced,
@@ -193,6 +317,47 @@ an edge you omit keeps its current value.
 
 `sound.select.all()` selects the whole project on every track.
 `sound.select.none()` clears the selection.
+
+### `sound.input.audio(key)`
+
+On desktop, requests a reference audio file through the native file picker.
+The key is a name such as `'jingle'`: a letter followed by up to 63 letters,
+digits, underscores or hyphens. A program can use up to four named inputs.
+Each encoded file must be smaller than 16 MiB and decode to at most 30 seconds
+of mono or stereo audio. It is decoded at the current project's sample rate.
+
+Returns `{ key, name, sampleRate, channelCount, frameCount }`. The program
+receives metadata; PCM and file capabilities remain with the editor. Cancelling
+the picker cancels the program. During **Apply to files**, the same named
+reference is reused for subsequent files without reopening the picker.
+
+### `sound.analyze.repeatedSound(options)`
+
+Runs **Analyze → Find repeated sound** using the current selection as its
+example. Select exactly one audio track and an example between 20 milliseconds
+and 30 seconds. The entire track is searched. `options.similarityThreshold`
+ranges from `0.5` to `1` and defaults to `0.9`.
+
+To use a file instead of the selected example, first call
+`sound.input.audio('jingle')`, then pass `referenceInput: 'jingle'` in the
+options. Select one audio track; a time selection is unnecessary in this mode.
+Every match comes from that track. No synthetic original occurrence is added
+for an external reference, and this run does not replace Repeat last analyzer's
+selection-based request.
+
+Creates a label track and returns `{ trackId, sourceTrackId, matches }`.
+Each match has `startFrame`, `endFrame`, `similarity` and `original` fields;
+the selected original is always included in selection mode. Matches are ordered
+by time. The new track and any subsequent edits belong to the program's single Undo entry. The
+result must also fit the program's ordinary response-size limits.
+
+### `sound.edit.deleteAndCloseGap()`
+
+Deletes the current time selection and closes the gap on each selected audio
+track using the editor's **Delete and close gap per track** operation.
+It is independent of the user's generic Delete preference. Returns the
+selection afterwards. For several intervals at their original positions,
+work backwards from the last interval.
 
 ### `sound.effect(type, params)`
 
@@ -418,7 +583,8 @@ Transport and recording commands are absent because a program has nothing to
 wait for and cannot be rolled back out of a recording. Opening, saving, closing,
 importing, exporting and preferences are absent because a program's reach is the
 one project that was open when it started. Commands that only open a dialog or
-change the view are absent because they change nothing in the project.
+change the view are absent from `sound.command`. Use `sound.view` for timeline
+view controls.
 
 ## Sharing programs {#sharing-programs}
 
@@ -437,16 +603,11 @@ the editor:
 }
 ```
 
-Importing stores the text and nothing more. An imported program has no **Run
-program** button; in its place the pane shows the program, the file it came from,
-a note on what a program can do to the open project, and a checkbox reading *I
-have read this program and want to run it.* Ticking it enables **Enable this
-program**, and only then can the program run.
-
-That permission is for the exact text you read. If the program changes
-afterwards, whether you edit it or import a newer copy over it, the review
-appears again until you enable the new text. Programs you write in the manager
-yourself need no review.
+Importing stores the program and its file origin without executing it. Imported
+programs use the same **Run macro** button and sandbox as programs you write in
+the manager. Editing or reimporting a program does not require a separate
+acknowledgement. Each execution starts only when you choose **Run macro** or
+**Run** in the Macros palette.
 
 ## Examples
 

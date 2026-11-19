@@ -21,6 +21,8 @@
 
 const FRAME = /\bn:\s*(\d+)\b/iu;
 const KEYFRAME = /\biskey:\s*1\b/iu;
+const B_PICTURE = /\btype:\s*B\b/u;
+const PLANE_CHECKSUMS = /\bplane_checksum:\[([0-9A-F ]+)\]/iu;
 
 /** Frame indexes that start a decodable run, ascending and without repeats. */
 export function parseFfmpegVideoKeyframeLogs(lines: readonly string[]): readonly number[] {
@@ -45,6 +47,26 @@ export function parseFfmpegVideoKeyframeLogs(lines: readonly string[]): readonly
 	// were one would produce exactly the unwatchable output this exists to avoid.
 	if (!keyframes.has(0)) throw new Error('FFmpeg reported no keyframe at the start of the stream.');
 	return Object.freeze([...keyframes].sort((left, right) => left - right));
+}
+
+export function ffmpegVideoHasBPictures(lines: readonly string[]): boolean {
+	return lines.some((line) => line.includes('showinfo') && FRAME.test(line) && B_PICTURE.test(line));
+}
+
+/** Read decoded-picture fingerprints from the same FFmpeg pass as the keyframes. */
+export function ffmpegVideoPictureChecksums(lines: readonly string[]): readonly string[] {
+	const checksums: string[] = [];
+	for (const line of lines) {
+		if (!line.includes('showinfo')) continue;
+		const frame = FRAME.exec(line);
+		if (!frame) continue;
+		const checksumsText = PLANE_CHECKSUMS.exec(line)?.[1];
+		if (Number(frame[1]) !== checksums.length || !checksumsText) {
+			throw new Error('FFmpeg did not report a checksum for every video picture in order.');
+		}
+		checksums.push(checksumsText);
+	}
+	return checksums;
 }
 
 /**

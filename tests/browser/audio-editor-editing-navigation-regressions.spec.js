@@ -5,7 +5,7 @@ import { bootEditor, clipByName, importFiles, clickClipInterior,
 	openNestedCommandMenu } from './audio-editor-test-helpers.js';
 
 test('Previous clip starts from the clip selected through its header', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const split = editor.getByRole('button', { name: 'Split tool', exact: true });
 	await split.click();

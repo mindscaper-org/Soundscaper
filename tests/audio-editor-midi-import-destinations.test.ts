@@ -4,7 +4,7 @@ import test from 'node:test';
 import { parseMidiFile } from '../src/common/editor/midi-file.ts';
 import { readMidiClip } from '../src/common/editor/midi-model.ts';
 import { midiServiceFixture } from './helpers/midi-service-fixture.ts';
-import { routeMidiImportControls } from '../src/common/editor/controller/track-audio/internal/midi-import-channel-routing.ts';
+import { routeMidiImportControls } from '../src/common/editor/midi-file-import-channel-routing.ts';
 import type { MidiFileTrack } from '../src/common/editor/midi-file-types.ts';
 import { createAudioEditorProjectV17 } from '../src/common/editor/project-v17.ts';
 import { applyEditorCommand } from '../src/common/editor/commands.js';

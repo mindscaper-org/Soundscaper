@@ -6,7 +6,7 @@ import {
 	AUDACITY_EFFECT_UPSTREAM_FILES,
 	AUDACITY_STAFFPAD_SOURCE,
 } from '../../audacity-effects/manifest.js';
-import { AUDIO_EFFECT_DEFINITIONS } from '../../effects.js';
+import { AUDIO_EFFECT_DEFINITIONS, AUDIO_SELECTION_EFFECT_DEFINITIONS } from '../../effects.js';
 import { getNyquistPlugin } from '../../nyquist/plugin-registry.js';
 import { REVIEWED_UTILITY_GAIN_SELECTION_EFFECT_TYPE } from '../../reviewed-effects/selection-effect-contract.ts';
 import { UTILITY_GAIN_MANIFEST } from '../../reviewed-effects/utility-gain-package.ts';
@@ -130,7 +130,7 @@ export function effectAboutMetadata(
 			add('category', nyquist.category);
 			add('source', 'Audacity');
 			add('identifier', type);
-		} else if (Object.hasOwn(AUDIO_EFFECT_DEFINITIONS, type)) {
+		} else if (Object.hasOwn(AUDIO_EFFECT_DEFINITIONS, type) || Object.hasOwn(AUDIO_SELECTION_EFFECT_DEFINITIONS, type)) {
 			add('format', 'Built-in');
 			add('license', 'AGPL-3.0-only');
 			add('category', menuCategory(type, copyOrLocale));

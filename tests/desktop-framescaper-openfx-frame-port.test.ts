@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
 
 import {
 	createFramescaperOpenFxFramePortBroker,
 } from '../desktop/framescaper-openfx-frame-port.ts';
+import type { FramescaperOpenFxFrameExecutionService } from '../desktop/framescaper-openfx-frame-execution.ts';
 import {
 	canonicalizeNativeMediaPlan,
 	fingerprintNativeMediaPlan,
@@ -78,10 +79,7 @@ test('the pathless OpenFX frame port carries only digest-bound RGBA with one-in-
 			return { mode: 'render', rgba: { width: 2, height: 2, pixels: output },
 				backend: 'cpu', retriedOnCpu: true, reportsDegradation: true };
 		} },
-		createMessageChannel: () => {
-			const channel = new MessageChannel();
-			return { hostPort: channel.port1 as never, helperPort: channel.port2 as never };
-		},
+		createMessageChannel: () => frameMessageChannel(context),
 		mintOpaqueId: () => 'ab'.repeat(20),
 	});
 	context.after(() => broker.dispose());
@@ -179,10 +177,7 @@ test('a zero-input Generator uses a closed null ingress binding and bounded outp
 			return { mode: 'render', rgba: frame(9), backend: 'cpu', retriedOnCpu: false,
 				reportsDegradation: false };
 		} },
-		createMessageChannel: () => {
-			const channel = new MessageChannel();
-			return { hostPort: channel.port1 as never, helperPort: channel.port2 as never };
-		},
+		createMessageChannel: () => frameMessageChannel(context),
 		mintOpaqueId: () => 'ef'.repeat(20),
 	});
 	context.after(() => broker.dispose());
@@ -202,6 +197,7 @@ test('a zero-input Generator uses a closed null ingress binding and bounded outp
 		requestedBackend: 'cpu', inputs: [], standardParameters: {}, signal: new AbortController().signal,
 	});
 	assert.equal(result.mode, 'render');
+	if (result.mode === 'render') assert.deepEqual(result.rgba.pixels, frame(9).pixels);
 	assert.equal((controlValue as { inputBinding: unknown }).inputBinding, null);
 	assert.deepEqual((controlValue as { inputs: unknown[] }).inputs, []);
 });
@@ -248,6 +244,140 @@ test('renderer close aborts main execution after ingress, including a zero-input
 	await aborted;
 	assert.equal(mainAborted, true);
 });
+
+test('overlapping frame consumers wait in bounded order and keep their own output', { timeout: 5_000 }, async (context) => {
+	let releaseFirst!: () => void;
+	const held = new Promise<void>((resolve) => { releaseFirst = resolve; });
+	context.after(() => releaseFirst());
+	let enterFirst!: () => void;
+	const entered = new Promise<void>((resolve) => { enterFirst = resolve; });
+	const ordinals: number[] = [];
+	const client = sharedFrameClient(context, async ({ outputOrdinal }) => {
+		ordinals.push(outputOrdinal);
+		if (outputOrdinal === 0) { enterFirst(); await held; }
+		return renderedFrame(outputOrdinal);
+	});
+	const current = new AbortController();
+	context.after(() => current.abort());
+	const first = client.execute(generatorFrameRequest(0, current.signal));
+	void first.catch(() => undefined);
+	await entered;
+	const cancelled = new AbortController();
+	const waiting = Promise.allSettled([
+		client.execute(generatorFrameRequest(1)),
+		client.execute(generatorFrameRequest(2, cancelled.signal)),
+		client.execute(generatorFrameRequest(3)),
+	]);
+	await assert.rejects(client.execute(generatorFrameRequest(4)), /queue.*full/iu);
+	cancelled.abort(new Error('the waiting preview is obsolete'));
+	const replacement = client.execute(generatorFrameRequest(5));
+	releaseFirst();
+	const [firstResult, results, last] = await Promise.all([first, waiting, replacement]);
+	assert.deepEqual(ordinals, [0, 1, 3, 5]);
+	assert.deepEqual(firstResult, renderedFrame(0));
+	assert.deepEqual(results[0], { status: 'fulfilled', value: renderedFrame(1) });
+	assert.deepEqual(results[1], { status: 'rejected', reason: cancelled.signal.reason });
+	assert.deepEqual(results[2], { status: 'fulfilled', value: renderedFrame(3) });
+	assert.deepEqual(last, renderedFrame(5));
+});
+
+test('a queued export starts after the cancelled preview has released its main port', { timeout: 5_000 }, async (context) => {
+	let releaseFirst!: () => void;
+	const cleanup = new Promise<void>((resolve) => { releaseFirst = resolve; });
+	context.after(() => releaseFirst());
+	let enterFirst!: () => void;
+	const entered = new Promise<void>((resolve) => { enterFirst = resolve; });
+	let beginCleanup!: () => void;
+	const cleaning = new Promise<void>((resolve) => { beginCleanup = resolve; });
+	const client = sharedFrameClient(context, async ({ outputOrdinal, signal }) => {
+		if (outputOrdinal === 0) {
+			signal?.addEventListener('abort', beginCleanup, { once: true });
+			enterFirst();
+			await cleanup;
+			signal?.throwIfAborted();
+		}
+		return renderedFrame(outputOrdinal);
+	});
+	const preview = new AbortController();
+	const previewResult = client.execute(generatorFrameRequest(0, preview.signal));
+	await entered;
+	const exported = client.execute(generatorFrameRequest(1));
+	const results = Promise.allSettled([previewResult, exported]);
+	let exportSettled = false;
+	void exported.then(() => { exportSettled = true; }, () => { exportSettled = true; });
+	preview.abort(new Error('preview position changed'));
+	await cleaning;
+	await new Promise<void>((resolve) => setImmediate(resolve));
+	assert.equal(exportSettled, false);
+	releaseFirst();
+	assert.deepEqual(await results, [
+		{ status: 'rejected', reason: preview.signal.reason },
+		{ status: 'fulfilled', value: renderedFrame(1) },
+	]);
+});
+
+test('disposing the shared frame client rejects queued work and cancels the current port', { timeout: 5_000 }, async (context) => {
+	let enterFirst!: () => void;
+	const entered = new Promise<void>((resolve) => { enterFirst = resolve; });
+	const calls: number[] = [];
+	const client = sharedFrameClient(context, async ({ outputOrdinal, signal }) => {
+		calls.push(outputOrdinal);
+		await new Promise<void>((_resolve, reject) => {
+			signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+			enterFirst();
+		});
+		return renderedFrame(outputOrdinal);
+	});
+	const active = new AbortController();
+	context.after(() => active.abort());
+	const current = client.execute(generatorFrameRequest(0, active.signal));
+	await entered;
+	const settled = Promise.allSettled([current, client.execute(generatorFrameRequest(1))]);
+	client.dispose();
+	for (const result of await settled) {
+		assert.equal(result.status, 'rejected');
+		assert.match(String((result as PromiseRejectedResult).reason), /disposed/u);
+	}
+	assert.deepEqual(calls, [0]);
+});
+
+function sharedFrameClient(context: TestContext, execute: FramescaperOpenFxFrameExecutionService['execute']) {
+	let receive: Parameters<Parameters<typeof createFramescaperOpenFxFramePortClient>[0]['subscribeOffers']>[0] | null = null;
+	const owner = {};
+	const broker = createFramescaperOpenFxFramePortBroker({
+		service: { execute }, createMessageChannel: () => frameMessageChannel(context),
+		mintOpaqueId: () => 'ab'.repeat(20),
+	});
+	const client = createFramescaperOpenFxFramePortClient({
+		openSession: async (request) => broker.open(owner, { postMessage(_channel, offer, ports) {
+			receive?.(offer as never, ports[0] as never);
+		} }, request as never),
+		subscribeOffers(listener) { receive = listener; return () => { receive = null; }; },
+	});
+	context.after(() => { client.dispose(); broker.dispose(); });
+	return client;
+}
+
+function generatorFrameRequest(outputOrdinal: number, signal = new AbortController().signal) {
+	return { plan: plan(), instanceId: 'effect-generator', context: 'generator' as const, outputOrdinal,
+		requestedBackend: 'cpu' as const, inputs: [], standardParameters: {}, signal };
+}
+
+function renderedFrame(value: number) {
+	return { mode: 'render' as const, rgba: frame(value), backend: 'cpu' as const, retriedOnCpu: false, reportsDegradation: false };
+}
+
+function frameMessageChannel(context: TestContext) {
+	const { port1, port2 } = new MessageChannel();
+	for (const port of [port1, port2]) {
+		const postMessage = port.postMessage.bind(port);
+		context.mock.method(port, 'postMessage', (value: unknown, transfer?: readonly unknown[]) => {
+			assert.equal(transfer?.length ?? 0, 0, 'frame data messages carry bytes in the payload');
+			postMessage(value);
+		});
+	}
+	return { hostPort: port1 as never, helperPort: port2 as never };
+}
 
 function control() {
 	const pixels = new Uint8Array(16);

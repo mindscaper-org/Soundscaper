@@ -14,7 +14,7 @@ for (const sampleRate of [48_000, 8_000]) {
 	test(`a neutral source edit preserves exported level at ${sampleRate} Hz`, async ({ page }) => {
 		test.setTimeout(60_000);
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [createWavFixture({ name: `neutral-${sampleRate}.wav`, sampleRate,
 			frequency: 3_800, duration: 1, channelCount: 1, channelAmplitudes: [.4] })]);
 		const before = await exportSamples(page, editor);

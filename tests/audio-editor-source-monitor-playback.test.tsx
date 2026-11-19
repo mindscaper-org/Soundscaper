@@ -29,7 +29,8 @@ test('source playback publishes its live clock before mark, step, and ending, pr
 	};
 	try {
 		await act(async () => { root.render(<SourceMonitorPanel
-			controller={{ actions: { video: { sourceMonitor, getSourceVisualData: () => ({ mediaUrl: 'clip.mp4' }) } } }}
+			controller={{ actions: { video: { sourceMonitor, getSourceVisualData: () => ({ mediaUrl: 'clip.mp4' }),
+				replace: () => { calls.push(`replace:${frame}`); } } } }}
 			snapshot={{ readOnly: false }} copy={{}} run={(operation: () => unknown) => operation()} blocked={false} />); });
 		const video = dom.one('video');
 		Reflect.set(video, 'play', () => Promise.resolve());
@@ -41,6 +42,10 @@ test('source playback publishes its live clock before mark, step, and ending, pr
 		Reflect.set(video, 'currentTime', 0.4);
 		await act(async () => { reactProps(dom.one('[data-source-monitor-action="mark-in"]')).onClick(); });
 		assert.deepEqual(calls.splice(0), ['seek:0.4', 'in:10']);
+		Reflect.set(video, 'currentTime', 0.48);
+		await act(async () => { reactProps(dom.one('[data-source-monitor-action="replace"]')).onClick(); });
+		assert.deepEqual(calls.splice(0), ['seek:0.48', 'replace:12']);
+		Reflect.set(video, 'currentTime', 0.4);
 		assert.equal(reactProps(dom.one('[data-source-monitor-action="play"]'))['aria-pressed'], true);
 		await act(async () => { reactProps(dom.one('[data-source-monitor-action="next"]')).onClick(); });
 		assert.deepEqual(calls.splice(0), ['seek:0.4', 'step:11']);

@@ -17,6 +17,14 @@ interface FrequencyBand {
 	readonly maximumFrequency: number;
 }
 
+/** A band entered with sub-hertz precision keeps its width available to the edge handles. */
+export function spectralBandEdgeLimits(band: FrequencyBand): Readonly<{ highestMinimum: number; lowestMaximum: number }> {
+	return {
+		highestMinimum: Math.max(band.minimumFrequency, band.maximumFrequency - 1),
+		lowestMaximum: Math.min(band.maximumFrequency, band.minimumFrequency + 1),
+	};
+}
+
 function frequencyAt(position: number, scale: SpectrogramScale, minimum: number, maximum: number): number {
 	if (scale === 'linear') return minimum + position * (maximum - minimum);
 	if (position <= 0) return minimum;

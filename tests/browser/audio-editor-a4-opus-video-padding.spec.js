@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 import { opusPaddingAvFixture } from '../helpers/ordinary-ogg-opus-fixture.ts';
+import { opusPaddingReferenceOgg } from '../helpers/opus-padding-reference.ts';
 
 for (const padded of [false, true]) test(`video File Import discards final Opus encoder padding (bounded=${padded})`, async ({ page, browserName }, testInfo) => {
 	// Firefox may exhaust both existing disposable15s poster/thumbnail seek waits.
@@ -19,12 +20,12 @@ for (const padded of [false, true]) test(`video File Import discards final Opus 
 	await editor.locator('[data-import-input]').setInputFiles(filePath);
 	await expect(editor).toHaveAttribute('data-clip-count', '2', { timeout: padded ? 45_000 : 15_000 });
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
-	// Run the native audio oracle after the video import releases its decoder.
+	// Use the same packets in Ogg: native Matroska decoders can round CodecDelay to whole milliseconds.
 	const expected = await page.evaluate(async bytes => {
 		const context = new OfflineAudioContext(1, 1, 48_000);
 		const decoded = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
 		return [...decoded.getChannelData(0)];
-	}, [...new Uint8Array(await opusPaddingAvFixture().arrayBuffer())]);
+	}, [...await opusPaddingReferenceOgg()]);
 	expect(expected).toHaveLength(4800);
 	expect(Math.max(...expected.map(Math.abs))).toBeGreaterThan(.1);
 	// This native WebKit oracle returns S16 PCM; retain its proven half-LSB rounding bound.

@@ -8,7 +8,7 @@ import { FrequencyWaveformAnalyzer } from '../src/common/editor/frequency-wavefo
 import { round4Audio, round4Digest } from './helpers/responsiveness-round4-dsp-fixtures.ts';
 
 test('spectrum failure releases the private lease before another call', () => {
-	const input = [round4Audio(211)]; const originalCos = Math.cos;
+	const input = [round4Audio(512)]; const originalCos = Math.cos;
 	Math.cos = (): number => { throw new Error('injected transform preparation failure'); };
 	try { assert.throws(() => calculateAudioSpectrum(input, 8000, { size: 512 }), /injected/); } finally { Math.cos = originalCos; }
 	const originalArray = globalThis.Float64Array; let allocations = 0;

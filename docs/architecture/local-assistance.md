@@ -20,24 +20,24 @@ listed in [local-model provenance](../reference/local-model-provenance.md).
 
 All native inference is main-owned and pathless from the renderer. Main
 authenticates the exact runtime, model, platform, and file grants before it
-starts work. A dedicated inference worker is the only context that imports
+starts work. Dedicated inference workers and real-time denoising helpers import
 native code; the renderer receives opaque job, claim, stream, and progress
 identities rather than filesystem or module paths.
 
 | Runtime family | Current responsibility |
 | --- | --- |
-| Sherpa ONNX | Parakeet speech recognition, Silero voice-activity detection, and the pyannote/ERes2Net diarization pair |
+| Sherpa ONNX | Parakeet speech recognition, Silero voice-activity detection, the pyannote/ERes2Net diarization pair, GTCRN/DPDFNet enhancement, and VoxLock voice isolation |
 | ONNX Runtime | Alignment, enhancement, separation, tagging, beats, accurate shots, detection, saliency, OCR, text/image embeddings, and Kokoro speech synthesis |
 | whisper.cpp | Multilingual Whisper recognition through a fixed-argument, no-shell CLI |
 | llama.cpp | Optional Qwen editorial generation with grammar-constrained JSON |
 | Kokoro offline G2P | Pronunciation preprocessing, including GPU-capable learned English Tok2Vec/tagger inference |
 | External FFmpeg | Model-free fast shot detection through the separately admitted `scdet` command and live canary |
 
-Target packages generate and authenticate Sherpa ONNX 1.13.5, ONNX
+Target packages generate and authenticate Sherpa ONNX 2.0.1, ONNX
 Runtime 1.29.0, whisper.cpp v1.9.3, and llama.cpp b10509 closures for the five
 maintained desktop targets: macOS ARM64, Linux x64 and ARM64, and Windows x64
 and ARM64. Every newly built neural runtime provides a GPU option and portable
-CPU fallback. All 22 catalog models use one of these four neural runtime families;
+CPU fallback. All 25 catalog models use one of these four neural runtime families;
 the separate Kokoro G2P helper also accelerates its learned English POS models.
 New runtime archives authenticate the available providers per target:
 
@@ -108,7 +108,19 @@ operating-system sandbox, and native helper code remains trusted code.
 Sherpa recognition jobs admit a four-GiB peak RSS ceiling, matching the published
 Parakeet memory floor. Status, VAD, and diarization retain the legacy one-GiB
 ceiling. Main enforces the selected ceiling through helper heartbeats; exceeding
-it terminates the helper and reports a resource violation. Speech helper jobs
+it terminates the helper and reports a resource violation.
+
+Enhancement jobs retain the one-GiB RSS ceiling and process channels sequentially
+with bounded WAV windows. Their intermediate files live inside main-owned job
+staging so forced cancellation removes them with the job. All three Sherpa
+enhancers preserve 48 kHz output, channel count, and selection duration. The
+worker explicitly resamples GTCRN and VoxLock input to 16 kHz before calling
+the denoiser, then resamples its output back to 48 kHz. VoxLock's enrollment
+WAV is also conformed to 16 kHz. Each resampler retains history across bounded
+chunks and flushes to the exact selected duration. VoxLock shares one enrollment sample
+across channels, selected from the loudest three-second window in the first
+15 seconds, and refuses shorter or silent selections.
+ Speech helper jobs
 preserve their main-owned operation identity so private GPU receipts correlate
 with the exact operation that requested inference.
 
@@ -132,7 +144,85 @@ Termination must satisfy the registered cancellation p95 of at most two
 seconds. A hung or malformed runtime is terminated and quarantined rather than
 retried through another model.
 
+## Real-time AI denoising rack
+
+The desktop **Effect > Realtime effects** rack picker also offers **AI denoising
+(DPDFNet2)**. This is a separate, opt-in rack processor; Enhance Dialogue keeps
+its selection-replacing workflow. Install `dpdfnet2-48khz` through Model Manager
+first. The rack never downloads a model or runtime implicitly. Saved effects
+retain their ordinary enabled/bypass state; web playback requires bypassing this
+desktop-only processor.
+
+The processor admits mono and stereo racks at every supported project sample
+rate. Source playback first conforms each clip to the graph clock. A stateful
+windowed-sinc resampler in the AudioWorklet then converts graph PCM to the
+model's 48 kHz clock before inference; a second resampler returns processed PCM
+to the graph rate. Both retain their history across quanta, preserve channel
+order, and filter frequencies above the destination Nyquist limit. Native PCM
+grants remain strictly 48 kHz. Before audio is scheduled,
+main authenticates the installed model and runtime and grants a bounded PCM
+port to a dedicated utility process. Each channel owns one persistent streaming
+denoiser. Authenticated GPU providers are tried in fresh processes before CPU
+fallback, including fallback when a provider cannot meet the startup speed
+probe. Warmup processes 16 hops followed by 64 measured hops for the complete
+rack; admission requires mean work of at most 7.5 ms and p99 below 10 ms per
+10 ms hop. Warmup histories are reset before real audio.
+
+The AudioWorklet collects 480-frame hops across 128-frame rendering quanta. A
+16-slot bounded pool and a fixed 4096-frame delay (85.33 ms at 48 kHz) keep
+inference off the rendering thread. At other rates, the delay scales to graph
+frames and includes both resamplers' lookahead, rounded up to one graph frame.
+Existing mixer PDC accounts for that delay;
+hardware I/O adds its own latency. Electron utility ports clone bounded PCM
+bodies rather than transferring ArrayBuffers. The renderer UI and main process
+do not relay individual audio blocks. A missed deadline or malformed reply
+faults the processor and reports the rack error; it never substitutes dry audio
+or shifts later results into earlier output slots.
+
+Main admits at most four simultaneous sessions, watches heartbeats and the
+one-GiB per-process RSS ceiling, and revokes sessions when the renderer is
+destroyed or the app shuts down. Graph disposal closes the PCM port; an idle
+helper retires after five seconds. Export/freeze uses the existing clocked PCM
+render path with fresh sessions and strict effect-error handling, so a fast
+OfflineAudioContext cannot outrun asynchronous inference. Parallel effect-stack
+workers do not admit this effect and use the conventional graph instead.
+
+The rack PCM grant is independent of selection-based assistance file grants.
+It grants no file picker, capture, microphone, model-installation, or network
+authority. It can process only the audio supplied by its authored rack.
+
+Run `node --import tsx scripts/benchmark-ai-denoising.mjs --runtime-root PATH
+--manifest PATH --model PATH` against an installed target runtime to measure
+the production kernel's portable CPU baseline. It authenticates the runtime
+and exact DPDFNet artifact and reports mono/stereo
+throughput and hop percentiles; kernel timings do not include IPC or hardware
+I/O. The distributed nightly's
+`tests/electron/local-assistance-models/denoise-ports.spec.ts` installs DPDFNet2
+through the production model manager and exercises the shipped processor,
+preload and utility process through a 500 ms UI stall. Mono and stereo cases
+run at 44.1, 48 and 96 kHz in both products on every maintained desktop target.
+The existing GPU-validation host requires authenticated WebGPU inference;
+missing models, processors or GPU support fail rather than skipping the case.
+The test records finite, non-silent output and the helper's provider and hop
+timings. Physical audio-device qualification remains separate.
+
 ## Catalog and availability
+
+Music transcription uses the pinned Basic Pitch ONNX graph with 22.05 kHz mono
+input. Its adapter reads bounded overlapping windows and decodes note and onset
+rows as they arrive. It accepts up to 30 minutes under a one-GiB helper ceiling.
+The owning ONNX loader selects authenticated GPU providers and the portable fallback.
+The owned decoder produces discrete pitches, estimated velocities and original
+timing; it does not assign instruments, decode pitch bends or quantize rhythm.
+Reviewed `midi-notes` output is re-admitted against the selected occurrence and
+published through the shared MIDI queue. Original audio is retained; the MIDI
+track's standard text metadata retains the model, result and source digests.
+Framescaper does not offer this operation.
+
+Basic Pitch's source candidate is not installation authority. The asset release
+workflow must verify public readback before generating an offered catalog entry;
+the generated licensing row, receipt, execution case and model instructions are
+reviewed and committed together. See [model publication](../operations/local-models/publish.md).
 
 The versioned, digest-pinned catalog is the authority for what Model Manager
 may offer. It binds each model id and version to its upstream revision,
@@ -157,7 +247,7 @@ publication, artifact digest, runtime/platform compatibility, selected-media
 authority, storage integrity, consent, and result authentication stay fail
 closed when the feature is used.
 
-The catalog currently offers 22 published model identities. Models and native
+The catalog currently offers 25 published model identities. Models and native
 engines remain outside ASAR, auto-update payloads, the Pages bundle, and
 JavaScript chunks. The full catalog is not installed with the application.
 
@@ -219,7 +309,7 @@ has editable settings; installed alternative recognizers appear in a model picke
 and a sole installed recognizer is selected automatically. Advanced Local
 Processing retains the explicit primitive-operation workflow. The versioned
 `AssistanceWorkflow` contract owns the guided recipes
-and all fifteen Advanced primitive recipes. Each recipe is a closed stage graph
+and all sixteen Advanced primitive recipes. Each recipe is a closed stage graph
 with slotted inputs and outputs, exact model roles, versioned settings, progress,
 and one main-owned consent decision.
 
@@ -265,6 +355,15 @@ video remain intact. Replacing linked audio detaches its A/V link, restored by u
 Derived PCM is stored at the project rate so subsequent effects can process it normally;
 provenance retains the authenticated model output identity.
 
+Forward audio at a different source sample rate remains eligible. Selection fences
+retain native source frames while rendering and placement use project frames;
+preparation converts the selected boundaries between those clocks before
+resampling to the model's input profile. Publication rechecks both ranges.
+Transcript bodies retain the source sample rate and native frame coordinates;
+accepted labels and cleanup edits convert those coordinates to project frames.
+Model review bounds use the rendered selection's duration, including when the
+source rate is higher or lower than the project rate.
+
 Other proposals begin unselected and review surfaces are mutation-free. Cleanup
 review retains original/result audition, and crop and highlight proposals remain
 transport-backed and editable. Their explicit acceptance revalidates the aggregate fence.
@@ -287,6 +386,24 @@ optional video-timing digest, recipe/version, and exact model-artifact digests.
 History, reopen, duplicate, managed handoff, and Scape archives retain them. A
 missing or corrupt body disables that result without blocking the project;
 AUP4 reports its omission explicitly.
+
+`Edit > Transcript-based editing` opens an optional bottom-docked panel. It
+authenticates bodies referenced by transcript label tracks and projects source
+word ranges through the current audio occurrences. Trims, splits, moves, loops,
+reverse playback, sample-rate differences, and forward audio warp retain their
+existing timing authority. Untimed or zero-duration word inventories fall back
+to whole-segment selection. Text and timeline selections share exact frame
+ranges; word navigation scrolls without changing zoom.
+
+Transcript deletion prepares per-track ripple ranges, simulates their command
+admission, and commits one ordinary history batch. The immutable source body is
+retained; surviving occurrences determine the displayed text after edit, undo,
+redo, or reopen. The panel's Generate transcript action runs the existing guided
+transcription and authenticated acceptance sequentially across available audio
+clips. Missing sources and locked tracks are excluded. Each completed clip is
+retained if a later job fails or is cancelled; cancellation releases active
+native custody. Model installation remains explicit and inference remains
+desktop-only.
 
 Embeddings, OCR and tag indexes, shot tables, saliency and tracker state, and
 ranking checkpoints are disposable derivatives. Accepted reframe evidence may
@@ -313,6 +430,16 @@ runs the real worker on that target, and validates typed output. A passing small
 fixture proves that exact case, revision, and target; it is not a general model
 quality, performance, or device claim. Unsupported combinations must report
 typed unavailability.
+
+The nightly editor cases also launch the packaged production main and renderer,
+exercise every guided and Advanced recipe through its menu and real preload,
+and require measured GPU work for each workflow's models. Project edits
+check canonical state, undo, redo, and reopen; index cases exercise search
+before and after reopen. Speech generation checks preview playback, insertion,
+regeneration, undo, and reopen. The model-free highlight shot stage requires an
+admitted optional external FFmpeg; its absence is an explicit skip, separate
+from required-model failures.
+Editorial acknowledgement checks that generated text remains transient.
 
 The `m7-local-assistance-privacy` workload uses two selected and two deliberately
 unselected assets and requires:

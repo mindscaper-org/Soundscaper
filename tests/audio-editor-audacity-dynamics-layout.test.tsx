@@ -4,11 +4,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { JSDOM } from 'jsdom';
 
 import AudacityDynamicsEffectLayout from '../src/common/editor/ui/AudacityDynamicsEffectLayout.jsx';
 
 const compressorNames = ['attackMs', 'releaseMs', 'lookaheadMs', 'thresholdDb', 'ratio', 'kneeWidthDb', 'makeupGainDb'];
-const limiterNames = ['thresholdDb', 'makeupTargetDb', 'lookaheadMs', 'kneeWidthDb', 'releaseMs'];
+const limiterNames = ['thresholdDb', 'makeupTargetDb', 'lookaheadMs', 'kneeWidthDb', 'releaseMs', 'limitTruePeaks'];
 
 function render(effectType: string, live: boolean): string {
 	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
@@ -44,4 +45,13 @@ test('Audacity limiter has its own five-knob strip and 3 dB history scale withou
 
 test('destructive Audacity dynamics dialogs omit live metering', () => {
 	for (const type of ['audacity-compressor', 'audacity-limiter']) assert.doesNotMatch(render(type, false), /data-dynamics-activity/u);
+});
+
+test('the limiter places true peak limiting below its secondary knobs inside the controls block', () => {
+	const document = new JSDOM(render('audacity-limiter', true)).window.document;
+	const checkbox = document.querySelector('[data-audacity-parameter="limitTruePeaks"]');
+	assert.ok(checkbox);
+	assert.ok(checkbox.closest('.audio-editor-audacity-dynamics__controls'));
+	assert.equal(checkbox.parentElement?.lastElementChild, checkbox);
+	assert.equal(checkbox.previousElementSibling?.getAttribute('data-audacity-parameter'), 'releaseMs');
 });

@@ -6,6 +6,8 @@ import { isAbsolute } from 'node:path';
 
 const TARGETS = new Set(['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64']);
 const CODECS = new Set(['flac', 'lame', 'mpg123', 'opus', 'twolame', 'vorbis', 'wavpack']);
+// Exact reviewed closure sizes: the WavPack adapter adds its three PCM/runtime leaves.
+const DEPENDENCY_COUNTS = new Map([...CODECS].map((codec) => [codec, codec === 'wavpack' ? 25 : 24]));
 const SHA256 = /^[a-f0-9]{64}$/u;
 const FIELDS = Object.freeze([
 	'contractVersion', 'target', 'codec', 'runtimeRoot', 'moduleBytes', 'moduleSha256',
@@ -47,8 +49,7 @@ function codecConfiguration(value) {
 		|| !Number.isSafeInteger(record.moduleBytes) || record.moduleBytes < 1
 		|| record.moduleBytes > 2 * 1024 * 1024
 		|| typeof record.moduleSha256 !== 'string' || !SHA256.test(record.moduleSha256)
-		|| !Array.isArray(record.dependencies) || record.dependencies.length < 1
-		|| record.dependencies.length > 24
+		|| !Array.isArray(record.dependencies) || record.dependencies.length !== DEPENDENCY_COUNTS.get(record.codec)
 		|| !Number.isSafeInteger(record.wasmBytes) || record.wasmBytes < 8
 		|| record.wasmBytes > 2 * 1024 * 1024
 		|| typeof record.wasmSha256 !== 'string' || !SHA256.test(record.wasmSha256)) {

@@ -10,14 +10,20 @@ export interface LocalStoreClearAdmission {
 	cancel(): void;
 }
 
+export interface LocalStoreClearOptions {
+	readonly preserveProjectData?: boolean;
+	readonly preserveSettings?: readonly string[];
+	readonly preserveSettingPrefixes?: readonly string[];
+}
+
 export interface LocalStoreClearPort {
-	admitClear?(): LocalStoreClearAdmission;
+	admitClear?(options?: LocalStoreClearOptions): LocalStoreClearAdmission;
 	beginClear?(): LocalStoreClearOperation;
 	clear(): Promise<void>;
 }
 
-export function admitLocalStoreClear(port: LocalStoreClearPort): LocalStoreClearAdmission {
-	if (typeof port.admitClear === 'function') return port.admitClear();
+export function admitLocalStoreClear(port: LocalStoreClearPort, options?: LocalStoreClearOptions): LocalStoreClearAdmission {
+	if (typeof port.admitClear === 'function') return port.admitClear(options);
 	let pending = true;
 	return Object.freeze({
 		begin(): LocalStoreClearOperation {

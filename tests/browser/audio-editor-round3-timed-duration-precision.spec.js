@@ -12,10 +12,8 @@ test('timed recording preserves milliseconds when switching from duration to an 
 	const dates = dialog.locator('input[type="datetime-local"]');
 	await dates.first().fill('2030-01-02T03:04:05');
 	const duration = dialog.getByRole('group', { name: 'Duration', exact: true });
-	await duration.locator('.timecode-digit').nth(1).click();
-	await page.keyboard.type('0');
-	await duration.locator('.timecode-digit').nth(6).click();
-	await page.keyboard.type('500');
+	await duration.locator('.timecode-digit').first().click();
+	await page.keyboard.type('000001500');
 	await page.keyboard.press('Enter');
 	await expect.poll(async () => (await duration.locator('.timecode-digit').allTextContents()).join('')).toBe('000001500');
 	await dialog.getByRole('radio', { name: 'End date and time', exact: true }).check();

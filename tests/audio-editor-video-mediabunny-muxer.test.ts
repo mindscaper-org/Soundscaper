@@ -2,11 +2,66 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { BufferSource, BufferTarget, EncodedAudioPacketSource, EncodedPacketSink, EncodedVideoPacketSource, Input, Output, WEBM, WebMOutputFormat } from 'mediabunny';
 
 import {
 	createVideoMediabunnyMuxer,
 	type VideoMediabunnyMuxRequest,
 } from '../src/common/editor/video-mediabunny-muxer.ts';
+import { createMonoCameraFixture } from './browser/fixtures/mono-camera-media.js';
+
+test('a half-millisecond WebM clock retains Opus pre-skip and fits long cluster timestamps and cues', async () => {
+	const camera = createMonoCameraFixture('Camera.webm');
+	const source = new Input({ source: new BufferSource(camera.buffer), formats: [WEBM] });
+	try {
+		const audio = await source.getPrimaryAudioTrack(), video = await source.getPrimaryVideoTrack();
+		assert.ok(audio && video);
+		const audioConfig = await audio.getDecoderConfig(), videoConfig = await video.getDecoderConfig();
+		const audioPacket = await new EncodedPacketSink(audio).getFirstPacket();
+		const videoPacket = await new EncodedPacketSink(video).getFirstPacket();
+		assert.ok(audioConfig?.description && videoConfig && audioPacket && videoPacket);
+		const description = audioConfig.description;
+		const head = Buffer.from(ArrayBuffer.isView(description)
+			? new Uint8Array(description.buffer, description.byteOffset, description.byteLength) : new Uint8Array(description));
+		assert.equal(head.toString('ascii', 0, 8), 'OpusHead');
+		head.writeUInt16LE(312, 10);
+		const timestamps = [0, 16.383, 16.384, 33.2];
+		const target = new BufferTarget(), clusters: number[] = [];
+		const output = new Output({ target, format: new WebMOutputFormat({ timestampScale: 500_000, minimumClusterDuration: 100,
+			onCluster: (_data, _position, time) => clusters.push(time),
+		}) });
+		const audioOutput = new EncodedAudioPacketSource('opus'), videoOutput = new EncodedVideoPacketSource('vp8');
+		output.addVideoTrack(videoOutput); output.addAudioTrack(audioOutput);
+		await output.start();
+		await audioOutput.add(audioPacket.clone({ timestamp: -.0065, duration: .02 }), { decoderConfig: { ...audioConfig, description: head } });
+		audioOutput.close();
+		for (const timestamp of timestamps) await videoOutput.add(videoPacket.clone({ timestamp, duration: .04 }), { decoderConfig: videoConfig });
+		await output.finalize();
+		assert.ok(target.buffer);
+		const readback = new Input({ source: new BufferSource(target.buffer), formats: [WEBM] });
+		try {
+			const audioTrack = await readback.getPrimaryAudioTrack(), videoTrack = await readback.getPrimaryVideoTrack();
+			assert.ok(audioTrack && videoTrack);
+			const restoredAudio = await new EncodedPacketSink(audioTrack).getFirstPacket();
+			assert.ok(restoredAudio);
+			assert.equal(restoredAudio.timestamp, -.0065);
+			assert.equal(restoredAudio.duration, .02);
+			assert.deepEqual(restoredAudio.data, audioPacket.data);
+			assert.deepEqual(clusters, [0, 16.384, 33.2]);
+			const videoSink = new EncodedPacketSink(videoTrack);
+			const received = [];
+			for await (const packet of videoSink.packets()) {
+				received.push(packet.timestamp);
+				assert.deepEqual(packet.data, videoPacket.data);
+				if (packet.timestamp === 33.2) assert.equal(packet.duration, .04);
+			}
+			assert.deepEqual(received, timestamps);
+			assert.equal(Math.round((await readback.computeDuration()) * 1000), 33_240);
+			assert.equal((await videoSink.getKeyPacket(16.5))?.timestamp, 16.384);
+			assert.equal((await videoSink.getKeyPacket(33.21))?.timestamp, 33.2);
+		} finally { readback.dispose(); }
+	} finally { source.dispose(); }
+});
 
 test('MP4 and WebM sessions receive their dedicated video/audio profiles and exact metadata', async () => {
 	for (const profile of [

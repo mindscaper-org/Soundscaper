@@ -32,13 +32,16 @@ export function useLocalAssistanceTaskExecution(
 	const [error, setError] = useState<string | null>(null);
 	const [batchSnapshot, setBatchSnapshot] = useState<LocalAssistanceGuidedSnapshot | null>(null);
 	const taskSnapshot = batchSnapshot ?? guided;
-	const direct = workflowId !== null && localAssistanceTaskAppliesDirectly(workflowId);
+	const appliesDirectly = workflowId !== null && localAssistanceTaskAppliesDirectly(workflowId);
+	const needsSettings = guided.settings !== null && assistanceTaskHasControls(guided.settings, inventory.models);
+	const direct = appliesDirectly && (!needsSettings || started.current);
 	useEffect(() => {
 		alive.current = true;
 		return () => { alive.current = false; cancellation.current?.abort(); };
 	}, []);
 	const run = useCallback(async (): Promise<void> => {
 		if (!workflowId) return store.run();
+		started.current = true;
 		const controller = new AbortController();
 		cancellation.current = controller;
 		try {

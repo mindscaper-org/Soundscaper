@@ -127,7 +127,7 @@ function createLabels(
 	trackId: string,
 ): readonly DataRecord[] {
 	const outputFrames = Number(scaleSampleFrame(
-		authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
 		authority.sampleRate,
 		REVIEW_SAMPLE_RATE,
 		'point',

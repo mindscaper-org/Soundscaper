@@ -53,6 +53,7 @@ const DELIVERY_QUEUE_COPY_ENTRIES = Object.freeze([
 		'{delivered} delivered, {failed} failed, {cancelled} cancelled, {notStarted} not started.',
 	],
 	['deliveryTargetNoSelection', 'Make a selection to deliver it.'],
+	['deliveryTargetNoMaterial', 'Add media to the timeline before queueing a delivery.'],
 	['deliveryTargetNoLoop', 'Enable the loop to deliver it.'],
 	[
 		'deliveryTargetSequenceUndeliverable',

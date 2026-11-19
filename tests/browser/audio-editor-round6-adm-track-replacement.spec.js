@@ -7,7 +7,7 @@ import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('a normal channel split keeps the surviving track ADM assignment', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const track = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 	const trackId = await track.getAttribute('data-track-id');

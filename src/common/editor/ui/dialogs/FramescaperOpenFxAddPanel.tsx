@@ -20,6 +20,7 @@ import {
 	type FramescaperOpenFxAuthoringModelNativeMedia,
 	type FramescaperOpenFxAuthoringRequestNativeMedia,
 } from '../../../../framescaper/editor-native-openfx-authoring-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface FramescaperOpenFxFormState {
 	readonly pluginHandle: string;
@@ -125,20 +126,20 @@ function CompatibleFramescaperOpenFxAddForm({ model, onAuthor, copy }: Required<
 	return <form onSubmit={submit} data-framescaper-openfx-add-form="true">
 		<p role={error ? 'alert' : 'status'} aria-live="polite">{error || (status === 'working'
 			? copy.ofxAuthoring : status === 'complete' ? copy.ofxAdded : '')}</p>
-		<label>{copy.ofxPlugin}
+		<label><EditorControlLabel>{copy.ofxPlugin}</EditorControlLabel>
 			<select value={state.pluginHandle} disabled={status === 'working'}
 				onChange={(event) => selectPlugin(event.currentTarget.value)}>
 				{model.plugins.map((candidate) => <option key={candidate.pluginHandle}
 					value={candidate.pluginHandle}>{pluginLabel(candidate)}</option>)}
 			</select>
 		</label>
-		<label>{copy.ofxContext}
+		<label><EditorControlLabel>{copy.ofxContext}</EditorControlLabel>
 			<select value={state.context} disabled={status === 'working'}
 				onChange={(event) => selectContext(event.currentTarget.value)}>
 				{contexts.map((context) => <option key={context} value={context}>{context}</option>)}
 			</select>
 		</label>
-		<label>{copy.ofxProjectTarget}
+		<label><EditorControlLabel>{copy.ofxProjectTarget}</EditorControlLabel>
 			<select value={state.targetId} disabled={status === 'working'}
 				onChange={(event) => setState((current) => ({
 					...current, targetId: event.currentTarget.value,
@@ -198,20 +199,20 @@ const ParameterControl = memo(function ParameterControl({
 			: parameter.type === 'pushbutton' ? <button type="button">{parameter.name}</button>
 				: parameter.type === 'boolean' ? <label>
 					<input type="checkbox" checked={value === true}
-						onChange={(event) => onValue(parameter.name, event.currentTarget.checked)} /> {parameter.name}
+						onChange={(event) => onValue(parameter.name, event.currentTarget.checked)} /> <EditorControlLabel>{parameter.name}</EditorControlLabel>
 				</label>
-					: textParameter(parameter.type) ? <label>{parameter.name}
+					: textParameter(parameter.type) ? <label><EditorControlLabel>{parameter.name}</EditorControlLabel>
 						<input type="text" value={String(value)}
 							onChange={(event) => onValue(parameter.name, event.currentTarget.value)} />
 					</label>
-						: <label>{template(copy.ofxParameterJson, parameter)}
+						: <label><EditorControlLabel>{template(copy.ofxParameterJson, parameter)}</EditorControlLabel>
 							<textarea value={String(value)}
 								onChange={(event) => onValue(parameter.name, event.currentTarget.value)} />
 						</label>}
-		{parameter.animates && <label>{template(copy.ofxKeyframesJson, parameter)}
+		{parameter.animates && <label><EditorControlLabel>{template(copy.ofxKeyframesJson, parameter)}</EditorControlLabel>
 			<textarea value={keyframes} onChange={(event) => onKeyframes(parameter.name, event.currentTarget.value)} />
 		</label>}
-		{parameter.type === 'custom' && <label>{template(copy.ofxCustomEncoding, parameter)}
+		{parameter.type === 'custom' && <label><EditorControlLabel>{template(copy.ofxCustomEncoding, parameter)}</EditorControlLabel>
 			<textarea value={customEncoding}
 				onChange={(event) => onCustomEncoding(parameter.name, event.currentTarget.value)} />
 		</label>}

@@ -169,6 +169,7 @@ export interface RecordingEnginePort {
 }
 
 export interface RecordingCaptureMutableState {
+	readonly recordingKind?: 'ordinary' | 'sound-activated' | 'take-cycle' | null;
 	readonly readOnly: boolean;
 	recordingStarting: boolean;
 	recordingStartGeneration: number;
@@ -194,6 +195,7 @@ export interface RecordingCaptureMutableState {
 	monitoring: boolean;
 	recordingInputGain: number;
 	leadInRecording: boolean;
+	leadInDurationSeconds?: number | null;
 	inputMeterDb: number;
 	inputMeters: Record<string, number>;
 	inputMeter: unknown;
@@ -270,6 +272,7 @@ export interface RecordingCaptureMessages {
 }
 
 export interface RecordingCaptureCommonRuntime {
+	readonly rememberPunch?: (startFrame: number, selection: RecordingSelection | null, trackIds: readonly string[]) => void;
 	readonly state: RecordingCaptureMutableState;
 	readonly engine: RecordingEnginePort;
 	readonly capturePool: RecordingCapturePool;

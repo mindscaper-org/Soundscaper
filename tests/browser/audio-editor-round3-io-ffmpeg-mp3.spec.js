@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('an ordinary FFmpeg MP3 import preserves the recording length instead of its encoder padding', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const bytes = Buffer.from(readFileSync(new URL('../fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8'), 'base64');
 	await importFiles(editor, [{ name: 'one-second-ffmpeg.mp3', mimeType: 'audio/mpeg', buffer: bytes }]);
 	await expect(editor).toHaveAttribute('data-clip-count', '1');

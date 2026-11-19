@@ -135,7 +135,7 @@ export function createEditorVideoExportAction(
 			const admittedFallbacks = await admitVideoRenderedFallbackExport(canonicalProject, delivery, {
 				store, verifyProjectFallbackIntegrity,
 			}, { signal: abort.signal, assertCurrent: assertVideoExportCurrent });
-			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' }>;
+			const descriptor = getVideoExportFormat(formatValue) as Readonly<{ id: 'mp4' | 'webm' | 'mov' }>;
 			const format = descriptor.id;
 			const includeAudio = requestedSettings.includeAudio !== false
 				&& exportProject.clips.some((clip: RuntimeValue) => clip.kind === 'audio');
@@ -259,7 +259,8 @@ export function createEditorVideoExportAction(
 			}
 			const rawVideoBytes = [...videoBlobs.values()]
 				.reduce((total, blob) => total + blob.size, 0);
-			await preflightStorage(Math.max(rawVideoBytes, 16 * 1024 * 1024), 'export');
+			await preflightStorage(Math.max(rawVideoBytes, 16 * 1024 * 1024), 'export', abort.signal);
+			assertVideoExportCurrent();
 			setLocalizedStatus(setStatus, copy, "rendering");
 			progressTask.setPhase(copy.rendering, { start: 0, end: 0.4, value: 0 }, { key: 'rendering' });
 			let audioMixBlob = null;

@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { formatLocalizedTemplate } from '../localization-template.ts';
-
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Button } from '@soundscaper/design-system/Button';
-import { Checkbox } from '@soundscaper/design-system/Checkbox';
 import { MacroNameInput } from './MacroNameInput.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The editor for a macro written as a program.
@@ -27,12 +24,7 @@ export default function MacroScriptEditor({
 	running,
 	completed = false,
 	cancelled = false,
-	blocked,
 	onChange,
-	onRun,
-	onCancel,
-	onTrust,
-	runnable = true,
 }) {
 	const sourceRef = useRef(null);
 	const pendingSelectionRef = useRef(null);
@@ -40,8 +32,6 @@ export default function MacroScriptEditor({
 	const nameCancelledRef = useRef(false);
 	const [nameDraft, setNameDraft] = useState(script.name || '');
 	const [tabEscapes, setTabEscapes] = useState(false);
-	const [reviewedSource, setReviewedSource] = useState(null);
-	const reviewed = reviewedSource === script.source;
 	useLayoutEffect(() => {
 		const pending = pendingSelectionRef.current;
 		pendingSelectionRef.current = null;
@@ -104,7 +94,7 @@ export default function MacroScriptEditor({
 				}
 				event.target.blur();
 			}}>
-				<span>{copy.programName}</span>
+				<EditorControlLabel>{copy.programName}</EditorControlLabel>
 				<MacroNameInput
 					value={nameDraft}
 					onCommit={commitName}
@@ -114,7 +104,7 @@ export default function MacroScriptEditor({
 				/>
 			</label>
 			<label className="audio-editor-field audio-editor-macro-script__source">
-				<span>{copy.program}</span>
+				<EditorControlLabel>{copy.program}</EditorControlLabel>
 				<textarea
 					ref={sourceRef}
 					rows={14}
@@ -148,40 +138,6 @@ export default function MacroScriptEditor({
 					// A log is append-only within a run, so its position is its identity.
 					<p key={`${index}:${entry.at}`} data-macro-script-log-level={entry.level}>{entry.text}</p>
 				))}
-			</div>
-			{!runnable && (
-				// The gate sits directly under the program it is about, so the text
-				// being vouched for is the text on screen rather than a summary of it.
-				<section className="audio-editor-macro-script__review" data-macro-script-review>
-					<h4>{copy.reviewHeading}</h4>
-					<p className="audio-editor-panel-hint">
-						{script.origin
-							? formatLocalizedTemplate(copy.reviewOrigin, { origin: script.origin })
-							: copy.reviewUnknownOrigin}
-					</p>
-					<p className="audio-editor-panel-hint">{copy.reviewRisk}</p>
-					<div
-						className="audio-editor-macro-script__review-acknowledge"
-						onClick={(event) => {
-							if (event.target.closest('[role="checkbox"]')) return;
-							setReviewedSource((current) => current === script.source ? null : script.source);
-							}}
-					>
-						<Checkbox
-							checked={reviewed}
-							onChange={(checked) => setReviewedSource(checked ? script.source : null)}
-							aria-label={copy.reviewAcknowledge}
-						/>
-						<span aria-hidden="true">{copy.reviewAcknowledge}</span>
-					</div>
-				</section>
-			)}
-			<div className="audio-editor-macro-script__actions">
-				{running
-					? <Button variant="secondary" onClick={onCancel}>{copy.cancelRun}</Button>
-					: runnable
-						? <Button variant="primary" disabled={blocked || !String(script.source || '').trim()} onClick={onRun}>{copy.runProgram}</Button>
-						: <Button variant="primary" disabled={!reviewed} onClick={onTrust}>{copy.enableProgram}</Button>}
 			</div>
 		</section>
 	);

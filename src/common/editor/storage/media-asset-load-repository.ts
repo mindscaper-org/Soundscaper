@@ -11,6 +11,10 @@ import { cloneStorageValue as clone } from './storage-clone.ts';
 const MISSING_MEDIA_MESSAGE = 'The requested local media asset is missing.';
 const throwIfAborted = createAbortGuard('Media storage was cancelled.');
 
+export function isMissingMediaAssetError(error: unknown): boolean {
+	return error instanceof Error && (error.message === MISSING_MEDIA_MESSAGE || error.name === 'NotFoundError');
+}
+
 export interface MediaAssetLoadOptions {
 	readonly signal?: AbortSignal;
 	/** Refuse a different stored size before opening or assembling the body. */

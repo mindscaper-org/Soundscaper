@@ -2,8 +2,9 @@
 
 import { clipSourceStretchMemory, clipSourceStretchExtensions } from './clip-source-stretch-memory.ts';
 import { normalizeAudioWarpMap, evaluateAudioWarpMapAtSource, type AudioWarpMap } from './audio-warp-domain.ts';
-import { audioWarpOuterAtTimelineFrame } from './audio-warp-runtime-authority.ts';
+import { audioWarpOuterAtTimelineFrame, isMusicalAudioWarpClip } from './audio-warp-runtime-authority.ts';
 import { type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from './clip-source-timing.ts';
+import { addRationals, multiplyDivideRationals, multiplyRationals, subtractRationals, type Rational } from './timeline-time.ts';
 
 export interface ClipSourceTrim {
 	readonly sourceStartFrame: number;
@@ -32,22 +33,34 @@ export function clipSourceTrimFields(project: ClipSourceTimingProject, clip: Cli
 	};
 	if (clip.warpMap == null) return fields;
 	const map = clipSourceStretchMemory(project, clip, source)!;
-	const displayAtSource = (frame: number) => {
-		const outer = evaluateAudioWarpMapAtSource(map, frame);
-		return outer.num / outer.den;
-	};
-	const displayStart = displayAtSource(changes.sourceStartFrame);
-	const displayEnd = displayAtSource(end);
+	const startOuter = evaluateAudioWarpMapAtSource(map, changes.sourceStartFrame);
+	const endOuter = evaluateAudioWarpMapAtSource(map, end);
 	const sourcePoints = [
-		{ source: { num: changes.sourceStartFrame, den: 1 } },
+		{ source: { num: changes.sourceStartFrame, den: 1 }, outer: startOuter },
 		...map.points.filter((point) => point.source.num / point.source.den > changes.sourceStartFrame && point.source.num / point.source.den < end),
-		{ source: { num: end, den: 1 } },
+		{ source: { num: end, den: 1 }, outer: endOuter },
 	];
-	const points = sourcePoints.map((point, index) => {
-		const progress = index === 0 ? 0 : index === sourcePoints.length - 1 ? 1
-			: (displayAtSource(point.source.num / point.source.den) - displayStart) / (displayEnd - displayStart);
-		const localFrame = Math.round(progress * changes.durationFrames);
-		return { source: point.source, outer: audioWarpOuterAtTimelineFrame(project, clip, clip.timelineStartFrame + localFrame), mode: 'forward' as const };
-	});
+	const displayStart = startOuter.num / startOuter.den;
+	const displayDuration = endOuter.num / endOuter.den - displayStart;
+	const roundedFrames = sourcePoints.map(({ outer }, index) => index === 0 ? 0 : index === sourcePoints.length - 1
+		? changes.durationFrames : Math.round((outer.num / outer.den - displayStart) / displayDuration * changes.durationFrames));
+	// A short trim can leave several anchors in one output sample. The map can
+	// retain fractions of a sample even though its clip extent uses whole samples.
+	const coincident = roundedFrames.some((frame, index) => index > 0 && frame <= roundedFrames[index - 1]!);
+	const points = sourcePoints.map(({ source, outer }, index) => ({ source, mode: 'forward' as const,
+		outer: coincident ? subSampleOuter(project, clip, multiplyDivideRationals(
+			subtractRationals(outer, startOuter), changes.durationFrames, subtractRationals(endOuter, startOuter),
+		)) : audioWarpOuterAtTimelineFrame(project, clip, clip.timelineStartFrame + roundedFrames[index]!),
+	}));
 	return { ...fields, warpMap: normalizeAudioWarpMap({ feature: 'audio-warp', points }), opaqueExtensions: clipSourceStretchExtensions(clip, source, map) };
+}
+
+function subSampleOuter(project: ClipSourceTimingProject, clip: ClipSourceTimingClip, frame: Rational): Rational {
+	if (!isMusicalAudioWarpClip(clip)) return frame;
+	const whole = Math.floor(frame.num / frame.den);
+	const position = clip.timelineStartFrame + whole;
+	const lower = audioWarpOuterAtTimelineFrame(project, clip, position);
+	if (frame.den === 1) return lower;
+	const upper = audioWarpOuterAtTimelineFrame(project, clip, position + 1);
+	return addRationals(lower, multiplyRationals(subtractRationals(upper, lower), subtractRationals(frame, whole)));
 }

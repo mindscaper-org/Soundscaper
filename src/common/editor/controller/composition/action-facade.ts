@@ -11,13 +11,17 @@ import {
 	createRecordingPreferenceActionFacade,
 } from '../recording/recording-action-facade.ts';
 import { createClipSpreadsheetAction } from './internal/clip-spreadsheet-action.ts';
+import { createDeferredTranscriptEditingActions } from './transcript-editing-actions.ts';
 import { createAuditionOutputActions } from './internal/audition-output-actions.ts';
 import { createMidiActionGroup } from './midi-action-group.ts';
+import { createInterchangeFileImport } from './internal/interchange-file-import.ts';
 import { createMidiPendingAnalysisActions, createMidiPendingSnapshotAdmission } from './internal/midi-controller-port.ts';
 import { createMixerParameterActions } from './internal/mixer-parameter-actions.ts';
 import { createProjectOwnedFeatureActionFacades } from './internal/project-owned-feature-action-facades.ts';
 import { createTimelineAnnotationActionFacade } from '../document/timeline-annotation-action-facade.ts';
 import { createRecordingNotesActionFacade } from '../document/recording-notes-action-facade.ts';
+import { createSessionSnapshotActionFacade } from '../document/session-snapshot-action-facade.ts';
+import { createTrackPlaylistActionFacade } from '../track-audio/track-playlist-action-facade.ts';
 import { createVideoActionGroup } from '../clip-video/video-action-group.ts';
 import { snapshotProductActionExtensions } from './internal/product-action-extensions.ts';
 import { createExportActionGroup } from '../export/export-action-group.ts';
@@ -53,7 +57,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	pasteClipSpreadsheet, inspectScape, labels, listProjects, makeStereoTrack,
 	materializeFreesoundUploadClip, publishBlenderTracks, mixAndRenderTracks, moveClips, moveClipsToNewTrack, moveTrack, newProject,
 	normalizePlaybackFrame, openAudacityProject, openAup4, openProject, openScape, openScapeFile, overwriteClips,
-	openDawproject, openSesx, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
+	openDawproject, openSesx, openInterchange, saveDawproject, pasteEffectStack, pauseLoudnessMeasurement,
 	prepareProjectHandoff,
 	prepareAudacityEffectFromController, previewAudacityEffectFromController,
 	previewParametricEq, previewRackEffect, product, getProject,
@@ -75,7 +79,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 	toggleRulerPlayback, toggleSelectionFollowsLoop, toggleStretchToTempo, toggleScrollViewToPlayhead,
 	toggleVerticalRulers, trimClips, updateRackEffect, updateZoom, sequenceTimingService,
 	timelineAnnotationService, regularIntervalAnnotationController, trackFolderService, trackStructuralOperations,
-	audioWarpService, takeCompService, videoNavigationService,
+	audioWarpService, dialogueAlignmentService, takeCompService, videoNavigationService,
 	} = scope;
 	const restricted = <Args extends unknown[], Result>(capability: string, action: (...args: Args) => Result) => (...args: Args): Result => {
 		if (!capabilities[capability]) {
@@ -109,7 +113,8 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 		captureTarget: () => JSON.stringify([clipboardSelection(), scope.readSourceSelection()]),
 		active: () => state.phase !== 'disposing' && state.phase !== 'disposed' });
 	const handleEdit: typeof handleImmediateEdit = (action, options) => {
-		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut'].includes(action)
+		if (action.startsWith('folder-')) options = { ...options, folderId: options?.folderId ?? trackFolderService.selectedFolderId() ?? undefined };
+		if (!midi.hasPendingEdits() || !['copy', 'duplicate', 'labeled-copy', 'labeled-cut', 'labeled-split-cut', 'folder-ripple-cut'].includes(action)
 			&& action !== 'cut' && !action.startsWith('cut-')) return handleImmediateEdit(action, options);
 		const selection = clipboardSelection();
 		return midi.settled().then(() => {
@@ -146,7 +151,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			openRecent: storedProjectOpenActions.openRecent,
 			clearRecent: clearRecentProjects,
 			openAudacityProject,
-			openAup4, openDawproject, openSesx, saveDawproject: afterMidiEdits(saveDawproject),
+			openAup4, openDawproject, openSesx, openInterchange, saveDawproject: afterMidiEdits(saveDawproject),
 			openScape,
 			openScapeFile,
 			inspectScape,
@@ -169,7 +174,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			duplicate: afterMidiEdits(duplicateProject),
 			remove: deleteProject,
 			clear: clearLocalData,
-			importFiles: midi.importFiles,
+			importFiles: createInterchangeFileImport(midi.importFiles, openInterchange),
 			cancelTask: () => scope.taskProgress?.cancelActive() ?? false,
 			setTempo: (bpm: number) => commit({ type: 'tempo/set', bpm }),
 			setTimeSignature: (numerator: number, denominator: number) => commit({ type: 'tempo/set', numerator, denominator }),
@@ -193,8 +198,15 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			setTimeDisplay: (format: AudioEditorCommandPayloads['time-display/set']['format']) => commit({ type: 'time-display/set', format }),
 		}),
 		projectBin,
+		transcript: createDeferredTranscriptEditingActions(scope),
 		video: createVideoActionGroup(scope, restricted),
 		edit: Object.freeze({
+			folderSelect: () => handleEdit('folder-select'),
+			folderSplit: () => handleEdit('folder-split'),
+			folderDelete: () => handleEdit('folder-delete'),
+			folderRippleCut: () => handleEdit('folder-ripple-cut'),
+			folderRippleDelete: () => handleEdit('folder-ripple-delete'),
+			folderRippleInsert: () => handleEdit('folder-ripple-insert'),
 			execute: handleEdit,
 			commit: (...args: Parameters<typeof commit>) => {
 				if (!args[0]) return commit(...args);
@@ -209,7 +221,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			pasteOverlap: () => handleEdit('paste-overlap'),
 			pasteInsert: () => handleEdit('paste-insert'),
 			pasteAllTracksRipple: () => handleEdit('paste-all-tracks-ripple'),
-			split: () => handleEdit('split'),
+			split: (clipId?: string) => handleEdit('split', { clipId }),
 			splitAt: splitAtFrame,
 			splitIntoNewTrack: () => handleEdit('split-new-track'),
 			join: () => handleEdit('join'),
@@ -354,7 +366,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			select: restricted('trackFolders', (...args: Parameters<typeof trackFolderService.selectFolder>) => trackFolderService.selectFolder(...args)),
 			selectedFolderId: (...args: Parameters<typeof trackFolderService.selectedFolderId>) => trackFolderService.selectedFolderId(...args),
 		}),
-		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, takeCompService }),
+		...createProjectOwnedFeatureActionFacades({ capabilities, product, audioWarpService, dialogueAlignmentService, takeCompService }),
 		sampleEdit: Object.freeze({
 			setMode: restricted('audioSampleEditing', setSampleEditMode),
 			pencil: restricted('audioSampleEditing', applySamplePencil),
@@ -429,6 +441,12 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			update: (changes: Readonly<Record<string, unknown>>) => commit({ type: 'metadata/update', changes }),
 		}),
 		recordingNotes: createRecordingNotesActionFacade({ getProject, commit }),
+		trackPlaylists: createTrackPlaylistActionFacade({ getProject, commit, createId: createStableId,
+			prepare: afterMidiEdits(() => undefined), assertActive: () => scope.assertActive?.(),
+			captureGeneration: scope.captureProjectGeneration, assertGeneration: scope.assertProjectGeneration }),
+		sessionSnapshots: createSessionSnapshotActionFacade({ getProject, commit, createId: createStableId,
+			prepare: afterMidiEdits(() => flushProject({ prepareCurrentSnapshot: true })), save: saveNow,
+			assertActive: () => scope.assertActive?.(), captureGeneration: scope.captureProjectGeneration, assertGeneration: scope.assertProjectGeneration }),
 		preferences: createPreferenceActionGroup(scope, recordingPreferences),
 		clipSourcePreview: Object.freeze({ ...scope.clipSourcePreviewService }),
 		clip: Object.freeze({
@@ -455,6 +473,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			materializeFreesoundUpload: materializeFreesoundUploadClip,
 		}),
 		effects: Object.freeze({
+			reduceMicrophoneBleed: restricted('audioEffects', scope.reduceMicrophoneBleed),
 			setSourceSelection: scope.setSourceSelection, readSourceSelection: scope.readSourceSelection, readSourceSelectionDuration: scope.readSourceSelectionDuration, readSourceSelectionSampleRate: scope.readSourceSelectionSampleRate, loadSourceAudio: scope.loadSourceAudio, loadSourceAudioWindow: scope.loadSourceAudioWindow, readSelectionTargetLocked: scope.readSelectionTargetLocked,
 			add: restricted('audioEffects', addEffect),
 			update: restricted('audioEffects', updateRackEffect),
@@ -500,7 +519,7 @@ export function createGroupedEditorActions(scope: EditorActionRuntime) {
 			active: () => state.phase !== 'disposing' && state.phase !== 'disposed',
 		}, action => restricted('audioAnalysis', action)),
 		export: Object.freeze({ ...exportActions, exportEdl: afterMidiEdits(exportActions.exportEdl),
-			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml) }),
+			exportOtio: afterMidiEdits(exportActions.exportOtio), exportFcpxml: afterMidiEdits(exportActions.exportFcpxml), exportOmf: afterMidiEdits(exportActions.exportOmf), exportAdl: afterMidiEdits(exportActions.exportAdl), exportAaf: afterMidiEdits(exportActions.exportAaf) }),
 		media: createProjectMediaActionGroup({
 			state, getProject, store, publishDocumentSnapshot, setStatus, copy, fileService, ffmpeg, commit, saveScape: () => Promise.resolve(saveCurrentScape()),
 		}),

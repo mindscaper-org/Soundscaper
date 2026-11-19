@@ -30,7 +30,7 @@ test('a clip move keeps the old audio playing until replacement readiness and su
 		};
 	});
 	const errors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [halfMinuteTone]);
 	const clip = clipByName(editor, halfMinuteTone.name);
 	await clip.press('Enter');

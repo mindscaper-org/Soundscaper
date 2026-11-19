@@ -27,20 +27,35 @@ import {
 } from './e2e-coverage-contract.mjs';
 import { validateCoverageFileRecords } from './e2e-coverage-integrity.mjs';
 import { validateE2ERawV8Topology } from './e2e-v8-topology.mjs';
+import { COVERAGE_TEST_LAYERS, resolveCoverageTestLayers } from './e2e-coverage-layer-policy.mjs';
+import { validateQualifiedNodeEvidence } from './e2e-coverage-node-gate.mjs';
+import { readQualifiedNodeEvidenceIndex } from './e2e-coverage-node-transport.mjs';
+import { validateNativeSourceWitnesses } from './e2e-native-source-witness.mjs';
 
 export function runE2ECoverageGate({
 	repositoryRoot,
 	artifactRoot,
 	reportRoot,
 	configuration = E2E_COVERAGE_CONFIGURATION,
+	layerPolicy = COVERAGE_TEST_LAYERS,
 	expectedRevision = repositoryRevision(repositoryRoot),
 }) {
 	const inventory = parseE2EInventory(readJson(join(artifactRoot, 'inventory.json')), configuration);
 	const surfaceManifests = {};
 	const coverageBySurface = {};
 	const evidenceFailures = validateE2EInventoryFiles(inventory, repositoryRoot, artifactRoot);
+	const layers = resolveCoverageTestLayers({ policy: layerPolicy, inventory });
+	let nodeEvidenceRoots = [];
+	try {
+		const locator = join(artifactRoot, 'node-evidence.json');
+		nodeEvidenceRoots = readQualifiedNodeEvidenceIndex({ root: artifactRoot, locator: existsSync(locator) ? readJson(locator) : undefined });
+	} catch (error) { evidenceFailures.push(`Node evidence transport: ${errorMessage(error)}`); }
+	const nodeCoverage = validateQualifiedNodeEvidence({ repositoryRoot, inventory, policy: layerPolicy,
+		evidenceRoots: nodeEvidenceRoots, reportRoot: join(reportRoot, 'qualified-node'), expectedRevision });
+	evidenceFailures.push(...nodeCoverage.failures);
 	const observedCoverageUrls = [];
 	const v8SurfacesToMaterialize = [];
+	let nativeProfiles = [];
 	let coverageUnion;
 	for (const { id } of configuration.requiredSurfaces) {
 		const surfaceDirectory = join(artifactRoot, 'surfaces', id);
@@ -78,14 +93,19 @@ export function runE2ECoverageGate({
 				reportDirectory: join(reportRoot, 'v8-union'),
 				surfaces: v8SurfacesToMaterialize,
 				inventory,
+				qualifiedNodeSources: nodeCoverage.qualifiedSources,
 			});
 			evidenceFailures.push(...materialized.failures);
 			observedCoverageUrls.push(...materialized.observedCoverageUrls);
 			coverageUnion = materialized.coverage;
+			nativeProfiles = materialized.profiles;
 		} catch (error) {
 			evidenceFailures.push(`V8 coverage union could not be materialized: ${errorMessage(error)}`);
 		}
 	}
+	const witnesses = validateNativeSourceWitnesses({ repositoryRoot, artifactRoot,
+		profiles: nativeProfiles, scripts: inventory.scripts, nodeSources: layers.nodeSources });
+	evidenceFailures.push(...witnesses.failures);
 	const v8Surfaces = new Set(configuration.requiredSurfaces
 		.filter(({ coverageFormat }) => coverageFormat === 'v8')
 		.map(({ id }) => id));
@@ -93,14 +113,16 @@ export function runE2ECoverageGate({
 		observedCoverageUrls,
 		inventory.scripts.filter(({ surface }) => v8Surfaces.has(surface)),
 	));
-	const analysis = analyzeE2ECoverage({
+	const analysis = { ...analyzeE2ECoverage({
 		configuration,
 		inventory,
 		surfaceManifests,
 		coverageBySurface,
 		coverageUnion,
 		expectedRevision,
-	});
+		qualifiedNodeSources: nodeCoverage.qualifiedSources,
+	}), nodeCoverage: { metrics: nodeCoverage.metrics, files: nodeCoverage.files,
+		sources: [...nodeCoverage.qualifiedSources], sourceFunctions: nodeCoverage.sourceFunctions, policyDigest: layers.policyDigest } };
 	analysis.failures.unshift(...evidenceFailures);
 	process.stdout.write(formatE2ECoverageResult(analysis));
 	if (analysis.failures.length > 0) process.stderr.write(`${analysis.failures.join('\n')}\n`);
@@ -114,6 +136,7 @@ export function materializeV8SurfaceCoverage({
 	reportDirectory,
 	manifest,
 	inventory,
+	qualifiedNodeSources = new Set(),
 }) {
 	return materializeV8CoverageUnion({
 		repositoryRoot,
@@ -121,6 +144,7 @@ export function materializeV8SurfaceCoverage({
 		reportDirectory,
 		surfaces: [{ surfaceDirectory, manifest }],
 		inventory,
+		qualifiedNodeSources,
 	});
 }
 
@@ -130,6 +154,7 @@ export function materializeV8CoverageUnion({
 	reportDirectory,
 	surfaces,
 	inventory,
+	qualifiedNodeSources = new Set(),
 }) {
 	if (!Array.isArray(surfaces) || surfaces.length === 0) {
 		throw new TypeError('The raw V8 union needs at least one coverage surface.');
@@ -160,11 +185,12 @@ export function materializeV8CoverageUnion({
 		if (surfaceFailures.length > 0) continue;
 		collected.push(...profiles.map((profile) => ({ ...profile, surface: manifest.surface })));
 	}
-	if (collected.length === 0) return { coverage: {}, failures, observedCoverageUrls };
+	if (collected.length === 0) return { coverage: {}, failures, observedCoverageUrls, profiles: [] };
 	failures.push(...validateE2ERawV8Topology({
 		artifactRoot,
 		profiles: collected.map(({ profile }) => profile),
 		scripts: inventory.scripts,
+		qualifiedNodeSources,
 	}));
 	const rebasedDirectory = join(reportDirectory, 'v8-rebased');
 	rmSync(rebasedDirectory, { recursive: true, force: true });
@@ -205,7 +231,7 @@ export function materializeV8CoverageUnion({
 		repositoryRoot,
 		artifactRoot,
 	);
-	return { coverage, failures, observedCoverageUrls };
+	return { coverage, failures, observedCoverageUrls, profiles: collected };
 }
 
 export function rebasePortableV8Profile(profile, inventory, repositoryRoot, artifactRoot) {

@@ -21,6 +21,7 @@ import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
 import { clipPropertiesFrameRate } from './clip-time-code-clock.ts';
 import ClipResampleDialog from './ClipResampleDialog.jsx';
 import { VideoEffectRack } from './VideoEffectRack.jsx';
+import ClipEffectRack from './ClipEffectRack.tsx';
 import VideoSourcePropertiesSection from './VideoSourcePropertiesSection.jsx';
 import {
 	clipPitchInUnit,
@@ -30,6 +31,7 @@ import {
 	linearToDb,
 	nonNegativeFrame,
 } from './inspector-helpers.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 /**
  * The title a rename should commit, or null when the field was left alone.
@@ -271,6 +273,7 @@ export default function ClipPropertiesBody({ controller, snapshot, copy, clipId 
 					</div>}
 				</ClipPropertiesDrawer>}
 				{isVideoClip && snapshot.capabilities?.videoEffects && <VideoEffectRack clip={clip} controller={controller} copy={copy} disabled={disabled} onError={message => { if (message) reportError(message); else setError(''); }} />}
+				{clip && !isVideoClip && snapshot.capabilities?.audioEffects && <ClipEffectRack key={clip.id} controller={controller} snapshot={snapshot} clipId={clip.id} copy={copy} disabled={disabled} />}
 			</div>
 			{resampleOpen && clip && source && (
 				<ClipResampleDialog
@@ -309,7 +312,7 @@ function ClipPropertiesDrawer({ name, label, initiallyOpen = false, children }) 
  */
 function ClipSourceFactRow({ name, label, value, action = null }) {
 	return <div className="audio-editor-field" data-clip-source-fact={name}>
-		<span>{label}</span>
+		<EditorControlLabel>{label}</EditorControlLabel>
 		<div className="audio-editor-field__value-row">
 			<span className="audio-editor-field__value">{value}</span>
 			{action}
@@ -322,7 +325,7 @@ function ClipTimeCodeField({ name, label, value, sampleRate, frameRate, minimum 
 	const input = <AudioEditorTimeCodeInput label={label} value={value} unit="samples" rate={sampleRate} frameRate={frameRate}
 			format="hh:mm:ss+milliseconds" minimum={minimum} maximum={maximum}
 			disabled={disabled} onCommit={onCommit} />;
-	return <label className="audio-editor-field" data-clip-field={name}><span>{label}</span>
+	return <label className="audio-editor-field" data-clip-field={name}><EditorControlLabel>{label}</EditorControlLabel>
 		{musicalOriginFrame === undefined ? input : <EditorMusicalTimeCodeProvider controller={controller} originFrame={musicalOriginFrame}>
 			{input}
 		</EditorMusicalTimeCodeProvider>}

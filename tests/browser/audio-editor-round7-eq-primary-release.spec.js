@@ -8,7 +8,7 @@ for (const name of ['Graphic EQ', 'Filter Curve EQ']) {
 	test(`${name} completes its curve at primary release while middle remains held`, async ({ page }) => {
 		const errors = collectClientErrors(page);
 		const recording = createWavFixture({ name: `${name} release recording.wav`, frequency: 1000, duration: 1 });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [recording]);
 		const open = async () => {
 			await chooseCommandAction(page, editor, 'Select', 'Select all');

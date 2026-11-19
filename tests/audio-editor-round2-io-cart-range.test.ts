@@ -40,3 +40,12 @@ test('each broadcast chapter carries only its own rebased CART cues into the wri
 		{ usage: 'SEC1', value: 24_000 }, { usage: 'EOD ', value: 72_000 },
 	]);
 });
+
+test('a CART cue on a selection end lands on the last output boundary after resampling', () => {
+	const project = createCurrentAudioEditorProject({ sampleRate: 48_000, metadata: { cart: {
+		postTimers: [{ usage: 'INT ', value: 24_000 }, { usage: 'EOD ', value: 24_001 }],
+	} } });
+	const plan = createExportPlan(project, { format: 'bwf', sampleRate: 16_000, range: { startFrame: 24_000, endFrame: 24_001 } });
+	assert.equal(plan.outputFrames, 1);
+	assert.deepEqual(plan.cart?.postTimers, [{ usage: 'INT ', value: 0 }, { usage: 'EOD ', value: 1 }]);
+});

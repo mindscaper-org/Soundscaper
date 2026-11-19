@@ -3,14 +3,15 @@
 import { currentAuthority, ownedPlanAuthority, executableFoundation, captureFramescaperExportSnapshot, currentFramescaperEncodeRequestV16, framescaperResourceExportNeedsV16, type ExportAuthorityFinishing } from './video-export-resource-carrier-v16.ts';
 import { createFramescaperVideoExportExactExecutionV16, type CreateFramescaperOpenFxExactExecutionV16, type CreateFramescaperSupplementalPictureExecutionV16 } from './video-export-exact-execution-v16.ts';
 import type { FramescaperVideoExportPictureDispositionV16 } from './video-export-visual-execution-v16.ts';
+import { planFramescaperVideoExportCaptions } from './video-export-caption-plan.ts';
 import { compareCodeUnits } from '../common/editor/code-unit-order.ts';
 import type { FfmpegOutputSink } from '../common/editor/ffmpeg-output-stream.ts';
-import {
+import type {
 	encodeVideoKeyframeVideo,
-	encodeVideoKeyframeVideoToSink,
-	type VideoKeyframeVideoEncoderRequest,
-	type VideoKeyframeVideoEncoderResult,
-	type VideoKeyframeVideoSinkEncoderResult,
+	VideoKeyframeVideoEditorFfmpeg,
+	VideoKeyframeVideoEncoderRequest,
+	VideoKeyframeVideoEncoderResult,
+	VideoKeyframeVideoSinkEncoderResult,
 } from '../common/editor/video-keyframe-video-encoder.ts';
 import { createVisibleVideoTrackPredicate } from '../common/editor/video-track-visibility.js';
 import type {
@@ -92,8 +93,15 @@ export interface FramescaperVideoExportCurrentCompanionsV16 {
 }
 
 const DEFAULT_PICTURE_ENCODERS = Object.freeze({
-	encodePicture: encodeVideoKeyframeVideo,
-	encodePictureToSink: encodeVideoKeyframeVideoToSink as PictureSinkEncoderFinishing,
+	async encodePicture(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined, request: VideoKeyframeVideoEncoderRequest) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideo(editorFfmpeg, request);
+	},
+	async encodePictureToSink<Output>(editorFfmpeg: VideoKeyframeVideoEditorFfmpeg | null | undefined,
+		request: VideoKeyframeVideoEncoderRequest, sink: FfmpegOutputSink<Output>) {
+		const runtime = await import('../common/editor/video-keyframe-video-encoder.ts');
+		return runtime.encodeVideoKeyframeVideoToSink(editorFfmpeg, request, sink);
+	},
 });
 
 const DISPOSITIONS = new WeakMap<object, FramescaperVideoExportPictureDispositionFinishing | FramescaperVideoExportPictureDispositionV16>();
@@ -156,22 +164,18 @@ export function createFramescaperVideoExportStrategyFinishing(
 		},
 		createPlan(request: ProductVideoExportStrategyPlanRequest) {
 			const authority = currentAuthority(profile, request, exports);
-			if (request.captions != null) {
-				throw new RangeError('Selected finishing caption delivery is sidecar-only through Caption Tracks; video export mux and burn-in are unavailable.');
-			}
 			const plan = hasVisibleVideoPicture(authority.canonicalProject)
 				? delegate.createPlan({
 					...request,
 					canonicalProject: authority.retimeProject,
 					exportProject: authority.retimeExportProject,
-					// finishing captions are accounted and delivered as explicit sidecars;
-					// they are not a keyed picture mux/burn request for the retime core.
 					captions: undefined,
 				})
 				: createFramescaperVideoVisualPlanFinishing(
 					authority.canonicalProject as unknown as FramescaperProjectFinishing, request,
 				);
 			if (!plan) throw new Error('Selected finishing browser export requires an exact RGBA route.');
+			planFramescaperVideoExportCaptions(authority.canonicalProject as unknown as FramescaperProjectFinishing, plan, request.captions);
 			plans.set(plan, authority);
 			timingSources.set(plan, allVideoSourceIds(authority.canonicalProject));
 			return plan;

@@ -17,6 +17,7 @@ import {
 import {
 	bypassPackagedRuntimeServiceWorker,
 	packagedRuntimeProductBaseURL,
+	preparePackagedRuntimeSavingPreferences,
 	usesPackagedRuntimeDiagnosticPage,
 } from './packaged-runtime-page.js';
 import {
@@ -118,6 +119,8 @@ const packagedTest = base.extend({
 				});
 				await coverageCollector.start();
 			}
+			const productPage = await waitForRuntimePage(context, false);
+			await preparePackagedRuntimeSavingPreferences(productPage);
 			await use(Object.freeze({ baseURL, browser, executablePath, output: () => output }));
 		} finally {
 			await finishPackagedRuntime({ browser, child, context, coverageCollector, productId, profile });

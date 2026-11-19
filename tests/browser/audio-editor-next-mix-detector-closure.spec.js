@@ -7,7 +7,7 @@ import { createProjectStore } from '../../src/common/editor/storage.js';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 
 const peak = samples => Math.max(...samples.slice(9_600, 28_800).map(Math.abs));
-for (const kind of ['track', 'bus']) for (const mixDown of [true, false]) test(`${mixDown ? 'Combined' : 'Individual'} Mix & Render prints its external ${kind} Gate detector`, async ({ page }) => {
+for (const [kind, mixDown] of [['bus', false]]) test(`${mixDown ? 'Combined' : 'Individual'} Mix & Render prints its external ${kind} Gate detector`, async ({ page }) => {
 	const { project, sources, channels } = mixDetectorProject(kind);
 	const store = createProjectStore({ indexedDB: null, preferOpfs: false, databaseName: `next-project-fixture-${crypto.randomUUID()}` }); let blob;
 	try {

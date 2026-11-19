@@ -71,7 +71,7 @@ export interface UnifiedExactRenderFinishingFrameRequestV13 {
 		readonly height: number;
 		readonly signal?: AbortSignal;
 	}>) => PromiseLike<UnifiedExactRenderRgbaFrameV13 | null> | UnifiedExactRenderRgbaFrameV13 | null;
-	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
+	readonly analysisBodies?: ReadonlyMap<string, Uint8Array<ArrayBuffer> | VideoMotionAnalysisBodyV1>;
 	readonly lutBodies?: ReadonlyMap<string, ParsedCubeLutV1>;
 	readonly accelerator?: VideoMotionWebGl2AcceleratorV1;
 	readonly onAcceleratorFallback?: (reason: string) => void;
@@ -348,7 +348,7 @@ function analysisBody(
 	source: UnifiedExactRenderPlanSource,
 	stack: VideoProcessorStackV1,
 	analysisId: string,
-	assets: ReadonlyMap<string, Uint8Array<ArrayBuffer>> | undefined,
+	assets: ReadonlyMap<string, Uint8Array<ArrayBuffer> | VideoMotionAnalysisBodyV1> | undefined,
 	cache: Map<string, VideoMotionAnalysisBodyV1>,
 ): VideoMotionAnalysisBodyV1 {
 	const cached = cache.get(analysisId);
@@ -365,7 +365,7 @@ function analysisBody(
 
 function requireAnalysis(
 	reference: VideoMotionAnalysisReferenceV1,
-	bytes: Uint8Array<ArrayBuffer>,
+	bytes: Uint8Array<ArrayBuffer> | VideoMotionAnalysisBodyV1,
 	source: UnifiedExactRenderPlanSource,
 	stack: VideoProcessorStackV1,
 ): VideoMotionAnalysisBodyV1 {

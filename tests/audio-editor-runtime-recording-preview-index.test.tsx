@@ -37,7 +37,7 @@ void test('late visible recording rows share one first-match preview index per p
 	}));
 	const tracks = Array.from({ length: 512 }, (_, index) => ({ id: `track-${index}`, type: 'audio', name: `Input ${index}` }));
 	const project = { id: 'recording', tracks };
-	const controller = { actions: { trackFolders: {} } };
+	const controller = { actions: { trackFolders: { selectedFolderId: () => null } } };
 	const render = async (recordingPreviews: readonly unknown[], selectedTrackId = '') => {
 		await act(async () => root.render(<div data-timeline><Component project={project} controller={controller}
 			snapshot={{ selectedTrackId, preferences: {} }} projectIndex={{ clipsByTrackId: new Map(), clipById: new Map(), sourceById: new Map() }}

@@ -38,6 +38,8 @@ test('the pinned Sherpa source patch binds every speech owner and installs expli
 		'vad.cc': ['SherpaOnnxVoiceActivityDetector'],
 		'non-streaming-asr.cc': ['SherpaOnnxOfflineRecognizer', 'SherpaOnnxOfflineStream'],
 		'non-streaming-speaker-diarization.cc': ['SherpaOnnxOfflineSpeakerDiarization'],
+		'non-streaming-speech-denoiser.cc': ['SherpaOnnxOfflineSpeechDenoiser'],
+		'streaming-speech-denoiser.cc': ['SherpaOnnxOnlineSpeechDenoiser'],
 	};
 	const patchSourceFiles: Record<string, string> = {};
 	for (const [name, types] of Object.entries(owners)) {

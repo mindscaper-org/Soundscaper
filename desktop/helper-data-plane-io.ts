@@ -30,7 +30,7 @@ import {
 } from './helper-data-plane-input-reservation.ts';
 
 export interface HelperDataPlaneIoPort {
-	postMessage(message: unknown, transfer?: readonly ArrayBuffer[]): void;
+	postMessage(message: unknown): void;
 	on(event: 'message', listener: (event: unknown) => void): unknown;
 	off?(event: 'message', listener: (event: unknown) => void): unknown;
 	removeListener?(event: 'message', listener: (event: unknown) => void): unknown;
@@ -291,8 +291,8 @@ export async function sendHelperDataPlaneFile(
 				throw new Error('A helper data-plane source ended before its exact byte length.');
 			}
 			const message = sender.createChunk(new Uint8Array(buffer.buffer, buffer.byteOffset, length));
-			request.port.postMessage(message, message.bytes.buffer instanceof ArrayBuffer
-				? [message.bytes.buffer] : []);
+			// Electron reserves the transfer list for MessagePorts, so file chunks use structured clone.
+			request.port.postMessage(message);
 			const acknowledgement = await inbox.next(request.signal);
 			if (acknowledgement.type === 'cancel') {
 				sender.acceptCancel(acknowledgement);

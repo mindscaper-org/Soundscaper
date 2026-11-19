@@ -5,6 +5,7 @@ import type { DesktopDownloadProductId } from './desktop-download-links.ts';
 const PACKAGES = [
 	['windows-x64.exe', 'win-x64.exe'], ['windows-arm64.exe', 'win-arm64.exe'],
 	['windows-x64.zip', 'win-x64.zip'], ['windows-arm64.zip', 'win-arm64.zip'],
+	['windows-x64.msi', 'win-x64.msi'], ['windows-arm64.msi', 'win-arm64.msi'],
 	['mac-arm64.pkg', 'mac-arm64.pkg'], ['mac-arm64.dmg', 'mac-arm64.dmg'],
 	['linux-x64.AppImage', 'linux-x64.AppImage'], ['linux-arm64.AppImage', 'linux-arm64.AppImage'],
 	['linux-x64.deb', 'linux-x64.deb'], ['linux-arm64.deb', 'linux-arm64.deb'],
@@ -43,12 +44,16 @@ export function desktopDownloadEnvironmentForHeaders(headers: Headers): DesktopD
 	const platform = hint(headers, 'Sec-CH-UA-Platform');
 	const architecture = hint(headers, 'Sec-CH-UA-Arch');
 	const bitness = hint(headers, 'Sec-CH-UA-Bitness');
+	// Reduced Chromium UAs use the same processor spelling for different CPUs.
+	const reducedProcessor = /\bChrome\/\d+\.0\.0\.0\b/u.test(userAgent)
+		&& /\((?:Windows NT 10\.0; Win64; x64|X11; Linux x86_64)\)/u.test(userAgent);
 	// Hints describe native hardware even when a compatibility UA claims x64.
 	const arch = bitness === '32' ? 'unsupported' : architecture
 		? (bitness === '64' && architecture === 'arm' ? 'arm64'
 			: bitness === '64' && architecture === 'x86' ? 'x64'
 				: !['arm', 'x86'].includes(architecture) ? 'unsupported' : null)
-		: /arm64|aarch64/iu.test(userAgent) ? 'arm64'
+		: reducedProcessor ? null
+			: /arm64|aarch64/iu.test(userAgent) ? 'arm64'
 			: /x86_64|amd64|Win64|WOW64|\bx64\b/iu.test(userAgent) ? 'x64'
 				: /armv\d|\bi[3-6]86\b/iu.test(userAgent) ? 'unsupported' : null;
 	const os = platform === 'windows' || (!platform && /Windows NT/iu.test(userAgent)) ? 'win'

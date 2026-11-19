@@ -31,7 +31,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	registerAudioEditorHooks();
 
 	test('selection repaints intersecting waveforms without repainting another clip', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await showToolbarButton(page, editor, 'Split at playhead');
 		await importFiles(editor, [longTone]);
 		await seekOnRuler(page, editor, 180);
@@ -77,7 +77,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	for (const entry of ['Ctrl+A', 'Select menu']) {
 		test(`${entry} selects the full audio on every track`, async ({ page }) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [toneA, toneB]);
 			await clickClipInterior(page, clipByName(editor, toneA.name), 0.5);
 			if (entry === 'Ctrl+A') await page.keyboard.press('Control+a');
@@ -94,7 +94,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	for (const direction of ['down', 'up']) {
 		test(`dragging ${direction} selects every crossed track and shrinks when reversed`, async ({ page }) => {
 			const errors = collectClientErrors(page);
-			const editor = await bootEditor(page, '/embed/en/');
+			const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 			await importFiles(editor, [toneA, toneB]);
 			const rows = editor.locator('.audio-editor-track-row');
 			await expect(rows).toHaveCount(3);
@@ -127,7 +127,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	}
 
 	test('a single-track drag replaces a previous all-track selection', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		await chooseNestedCommandAction(page, editor, 'Select', ['Tracks', 'Select all tracks']);
 		const clip = clipByName(editor, toneA.name);
@@ -145,7 +145,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	});
 
 	test('a vertical drag selects crossed tracks even without changing the time range', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const lanes = editor.locator('.audio-editor-track-row [data-track-lane]');
 		const first = await lanes.nth(0).boundingBox();
@@ -163,7 +163,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 
 	test('shades the selected range only in the tracks the selection acts on', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		// The workspace opens with an empty track, so importing two files leaves
 		// three rows to tell apart.
 		await importFiles(editor, [toneA, toneB]);
@@ -194,7 +194,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 
 	test('moves the focus onto the track of the clip the pointer presses', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const rows = editor.locator('.audio-editor-track-row');
 		await expect(rows).toHaveCount(3);
@@ -228,7 +228,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 
 	test('rings the selected track once, across its header and its lane', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const rows = editor.locator('.audio-editor-track-row');
 		await expect(rows).toHaveCount(2);
@@ -306,7 +306,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 	test('carries the track header column to the bottom of the timeline viewport', async ({ page }) => {
 		test.setTimeout(60_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await expect(editor.locator('.audio-editor-track-row')).toHaveCount(2);
 
@@ -378,7 +378,7 @@ test.describe('Soundscaper timeline selection rendering', () => {
 
 	test('pins the vertical scale to the right edge of the lane viewport', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		// Zoom in far enough that the timeline has somewhere to scroll to.
 		for (let press = 0; press < 6; press += 1) await page.keyboard.press('Control+1');

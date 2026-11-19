@@ -150,6 +150,7 @@ export function createFramescaperNativeServicesSurfaceHost(
 }
 
 const HOSTS = new WeakMap<FramescaperNativeServicesBridge, FramescaperNativeServicesSurfaceHost>();
+const PROXY_ACTION_SURFACES = ['proxy-generate', 'proxy-attach', 'proxy-detach', 'proxy-relink'] as const;
 const EMPTY_SUBSCRIBE = (): (() => void) => () => undefined;
 const EMPTY_SNAPSHOT = (): null => null;
 
@@ -186,6 +187,7 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 	editingBlocked?: boolean;
 	readOnly?: boolean;
 	projectActions?: FramescaperNativeProjectActionRuntime | null;
+	openVideoProxy?: (() => void) | null;
 	openFxAuthoring?: FramescaperNativeOpenFxAuthoringRuntimeNativeMedia | null;
 }>): Readonly<FramescaperNativeServicesWorkspaceRuntime> | null {
 	const currentProject = isCurrentProjectSchemaIdentity(
@@ -194,6 +196,11 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 	const projectActions = currentProject
 		&& isFramescaperNativeProjectActionRuntime(input.projectActions)
 		? input.projectActions : null;
+	const openVideoProxy = currentProject ? input.openVideoProxy : null;
+	const projectActionSurfaces = Object.freeze([
+		...(projectActions?.surfaces ?? []),
+		...(openVideoProxy ? PROXY_ACTION_SURFACES : []),
+	]);
 	const bridge = resolveBridge(input);
 	if (bridge === null) return null;
 	const store = framescaperNativeServicesStoreFor(bridge);
@@ -209,7 +216,7 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 		writable: input.editingBlocked !== true && input.readOnly !== true,
 		videoImportAvailable: input.projectCapabilities?.videoImport === true,
 		proxyGenerationAvailable: input.projectCapabilities?.sourceCharacteristics === true
-			&& projectActions?.surfaces.includes('proxy-generate') === true
+			&& projectActionSurfaces.includes('proxy-generate')
 			&& isNativeMediaCapabilityUsable(proxyEntry),
 	});
 	HOSTS.get(bridge)?.setPresentation(input.copy, input.locale);
@@ -219,8 +226,12 @@ export function resolveFramescaperNativeServicesWorkspaceRuntime(input: Readonly
 		externalDisplays: snapshot.externalDisplays,
 		activeExternalDisplayId: snapshot.activeExternalDisplayId,
 		lifecycleMethods,
-		projectActionSurfaces: projectActions?.surfaces ?? Object.freeze([]),
+		projectActionSurfaces,
 		open: (surface: FramescaperNativeServiceSurface) => {
+			if (openVideoProxy && PROXY_ACTION_SURFACES.some((candidate) => candidate === surface)) {
+				openVideoProxy();
+				return;
+			}
 			let host = HOSTS.get(bridge);
 			if (!host) {
 				host = createFramescaperNativeServicesSurfaceHost({

@@ -27,6 +27,12 @@ On desktop, **Temporary data folder → Browse** selects another storage
 location. Restart the app to move the existing temporary-project library to
 that location. Browser storage locations are managed by the browser.
 
+Choose a local folder outside cloud sync for desktop working data, including
+portable profiles. Network volumes and recognized sync folders are refused.
+Save completed Scape archives to network or synced folders for sharing and
+backups; do not synchronize the live application-data or temporary-data folder.
+Custom sync configurations cannot all be detected, so check your sync settings.
+
 ## What can remove a project
 
 - Clearing site data removes the browser's local project library.
@@ -66,9 +72,33 @@ On desktop, recovery can also use up to 32 retained SQLite document snapshots
 when a project body file is missing or damaged. The library catalog and startup
 publication journal must still be readable.
 
+Desktop working databases use rollback journaling. If startup reports an
+existing `-wal` or `-shm` sidecar from an older build, opening stops before SQLite
+can replay it. An interrupted write and a stale file restored by sync cannot
+be distinguished reliably. Keep the complete working-data folder unchanged,
+make a backup of it, and contact **Help → Support** for recovery assistance.
+Do not delete sidecars to bypass the check: they may contain the latest edits.
+
 These workflows recover data that remains readable in local storage. They do
 not recover cleared storage or a failed device, and do not guarantee that a
 save acknowledged immediately before a power failure reached the disk.
+
+## Named session snapshots
+
+In Soundscaper, choose **File → Session snapshots**, enter a name, and choose
+**Create snapshot**. A snapshot keeps the arrangement, mix, effects, notes, and
+other editing state at that moment. Select it from **Saved snapshots** and choose
+**Restore snapshot** to return to that state. Restoring can be undone and keeps
+your other snapshots. The same dialog lets you rename or delete snapshots.
+
+Snapshots share the project's audio rather than copying it. Audio used only by
+a snapshot stays available after you remove it from the current edit. Trimming
+or consolidating media retains the source generation needed by older snapshots.
+Snapshots survive local saves and travel inside exported `.sscape` project files.
+You can keep up to 64 snapshots per project.
+
+Snapshots belong to the same project and storage as the current edit. Keep a
+separate project-file backup for device failure or cleared storage.
 
 ## Backup routine
 

@@ -15,6 +15,7 @@ import LocalModelManagerDialog from './LocalModelManagerDialog.tsx';
 import PreferenceNumberInput from './PreferenceNumberInput.tsx';
 import './ProcessingDialogs.css';
 import './TextToSpeechDialog.css';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 type Copy = Readonly<Record<string, string | undefined>>;
 type Phase = 'loading' | 'ready' | 'generating' | 'preview' | 'accepting' | 'accepted' | 'error';
@@ -231,11 +232,11 @@ export function TextToSpeechDialogView({
 			{text(copy, 'assistanceManageModels', 'Manage Models')}
 		</Button>}
 		<div className="kw-text-to-speech__fields">
-			<label>{text(copy, 'script', 'Script')}
+			<label><EditorControlLabel>{text(copy, 'script', 'Script')}</EditorControlLabel>
 				<textarea value={state.text} maxLength={TEXT_TO_SPEECH_MAXIMUM_SCRIPT_CODE_UNITS}
 					disabled={locked} rows={7} onChange={(event) => onTextChange(event.currentTarget.value)} />
 			</label>
-			<label>{text(copy, 'language', 'Language')}
+			<label><EditorControlLabel>{text(copy, 'language', 'Language')}</EditorControlLabel>
 				<select value={state.language} disabled={locked || languages.length === 0}
 					onChange={(event) => onLanguageChange(event.currentTarget.value)}>
 					{languages.map((language) => <option key={language} value={language}>
@@ -243,13 +244,13 @@ export function TextToSpeechDialogView({
 					</option>)}
 				</select>
 			</label>
-			<label>{text(copy, 'voice', 'Voice')}
+			<label><EditorControlLabel>{text(copy, 'voice', 'Voice')}</EditorControlLabel>
 				<select value={state.voiceId} disabled={locked || voiceOptions.length === 0}
 					onChange={(event) => onVoiceChange(event.currentTarget.value)}>
 					{voiceOptions.map((voice) => <option key={voice.id} value={voice.id}>{voice.label}</option>)}
 				</select>
 			</label>
-			<label>{text(copy, 'speed', 'Speed')}
+			<label><EditorControlLabel>{text(copy, 'speed', 'Speed')}</EditorControlLabel>
 				<PreferenceNumberInput label={text(copy, 'speed', 'Speed')} minimum={0.5} maximum={2}
 					step={0.05} value={state.speed} disabled={locked} onCommit={onSpeedChange} />
 			</label>

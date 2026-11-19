@@ -30,3 +30,59 @@ export function sampleUnifiedExactRgbaChannelV13(
 	const alpha = sampleUnifiedExactRgbaChannelV13(frame, x, y, 3) / 255;
 	return alpha === 0 ? 0 : value / alpha;
 }
+
+/** Write an in-bounds motion sample with shared taps and straight output color. */
+export function writeUnifiedExactRgbaSampleV13(
+	frame: UnifiedExactRenderRgbaFrameV13,
+	x: number,
+	y: number,
+	target: Uint8Array,
+	offset: number,
+): void {
+	const { width, height, pixels } = frame;
+	const x0 = Math.floor(x);
+	const y0 = Math.floor(y);
+	const x1 = Math.min(width - 1, x0 + 1);
+	const y1 = Math.min(height - 1, y0 + 1);
+	const mixX = x - x0;
+	const mixY = y - y0;
+	const topLeft = (y0 * width + x0) * 4;
+	const topRight = (y0 * width + x1) * 4;
+	const bottomLeft = (y1 * width + x0) * 4;
+	const bottomRight = (y1 * width + x1) * 4;
+	const alphaTopLeft = pixels[topLeft + 3]!;
+	const alphaTopRight = pixels[topRight + 3]!;
+	const alphaBottomLeft = pixels[bottomLeft + 3]!;
+	const alphaBottomRight = pixels[bottomRight + 3]!;
+	const alphaByte = mixBilinear(alphaTopLeft, alphaTopRight, alphaBottomLeft, alphaBottomRight, mixX, mixY);
+	target[offset + 3] = Math.round(alphaByte);
+	const alpha = alphaByte / 255;
+	if (alpha === 0) {
+		target[offset] = 0;
+		target[offset + 1] = 0;
+		target[offset + 2] = 0;
+		return;
+	}
+	const weightTopLeft = alphaTopLeft / 255;
+	const weightTopRight = alphaTopRight / 255;
+	const weightBottomLeft = alphaBottomLeft / 255;
+	const weightBottomRight = alphaBottomRight / 255;
+	for (let channel = 0; channel < 3; channel += 1) {
+		const premultiplied = mixBilinear(
+			pixels[topLeft + channel]! * weightTopLeft,
+			pixels[topRight + channel]! * weightTopRight,
+			pixels[bottomLeft + channel]! * weightBottomLeft,
+			pixels[bottomRight + channel]! * weightBottomRight,
+			mixX, mixY,
+		);
+		target[offset + channel] = Math.round(premultiplied / alpha);
+	}
+}
+
+function mixBilinear(
+	topLeft: number, topRight: number, bottomLeft: number, bottomRight: number, mixX: number, mixY: number,
+): number {
+	const top = topLeft + (topRight - topLeft) * mixX;
+	const bottom = bottomLeft + (bottomRight - bottomLeft) * mixX;
+	return top + (bottom - top) * mixY;
+}

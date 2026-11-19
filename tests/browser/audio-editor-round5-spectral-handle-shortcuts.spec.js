@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 
 for (const kind of ['maximum-frequency', 'start-time']) {
 	test(`a configured command from a spectral ${kind} handle preserves its band`, async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

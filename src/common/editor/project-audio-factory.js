@@ -357,15 +357,23 @@ export function createLabelTrack(options = {}) {
 }
 
 export function audioTrackChannelCount(project, track, fallback = 0) {
-	if (!track || track.type === 'label') return fallback;
-	const clipById = new Map((project?.clips || []).map((clip) => [clip.id, clip]));
-	const sourceById = new Map((project?.sources || []).map((source) => [source.id, source]));
-	let channelCount = 0;
-	for (const clipId of track.clipIds || []) {
-		const source = sourceById.get(clipById.get(clipId)?.sourceId);
-		if (source) channelCount = Math.max(channelCount, Number(source.channelCount) || 0);
-	}
-	return channelCount || fallback;
+	return createAudioTrackChannelCounter(project)(track, fallback);
+}
+
+/** Share the inventory across channel queries for one project view. */
+export function createAudioTrackChannelCounter(project) {
+	let clipById, sourceById;
+	return (track, fallback = 0) => {
+		if (!track || track.type === 'label') return fallback;
+		clipById ??= new Map((project?.clips || []).map((clip) => [clip.id, clip]));
+		sourceById ??= new Map((project?.sources || []).map((source) => [source.id, source]));
+		let channelCount = 0;
+		for (const clipId of track.clipIds || []) {
+			const source = sourceById.get(clipById.get(clipId)?.sourceId);
+			if (source) channelCount = Math.max(channelCount, Number(source.channelCount) || 0);
+		}
+		return channelCount || fallback;
+	};
 }
 
 function assertUniqueIds(items, type) {

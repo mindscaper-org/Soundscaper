@@ -15,6 +15,7 @@ export interface TransportSelection {
 	readonly endFrame: number;
 	readonly trackIds?: readonly string[];
 	readonly clipIds?: readonly string[];
+	readonly annotationIds?: readonly string[];
 	readonly frequencyRange?: unknown;
 }
 

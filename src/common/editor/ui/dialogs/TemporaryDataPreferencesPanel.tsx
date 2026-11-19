@@ -5,6 +5,7 @@ import { PreferencePanel } from '@soundscaper/design-system/PreferencePanel';
 import { normalizeTemporaryDataPreferences, type TemporaryDataPreferences } from '../../saving-preferences.ts';
 import PreferenceCheckbox from '../EditorPreferenceCheckbox.tsx';
 import PreferenceNumberInput from './PreferenceNumberInput.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface FolderStatus { readonly folder: string; readonly selectedFolder: string; readonly restartRequired: boolean }
 export interface TemporaryDataFileService {
@@ -44,7 +45,7 @@ export default function TemporaryDataPreferencesPanel(d: Readonly<{
 		</div>
 		<p className="kw-audio-editor-preferences__note">{copy.temporaryProjectsDescription}</p>
 		<label className="kw-audio-editor-preferences__field">
-			<span>{copy.temporaryDataFolder}</span>
+			<EditorControlLabel>{copy.temporaryDataFolder}</EditorControlLabel>
 			<input type="text" readOnly value={d.fileService?.isDesktop ? folder?.selectedFolder ?? '' : copy.temporaryDataBrowserFolder} />
 		</label>
 		{d.fileService?.isDesktop

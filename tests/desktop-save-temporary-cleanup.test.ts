@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { AtomicSaveManager, SaveTargetStore } from '../desktop/save-targets.js';
@@ -10,6 +13,67 @@ const TEST_OWNER = Object.freeze({ name: 'renderer-test-owner' });
 function createManager(options: Readonly<Record<string, unknown>>): AtomicSaveManager {
 	return new AtomicSaveManager(options as unknown as ConstructorParameters<typeof AtomicSaveManager>[0]);
 }
+
+for (const outcome of ['finish', 'abort', 'revoke'] as const) {
+	test(`Linux ${outcome} retires only the owned stage after moving the destination folder`,
+		{ skip: process.platform !== 'linux' }, async context => {
+			const root = await mkdtemp(join(tmpdir(), 'scape-save-stage-folder-move-'));
+			const selected = join(root, 'selected');
+			const moved = join(root, 'moved');
+			const targets = new SaveTargetStore();
+			const manager = createManager({ targets });
+			context.after(async () => {
+				try { await manager.dispose(); } finally { await rm(root, { recursive: true, force: true }); }
+			});
+			await mkdir(selected);
+			const name = 'project.sscape';
+			const targetPath = join(selected, name);
+			await writeFile(targetPath, 'previous archive');
+			const target = targets.registerPath(targetPath, { owner: TEST_OWNER, purpose: 'project-copy' });
+			const { writeId } = await manager.begin({ owner: TEST_OWNER, targetId: target.id, size: 3 });
+			await manager.writeChunk({ owner: TEST_OWNER, writeId, offset: 0, bytes: Uint8Array.of(1, 2, 3) });
+			const stageName = `.${writeId}.soundscaper-part`;
+			const owned = await lstat(join(selected, stageName), { bigint: true });
+			await rename(selected, moved);
+			await mkdir(selected);
+			await writeFile(targetPath, 'independent archive');
+			const otherPath = join(selected, stageName);
+			await writeFile(otherPath, 'independent stage pathname');
+			const independent = await lstat(otherPath, { bigint: true });
+			assert.notEqual(owned.ino, independent.ino);
+
+			if (outcome === 'finish') await assert.rejects(manager.finish(writeId, { owner: TEST_OWNER }), /commit the saved file/iu);
+			if (outcome === 'abort') assert.equal(await manager.abort(writeId, { owner: TEST_OWNER }), true);
+			if (outcome === 'revoke') await manager.revokeOwner(TEST_OWNER);
+			assert.equal((await lstat(otherPath, { bigint: true })).ino, independent.ino);
+			assert.equal(await readFile(otherPath, 'utf8'), 'independent stage pathname');
+			assert.equal(await readFile(targetPath, 'utf8'), 'independent archive');
+			assert.equal(await readFile(join(moved, name), 'utf8'), 'previous archive');
+			assert.deepEqual(await readdir(moved), [name]);
+		});
+}
+
+test('a failed post-publication refresh preserves the saved file and a reused staging name', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-save-stage-published-'));
+	const targets = new SaveTargetStore();
+	const manager = createManager({ targets });
+	context.after(async () => {
+		try { await manager.dispose(); } finally { await rm(root, { recursive: true, force: true }); }
+	});
+	const destination = join(root, 'project.sscape');
+	const target = targets.registerPath(destination, { owner: TEST_OWNER, purpose: 'project',
+		afterCommit: async () => {
+			await writeFile(stagePath, 'new independent staging file', { flag: 'wx' });
+			throw new Error('Could not refresh the saved-file association');
+		},
+	});
+	const { writeId } = await manager.begin({ owner: TEST_OWNER, targetId: target.id, size: 3 });
+	const stagePath = join(root, `.${writeId}.soundscaper-part`);
+	await manager.writeChunk({ owner: TEST_OWNER, writeId, offset: 0, bytes: Uint8Array.of(10, 20, 30) });
+	await assert.rejects(manager.finish(writeId, { owner: TEST_OWNER }), /commit the saved file/iu);
+	assert.deepEqual(await readFile(destination), Buffer.from([10, 20, 30]));
+	assert.equal(await readFile(stagePath, 'utf8'), 'new independent staging file');
+});
 
 test('save-session disposal drains a rejected write and aborts every remaining stage', async () => {
 	const writeStarted = deferred();

@@ -77,6 +77,7 @@ export async function runOpenFxInteractHelperJobV1(
 		);
 		const pluginGrant = await filePathGrant(plugin.path);
 		const pluginIndex = await scanPluginIndex(options, plugin, pluginGrant);
+		const { id, revision } = options.grant.interact.project;
 		const nativeGrant = JSON.stringify({
 			schemaVersion: 1,
 			pluginBinary: {
@@ -85,7 +86,7 @@ export async function runOpenFxInteractHelperJobV1(
 				pluginIndex,
 				pluginId: options.grant.pluginId,
 			},
-			project: options.grant.interact.project,
+			project: { id, revision },
 			instanceId: options.grant.interact.effect.instanceId,
 			effectStateSha256: framescaperOpenFxInteractEffectStateSha256V1(
 				options.grant.interact.effect,
@@ -186,9 +187,17 @@ function parseNativeInteractResult(
 		|| rgba.toString('hex') !== record.rgbaHex) {
 		throw new Error('The native OpenFX Interact result carries malformed RGBA pixels.');
 	}
+	const nativeProject = record.project;
+	const project = grant.interact.project;
+	if (!nativeProject || typeof nativeProject !== 'object' || Array.isArray(nativeProject)
+		|| Object.keys(nativeProject).length !== 2
+		|| !Object.hasOwn(nativeProject, 'id') || !Object.hasOwn(nativeProject, 'revision')
+		|| Reflect.get(nativeProject, 'id') !== project.id || Reflect.get(nativeProject, 'revision') !== project.revision) {
+		throw new Error('The native OpenFX Interact result changed its bound project identity.');
+	}
 	const result = framescaperOpenFxInteractResultV1({
 		protocolVersion: 1,
-		project: record.project,
+		project,
 		instanceId: record.instanceId,
 		effectStateSha256: record.effectStateSha256,
 		width: 64,

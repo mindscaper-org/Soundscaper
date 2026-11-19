@@ -49,7 +49,7 @@ for (const illustrated of [false, true]) test(`ordinary desktop MP3 with album a
 				return new Response(Uint8Array.from(atob(result.base64), character => character.charCodeAt(0)), { status: result.status, headers: result.headers });
 			};
 		});
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await chooseFileAction(page, editor, 'Import');
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
 		await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing', { timeout: 30_000 });

@@ -13,7 +13,7 @@ import {
 test('confirms a stereo paste into a mono track and can remember the decision', async ({ page }) => {
 	test.setTimeout(60_000);
 	const clientErrors = collectClientErrors(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 
 	await clipByName(editor, toneA.name).locator('.clip-header').click();

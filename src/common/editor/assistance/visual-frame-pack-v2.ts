@@ -9,12 +9,14 @@ import {
 } from './binary-formats-v1.ts';
 
 export const ASSISTANCE_VISUAL_FRAME_PACK_SCHEMA_VERSION = 2 as const;
+/** Source dimensions describe coordinates. Only raster dimensions size the RGBA body. */
+export const ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION = 16_384;
 
 const MAGIC = new TextEncoder().encode('soundscaper-assistance-frame-pack-v2\n');
 const HEADER_BYTES = MAGIC.byteLength + 28;
 const FRAME_HEADER_BYTES = 16;
 const MAXIMUM_FRAME_COUNT = 100_000;
-const MAXIMUM_DIMENSION = 4_096;
+const MAXIMUM_RASTER_DIMENSION = 4_096;
 const MAXIMUM_TIMESCALE = 0x7fff_ffff;
 const MAXIMUM_UINT32 = 0xffff_ffff;
 const MAXIMUM_TICK = 0x7fff_ffff_ffff_ffffn;
@@ -69,13 +71,13 @@ export interface ReviewedAssistanceVisualFramePackV2 extends ReviewedAssistanceV
 export function createAssistanceVisualFramePackV2(
 	draft: AssistanceVisualFramePackV2Draft,
 ): readonly Uint8Array[] {
-	const sourceWidth = integer(draft?.sourceWidth, 1, MAXIMUM_DIMENSION,
+	const sourceWidth = integer(draft?.sourceWidth, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION,
 		'visual frame-pack source width');
-	const sourceHeight = integer(draft?.sourceHeight, 1, MAXIMUM_DIMENSION,
+	const sourceHeight = integer(draft?.sourceHeight, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION,
 		'visual frame-pack source height');
-	const rasterWidth = integer(draft?.rasterWidth, 1, MAXIMUM_DIMENSION,
+	const rasterWidth = integer(draft?.rasterWidth, 1, MAXIMUM_RASTER_DIMENSION,
 		'visual frame-pack raster width');
-	const rasterHeight = integer(draft?.rasterHeight, 1, MAXIMUM_DIMENSION,
+	const rasterHeight = integer(draft?.rasterHeight, 1, MAXIMUM_RASTER_DIMENSION,
 		'visual frame-pack raster height');
 	const timescale = integer(draft?.timescale, 1, MAXIMUM_TIMESCALE,
 		'visual frame-pack timescale');
@@ -136,13 +138,13 @@ export function reviewAssistanceVisualFramePackV2(
 		throw new TypeError('The visual frame-pack version is unsupported.');
 	}
 	const sourceWidth = integer(cursor.uint32('visual frame-pack source width'), 1,
-		MAXIMUM_DIMENSION, 'visual frame-pack source width');
+		ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual frame-pack source width');
 	const sourceHeight = integer(cursor.uint32('visual frame-pack source height'), 1,
-		MAXIMUM_DIMENSION, 'visual frame-pack source height');
+		ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual frame-pack source height');
 	const rasterWidth = integer(cursor.uint32('visual frame-pack raster width'), 1,
-		MAXIMUM_DIMENSION, 'visual frame-pack raster width');
+		MAXIMUM_RASTER_DIMENSION, 'visual frame-pack raster width');
 	const rasterHeight = integer(cursor.uint32('visual frame-pack raster height'), 1,
-		MAXIMUM_DIMENSION, 'visual frame-pack raster height');
+		MAXIMUM_RASTER_DIMENSION, 'visual frame-pack raster height');
 	const timescale = integer(cursor.uint32('visual frame-pack timescale'), 1,
 		MAXIMUM_TIMESCALE, 'visual frame-pack timescale');
 	const frameCount = integer(cursor.uint32('visual frame-pack count'), 0,

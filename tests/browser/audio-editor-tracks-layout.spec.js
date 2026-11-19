@@ -1,3 +1,4 @@
+import { checkTrackFlyout, toggleTimelineMultiview } from './helpers/menu-state-journeys.js';
 import { lightTheme } from '../../vendor/audacity-design-system/tokens/src/themes/light.v2.ts';
 import { expect, longTone, test, toneA } from './audio-editor-test-fixtures.js';
 import {
@@ -19,20 +20,6 @@ import {
 test.describe('audio editor React/design-system workflows', () => {
 	registerAudioEditorHooks();
 
-	test('adds the selected track type from the timeline flyout', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const addTrack = editor.getByRole('button', { name: 'Add track', exact: true });
-
-		await addTrack.click();
-		const flyout = page.locator('.add-track-flyout');
-		await expect(flyout).toBeVisible();
-		await expect(flyout.getByRole('menuitem', { name: 'Audio track', exact: true })).toBeVisible();
-		await expect(flyout.getByRole('menuitem', { name: 'Label track', exact: true })).toBeVisible();
-
-		await flyout.getByRole('menuitem', { name: 'Audio track', exact: true }).click();
-		await expect(flyout).toHaveCount(0);
-		await expect(editor.locator('[data-track-row]')).toHaveCount(2);
-	});
 
 	test('guards reload while an added track is still saving', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
@@ -83,6 +70,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(flyout).toBeVisible();
 
 		expect(errors).toEqual([]);
+
+		await test.step("adds the selected track type from the timeline flyout", async () => {
+			await checkTrackFlyout(page, editor);
+		});
 	});
 
 	test('themes and spaces the add-track flyout in dark mode', async ({ page }) => {
@@ -96,6 +87,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(flyout.locator('.add-track-flyout__options')).toHaveCSS('gap', '8px');
 		await expect(flyout.getByRole('menuitem', { name: 'Audio track', exact: true }))
 			.toHaveCSS('background-color', 'rgb(81, 90, 99)');
+
+		await test.step("the spectrogram options put the whole timeline into multi-view and back", async () => {
+			await toggleTimelineMultiview(page, editor);
+		});
 	});
 
 	test('pins V21 send and master strips below media tracks without legacy strip envelopes', async ({ page }) => {
@@ -718,23 +713,4 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(editor).toHaveAttribute('data-workspace-preset', 'modern');
 	});
 
-	test('the spectrogram options put the whole timeline into multi-view and back', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
-		const track = editor.locator('[data-track-row]').first();
-		await expect(track).toHaveAttribute('data-display-mode', 'waveform');
-
-		const options = editor.getByRole('button', { name: 'Spectrogram options', exact: true });
-		const multiView = () => editor.locator('[data-action-id="multiview-view"] [role="menuitem"]');
-		await options.click();
-		await multiView().click();
-		await expect(track).toHaveAttribute('data-display-mode', 'multiview');
-		await expect(editor.getByRole('button', { name: 'Spectrogram', exact: true }))
-			.toHaveAttribute('aria-pressed', 'false');
-
-		await options.click();
-		// The vendored menu item marks its checked state with a checkmark icon.
-		await expect(multiView().locator('.context-menu-item-checkmark .icon')).toHaveCount(1);
-		await multiView().click();
-		await expect(track).toHaveAttribute('data-display-mode', 'waveform');
-	});
 });

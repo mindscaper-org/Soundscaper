@@ -104,8 +104,9 @@ test('the folder context menu carries the audibility toggles the row buttons hol
 test('blocked editing disables the folder audibility toggles rather than hiding them', async () => {
 	const createTimelineMenuModel = await loadTimelineMenuModel();
 	const { folderMenuItems: items } = createTimelineMenuModel(folderMenuInput({}, [], true));
-	const labels = items.filter(({ divider }) => !divider).map(({ label }) => label);
-	assert.deepEqual(labels.slice(2, 5), ['Mute folder', 'Solo folder', 'Hide folder']);
+	const audibilityItems = items.filter(({ label }) => ['Mute folder', 'Solo folder', 'Hide folder'].includes(String(label)));
+	assert.deepEqual(audibilityItems.map(({ label }) => label), ['Mute folder', 'Solo folder', 'Hide folder']);
+	for (const item of audibilityItems) assert.equal(item.disabled, true);
 	for (const item of items) assert.notEqual(item.divider ? undefined : item.disabled, false);
 });
 

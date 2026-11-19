@@ -2,6 +2,8 @@
 
 /** Strict VFR-bound semantic review for OCR, subjects, saliency, and reframes. */
 
+import { ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION } from './visual-frame-pack-v2.ts';
+
 export const ASSISTANCE_VISUAL_RESULT_SCHEMA_VERSION = 1 as const;
 
 const MAXIMUM_FRAMES = 100_000;
@@ -261,8 +263,8 @@ function visualResult(value: unknown, authorityValue: unknown): Readonly<{
 
 function visualAuthority(value: unknown): AssistanceVisualFrameAuthorityV1 {
 	const record = exactRecord(value, AUTHORITY_FIELDS, 'visual frame authority');
-	const width = integer(record.width, 1, 4_096, 'visual frame width');
-	const height = integer(record.height, 1, 4_096, 'visual frame height');
+	const width = integer(record.width, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual frame width');
+	const height = integer(record.height, 1, ASSISTANCE_VISUAL_MAXIMUM_SOURCE_DIMENSION, 'visual frame height');
 	const timescale = integer(record.timescale, 1, MAXIMUM_TIMESCALE, 'visual frame timescale');
 	const values = boundedArray(record.frames, MAXIMUM_FRAMES, 'visual frame authority inventory');
 	let priorSourceFrame = -1;

@@ -7,6 +7,7 @@ import { createRoot } from 'react-dom/client';
 
 import AudioSettingsPreferencesPage from '../src/common/editor/ui/dialogs/AudioSettingsPreferencesPage.jsx';
 import DesktopFfmpegPreferencePanel from '../src/common/editor/ui/dialogs/DesktopFfmpegPreferencePanel.tsx';
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -56,31 +57,47 @@ test('Audio settings switches the offset target to Default input when an unsaved
 });
 
 test('External FFmpeg keeps the configured location and enabled retry actions after a transient Browse failure', async () => {
-	const fixture = setup();
-	const { dom, root } = fixture;
-	const ready = { state: 'ready', location: '/usr/local/bin/ffmpeg', version: '8.0', detail: '',
-		canInstall: false, canBrowse: true, canClear: true };
-	let attempts = 0;
-	const fileService = {
-		getExternalFfmpegStatus: async () => ready,
-		chooseExternalFfmpeg: async () => {
-			attempts += 1;
-			if (attempts === 1) throw new Error('The file chooser could not open.');
-			return ready;
-		},
-		clearExternalFfmpeg: async () => ready,
-		rescanExternalFfmpeg: async () => ready,
-	};
-	try {
-		await act(async () => root.render(<DesktopFfmpegPreferencePanel fileService={fileService} />));
-		const browse = dom.container.querySelectorAll('button').find((candidate) => candidate.textContent === 'Browse');
-		assert.ok(browse);
-		await act(async () => { void reactProps(browse).onClick({}); await Promise.resolve(); });
-		assert.equal(dom.one('[data-external-ffmpeg-preference]').getAttribute('data-external-ffmpeg-state'), 'error');
-		assert.equal(browse.hasAttribute('disabled'), false, 'Browse remains available for a retry');
-		assert.equal(dom.one('input').value, ready.location, 'an IPC failure does not erase the last known configuration');
-		await act(async () => { void reactProps(browse).onClick({}); await Promise.resolve(); });
-		assert.equal(attempts, 2);
-		assert.equal(dom.one('[data-external-ffmpeg-preference]').getAttribute('data-external-ffmpeg-state'), 'ready');
-	} finally { await fixture.restore(); }
+	for (const configured of [
+		{ location: '/usr/local/bin/ffmpeg', version: '8.0' },
+		{ location: '/fixture/bin/ffmpeg', version: '9.0.1' },
+	]) {
+		const fixture = setup();
+		const { dom, root } = fixture;
+		const ready = { state: 'ready', ...configured, detail: '',
+			canInstall: false, canBrowse: true, canClear: true };
+		let attempts = 0;
+		const calls: string[] = [];
+		const bridge = {
+			getExternalFfmpegStatus: async () => { calls.push('get'); return ready; },
+			chooseExternalFfmpeg: async () => {
+				calls.push('choose');
+				attempts += 1;
+				if (attempts === 1) throw new Error('The file chooser could not open.');
+				return ready;
+			},
+			clearExternalFfmpeg: async () => { assert.fail('Browse must not clear the configured host.'); },
+			rescanExternalFfmpeg: async () => { assert.fail('Browse must use the real chooser bridge method.'); },
+		};
+		const fileService = createAudioEditorFileService({ bridge });
+		try {
+			await act(async () => root.render(<DesktopFfmpegPreferencePanel fileService={fileService} />));
+			assert.equal(fileService.isDesktop, true);
+			assert.equal(dom.one('[data-external-ffmpeg-preference]').getAttribute('data-external-ffmpeg-state'), 'ready');
+			assert.deepEqual(calls, ['get']);
+			const browse = dom.container.querySelectorAll('button').find((candidate) => candidate.textContent === 'Browse');
+			assert.ok(browse);
+			await act(async () => { void reactProps(browse).onClick({}); await Promise.resolve(); });
+			assert.equal(dom.one('[data-external-ffmpeg-preference]').getAttribute('data-external-ffmpeg-state'), 'error');
+			assert.equal(browse.hasAttribute('disabled'), false, 'Browse remains available for a retry');
+			assert.equal(dom.one('input').value, ready.location, 'an IPC failure does not erase the last known configuration');
+			assert.ok(dom.container.textContent.includes('The file chooser could not open.'));
+			assert.ok(dom.container.textContent.includes(`Detected version: ${ready.version}`));
+			await act(async () => { void reactProps(browse).onClick({}); await Promise.resolve(); });
+			assert.equal(attempts, 2);
+			assert.equal(dom.one('[data-external-ffmpeg-preference]').getAttribute('data-external-ffmpeg-state'), 'ready');
+			assert.equal(dom.one('input').value, ready.location);
+			assert.deepEqual(calls, ['get', 'choose', 'choose']);
+			assert.equal(dom.container.textContent.includes('The file chooser could not open.'), false);
+		} finally { await fixture.restore(); }
+	}
 });

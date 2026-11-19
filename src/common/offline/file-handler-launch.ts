@@ -82,7 +82,6 @@ const subscribers = new Set<LaunchedFilesHandler>();
 let buffered: LaunchedFiles[] = [];
 let installed = false;
 let report: (error: unknown) => void = defaultReport;
-let settlement: Promise<void> = Promise.resolve();
 
 /**
  * Claims the operating system's launches for this document.
@@ -93,19 +92,32 @@ let settlement: Promise<void> = Promise.resolve();
 export function installFileHandlerLaunchConsumer(
 	options: InstallFileHandlerLaunchConsumerOptions,
 ): Readonly<FileHandlerLaunchConsumerInstallation> {
-	const onError = options.onError ?? defaultReport;
 	const queue = options.launchQueue ?? defaultLaunchQueue();
 	if (options.desktop || !queue || typeof queue.setConsumer !== 'function') return inertInstallation('unsupported');
 	if (installed) return inertInstallation('already-consuming');
 	const deliver = options.deliver ?? enqueueLaunchedFiles;
+	const reportFailure = options.onError ?? defaultReport;
+	let settlement: Promise<void> = Promise.resolve();
+	let released = false;
+	const isReleased = (): boolean => released;
+	const onError = (error: unknown): void => {
+		if (released) return;
+		try { reportFailure(error); } catch { /* The observer cannot interrupt file delivery. */ }
+	};
 	installed = true;
 	report = onError;
-	settlement = Promise.resolve();
-	let released = false;
-	queue.setConsumer((params: FileHandlerLaunchParams) => {
-		if (released) return;
-		settlement = settlement.then(() => routeLaunch(params, deliver, onError)).catch(onError);
-	});
+	try {
+		queue.setConsumer((params: FileHandlerLaunchParams) => {
+			if (released) return;
+			settlement = settlement.then(() => routeLaunch(params, deliver, onError, isReleased)).catch(onError);
+		});
+	} catch (error) {
+		onError(error);
+		released = true;
+		installed = false;
+		report = defaultReport;
+		return inertInstallation('unsupported');
+	}
 	return Object.freeze({
 		status: 'consuming' as const,
 		settled: () => settlement,
@@ -115,7 +127,6 @@ export function installFileHandlerLaunchConsumer(
 			installed = false;
 			buffered = [];
 			report = defaultReport;
-			settlement = Promise.resolve();
 		},
 	});
 }
@@ -184,12 +195,15 @@ async function routeLaunch(
 	params: FileHandlerLaunchParams,
 	deliver: LaunchedFilesHandler,
 	onError: (error: unknown) => void,
+	isReleased: () => boolean,
 ): Promise<void> {
+	if (isReleased()) return;
 	const handles = launchHandles(params);
 	if (handles.length === 0) return;
 	const files: File[] = [];
 	for (const handle of handles) {
 		const file = await resolveLaunchedFile(handle, onError);
+		if (isReleased()) return;
 		if (file !== null) files.push(file);
 	}
 	if (files.length === 0) return;
@@ -235,13 +249,14 @@ async function resolveLaunchedFile(handle: unknown, onError: (error: unknown) =>
 }
 
 function notify(handler: LaunchedFilesHandler, files: LaunchedFiles): void {
+	const onError = report;
 	try {
 		const result = handler(files) as { then?: unknown } | null | undefined;
 		if (result && typeof result.then === 'function') {
-			void (result as Promise<unknown>).then(undefined, report);
+			void (result as Promise<unknown>).then(undefined, onError);
 		}
 	} catch (error) {
-		report(error);
+		onError(error);
 	}
 }
 

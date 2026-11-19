@@ -5,10 +5,11 @@ import type { EnginePlayOptions } from '../../../engine/public-api.ts';
 import type { TransportCopy, TransportEngine, TransportSelection } from './transport-service-types.ts';
 
 /** A bounded run resumes inside its selection and otherwise starts at the left edge. */
-export function bindPlaybackToTimeSelection(engine: TransportEngine, selection: TransportSelection | null) {
+export function bindPlaybackToTimeSelection(engine: TransportEngine, selection: TransportSelection | null, overrideLoop = false) {
 	const range = engine.setPlayRange?.(selection && {
 		startFrame: selection.startFrame,
 		endFrame: selection.endFrame,
+		...(overrideLoop ? { overrideLoop: true } : {}),
 	});
 	if (!range) return null;
 	const position = engine.getPositionFrames();

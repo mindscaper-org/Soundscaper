@@ -1,5 +1,6 @@
 import { useEditorSkin } from '../skins/EditorSkinProvider.tsx';
 import EditorToast, { EditorErrorToast, EditorWarningToast } from '../EditorToast.tsx';
+import { EditorNotificationSurfaces } from '../EditorNotificationProvider.tsx';
 import { Suspense } from 'react';
 import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 
@@ -18,6 +19,7 @@ import TransportToolbarGroup, { COMPACT_BAR_TRANSPORT_BUTTONS, DRAWER_TRANSPORT_
 import ProjectTabs from './ProjectTabs.jsx';
 import ProjectFeatureCompatibilityNotice from './ProjectFeatureCompatibilityNotice.tsx';
 import TimedRecordingToast from './TimedRecordingToast.tsx';
+import EditorTaskProgress from './EditorTaskProgress.tsx';
 import StorageCapacityPanel from './StorageCapacityPanel.tsx';
 import VideoEditorWorkspacePanels from './VideoEditorWorkspacePanels.jsx';
 import WorkspacePanelDock from './WorkspacePanelDock.jsx';
@@ -140,7 +142,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 		capabilities,
 		copy,
 		locale,
-		fileService, confirmFileSizeWarning,
+		fileService, confirmFileSizeWarning, importRoutedFiles,
 		playbackMeterSettings, recordingMeterSettings,
 		onPlaybackMeterSettingsChange: setPlaybackMeterSettings, onRecordingMeterSettingsChange: setRecordingMeterSettings,
 		clippingEnabled: uiFlags.clipping, run,
@@ -265,7 +267,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 
 			<input
 				ref={legacyDataInputRef}
-				className="kw-audio-editor__file-input"
+				hidden
 				data-legacy-data-input
 				aria-label={copy.chooseLegacyData}
 				type="file"
@@ -276,7 +278,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				onChange={(event) => {
 					const files = [...event.currentTarget.files];
 					event.currentTarget.value = '';
-					run(() => legacyProjectSelection.complete(files));
+					legacyProjectSelection.complete(files);
 				}}
 			/>
 
@@ -293,6 +295,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 				<StorageCapacityPanel snapshot={snapshot} locale={locale} copy={copy} controller={controller} run={run} />
 			)}
 			<div className="kw-audio-editor__toasts">
+				<EditorTaskProgress controller={controller} snapshot={snapshot} statusMessage={statusMessage} cancelLabel={copy.cancel} overlayTarget={editorOverlayTarget} />
 				{(snapshot.scheduledRecording || snapshot.activeTimedRecording) && <TimedRecordingToast
 					key={snapshot.scheduledRecording?.startTimeMs ?? snapshot.activeTimedRecording?.startTimeMs}
 					scheduled={snapshot.scheduledRecording}
@@ -307,7 +310,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 					onDismiss={clearError}
 				/>}
 				{productId === 'soundscaper' && fileService?.isDesktop && <Suspense fallback={null}>
-					<SoundscaperPluginScanToast copy={copy} openSurface={openSurface} />
+					<SoundscaperPluginScanToast copy={copy} controller={controller} openSurface={openSurface} />
 				</Suspense>}
 				{statusError && <EditorErrorToast key={statusError} id="workspace-status-error"
 					title={copy.unknownError} description={statusError} dismissLabel={copy.close} />}
@@ -365,6 +368,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 						productId={productId}
 						capabilities={capabilities}
 						showArmControls={showArmControls}
+						importRoutedFiles={importRoutedFiles}
 						displayAudioSupported={displayAudioSupported}
 						splitToolEnabled={uiFlags.splitTool}
 						splitToolMomentary={splitToolShortcut.momentaryEnabled}
@@ -378,9 +382,11 @@ export default function AudioEditorWorkspaceView({ model }) {
 							if (!clip) return;
 							const range = clipContentRange(project, clip);
 							if (!range) return;
-							run(() => controller.actions.timeline.selectClip(clip.id));
-							run(() => controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame));
-							openSurface('export');
+							if (!snapshot.readOnly) {
+								run(() => controller.actions.timeline.selectClip(clip.id));
+								run(() => controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame));
+							}
+							openSurface('export-selection', { projectId: project.id, range });
 						}}
 						onUploadClipToFreesound={productId === 'soundscaper' ? uploadClipToFreesound : undefined}
 						onRevealProjectBin={revealProjectBin}
@@ -437,6 +443,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 			>{editorToolbar}</div>}
 
 			{(uiFlags.selectionToolbar || uiFlags.statusbar) && <AccessibleSelectionToolbar
+				menus={applicationMenus} locale={locale}
 				controller={controller}
 				snapshot={snapshot}
 				copy={copy}
@@ -451,7 +458,8 @@ export default function AudioEditorWorkspaceView({ model }) {
 
 			<AudioEditorWorkspaceOverlays model={overlayModel} />
 			<EditorOverlayHost ref={setEditorOverlayTarget} />
-			<AudioEditorButtonTooltips rootRef={editorRef} />
+			<EditorNotificationSurfaces copy={copy} />
+			<AudioEditorButtonTooltips rootRef={editorRef} menus={applicationMenus} shortcuts={snapshot.preferences?.shortcuts} copy={copy} />
 			{webFileLimitPrompt && <WebFileLimitDialog copy={copy} productId={productId} onClose={dismissWebFileLimitPrompt} />}
 		</div>
 		</MeterPanelControlsProvider>

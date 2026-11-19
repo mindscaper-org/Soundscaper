@@ -97,7 +97,7 @@ export const AUDACITY_ACTION_ALIASES = deepFreeze({
 	'repeat-analyzer': 'local://repeat-analyzer',
 	'beat-finder': 'nyquist:beat',
 	'macro-manager': 'manage-macros',
-	'macros-palette': 'manage-macros',
+	'panel-macros-palette': 'macros-palette',
 	manual: 'online-handbook',
 	'ask-help': 'local://support',
 	support: 'local://support',

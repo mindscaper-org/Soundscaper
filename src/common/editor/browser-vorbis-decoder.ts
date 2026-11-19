@@ -21,21 +21,26 @@ const CANONICAL_SIX_CHANNEL_PLANES = [0, 2, 1, 5, 3, 4] as const;
 /** Firefox exposes Vorbis FL,FC,FR,BL,BR,LFE; native PCM uses FL,FR,FC,LFE,BL,BR. */
 function needsVorbisSpeakerOrder(channelCount: number): boolean {
 	const userAgent = globalThis.navigator?.userAgent;
+	// The maintained Firefox 157 backend already emits canonical planes.
+	const revision = typeof userAgent === 'string' ? /\bFirefox\/(\d+)/u.exec(userAgent) : null;
 	return channelCount === 6 && typeof userAgent === 'string' && /^Mozilla\/5\.0\s/u.test(userAgent)
+		&& revision !== null && Number(revision[1]) < 157
 		&& /\bGecko\/\d+\b/u.test(userAgent) && /\bFirefox\/\d+(?:\.\d+)*\b/u.test(userAgent)
 		&& !/\b(?:Android|Mobile|iPhone|iPad|FxiOS|Chrome|Chromium|Edg)\b/iu.test(userAgent);
 }
 
 /** Reorder planes at the PCM boundary without copying, resampling, or changing timestamps. */
-export function canonicalVorbisSamples(samples: AsyncIterable<BrowserContainerAudioSample>, channelCount: number): AsyncIterable<BrowserContainerAudioSample> {
-	if (!needsVorbisSpeakerOrder(channelCount)) return samples;
+export function canonicalVorbisSamples(samples: AsyncIterable<BrowserContainerAudioSample>, channelCount: number,
+	timestampOffset = 0): AsyncIterable<BrowserContainerAudioSample> {
+	const reorder = needsVorbisSpeakerOrder(channelCount);
+	if (!reorder && !timestampOffset) return samples;
 	return { async *[Symbol.asyncIterator]() {
 		for await (const sample of samples) {
-			if (sample.numberOfChannels !== 6) { yield sample; continue; }
-			yield { timestamp: sample.timestamp, duration: sample.duration, sampleRate: sample.sampleRate,
+			yield { timestamp: sample.timestamp + timestampOffset, duration: sample.duration, sampleRate: sample.sampleRate,
 				numberOfFrames: sample.numberOfFrames, numberOfChannels: sample.numberOfChannels,
 				copyTo(destination, options) {
-					sample.copyTo(destination, { ...options, planeIndex: CANONICAL_SIX_CHANNEL_PLANES[options.planeIndex] ?? options.planeIndex });
+					sample.copyTo(destination, { ...options, planeIndex: reorder && sample.numberOfChannels === 6
+						? CANONICAL_SIX_CHANNEL_PLANES[options.planeIndex] ?? options.planeIndex : options.planeIndex });
 				},
 				close() { sample.close(); },
 			};

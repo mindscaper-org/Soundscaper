@@ -22,6 +22,8 @@ import { resolveEditorCopyScope } from '../../../i18n/editor-copy-scope.ts';
 import { publishedCopyFor } from '../../controller/shared/presentation-localization.ts';
 import { useAvailableAuthoringPreset } from './useAvailableAuthoringPreset.ts';
 import { useAuthoringPresetRemovalFocus } from './useAuthoringPresetRemovalFocus.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 
 interface Props {
 	readonly copy?: Readonly<Record<string, string>>;
@@ -37,6 +39,12 @@ interface Props {
 }
 
 export default function FramescaperSelectedVisualAuthoringDialog(props: Props) {
+	const projectId = (props.project as Readonly<{ id?: unknown }> | null)?.id;
+	const owner = editorProjectEditSessionKey(props.controller, projectId);
+	return <SelectedVisualAuthoringDialog key={`${owner}:${props.surface}`} {...props} />;
+}
+
+function SelectedVisualAuthoringDialog(props: Props) {
 	const text = resolveEditorCopyScope('selectedVisualAuthoring', SELECTED_VISUAL_AUTHORING_COPY, props.copy);
 	const model = useMemo(() => createFramescaperSelectedVisualAuthoringModel({
 		surface: props.surface, project: props.project, copy: props.copy,
@@ -220,7 +228,7 @@ function DissolveFields({ text, model, frameRate, sampleRate, blocked, values, s
 		{text.selectAdjacent}
 	</p> : <fieldset disabled={blocked}>
 		<legend>{text.exactPair}</legend>
-		<label><span>{text.outgoingIncoming}</span>
+		<label><EditorControlLabel>{text.outgoingIncoming}</EditorControlLabel>
 			<select data-framescaper-authoring-pair value={values.pairId} onChange={(event) => {
 				const pairId = event.currentTarget.value;
 				setters.setPairId(pairId);
@@ -229,7 +237,7 @@ function DissolveFields({ text, model, frameRate, sampleRate, blocked, values, s
 				{candidate.label}{candidate.linkedAudio ? ` (${text.linkedAv})` : ''}
 			</option>)}</select>
 		</label>
-		<label><span>{text.duration}</span><span data-framescaper-authoring-duration>
+		<label><EditorControlLabel>{text.duration}</EditorControlLabel><span data-framescaper-authoring-duration>
 			<AudioEditorTimeCodeInput label={text.duration} value={values.durationFrames}
 				unit="frames" rate={frameRate} sampleRate={sampleRate} minimum={1}
 				maximum={pair?.maximumDurationFrames ?? 1} onChange={setters.setDurationFrames} />
@@ -245,7 +253,7 @@ function AdjustmentFields({ text, model, blocked, values, setters, onPerform }: 
 	if (model.selectedClipKind !== 'video') return <p role="alert">{text.selectVideo}</p>;
 	return <fieldset disabled={blocked || !model.selectedClipEditable}>
 		<legend>{text.selectedVideo}</legend>
-		<label><span>{text.brightness}</span><input data-framescaper-authoring-brightness type="number"
+		<label><EditorControlLabel>{text.brightness}</EditorControlLabel><input data-framescaper-authoring-brightness type="number"
 			min="-1" max="1" step="0.05" value={values.brightness}
 			onChange={(event) => setters.setBrightness(event.currentTarget.value)} /></label>
 		<div><button data-framescaper-authoring-apply type="button" onClick={() => onPerform('apply')}>
@@ -262,12 +270,12 @@ function MaskFields({ text, model, blocked, values, setters, onPerform }: Parame
 	}
 	return <fieldset disabled={blocked}>
 		<legend>{text.selectedAttachment}</legend>
-		<label><span>{text.attachedMask}</span><select data-framescaper-authoring-mask value={values.maskId}
+		<label><EditorControlLabel>{text.attachedMask}</EditorControlLabel><select data-framescaper-authoring-mask value={values.maskId}
 			onChange={(event) => setters.setMaskId(event.currentTarget.value)}>
 			<option value="">{text.newMask}</option>
 			{model.attachedMaskIds.map((id) => <option key={id} value={id}>{id}</option>)}
 		</select></label>
-		<label><span>{text.shape}</span><select data-framescaper-authoring-mask-shape value={values.shape}
+		<label><EditorControlLabel>{text.shape}</EditorControlLabel><select data-framescaper-authoring-mask-shape value={values.shape}
 			disabled={!editable}
 			onChange={(event) => setters.setShape(event.currentTarget.value as Values['shape'])}>
 			<option value="rectangle">{text.rectangle}</option><option value="ellipse">{text.ellipse}</option><option value="linear-gradient">{text.linearGradient}</option>
@@ -316,7 +324,7 @@ function MaskFields({ text, model, blocked, values, setters, onPerform }: Parame
 		</> : <><label><span>{text.width}</span><input data-framescaper-authoring-mask-width type="number" min="0.01"
 			max="1" step="0.01" value={values.maskWidth} disabled={!editable}
 			onChange={(event) => setters.setMaskWidth(event.currentTarget.value)} /></label>
-		<label><span>{text.height}</span><input data-framescaper-authoring-mask-height type="number" min="0.01"
+		<label><EditorControlLabel>{text.height}</EditorControlLabel><input data-framescaper-authoring-mask-height type="number" min="0.01"
 			max="1" step="0.01" value={values.maskHeight} disabled={!editable}
 			onChange={(event) => setters.setMaskHeight(event.currentTarget.value)} /></label></>}
 		<div><button data-framescaper-authoring-apply type="button" disabled={!editable} onClick={() => onPerform('apply')}>
@@ -332,11 +340,11 @@ function PresetFields({ text, model, blocked, values, setters, onPerform }: Para
 	return <>
 		<fieldset disabled={blocked}>
 			<legend>{text.visualPreset}</legend>
-			<label><span>{text.presetName}</span><input data-framescaper-authoring-preset-name disabled={!generatorSelected} value={values.presetName}
+			<label><EditorControlLabel>{text.presetName}</EditorControlLabel><input data-framescaper-authoring-preset-name disabled={!generatorSelected} value={values.presetName}
 				onChange={(event) => setters.setPresetName(event.currentTarget.value)} /></label>
 			<button data-framescaper-authoring-save-visual type="button" disabled={!generatorSelected} onClick={() => onPerform('save-visual')}>
 				{text.saveGenerator}</button>
-			<label><span>{text.savedVisualPreset}</span><select data-framescaper-authoring-visual-preset
+			<label><EditorControlLabel>{text.savedVisualPreset}</EditorControlLabel><select data-framescaper-authoring-visual-preset
 				value={values.visualPresetId} onChange={(event) => setters.setVisualPresetId(event.currentTarget.value)}>
 				<option value="">{text.none}</option>{model.visualPresets.map(({ id, name }) => (
 					<option key={id} value={id}>{name}</option>
@@ -348,7 +356,7 @@ function PresetFields({ text, model, blocked, values, setters, onPerform }: Para
 		</fieldset>
 		<fieldset disabled={blocked}>
 			<legend>{text.finishingPreset}</legend>
-			<label><span>{text.savedFinishingPreset}</span><select data-framescaper-authoring-finishing-preset
+			<label><EditorControlLabel>{text.savedFinishingPreset}</EditorControlLabel><select data-framescaper-authoring-finishing-preset
 				value={values.finishingPresetId}
 				onChange={(event) => setters.setFinishingPresetId(event.currentTarget.value)}>
 				<option value="">{text.none}</option>{model.finishingPresets.map(({ id, name }) => (
@@ -367,7 +375,7 @@ function FreezeFields({ text, model, frameRate, sampleRate, blocked, values, set
 	return <fieldset disabled={blocked}>
 		<legend>{text.exactPlayhead}</legend>
 		<p data-framescaper-authoring-freeze-playhead>{text.timelineSample} {model.fence.playheadSample}</p>
-		<label><span>{text.freezeDuration}</span><span data-framescaper-authoring-freeze-duration>
+		<label><EditorControlLabel>{text.freezeDuration}</EditorControlLabel><span data-framescaper-authoring-freeze-duration>
 			<AudioEditorTimeCodeInput label={text.freezeDuration} value={values.freezeDuration}
 				unit="frames" rate={frameRate} sampleRate={sampleRate} minimum={1} maximum={10_000}
 				onChange={setters.setFreezeDuration} />

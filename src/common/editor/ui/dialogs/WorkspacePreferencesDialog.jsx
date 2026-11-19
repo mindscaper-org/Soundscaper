@@ -42,6 +42,7 @@ import {
 	workspaceDockLabel,
 	workspacePanelLabel,
 } from '../workspace/workspace-panel-model.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const KeyboardMapDialog = lazy(() => import('./KeyboardMapDialog.tsx'));
 
@@ -67,6 +68,7 @@ export default function WorkspacePreferencesDialog({
 	const keyboardCopy = resolveEditorCopyScope('keyboardMap', KEYBOARD_MAP_COPY_BY_LOCALE.en, copy);
 	const [shortcutSearch, setShortcutSearch] = useState('');
 	const [shortcutSort, setShortcutSort] = useState(DEFAULT_SHORTCUT_SORT_MODE);
+	const [shortcutDrafts, setShortcutDrafts] = useState(() => new Map());
 	const [workspaceName, setWorkspaceName] = useState('');
 	const workspaceNameRevision = useRef(0);
 	const workspaceNameRef = useRef(null);
@@ -81,8 +83,6 @@ export default function WorkspacePreferencesDialog({
 	const conflictFor = useMemo(() => selectedPage === 'shortcuts' ? createShortcutDraftConflictIndex(preferences.shortcuts) : undefined, [preferences.shortcuts, selectedPage]);
 	const activeCustom = preferences.workspace.custom.find((workspace) => workspace.id === preferences.workspace.activeId);
 	const captureWorkspaceDeletion = useWorkspaceDeletionFocus(workspacePresetRef, preferences.workspace.custom, controller);
-	const mediaPreferencesAvailable = fileService?.isDesktop
-		|| menus.some((menu) => menu.nativePreferences?.some((entry) => entry.section === 'media'));
 	// Audacity's own page order, with the one page it has no counterpart for —
 	// Workspace, holding both the presets and the panel inventory — kept after
 	// Shortcuts.
@@ -93,7 +93,6 @@ export default function WorkspacePreferencesDialog({
 		{ id: 'playback-recording', label: copy.preferencesPlaybackRecording, icon: iconNameToChar('MICROPHONE') },
 		{ id: 'track-display', label: copy.preferencesTrackDisplay, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'editing', label: copy.preferencesEditing, icon: iconNameToChar('EDIT') },
-		...(mediaPreferencesAvailable ? [{ id: 'media', label: copy.assistanceMediaPreferences || 'Media', icon: iconNameToChar('SETTINGS_COG') }] : []),
 		{ id: 'effects', label: copy.preferencesEffects, icon: iconNameToChar('WAVEFORM') },
 		{ id: 'shortcuts', label: copy.shortcuts, icon: iconNameToChar('SHORTCUTS') },
 		{ id: 'workspace', label: copy.workspace, icon: iconNameToChar('WORKSPACE') },
@@ -205,7 +204,7 @@ export default function WorkspacePreferencesDialog({
 										.map(({ id, name }) => ({ value: id, label: name }))}
 								/></div>
 								<label className="kw-audio-editor-preferences__workspace-name">
-									<span>{copy.workspaceName}</span>
+									<EditorControlLabel>{copy.workspaceName}</EditorControlLabel>
 									<input ref={workspaceNameRef} aria-label={copy.workspaceName} placeholder={copy.workspaceName} value={workspaceName} onChange={(event) => {
 										workspaceNameRevision.current += 1;
 										setWorkspaceName(event.currentTarget.value);
@@ -292,7 +291,7 @@ export default function WorkspacePreferencesDialog({
 								{keyboardVisible && <Suspense fallback={null}><KeyboardMapDialog commands={commands} shortcuts={preferences.shortcuts} copy={copy} onClose={() => setKeyboardVisible(false)} /></Suspense>}
 								<div className="kw-audio-editor-preferences__shortcut-controls">
 									<label className="kw-audio-editor-preferences__search">
-										<span className="kw-audio-editor-sr-only">{copy.shortcutSearch}</span>
+										<EditorControlLabel className="kw-audio-editor-sr-only">{copy.shortcutSearch}</EditorControlLabel>
 										<input type="search" value={shortcutSearch} onChange={(event) => setShortcutSearch(event.currentTarget.value)} placeholder={copy.shortcutSearch} aria-label={copy.shortcutSearch} />
 									</label>
 									<PreferenceDropdownField
@@ -316,11 +315,14 @@ export default function WorkspacePreferencesDialog({
 										<Fragment key={group.id}>
 											{group.label && <h5 className="kw-audio-editor-preferences__shortcut-group" data-shortcut-group={group.id}
 												data-translation-key={group.id.startsWith('location:') ? shortcutCategoryMessageKey(group.id.slice('location:'.length)) : undefined}>{group.label}</h5>}
-										{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} commands={commands} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} />)}
+											{group.commands.map((command) => <ShortcutEditorRow key={command.id} productId={productId} command={command} commands={commands} preferences={preferences} controller={controller} copy={copy} run={run} conflictFor={conflictFor} drafts={shortcutDrafts} />)}
 										</Fragment>
 									))}
 								</div>
-								<Button variant="secondary" onClick={() => run(() => controller.actions.preferences.resetShortcuts())}>{copy.shortcutsReset}</Button>
+								<Button variant="secondary" onClick={() => run(async () => {
+									await controller.actions.preferences.resetShortcuts();
+									setShortcutDrafts(new Map());
+								})}>{copy.shortcutsReset}</Button>
 							</PreferencePanel>
 						)}
 					</main>

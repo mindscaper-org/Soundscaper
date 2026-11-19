@@ -9,7 +9,7 @@ test('a selected delivery retains the ordinary finite echoes heard in the comple
 	test.setTimeout(180_000);
 	const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [createWavFixture({ name: 'steady quiet recording.wav', frequency: 500,
 		duration: 20, channelCount: 1, channelAmplitudes: [.02] })]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

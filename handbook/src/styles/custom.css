@@ -33,14 +33,15 @@
 	filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 20%));
 }
 
-.sl-markdown-content table:focus-visible {
+.sl-markdown-content table:focus-visible,
+.sl-markdown-content .comparison-table-scroll:focus-visible {
 	outline: 3px solid var(--sl-color-text-accent);
 	outline-offset: 0.25rem;
 }
 
 /*
  * Comparison matrices. `src/plugins/rehype-verdict-tables.mjs` tags the cells
- * of a table whose every comparison cell reads +, ~ or / (or a legacy verdict
+ * of a table whose every comparison cell reads +, ~, / or ? (or a legacy verdict
  * word). Distinct symbols and accessible labels repeat the colour's meaning.
  */
 :root {
@@ -59,6 +60,90 @@
 	--verdict-partial-tint: rgb(245 158 11 / 16%);
 	--verdict-no-text: #9f1239;
 	--verdict-no-tint: rgb(244 63 94 / 10%);
+}
+
+.sl-markdown-content .comparison-table-scroll {
+	max-inline-size: 100%;
+	overflow-x: auto;
+}
+
+.sl-markdown-content table.verdict-table {
+	display: table;
+	overflow: visible;
+	inline-size: 100%;
+	min-inline-size: 58rem;
+	table-layout: fixed;
+}
+
+.sl-markdown-content .verdict-table :is(th, td) {
+	padding-inline: 0.5rem;
+	overflow-wrap: anywhere;
+	/* Firefox can under-size rows that mix multiline buttons and baseline text. */
+	vertical-align: top;
+}
+
+.sl-markdown-content .verdict-table :is(th, td):first-child {
+	inline-size: 25%;
+}
+
+.sl-markdown-content table.comparison-table--grouped {
+	--comparison-feature-width: 14rem;
+	min-inline-size: calc(var(--comparison-feature-width) + var(--comparison-product-count) * 8rem);
+}
+
+.sl-markdown-content .comparison-table--grouped :is(th, td):first-child {
+	inline-size: auto;
+}
+
+.sl-markdown-content .comparison-feature-column {
+	inline-size: var(--comparison-feature-width);
+}
+
+.sl-markdown-content .comparison-feature-heading {
+	position: sticky;
+	inset-inline-start: 0;
+	z-index: 1;
+	background: var(--sl-color-bg);
+	font-weight: 400;
+	box-shadow: 1px 0 var(--sl-color-gray-4);
+}
+
+.sl-markdown-content .comparison-table--grouped thead th {
+	background: var(--sl-color-gray-6);
+	font-weight: 600;
+}
+
+.sl-markdown-content .comparison-table--grouped th.comparison-family-related {
+	background: color-mix(in srgb, var(--sl-color-text-accent) 4%, var(--sl-color-gray-6));
+	border-block-end: 1px solid var(--sl-color-gray-4);
+}
+
+.sl-markdown-content .comparison-family-start {
+	border-inline-start: 1px solid var(--sl-color-gray-5);
+}
+
+.sl-markdown-content .comparison-category-start {
+	border-inline-start: 1px solid var(--sl-color-gray-4);
+}
+
+.sl-markdown-content .comparison-category-heading {
+	text-align: start;
+	color: var(--sl-color-gray-2);
+}
+
+.sl-markdown-content .comparison-category-label {
+	display: block;
+	position: sticky;
+	inset-inline-start: calc(var(--comparison-feature-width) + 0.5rem);
+	inline-size: max-content;
+	font-size: var(--sl-text-sm);
+	font-weight: 500;
+}
+
+@media (max-width: 50rem) {
+	.sl-markdown-content table.comparison-table--grouped {
+		--comparison-feature-width: 10rem;
+	}
 }
 
 .sl-markdown-content .verdict-cell {
@@ -83,6 +168,12 @@
 	--verdict-text: var(--verdict-no-text);
 }
 
+.sl-markdown-content .verdict-cell--unknown,
+.sl-markdown-content .verdict--unknown {
+	--verdict-tint: transparent;
+	--verdict-text: var(--sl-color-text);
+}
+
 .sl-markdown-content .verdict {
 	display: inline-block;
 	min-inline-size: 1em;
@@ -92,6 +183,40 @@
 	line-height: 1;
 	text-align: center;
 	white-space: nowrap;
+}
+
+.comparison-note-trigger {
+	border: 0;
+	padding: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	text-decoration: underline dotted;
+	text-underline-offset: 0.25em;
+	cursor: help;
+}
+
+.comparison-note-trigger:focus-visible {
+	outline: 2px solid var(--sl-color-text-accent);
+	outline-offset: 3px;
+}
+
+.comparison-note-detail {
+	position: fixed;
+	inset: auto;
+	margin: 0;
+	max-width: min(22rem, calc(100vw - 2rem));
+	border: 1px solid var(--sl-color-gray-4);
+	border-radius: 0.3rem;
+	padding: 0.75rem;
+	background: var(--sl-color-bg);
+	color: var(--sl-color-text);
+	font-size: var(--sl-text-sm);
+	line-height: 1.5;
+	text-align: start;
+	white-space: normal;
+	box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 25%);
 }
 
 @media (prefers-contrast: more) {

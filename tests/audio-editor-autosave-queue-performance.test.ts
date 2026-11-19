@@ -46,7 +46,8 @@ function fixture({ failOnceAtRevision }: { readonly failOnceAtRevision?: number 
 		service, state, writes, firstWrite, errors, publications, storageFailure,
 		get clones() { return clones; }, get maintenance() { return maintenance; },
 		setProject(value: Project) { project = value; },
-		autosave(value: Project) { project = value; service.scheduleAutosave(); callback!(); callback = null; },
+		fireScheduled() { const pending = callback; callback = null; pending?.(); },
+		autosave(value: Project) { project = value; service.scheduleAutosave(); const pending = callback; callback = null; pending?.(); },
 		hasQueuedSaveWarning() {
 			let prevented = false;
 			beforeUnload?.({ preventDefault: () => { prevented = true; }, returnValue: '' } as unknown as BeforeUnloadEvent);
@@ -54,6 +55,46 @@ function fixture({ failOnceAtRevision }: { readonly failOnceAtRevision?: number 
 		},
 	};
 }
+
+test('a manual Save waiting on project suspension cannot save a different project', async () => {
+	const runtime = fixture();
+	runtime.firstWrite.resolve();
+	runtime.service.suspendProject('project');
+	const saving = runtime.service.flushProject();
+	assert.ok(saving);
+	runtime.setProject({ id: 'other-project', revision: 1 });
+	runtime.service.resumeProject('project');
+	await saving;
+	assert.deepEqual(runtime.writes, []);
+});
+
+test('a resumed Save preserves the pending autosave of a different project', async () => {
+	const runtime = fixture();
+	runtime.firstWrite.resolve();
+	runtime.service.suspendProject('project');
+	const saving = runtime.service.flushProject();
+	assert.ok(saving);
+	runtime.setProject({ id: 'other-project', revision: 1 });
+	assert.equal(runtime.service.scheduleAutosave(), true);
+	runtime.setProject({ id: 'project', revision: 0 });
+	runtime.service.resumeProject('project');
+	await saving;
+	runtime.fireScheduled();
+	await runtime.service.drain();
+	assert.deepEqual(runtime.writes, [{ id: 'project', revision: 0 }, { id: 'other-project', revision: 1 }]);
+});
+
+test('terminal flush cancels a scheduled autosave even if another project is active', async () => {
+	const runtime = fixture();
+	runtime.firstWrite.resolve();
+	runtime.setProject({ id: 'other-project', revision: 1 });
+	assert.equal(runtime.service.scheduleAutosave(), true);
+	runtime.setProject({ id: 'project', revision: 0 });
+	await runtime.service.terminalFlush();
+	runtime.fireScheduled();
+	await runtime.service.drain();
+	assert.deepEqual(runtime.writes, [{ id: 'project', revision: 0 }]);
+});
 
 test('slow storage persists the in-flight autosave and newest queued edit without cloning the backlog', async () => {
 	const runtime = fixture();

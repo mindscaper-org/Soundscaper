@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { inventoryVideoDeliveryConversions } from '../src/common/editor/delivery-video-conversion-inventory.ts';
+import { videoPictureCaptionStage } from '../src/common/editor/video-picture-caption-stage.ts';
 import type {
 	ProductVideoExportPlan,
 	ProductVideoExportStrategy,
@@ -200,14 +202,40 @@ test('picture ownership reports a generator on a visible track and not a keyed v
 	);
 });
 
-test('a caption request is refused because finishing delivers captions as sidecars only', () => {
+test('Framescaper video export refuses requests to mux authored captions', () => {
 	const built = harness();
 
 	assert.throws(
-		() => built.strategy.createPlan(planRequest(built, { captions: { trackIds: [] } })),
-		/sidecar-only through Caption Tracks/u,
+		() => built.strategy.createPlan(planRequest(built, { captions: { trackId: 'dialogue', mux: true, burnIn: false, sidecar: null } })),
+		/accepts caption burn-in/u,
 	);
 });
+
+for (const [surface, makeOptions] of [['still and generator', generatorOptions], ['video', baseOptions]] as const) {
+	test(`a ${surface} export binds an opt-in burn-in stage to its exact selection`, () => {
+		const built = harness({ ...makeOptions(), finishing: { captionTracks: [{
+			schemaVersion: 1, id: 'dialogue', sequenceId: 'main-sequence', name: 'Dialogue', language: 'en',
+			styles: [], regions: [], speakers: [], cues: [{
+				schemaVersion: 1, id: 'line', startFrame: 1_000, endFrame: 12_000, text: 'A caption',
+				styleId: null, regionId: null, speakerId: null, words: [],
+			}],
+		}] } });
+		const range = { startFrame: 6_000, endFrame: 18_000 };
+		const canvas = { size: { width: 320, height: 180 } };
+		const ordinary = built.strategy.createPlan(planRequest(built, { range, canvas }))!;
+		assert.equal(videoPictureCaptionStage(ordinary), undefined);
+		const captions = { trackId: 'dialogue', mux: false, burnIn: true, sidecar: null };
+		const plan = built.strategy.createPlan(planRequest(built, { range, canvas, captions }))!;
+		const stage = videoPictureCaptionStage(plan);
+		assert.equal(stage?.trackId, 'dialogue');
+		assert.equal(stage.stage.cues[0]?.startSeconds, 0);
+		assert.equal(stage.stage.cues[0]?.endSeconds, 6_000 / Number(built.project.sampleRate));
+		assert.ok(inventoryVideoDeliveryConversions(plan).some(({ code }) => code === 'delivery.captions-burned'));
+		assert.throws(() => built.strategy.createPlan(planRequest(built, {
+			range, canvas, captions: { ...captions, trackId: 'missing' },
+		})), /missing from the exported Framescaper sequence/u);
+	});
+}
 
 test('a plan request is refused when its projection is unowned or its project moved on', () => {
 	const built = harness();

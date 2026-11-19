@@ -91,6 +91,33 @@ test('a TTS script retains its generated source and immutable body without a tim
 	assert.equal(collectProjectStorageKeys(project).has(result.reference.body.storageKey), true);
 });
 
+test('cancellation during TTS script writer acquisition retires the unpublished archive asset', async (context) => {
+	const result = publication();
+	const sender = memoryStore(context, 'cancelled-tts-source');
+	const recipient = memoryStore(context, 'cancelled-tts-recipient');
+	const project = createSoundscaperProject({ id: 'cancelled-tts-project', title: 'Speech', now: NOW,
+		sources: [source()], assistanceAssets: [result.reference] } as never);
+	await seed(sender, result);
+	const runtime = createSoundscaperScapeNativeRuntime();
+	const exported = await runtime.exportScapeProject(project, sender as never);
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel the new asset writer', 'AbortError');
+	let aborts = 0;
+	const begin = recipient.beginMediaAssetWrite.bind(recipient);
+	context.mock.method(recipient, 'beginMediaAssetWrite', async (...args: Parameters<typeof begin>) => {
+		const writer = await begin(...args);
+		if (args[0] === result.reference.body.storageKey) {
+			const retire = writer.abort.bind(writer);
+			context.mock.method(writer, 'abort', async () => { aborts += 1; await retire(); });
+			abort.abort(reason);
+		}
+		return writer;
+	});
+	await assert.rejects(runtime.importScapeProject(exported.blob!, recipient as never, { signal: abort.signal }), error => error === reason);
+	assert.equal(aborts, 1);
+	assert.equal(await recipient.getMediaAssetMetadata(result.reference.body.storageKey), null);
+});
+
 test('Framescaper .scape collision rebinds TTS script body and source together', async (context) => {
 	const result = publication();
 	const sender = memoryStore(context, 'framescaper-tts-sender');

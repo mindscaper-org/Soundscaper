@@ -190,7 +190,7 @@ test('play selection bounds the run and starts it at the selection', async () =>
 	fixture.setPositionFrame(40);
 	assert.equal(await fixture.service.handleTransport('play-selection'), 'played');
 
-	assert.deepEqual(fixture.calls.playRanges, [{ startFrame: 10, endFrame: 30 }]);
+	assert.deepEqual(fixture.calls.playRanges, [{ startFrame: 10, endFrame: 30, overrideLoop: true }]);
 	assert.deepEqual(fixture.calls.seeks, [10]);
 });
 
@@ -324,6 +324,22 @@ test('metronome click waits for the audible start of buffered playback', async (
 	await fixture.service.runMetronomeScheduler();
 	assert.equal(starts[0], 1.1, 'the first click follows the output graph and future source start');
 	fixture.service.stopMetronome();
+});
+
+test('the final cut-preview click ends when the audition ends', async () => {
+	const fixture = createTransportFixture();
+	const stops: (number | undefined)[] = [];
+	fixture.setPlaybackState({ state: 'playing', cutPreview: true });
+	Object.assign(fixture.engine, { getCutPreviewSegments: () => [
+		{ startFrame: 4_800, endFrame: 5_760, contextStartTime: 1 },
+	] });
+	fixture.setAudioContext(metronomeContext(() => {}, when => { stops.push(when); }));
+	fixture.state.metronomeEnabled = true;
+	fixture.state.transportState = 'playing';
+	try {
+		await fixture.service.runMetronomeScheduler();
+		assert.deepEqual(stops, [1.02]);
+	} finally { fixture.service.stopMetronome(); }
 });
 
 test('metronome replaces a queued click when audible playback starts later', async () => {

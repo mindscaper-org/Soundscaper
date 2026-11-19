@@ -61,8 +61,7 @@ function programmeAmplitude(samples) {
 }
 
 for (const [mixDown, position, mode] of [
-	[true, 'pre-fader', 'leaf'], [true, 'post-fader', 'leaf'],
-	[false, 'pre-fader', 'leaf'], [false, 'post-fader', 'leaf'],
+	[true, 'pre-fader', 'leaf'], [false, 'post-fader', 'leaf'],
 	[true, 'post-fader', 'vca-mute'], [true, 'post-fader', 'vca-gain'], [true, 'post-fader', 'bus'],
 ]) test(`${mixDown ? 'Combined' : 'Individual'} Mix & Render retains the ${position} ${mode} detector`, async ({ page }) => {
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');

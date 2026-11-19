@@ -127,6 +127,31 @@ test('a failed v1 initialization rolls back before a clean retry', async () => {
 	retried.close();
 });
 
+test('v2 MIDI recipe admission preserves all existing v1 project, history and PCM bytes', async () => {
+	const indexedDB = instrumentedIndexedDB(), name = uniqueDatabaseName('midi-v2-upgrade');
+	const baseline = await new Promise<IDBDatabase>((resolve, reject) => {
+		const opening = indexedDB.open(name, 1);
+		opening.onupgradeneeded = () => {
+			for (const store of ['projects', 'revisions', 'sources', 'sourceChunks']) opening.result.createObjectStore(store, { keyPath: 'id' });
+		};
+		opening.onsuccess = () => resolve(opening.result);
+		opening.onerror = () => reject(opening.error);
+	});
+	const values = [
+		{ id: 'project', clips: [{ id: 'clip', sourceId: 'pcm' }] },
+		{ id: 'history', project: { id: 'project', revision: 1 } },
+		{ id: 'pcm', storage: 'indexeddb', sourceToken: 'original', frameCount: 2 },
+		{ id: 'samples', payload: new Float32Array([0.125, -0.5]).buffer },
+	];
+	const stores = ['projects', 'revisions', 'sources', 'sourceChunks'];
+	for (let index = 0; index < stores.length; index++) indexedDB.seedRecord(name, stores[index]!, values[index]);
+	baseline.close();
+	const upgraded = await openDatabase(indexedDB as unknown as IDBFactory, name);
+	assert.equal(upgraded.version, 2);
+	for (let index = 0; index < stores.length; index++) assert.deepEqual(indexedDB.records(name, stores[index]!), [values[index]]);
+	upgraded.close();
+});
+
 const LEGACY_DATABASE_VERSION = 2;
 
 function assertCurrentSchema(

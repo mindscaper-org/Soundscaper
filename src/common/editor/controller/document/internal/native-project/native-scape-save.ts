@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { SCAPE_MIME_TYPE } from '../../../../scape-project-format.ts'; import { setLocalizedStatus } from '../../../../../i18n/presentation-message.ts';
+import { SCAPE_MIME_TYPE } from '../../../../scape-project-format.ts';
 import type { ProjectFileExtension } from '../../../../../project-file-extensions.ts';
 import type { ScapeArchiveByteSource } from '../../../../../scape/archive-byte-source.ts';
 import { recordScapeArchiveManifest } from '../scape/scape-archive-manifest-action.ts';
@@ -44,22 +44,36 @@ export async function beginNativeScapeSave(
 		fallbackFileName: unknown;
 		options: SaveScapeOptions;
 		signal: AbortSignal;
+		projectCopySourceId?: string;
 	}>,
 ): Promise<Readonly<{ fileName: string; prepared: NativePreparedSave }>> {
 	const extension = runtime.projectFileExtension;
 	const fileName = runtime.ensureProjectFileName(
 		request.options.fileName || request.fallbackFileName, extension,
 	);
+	const copySourceId = request.projectCopySourceId;
 	const prepared = await runtime.fileService.prepareSave({
-		purpose: 'project',
+		purpose: copySourceId ? 'project-copy' : 'project',
+		...(copySourceId ? { projectCopySourceId: copySourceId } : {}),
 		suggestedName: fileName,
 		mimeType: runtime.scapeMimeType,
-		target: request.options.saveTarget,
+		target: copySourceId ? undefined : request.options.saveTarget,
 		types: scapeFileTypes(extension),
 		useFileSystemAccess: request.options.useFileSystemAccess !== false,
 		signal: request.signal,
 	});
 	return { fileName, prepared };
+}
+
+/** Abandon a destination when a save can no longer proceed. */
+export async function abortNativeScapeSave(prepared: NativePreparedSave, error: unknown): Promise<never> {
+	if (prepared.mode === 'stream') {
+		try { await prepared.abort(error); }
+		catch (cleanupError) {
+			throw new AggregateError([error, cleanupError], 'The Scape save and destination cleanup both failed.');
+		}
+	}
+	throw error;
 }
 
 export async function publishNativeScape(
@@ -101,6 +115,7 @@ export async function publishNativeScape(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.project.id,
 		archive: exported.blob, fileName: savedScapeFileName(saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null, signal: request.signal,
 	});
@@ -113,15 +128,17 @@ export interface NativeRetainedScapeArchive {
 	readonly manifest: NativeScapeManifest;
 	readonly cleanup?: () => Promise<void>;
 	readonly copySource?: ScapeArchiveByteSource;
+	readonly projectCopySourceId?: string;
 }
 
 /** Orchestrate the unchanged-copy save of a retained future-schema archive. */
 export async function saveNativeScapeArchiveCopy(
 	runtime: Pick<NativeProjectServiceRuntime,
-	'copy' | 'copyFutureScapeArchive' | 'ensureProjectFileName' | 'fileService'
-	| 'projectFileExtension' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'setStatus' | 'state'>,
+	'copyFutureScapeArchive' | 'ensureProjectFileName' | 'fileService'
+	| 'projectFileExtension' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'state'>,
 	request: Readonly<{
 		assertReady(): void;
+		beginWriting(): void;
 		fallbackFileName: unknown;
 		options: SaveScapeOptions;
 		retained: NativeRetainedScapeArchive;
@@ -132,16 +149,20 @@ export async function saveNativeScapeArchiveCopy(
 	// The bytes are copied unchanged; only the name follows the saving product.
 	const { fileName, prepared } = await beginNativeScapeSave(runtime, {
 		fallbackFileName: request.fallbackFileName, options: request.options, signal: request.signal,
+		projectCopySourceId: request.retained.projectCopySourceId,
 	});
 	if (prepared.mode === 'cancelled') return { cancelled: true };
-	request.assertReady();
+	try {
+		request.assertReady();
+		request.beginWriting();
+	} catch (error) { return abortNativeScapeSave(prepared, error); }
 	const { saved } = await publishNativeScapeArchiveCopy(runtime, {
+		projectId: request.retained.projectId,
 		archive: request.retained.archive,
 		copySource: request.retained.copySource,
 		assertReadyToCommit: request.assertReady,
 		fileName, prepared, signal: request.signal,
 	});
-	setLocalizedStatus(runtime.setStatus, runtime.copy, "projectSaved", undefined, 'success');
 	return { ...saved, manifest: request.retained.manifest };
 }
 
@@ -150,6 +171,7 @@ export async function publishNativeScapeArchiveCopy(
 	runtime: Pick<NativeProjectServiceRuntime,
 	'copyFutureScapeArchive' | 'fileService' | 'publishDocumentSnapshot' | 'scapeMimeType' | 'state'>,
 	request: Readonly<{
+		projectId: string;
 		archive: Blob;
 		copySource?: ScapeArchiveByteSource;
 		assertReadyToCommit(): void;
@@ -201,6 +223,7 @@ export async function publishNativeScapeArchiveCopy(
 			throw error;
 		}
 		await recordScapeArchiveManifest(runtime, {
+			projectId: request.projectId,
 			archive: request.archive, fileName: savedScapeFileName(publication.saved, request.fileName), signal: request.signal,
 		});
 		return publication;
@@ -226,6 +249,7 @@ export async function publishNativeScapeArchiveCopy(
 	});
 	if (saved.cancelled) throw new DOMException('The file save was cancelled.', 'AbortError');
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.projectId,
 		archive: request.archive, fileName: savedScapeFileName(saved, request.fileName), signal: request.signal,
 	});
 	return { copied, saved };
@@ -261,17 +285,10 @@ async function publishDirectScape(
 		const saved = await request.prepared.commit();
 		publication = { exported, saved };
 	} catch (error) {
-		try {
-			await request.prepared.abort(error);
-		} catch (cleanupError) {
-			throw new AggregateError(
-				[error, cleanupError],
-				'The Scape save and destination cleanup both failed.',
-			);
-		}
-		throw error;
+		return abortNativeScapeSave(request.prepared, error);
 	}
 	await recordScapeArchiveManifest(runtime, {
+		projectId: request.project.id,
 		archive: null,
 		fileName: savedScapeFileName(publication.saved, request.fileName),
 		projectTitle: String(request.project?.title ?? '') || null,

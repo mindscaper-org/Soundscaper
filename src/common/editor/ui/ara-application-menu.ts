@@ -15,11 +15,13 @@ export function createAraApplicationMenuItems(input: Readonly<{
 	if (!input.available || !['soundscaper', 'framescaper'].includes(input.productId)) return []
 	const project = input.project as { clips?: readonly { id: string; kind: string; sourceId: string }[];
 		sources?: readonly { id: string; channelCount: number }[];
+		selection?: { readonly clipIds?: readonly string[] };
 		tracks?: readonly { type?: string; clipIds?: readonly string[]; locked?: boolean }[] } | null
 	const clip = project?.clips?.find(clip => clip.kind === 'audio' && clip.id === input.selectedClipId)
 	const track = clip && project?.tracks?.find(track => track.type === 'audio' && track.clipIds?.includes(clip.id))
 	const source = clip && project?.sources?.find(source => source.id === clip.sourceId)
-	const selected = Boolean(track && track.locked !== true && (source?.channelCount === 1 || source?.channelCount === 2))
+	const selected = Boolean(track && track.locked !== true && (source?.channelCount === 1 || source?.channelCount === 2)
+		&& (project?.selection?.clipIds?.length ?? 0) <= 1)
 	const disabledReason = input.editingBlocked || input.readOnly
 		? input.copy?.projectReadOnly ?? 'The project cannot be edited right now.'
 		: !selected ? input.copy?.['ui.ara.selectClip'] ?? ARA_COPY_BY_LOCALE.en.selectClip : ''

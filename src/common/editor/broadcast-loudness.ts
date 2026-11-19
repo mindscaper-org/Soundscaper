@@ -12,6 +12,12 @@ export function measureBextLoudness(
 	sampleRate: number,
 	options: BextLoudnessMeasurementOptions = {},
 ): Readonly<Pick<BextMetadataInput, 'loudnessValue' | 'loudnessRange' | 'maxTruePeakLevel' | 'maxMomentaryLoudness' | 'maxShortTermLoudness'>> {
+	return bextLoudnessFields(measureProgrammeLoudness(channels, sampleRate, options));
+}
+
+export function measureProgrammeLoudness(
+	channels: readonly Float32Array[], sampleRate: number, options: BextLoudnessMeasurementOptions = {},
+) {
 	const meter = createFixedWeightEbuR128Meter({
 		sampleRate,
 		channelCount: channels.length,
@@ -19,7 +25,10 @@ export function measureBextLoudness(
 		running: true,
 	});
 	meter.push(channels);
-	const value = meter.snapshot({ finishTruePeak: true, finishLoudness: true }).loudness;
+	return meter.snapshot({ finishTruePeak: true, finishLoudness: true }).loudness;
+}
+
+export function bextLoudnessFields(value: ReturnType<typeof measureProgrammeLoudness>) {
 	// The meter answers in its own range, which is wider than the chunk's: it
 	// floors true peak at -120 dBTP and gates nothing off momentary loudness, so
 	// a silent or near-silent programme reports numbers no BEXT field can hold.

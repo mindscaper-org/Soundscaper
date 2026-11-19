@@ -165,7 +165,7 @@ test.describe('audio editor React/design-system workflows', () => {
 		const tooltip = page.locator('.kw-audio-editor__button-tooltip');
 		await expect(tooltip).toBeVisible();
 		await expect(tooltip).toHaveAttribute('role', 'tooltip');
-		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play');
+		await expect(tooltip.locator('[data-audio-editor-button-tooltip]')).toHaveText('Play (P)');
 		// Unlike the dropdown menu, this Flyout mounts inside the editor root
 		// rather than as a document.body portal, so it is pinned here as the
 		// floating tooltip surface instead of as a second portal baseline.

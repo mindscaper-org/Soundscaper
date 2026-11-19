@@ -1,0 +1,29 @@
+{
+	"schemaVersion": 1,
+	"kind": "soundscaper-coverage-test-layers",
+	"defaultLayer": "native",
+	"thresholds": {
+		"lines": 100,
+		"statements": 100,
+		"functions": 100,
+		"branches": 100
+	},
+	"sources": [
+		{
+			"path": "src/common/foundation/abort-error.ts",
+			"layer": "node-deterministic",
+			"sourceSha256": "sha256:9db1d3d1cdf5303ae3a64ce0752db5476a847051c52ce113309146e31898fb90",
+			"nodeTests": [
+				"tests/audio-editor-abort-error.test.ts"
+			],
+			"nativeWitness": {
+				"spec": "tests/browser/audio-editor-import-preservation-custody.spec.js",
+				"title": "File Import preserves unusual filenames and literal credits through Save and reload",
+				"surfaces": [
+					"browser-chromium-soundscaper-renderer"
+				]
+			},
+			"reason": "Owner-bound cancellation guards transform explicit signal values into preserved reasons or named errors. All branches are deterministic; native file import, storage, cancellation interaction and rendering retain their actual browser integration witnesses."
+		}
+	]
+}

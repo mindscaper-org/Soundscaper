@@ -5,6 +5,8 @@
 import {
 	FRAMESCAPER_EXTERNAL_DISPLAY_MAXIMUM_FRAME_BYTES,
 	type FramescaperExternalDisplayFrame,
+	type FramescaperExternalDisplayFrameMetadata,
+	type FramescaperExternalDisplayPixelPort,
 } from './external-display-controller.ts';
 import {
 	HELPER_DATA_CHUNK_MAXIMUM_BYTES,
@@ -24,22 +26,12 @@ const FRAME_KEYS = Object.freeze([
 ]);
 const SHA256 = /^[a-f0-9]{64}$/u;
 
-interface ExternalDisplayFrameMetadata {
-	readonly sequence: number;
-	readonly evaluationFingerprint: string;
-	readonly width: number;
-	readonly height: number;
-	readonly dynamicRange: 'sdr' | 'hdr';
-	readonly rgbaSha256: string;
-}
-
-export interface FramescaperExternalDisplayFrameMessagePort {
+export interface FramescaperExternalDisplayFrameMessagePort extends FramescaperExternalDisplayPixelPort {
 	postMessage(message: unknown): void;
 	on(event: 'message' | 'close', listener: (event: unknown) => void): unknown;
 	off?(event: 'message' | 'close', listener: (event: unknown) => void): unknown;
 	removeListener?(event: 'message' | 'close', listener: (event: unknown) => void): unknown;
 	start?(): void;
-	close(): void;
 }
 
 interface FramePortEvent {
@@ -58,7 +50,10 @@ export interface FramescaperExternalDisplayFramePortOptions {
 interface FramescaperExternalDisplayControllerPort {
 	externalDisplays(): Readonly<{ readonly activeDisplayId: string | null }>;
 	externalDisplaySessionIdentity(): object | null;
-	presentExternalDisplay(frame: FramescaperExternalDisplayFrame): unknown;
+	presentExternalDisplay(
+		frame: FramescaperExternalDisplayFrame | FramescaperExternalDisplayFrameMetadata,
+		pixels?: FramescaperExternalDisplayPixelPort,
+	): unknown;
 }
 
 export interface FramescaperExternalDisplayFramePortRegistration {
@@ -75,21 +70,28 @@ export function registerFramescaperExternalDisplayFramePort(
 	let active: AbortController | null = null;
 	let disposed = false;
 	const listener: FramePortListener = (event, value) => {
-		const port = eventPort(event);
+		const ports = eventPorts(event);
+		if (ports === null) return;
+		const [port, pixels] = ports;
 		if (disposed || !options.authorizeOwner(event)) {
-			port?.close();
+			port.close();
+			pixels?.close();
 			return;
 		}
 		if (active !== null) {
-			reportFailure(port, value, new Error(
+			pixels?.close();
+			reportFailure(port, value, pixels !== undefined, new Error(
 				'External-display frame backpressure permits exactly one in-flight transfer.',
 			));
 			return;
 		}
 		const abort = new AbortController();
 		active = abort;
-		void acceptFrame(options.controller, event, value, abort.signal)
-			.catch((error: unknown) => reportFailure(port, value, error))
+		void acceptFrame(options.controller, ports, value, abort.signal)
+			.catch((error: unknown) => {
+				pixels?.close();
+				reportFailure(port, value, pixels !== undefined, error);
+			})
 			.finally(() => { if (active === abort) active = null; });
 	};
 	options.on(FRAMESCAPER_EXTERNAL_DISPLAY_FRAME_PORT_CHANNEL, listener);
@@ -106,39 +108,45 @@ export function registerFramescaperExternalDisplayFramePort(
 
 async function acceptFrame(
 	controller: FramescaperExternalDisplayControllerPort,
-	event: unknown,
+	[port, pixels]: FramePorts,
 	value: unknown,
 	signal: AbortSignal,
 ): Promise<void> {
-	const request = requestRecord(value);
-	const port = requiredEventPort(event);
+	const request = requestRecord(value, pixels !== undefined);
 	if (controller.externalDisplays().activeDisplayId === null) {
 		throw new Error('No external-display session is active.');
 	}
 	const session = controller.externalDisplaySessionIdentity();
 	if (session === null) throw new Error('No external-display session is active.');
-	const rgba = await receiveFrameBytes(request.binding, port, signal);
-	if (controller.externalDisplaySessionIdentity() !== session) {
-		throw new Error('The external-display session changed while its frame was transferred.');
+	let frame: FramescaperExternalDisplayFrame | FramescaperExternalDisplayFrameMetadata = request.frame;
+	if (request.binding !== null) {
+		const rgba = await receiveFrameBytes(request.binding, port, signal);
+		if (controller.externalDisplaySessionIdentity() !== session) {
+			throw new Error('The external-display session changed while its frame was transferred.');
+		}
+		frame = Object.freeze({ ...frame, rgba });
 	}
-	const projection = controller.presentExternalDisplay(Object.freeze({
-		...request.frame,
-		rgba,
-	} satisfies FramescaperExternalDisplayFrame));
+	const projection = await controller.presentExternalDisplay(frame, pixels);
+	signal.throwIfAborted();
+	if (controller.externalDisplaySessionIdentity() !== session) {
+		throw new Error('The external-display session changed before its frame was presented.');
+	}
 	port.postMessage(Object.freeze({
 		dataPlaneVersion: HELPER_DATA_PLANE_VERSION,
 		type: 'result',
-		streamId: request.binding.streamId,
+		streamId: request.streamId,
 		projection,
 	}));
 }
 
-function requestRecord(value: unknown): Readonly<{
-	frame: ExternalDisplayFrameMetadata;
-	binding: HelperDataPlaneBinding;
+function requestRecord(value: unknown, direct: boolean): Readonly<{
+	frame: FramescaperExternalDisplayFrameMetadata;
+	binding: HelperDataPlaneBinding | null;
+	streamId: string;
 }> {
-	const request = closedRecord(value, ['frame', 'binding'], 'external-display frame-port request');
+	const request = closedRecord(value, direct ? ['frame'] : ['frame', 'binding'], 'external-display frame-port request');
 	const frame = frameMetadata(request.frame);
+	if (direct) return { frame, binding: null, streamId: frame.rgbaSha256.slice(0, 40) };
 	const binding = validateHelperDataPlaneBinding(request.binding);
 	const byteLength = frame.width * frame.height * 4;
 	if (binding.direction !== 'host-to-helper'
@@ -147,10 +155,10 @@ function requestRecord(value: unknown): Readonly<{
 		|| binding.maximumInFlightChunks !== 1) {
 		throw new TypeError('External-display frame bytes do not match their exact data-plane binding.');
 	}
-	return Object.freeze({ frame, binding });
+	return { frame, binding, streamId: binding.streamId };
 }
 
-function frameMetadata(value: unknown): ExternalDisplayFrameMetadata {
+function frameMetadata(value: unknown): FramescaperExternalDisplayFrameMetadata {
 	const frame = closedRecord(value, FRAME_KEYS, 'external-display frame metadata');
 	if (!Number.isSafeInteger(frame.sequence) || Number(frame.sequence) < 0
 		|| !SHA256.test(String(frame.evaluationFingerprint)) || !SHA256.test(String(frame.rgbaSha256))
@@ -226,13 +234,13 @@ function receiveFrameBytes(
 }
 
 function reportFailure(
-	port: FramescaperExternalDisplayFrameMessagePort | null,
+	port: FramescaperExternalDisplayFrameMessagePort,
 	value: unknown,
+	direct: boolean,
 	error: unknown,
 ): void {
-	if (port === null) return;
 	let streamId = '0'.repeat(40);
-	try { streamId = requestRecord(value).binding.streamId; } catch { /* closed failure identity */ }
+	try { streamId = requestRecord(value, direct).streamId; } catch { /* closed failure identity */ }
 	try {
 		port.postMessage(Object.freeze({
 			dataPlaneVersion: HELPER_DATA_PLANE_VERSION,
@@ -245,19 +253,22 @@ function reportFailure(
 	}
 }
 
-function eventPort(event: unknown): FramescaperExternalDisplayFrameMessagePort | null {
+type FramePorts = readonly [FramescaperExternalDisplayFrameMessagePort, FramescaperExternalDisplayFrameMessagePort?];
+
+function eventPorts(event: unknown): FramePorts | null {
 	if (!event || typeof event !== 'object') return null;
 	const ports = (event as Partial<FramePortEvent>).ports;
-	if (!Array.isArray(ports) || ports.length !== 1) return null;
-	const port = ports[0];
-	return port && typeof port.postMessage === 'function' && typeof port.on === 'function'
-		&& typeof port.close === 'function' ? port : null;
+	if (!Array.isArray(ports) || (ports.length !== 1 && ports.length !== 2)) return null;
+	const [control, pixels]: readonly unknown[] = ports;
+	if (!isFramePort(control)) return null;
+	if (ports.length === 1) return [control];
+	return isFramePort(pixels) ? [control, pixels] : null;
 }
 
-function requiredEventPort(event: unknown): FramescaperExternalDisplayFrameMessagePort {
-	const port = eventPort(event);
-	if (port === null) throw new TypeError('External-display frame transport requires one MessagePort.');
-	return port;
+function isFramePort(value: unknown): value is FramescaperExternalDisplayFrameMessagePort {
+	if (!value || typeof value !== 'object') return false;
+	const port = value as Partial<FramescaperExternalDisplayFrameMessagePort>;
+	return typeof port.postMessage === 'function' && typeof port.on === 'function' && typeof port.close === 'function';
 }
 
 function removePortListener(

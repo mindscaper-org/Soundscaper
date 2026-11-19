@@ -21,6 +21,7 @@ interface NamedByteSource {
 
 interface PcmSettings {
 	readonly format?: string;
+	readonly aifcCompression?: string;
 	readonly sampleRate: number;
 	readonly channelCount: number;
 	readonly sampleFormat: string;
@@ -70,7 +71,8 @@ export async function resolveDesktopOriginalExportSettings(
 		if (pcm !== undefined) {
 			if (!pcm || pcm.channelCount > 2) return null;
 			return Object.freeze({ ...audioBase(pcm.format ?? format, pcm.sampleRate, pcm.channelCount),
-				sampleFormat: pcm.sampleFormat, bitDepth: pcm.bitDepth });
+				sampleFormat: pcm.sampleFormat, bitDepth: pcm.bitDepth,
+				...(pcm.aifcCompression ? { aifcCompression: pcm.aifcCompression } : {}) });
 		}
 		if (!matchesEncodedContainer(format, header)) {
 			const movie = format === 'aac-m4a' && ascii(header, 4, 4) === 'ftyp'

@@ -4,6 +4,9 @@ import { dispatchTimelineAnnotationAppendRuns } from './timeline-annotation-add-
 import { adoptMidiTransferContext, midiBinTransferContexts } from './midi-transfer-context.ts';
 import { createEnvelopeValueEvaluator } from '../automation.js';
 import { setProjectRecordingNotes } from '../recording-notes.ts';
+import { createSubprojectCommandHandlers } from './subproject-runtime.ts';
+import { createSessionSnapshotCommandHandlers } from './session-snapshot-runtime.ts';
+import { collectAlternativeSourceIds } from '../alternative-source-references.ts';
 import { processSourceAudio } from './source-process-audio-runtime.ts';
 import {
 	assertFrame,
@@ -33,16 +36,13 @@ import {
 } from './clip-basic-runtime.js';
 import {
 	assertClipSourceBounds,
-	assertClipSpace,
 	assertUnusedClipId,
 	cloneVideoEffectsWithCommandIds,
 	normalizeClipForProject,
 	normalizeCommandIds,
 	normalizeFrequencyRange,
 	normalizeSelectionIds,
-	replaceClip,
 	requireClip,
-	requireClipTrack,
 	requireProjectBin,
 	requireProjectBinClip,
 	requireSource,
@@ -57,7 +57,7 @@ import {
 	rewriteSourceMedia,
 	updateSource,
 } from './project-source-record-runtime.js';
-import { createClipEditIndex } from './clip-edit-index.ts';
+import { createClipEditIndex, mediaClipOwnerIndex, requireIndexedOwner } from './clip-edit-index.ts';
 import { movedBinItemIds } from './bin-move-index.ts';
 import { cloneVideoCompositionCarrierFields } from './video-composition-carrier.ts';
 import { frameCommandCarriersV2 } from './frame-resource-command-carriers-v2.ts';
@@ -241,7 +241,6 @@ function placeProjectBinClip(project, command) {
 		);
 		const clip = normalizeClipForProject(project, candidate);
 		assertClipSourceBounds(project, clip);
-		assertClipSpace(project, track, clip);
 		project.clips.push(adoptMidiTransferContext(clip, track));
 		track.clipIds.push(clip.id);
 		sortTrack(project, track);
@@ -302,9 +301,9 @@ function removeProjectBinSourceFromProject(project, clipId) {
 	for (const candidate of project.clips) if (removedIds.has(candidate.id)) candidate.groupId = null;
 	if (timelineIds.length) removeClips(project, timelineIds);
 	projectBin.clips = projectBin.clips.filter((candidate) => !sourceIds.has(candidate.sourceId));
-	const takeSourceIds = collectTakeGroupSourceIds(project);
+	const retainedSourceIds = collectAlternativeSourceIds(project, collectTakeGroupSourceIds(project));
 	for (const sourceId of sourceIds) {
-		const inUse = takeSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
+		const inUse = retainedSourceIds.has(sourceId) || [...project.clips, ...projectBin.clips].some((candidate) => candidate.sourceId === sourceId);
 		if (!inUse) project.sources = project.sources.filter((source) => source.id !== sourceId);
 	}
 }
@@ -337,6 +336,7 @@ function replaceProjectBinMedia(project, command) {
 	const targetColor = target.color;
 	const removedDurationsByTrack = new Map();
 	const removedTimelineIds = new Set();
+	let owners;
 
 	project.clips = project.clips.flatMap((clip) => {
 		const replacement = replacementBySourceId.get(clip.sourceId);
@@ -344,11 +344,11 @@ function replaceProjectBinMedia(project, command) {
 		const next = remapReplacementClip(project, clip, replacement.oldSource, replacement.newSource);
 		if (!next) {
 			removedTimelineIds.add(clip.id);
-			recordReplacementContraction(project, clip, clip.durationFrames, removedDurationsByTrack);
+			recordReplacementContraction(owners ??= mediaClipOwnerIndex(project.tracks), clip, clip.durationFrames, removedDurationsByTrack);
 			return [];
 		}
 		const reduction = clip.durationFrames - next.durationFrames;
-		if (reduction > 0) recordReplacementContraction(project, clip, reduction, removedDurationsByTrack);
+		if (reduction > 0) recordReplacementContraction(owners ??= mediaClipOwnerIndex(project.tracks), clip, reduction, removedDurationsByTrack);
 		return [next];
 	});
 	for (const track of project.tracks) {
@@ -407,27 +407,29 @@ function replaceProjectBinMedia(project, command) {
 	});
 
 	if (command.shortfallMode === 'contract-gaps') {
+		let editIndex;
 		for (const track of project.tracks) {
 			if (!Array.isArray(track.clipIds)) continue;
 			const contractions = removedDurationsByTrack.get(track.id) || [];
 			if (!contractions.length) continue;
 			const contractionAt = createProjectBinContractionEvaluator(contractions);
+			editIndex ??= createClipEditIndex(project.clips);
 			for (const clipId of track.clipIds) {
-				const clip = requireClip(project, clipId);
+				const clip = editIndex.require(clipId);
 				const shift = contractionAt(clip.timelineStartFrame);
-				if (shift > 0) replaceClip(project, normalizeClipForProject(project, {
+				if (shift > 0) editIndex.replace(normalizeClipForProject(project, {
 					...clip,
 					timelineStartFrame: Math.max(0, clip.timelineStartFrame - shift),
 					id: clip.id,
 				}));
 			}
-			sortTrack(project, track);
+			sortTrack(project, track, { get: editIndex.require });
 		}
 	}
 
-	const takeSourceIds = collectTakeGroupSourceIds(project);
+	const retainedSourceIds = collectAlternativeSourceIds(project, collectTakeGroupSourceIds(project));
 	for (const { oldSource } of replacementBySourceId.values()) {
-		const inUse = takeSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
+		const inUse = retainedSourceIds.has(oldSource.id) || [...project.clips, ...projectBin.clips].some((clip) => clip.sourceId === oldSource.id);
 		if (!inUse) project.sources = project.sources.filter((source) => source.id !== oldSource.id);
 	}
 }
@@ -489,11 +491,11 @@ function normalizeReplacementClip(project, original, replacement) {
 	const memory = replacedClipSourceStretchFields(original, requireSource(project, original.sourceId),
 		requireSource(project, replacement.sourceId), project.sampleRate);
 	const clip = normalizeClipForProject(project, { ...replacement, ...memory, warpMap: null });
-	return normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
+	return original.warpMap == null ? clip : normalizeClipForProject(project, { ...clip, ...projectBinReplacementWarp(original, clip) });
 }
 
-function recordReplacementContraction(project, clip, frames, contractionsByTrack) {
-	const track = requireClipTrack(project, clip.id);
+function recordReplacementContraction(owners, clip, frames, contractionsByTrack) {
+	const track = requireIndexedOwner(owners, clip.id);
 	const contractions = contractionsByTrack.get(track.id) || [];
 	contractions.push({
 		endFrame: clip.timelineStartFrame + clip.durationFrames,
@@ -509,6 +511,8 @@ function setTimeDisplay(project, command) {
 }
 export function createProjectSourceBinRuntimeHandlers(dispatchChild) {
 	return {
+		...createSessionSnapshotCommandHandlers(),
+		...createSubprojectCommandHandlers(),
 		'batch'(project, command) {
 			if (!Array.isArray(command.commands) || !command.commands.length) {
 				throw new TypeError('A command batch cannot be empty.');

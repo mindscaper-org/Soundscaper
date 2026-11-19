@@ -31,7 +31,8 @@ test('unaffected spreadsheet rows skip cell renders while focus, checkbox and dr
 	const rows: readonly ClipSpreadsheetRow[] = [{ id: 'a', kind: 'audio', editable: true, cells }]; const copy = labels();
 	const inputRef = createRef<HTMLInputElement>(); const applied: unknown[] = [], selected: unknown[] = [], drafts: unknown[] = [];
 	const index = createSpreadsheetCellIndex();
-	const actions: SpreadsheetRowActions = { finishEdit: () => true, selectCell: (...args) => selected.push(args), beginEdit: () => undefined, updateDraft: value => drafts.push(value), apply: edits => { applied.push(edits); return true; }, selectRow: () => undefined, isDraftActive: () => false, registerCell: index.register };
+	let registrations = 0;
+	const actions: SpreadsheetRowActions = { finishEdit: () => true, selectCell: (...args) => selected.push(args), beginEdit: () => undefined, updateDraft: value => drafts.push(value), apply: edits => { applied.push(edits); return true; }, selectRow: () => undefined, isDraftActive: () => false, registerCell: (...args) => { registrations++; index.register(...args); } };
 	let activeColumn = -1; let draft: { row: number; column: number; clipId: string; value: string } | null = null;
 	function Harness({ revision }: { revision: number }) { const presentation = useSpreadsheetRows(rows, copy); return <table data-revision={revision}><tbody><SpreadsheetRow presentation={presentation[0]!} rowIndex={0} selectedLeft={-1} selectedRight={-1} activeColumn={activeColumn} draft={draft} blocked={false} inputRef={inputRef} actions={actions} /></tbody></table>; }
 	const { createRoot } = await import('react-dom/client'); const root = createRoot(dom.container as unknown as Element);
@@ -39,7 +40,9 @@ test('unaffected spreadsheet rows skip cell renders while focus, checkbox and dr
 		await act(async () => root.render(<Harness revision={0} />)); const work = reads;
 		for (let revision = 1; revision <= 30; revision++) await act(async () => root.render(<Harness revision={revision} />)); assert.equal(reads, work);
 		index.focus(0, 0, true); assert.equal(dom.container.ownerDocument.activeElement === dom.one('[data-column="name"]'), true);
+		const mounted = registrations;
 		activeColumn = 0; await act(async () => root.render(<Harness revision={31} />)); assert.equal(reactProps(dom.one('[data-column="name"]')).tabIndex, 0);
+		assert.equal(registrations, mounted, 'moving focus does not detach or re-register cells');
 		const checkbox = dom.one('[aria-label="reversed"]'); await act(async () => { reactProps(checkbox).onChange({ currentTarget: { checked: true } }); });
 		assert.deepEqual(applied, [[{ clipId: 'a', column: 'reversed', value: 'true' }]]);
 		draft = { row: 0, column: 0, clipId: 'a', value: 'Draft' }; await act(async () => root.render(<Harness revision={32} />));

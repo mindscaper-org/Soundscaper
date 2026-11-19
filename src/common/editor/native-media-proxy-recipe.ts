@@ -107,13 +107,24 @@ export function resolveNativeMediaProxyGeometry(
 ): NativeMediaProxyGeometryV1 {
 	const sourceWidth = positiveInteger(width, 'width');
 	const sourceHeight = positiveInteger(height, 'height');
-	const scale = Math.min(
-		1,
-		NATIVE_MEDIA_PROXY_MAXIMUM_WIDTH / sourceWidth,
-		NATIVE_MEDIA_PROXY_MAXIMUM_HEIGHT / sourceHeight,
-	);
-	const scaledWidth = evenFloor(sourceWidth * scale);
-	const scaledHeight = evenFloor(sourceHeight * scale);
+	const maxWidth = NATIVE_MEDIA_PROXY_MAXIMUM_WIDTH;
+	const maxHeight = NATIVE_MEDIA_PROXY_MAXIMUM_HEIGHT;
+	let fittedWidth = sourceWidth;
+	let fittedHeight = sourceHeight;
+	if (sourceWidth > maxWidth || sourceHeight > maxHeight) {
+		// Match the native host's integer aspect-fit before either axis rounds down to even.
+		const widthAtMaxHeight = BigInt(sourceWidth) * BigInt(maxHeight);
+		const heightAtMaxWidth = BigInt(sourceHeight) * BigInt(maxWidth);
+		if (heightAtMaxWidth <= widthAtMaxHeight) {
+			fittedWidth = maxWidth;
+			fittedHeight = Number(heightAtMaxWidth / BigInt(sourceWidth));
+		} else {
+			fittedWidth = Number(widthAtMaxHeight / BigInt(sourceHeight));
+			fittedHeight = maxHeight;
+		}
+	}
+	const scaledWidth = evenFloor(fittedWidth);
+	const scaledHeight = evenFloor(fittedHeight);
 	if (scaledWidth < 2 || scaledHeight < 2) {
 		throw new NativeMediaProxyError('A proxy cannot preserve this aspect ratio at an even frame size.');
 	}
@@ -203,7 +214,7 @@ function blocked(
 }
 
 function evenFloor(value: number): number {
-	return Math.max(0, Math.floor(value / 2) * 2);
+	return value - value % 2;
 }
 
 function positiveInteger(value: unknown, label: string): number {

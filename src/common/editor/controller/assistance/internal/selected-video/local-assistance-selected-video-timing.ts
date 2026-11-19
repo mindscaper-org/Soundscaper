@@ -19,6 +19,7 @@ import {
 	type VideoSourceTimingView,
 } from '../../../../video-source-timing-view.ts';
 import { resolveVideoSourceTimingViews } from '../../../../video-source-timing-views.ts';
+import type { VideoTimingIndex } from '../../../../video-timing-asset.ts';
 import { exactVideoMidpointSeconds } from '../../../../video-exact-time-midpoint.ts';
 import { fitReframeSampleFrames } from '../../../../assistance/reframe-publication-capacity.ts';
 
@@ -47,6 +48,7 @@ export interface LocalAssistanceSelectedVideoFrameTiming {
 export interface LocalAssistanceSelectedVideoFramePackTiming {
 	readonly timescale: number;
 	readonly frames: readonly LocalAssistanceSelectedVideoFrameTiming[];
+	readonly sourceIndex?: VideoTimingIndex;
 }
 
 export interface LocalAssistanceSelectedVideoSourceFrameTick {
@@ -59,6 +61,7 @@ export const LOCAL_ASSISTANCE_REFRAME_MAXIMUM_SAMPLED_FRAMES = 100_000;
 
 interface TimingState {
 	readonly timing: BoundVideoSourceTimingView;
+	readonly sourceIndex: VideoTimingIndex | undefined;
 	readonly sourceStartFrame: number;
 	readonly sourceEndFrame: number;
 	readonly sequenceStartFrame: number;
@@ -138,6 +141,7 @@ export function createLocalAssistanceSelectedVideoTimingBinding(
 	});
 	BINDING_STATES.set(binding, Object.freeze({
 		timing,
+		sourceIndex: view.kind === 'vfr' ? view.index : undefined,
 		sourceStartFrame: geometry.sourceStart,
 		sourceEndFrame: geometry.sourceEnd,
 		sequenceStartFrame: geometry.sequenceStart,
@@ -218,7 +222,7 @@ export function createLocalAssistanceSelectedVideoFramePackTiming(
 		}));
 	}
 	if (frames.length < 1) throw new RangeError('Selected-video frame packing requires a non-empty range.');
-	return Object.freeze({ timescale, frames: Object.freeze(frames) });
+	return framePackTiming(state, timescale, frames);
 }
 
 /** Deterministic source-time samples at 2 fps, unioned with authenticated shot anchors. */
@@ -267,7 +271,13 @@ export function createLocalAssistanceSelectedVideoReframeFramePackTiming(
 		return Object.freeze({ sourceFrame, presentationTick: exactTick(start, timescale).toString(),
 			timestampSeconds: midpointSeconds(start, end) });
 	});
-	return Object.freeze({ timescale, frames: Object.freeze(frames) });
+	return framePackTiming(state, timescale, frames);
+}
+
+function framePackTiming(state: TimingState, timescale: number, frames: LocalAssistanceSelectedVideoFrameTiming[]):
+LocalAssistanceSelectedVideoFramePackTiming {
+	return Object.freeze({ timescale, frames: Object.freeze(frames),
+		...(state.sourceIndex ? { sourceIndex: state.sourceIndex } : {}) });
 }
 
 /** Read one exact source-frame tick without materializing the complete selected range. */

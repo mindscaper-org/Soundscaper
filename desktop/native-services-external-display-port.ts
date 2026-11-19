@@ -3,7 +3,6 @@
 import {
 	FramescaperExternalDisplayController,
 	type FramescaperExternalDisplay,
-	type FramescaperExternalDisplayFrame,
 	type FramescaperExternalDisplayWindow,
 	type FramescaperExternalDisplayWindowOptions,
 } from './external-display-controller.ts';
@@ -65,7 +64,7 @@ export function createFramescaperNativeExternalDisplayPort(
 			display.hdrCapable && display.colorManaged ? 'hdr' : 'sdr',
 		).then(() => undefined),
 		stop: () => controller.stop(),
-		present: (frame: FramescaperExternalDisplayFrame) => controller.present(frame),
+		present: controller.present.bind(controller),
 		dispose: () => {
 			if (disposed) return;
 			disposed = true;

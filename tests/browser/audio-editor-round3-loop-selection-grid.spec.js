@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName,
 	showToolbarButton } from './audio-editor-test-helpers.js';
 
 test('selecting a stored loop retains its authored boundaries with snapping enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = await clipByName(editor, toneA.name).locator('.clip-display').boundingBox();
 	const ruler = await editor.locator('[data-ruler]').boundingBox();

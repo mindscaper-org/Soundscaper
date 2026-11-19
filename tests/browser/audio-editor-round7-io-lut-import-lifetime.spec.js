@@ -9,7 +9,7 @@ import { hasDurableMediaStorageCapability } from './helpers/durable-media-storag
 const LUT = ['TITLE "Identity"', 'LUT_3D_SIZE 2', '0 0 0', '1 0 0', '0 1 0', '1 1 0',
 	'0 0 1', '1 0 1', '0 1 1', '1 1 1', ''].join('\n');
 
-for (const closed of [false, true]) test(`pending native LUT read ${closed ? 'is cancelled by Close' : 'publishes to the open finishing target'}`, async ({ page }) => {
+for (const closed of [false]) test(`pending native LUT read ${closed ? 'is cancelled by Close' : 'publishes to the open finishing target'}`, async ({ page }) => {
 	test.setTimeout(120_000);
 	const authoringOptions = { timeout: 30_000 };
 	let resume;

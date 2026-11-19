@@ -296,21 +296,15 @@ function assertBrowserCoverage(workflow, label, { staticJobs, gate, browserShard
 	assert.ok(browserJob.includes('name: Browser / ${{ matrix.project }}'));
 	assert.ok(browserJob.includes(gate), `${label} browser must wait for the verified build`);
 	assert.match(browserJob, /matrix:\n\s+project: \[chromium, webkit\]/u);
-	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.62\.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e\n\s+options: --user 1001/u);
+	assert.match(browserJob, /container:\n\s+image: mcr\.microsoft\.com\/playwright:v1\.64\.1-noble@sha256:2f05f8a734509a7b3f26a912639488ee08f58a7b292d14d62271bcff9038768f\n\s+options: --user 1001/u);
 	assert.match(browserJob, /npm install --global --prefix "\$HOME\/\.local" npm@12\.0\.1/u);
 	assert.match(browserJob, /name: verified-soundscaper-browser-site-build/u);
 	assertEngineIsSharded(browserJob, `${label} browser`, 'npm run test:browser:built -- --project=${{ matrix.project }}', browserShardCount);
 	assert.match(browserJob, /--workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\} --retries=\$\{\{ steps\.browser-run-shape\.outputs\.retries \}\}/u,
 		`${label} must execute the collected shard's worker and retry policy`);
 
-	// The handbook suite has its own Playwright config, so `--suite-shard` cannot
-	// divide it alongside the site suite. It has to be pinned to one leg of the
-	// matrix or the shards would each run the whole of it.
-	const handbookLegs = [...browserJob.matchAll(
-		/^\s+if: (?<condition>matrix\.project == 'chromium'.*)\n\s+run: \|\n\s+node scripts\/ci-handbook-build\.mjs verify\n\s+npx playwright test --config playwright\.docs\.config\.mjs$/gmu,
-	)];
-	assert.equal(handbookLegs.length, 1, `${label} must run the handbook suite from exactly one job`);
-	assert.match(handbookLegs[0].groups.condition, /matrix\.shard == 1/u, `${label} must not run the handbook suite once per shard`);
+	assert.doesNotMatch(browserJob, /playwright\.docs\.config|ci-handbook-build/u,
+		`${label} leaves handbook browser workflows to their independent schedule`);
 
 	assert.match(firefoxJob, /name: Browser \/ firefox/u);
 	assert.ok(firefoxJob.includes(gate), `${label} firefox must wait for the verified build`);

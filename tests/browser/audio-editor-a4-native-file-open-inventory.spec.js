@@ -4,7 +4,7 @@ import { nativeMpegLayerOneFixture } from '../helpers/native-mpeg-layer-one-fixt
 import { nativeQuickTimePcmFixture } from '../helpers/quicktime-pcm-audio-fixture.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 
 for (const format of ['mov', 'mp1']) for (const opening of [false, true]) test(`File ${opening ? 'Open' : 'Import'} retains existing native ${format} with generic platform MIME`, async ({ page }) => {
 	test.setTimeout(45_000);
@@ -12,6 +12,7 @@ for (const format of ['mov', 'mp1']) for (const opening of [false, true]) test(`
 	const sampleRate = format === 'mov' ? 48_000 : 32_000, frames = format === 'mov' ? 4800 : 18_816;
 	const bytes = new Uint8Array(await file.arrayBuffer());
 	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	const originalProjectId = await editor.getAttribute('data-project-id');
 	const expected = await page.evaluate(async ({ bytes, sampleRate }) => {
 		try {
 			const decoded = await new OfflineAudioContext(2, 1, sampleRate).decodeAudioData(Uint8Array.from(bytes).buffer);
@@ -24,6 +25,8 @@ for (const format of ['mov', 'mp1']) for (const opening of [false, true]) test(`
 	if (expected === null) {
 		await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toContainText('0 file(s) imported, 1 failed', { timeout: 15_000 });
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
+		await expect(editor).toHaveAttribute('data-project-id', originalProjectId);
+		await waitForProjectActivation(editor);
 		await editor.locator('[data-import-input]').setInputFiles({ name: 'Fresh.wav', mimeType: 'audio/wav',
 			buffer: Buffer.from(encodeWav([new Float32Array(2400).fill(.125)], { sampleRate: 48_000, bitDepth: 32, float: true })) });
 		await expect(editor).toHaveAttribute('data-clip-count', '1'); return;

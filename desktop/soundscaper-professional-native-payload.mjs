@@ -5,6 +5,8 @@
 import { createHash } from 'node:crypto';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
+import { validateBundledPluginResources } from '#desktop-runtime/bundled-plugin-resources';
+import { isBundledInstrumentArtifactPath } from '#desktop-runtime/bundled-native-plugins';
 
 import {
 	parseSoundscaperProfessionalNativeBuildAuthority,
@@ -60,11 +62,12 @@ export async function describeSoundscaperProfessionalNativePayload(location, rea
 		deliveryFilesystem = location.pluginOnly === true ? null : await runtimeArtifact(
 			location, manifest, target, selected.deliveryFilesystem, readFileImpl,
 		);
-		const runtimeClosure = Object.freeze(await Promise.all(selected.isolation.runtimeClosure.map((entry) =>
+		const runtimeClosure = Object.freeze(await Promise.all(selected.isolation.runtimeClosure.filter(entry => location.pluginOnly !== true || !isBundledInstrumentArtifactPath(entry.path)).map((entry) =>
 			runtimeArtifact(location, manifest, target, entry, readFileImpl))));
 		entrypoint = selected.isolation.entrypointPath === selected.pluginPeer.path ? pluginPeer
-			: runtimeClosure[selected.isolation.runtimeClosure.findIndex(({ path }) =>
-				path === selected.isolation.entrypointPath)];
+			: runtimeClosure.find(({ path }) => path === (location.packaged
+				? join(location.resourcesPath, 'runtime', manifest.staging.runtimePrefix, target, selected.isolation.entrypointPath.slice(`native/soundscaper-professional-host/prebuilt/${target}/`.length))
+				: join(location.applicationRoot, selected.isolation.entrypointPath)));
 		isolation = Object.freeze({
 			launcher: await runtimeArtifact(location, manifest, target, selected.isolation.launcher, readFileImpl),
 			sandboxProfile: await runtimeArtifact(location, manifest, target,
@@ -72,9 +75,12 @@ export async function describeSoundscaperProfessionalNativePayload(location, rea
 			brokerPolicy: await runtimeArtifact(location, manifest, target,
 				selected.isolation.brokerPolicy, readFileImpl),
 			runtimeClosure,
+			pluginResources: Object.freeze(await Promise.all((location.pluginOnly === true || location.instrumentResources === false ? [] : selected.isolation.pluginResources).map((entry) =>
+				runtimeArtifact(location, manifest, target, entry, readFileImpl)))),
 		});
 	} catch (error) { return unavailable('payload-digest-mismatch', errorMessage(error)); }
 	return Object.freeze({ status: 'available', descriptor: Object.freeze({
+		pluginOnly: location.pluginOnly === true,
 		target, path: (payload ?? pluginPeer).path, byteLength: (payload ?? pluginPeer).byteLength,
 		sha256: (payload ?? pluginPeer).sha256,
 		addonVersion: manifest.addon.version, napiVersion: manifest.addon.napiVersion,
@@ -147,7 +153,7 @@ function validateManifest(value, sourceRegister) {
 }
 
 function validSourceAuthentication(value, target, sourceRegister) {
-	const ids = ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return value?.schemaVersion === 1 && value.status === 'authenticated'
@@ -176,15 +182,17 @@ function validIsolation(target, manifest) {
 	if (!validArtifact(target.pluginPeer,
 		`${root}/${targetExecutableName(manifest.pluginPeer.payloadName, target.id)}`)
 		|| !exactKeys(target.isolation,
-			['launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure'])
+			['launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure', 'pluginResources'])
 		|| !validArtifact(target.isolation.launcher,
 			`${root}/${targetExecutableName(manifest.isolation.launcherName, target.id)}`)
 		|| !validArtifact(target.isolation.sandboxProfile, `${root}/${manifest.isolation.profileName}`)
 		|| !validArtifact(target.isolation.brokerPolicy, `${root}/${manifest.isolation.brokerPolicyName}`)
 		|| !Array.isArray(target.isolation.runtimeClosure) || target.isolation.runtimeClosure.length > 128) return false;
 	const prefix = `${root}/${manifest.isolation.runtimeDirectory}/`;
+	try { validateBundledPluginResources(target.isolation.pluginResources, prefix); } catch { return false; }
 	const paths = target.isolation.runtimeClosure.map(({ path }) => path);
-	return paths.length === new Set(paths).size
+	return (target.id !== 'win-x64' || paths.includes(`${root}/runtime/soundscaper_vst2_x86_peer.exe`))
+		&& paths.length === new Set(paths).size
 		&& target.isolation.runtimeClosure.every((entry) => validArtifact(entry) && entry.path.startsWith(prefix))
 		&& (target.isolation.entrypointPath === target.pluginPeer.path
 			|| paths.includes(target.isolation.entrypointPath));

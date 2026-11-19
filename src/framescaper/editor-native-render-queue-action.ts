@@ -57,6 +57,8 @@ export { FRAMESCAPER_NATIVE_MEDIA_RENDER_QUEUE_RESERVATIONS } from './editor-nat
 
 export interface FramescaperNativeRenderQueueProjectOwnerNativeMedia {
 	readonly project: unknown;
+	readonly projectForNativeRenderQueue?: () => unknown;
+	readonly captureProjectGeneration?: () => Readonly<{ generation: number; projectId: string }>;
 	readonly prepareNativeRenderInputStreamNativeMedia?: (request: Readonly<{
 		readonly planPayload: string;
 		readonly planFingerprint: string;
@@ -117,7 +119,8 @@ async function enqueueCurrentProject(
 	expectedRestartJobId: string | null = null,
 ): Promise<FramescaperNativeProjectActionResult> {
 	const bridge = exactBridge();
-	const first = queueSnapshot(profile, owner.project, delivery);
+	const snapshotCurrent = () => queueSnapshot(profile, owner.projectForNativeRenderQueue?.() ?? owner.project, delivery);
+	const first = snapshotCurrent();
 	const store = createFramescaperNativeServicesStore(bridge);
 	const services = await store.refresh();
 	assertQueueRuntime(services);
@@ -136,7 +139,7 @@ async function enqueueCurrentProject(
 	) !== true) throw new Error('The selected native destination root is not authorized.');
 	if (exactBridge() !== bridge) throw new Error('The authenticated desktop bridge changed during root selection.');
 	assertQueueRuntime(await store.refresh());
-	if (!sameSnapshot(first, queueSnapshot(profile, owner.project, delivery))) {
+	if (!sameSnapshot(first, snapshotCurrent())) {
 		throw new Error('The selected nativeMedia project changed during queue admission.');
 	}
 	const prepared = await prepareSelectedNativeMediaLiveCarrier(bridge, owner, first, restartJobId);
@@ -144,7 +147,7 @@ async function enqueueCurrentProject(
 	let enqueued = false;
 	try {
 		if (exactBridge() !== bridge
-			|| !sameSnapshot(first, queueSnapshot(profile, owner.project, delivery))) {
+			|| !sameSnapshot(first, snapshotCurrent())) {
 			throw new Error('The selected nativeMedia project or desktop bridge changed while its carrier was staged.');
 		}
 		const lifecycle = createFramescaperNativeServicesLifecycleStore(

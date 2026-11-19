@@ -229,6 +229,20 @@ test('an inherited-route failure waits for and zeroizes every image output', asy
 	assertZeroized(imageCopies, 'an inherited failure must erase every completed image copy');
 });
 
+test('a filmstrip cancelled while waiting for rendered video erases its unpublished pixels', async () => {
+	const controller = new AbortController();
+	const reason = new DOMException('The timeline was changed', 'AbortError');
+	const pixels = solidPixels(17, 34, 51);
+	await assert.rejects(() => render([
+		frame('video-cell', 'video-clip', 'video-source', 24_000),
+	], { ...scene(), signal: controller.signal }, async (request) => {
+		await Promise.resolve();
+		controller.abort(reason);
+		return [inheritedFrame(request.frames[0]!, pixels)];
+	}), (error: unknown) => error === reason);
+	assertZeroized([pixels], 'retired inherited frames are released');
+});
+
 test('simultaneous image and inherited failures retain both causes and erase prior image work', async (t) => {
 	const available = imageFixture('available-source', WIDTH, HEIGHT);
 	const unavailable = imageFixture('unavailable-source', WIDTH, HEIGHT);

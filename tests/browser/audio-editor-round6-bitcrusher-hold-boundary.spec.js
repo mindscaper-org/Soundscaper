@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Bitcrusher starts each sample hold at the authored ten-frame reduction boundary', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'ten-frame-hold.wav', frequency: 1_200,
 		duration: 1, sampleRate: 48_000, channelCount: 1, channelAmplitudes: [.4] });
 	await importFiles(editor, [recording]);

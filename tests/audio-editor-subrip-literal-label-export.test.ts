@@ -6,8 +6,8 @@ import { createLabelTrack } from '../src/common/editor/project-media-factory.ts'
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
 import { parseSubRipLabels, parseWebVttLabels, serializeSubRipLabels, serializeWebVttLabels } from '../src/common/editor/label-io.js';
 
-test('plain label markup cannot silently become SubRip formatting on delivery', () => {
-	const title = '<b>Literal</b>';
+for (const title of ['<b>Literal</b>', 'Start <i>italic</i> end', 'Red <font color="red">text</font>', 'First<br>Second']) test(
+	`plain label markup cannot silently become SubRip formatting on delivery: ${title}`, () => {
 	const project = createCurrentAudioEditorProject({ sampleRate: 8000,
 		tracks: [{ ...createLabelTrack({ id: 'labels', name: 'Chapters', labels: [{ id: 'label', title, startFrame: 0, endFrame: 8000 }] }) }] });
 	const track = project.tracks[0]!;

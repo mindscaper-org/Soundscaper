@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 
-import { PendingProjectQueue, extractAup4Paths, extractProjectPaths } from '../desktop/file-associations.js';
+import { desktopStartupOptionArguments, resolveDesktopProjectLibraryAppData } from '../desktop/application-lifecycle.ts';
+import { PendingProjectQueue, createPendingProjectDelivery, extractAup4Paths, extractProjectPaths } from '../desktop/file-associations.js';
 import {
 	acceptsFile,
 	mimeTypeForPath,
@@ -19,6 +23,69 @@ test('file association arguments accept only unique Scape and Audacity project p
 	);
 	assert.deepEqual(paths, ['/projects/old.aup3', '/projects/demo.aup4', '/projects/movie.scape']);
 	assert.deepEqual(extractAup4Paths(['old.aup3', 'movie.scape'], '/projects'), ['/projects/old.aup3', '/projects/movie.scape']);
+});
+
+test('desktop launch opens a relative project whose name starts with a dash after the option terminator', async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-option-terminator-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const filename = '-first-pass.sscape';
+	const project = join(directory, filename);
+	await writeFile(project, 'project bytes');
+	const paths = extractProjectPaths(['soundscaper', '--switch.sscape', '--', filename], directory);
+	assert.deepEqual(paths, [project]);
+	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
+});
+
+test('a project filename after the option terminator does not activate nightly startup options', async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-option-filename-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const filename = '--soundscaper-nightly-tests-base-url=project.sscape';
+	const project = join(directory, filename);
+	const library = join(directory, 'library');
+	const argv = ['soundscaper', '--lang=en', '--', filename];
+	await writeFile(project, 'project bytes');
+
+	const optionArgv = desktopStartupOptionArguments(argv);
+	assert.deepEqual(optionArgv, ['soundscaper', '--lang=en']);
+	assert.equal(resolveDesktopProjectLibraryAppData({ applicationDataPath: library, argv: optionArgv }), library);
+	const paths = extractProjectPaths(argv, directory);
+	assert.deepEqual(paths, [project]);
+	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
+});
+
+test('desktop launch follows symlink traversal when a relative project path contains a parent segment', {
+	skip: process.platform === 'win32',
+}, async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-symlink-parent-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const working = join(directory, 'working');
+	const media = join(directory, 'media');
+	await mkdir(working);
+	await mkdir(join(media, 'clips'), { recursive: true });
+	await symlink(join(media, 'clips'), join(working, 'shared'), 'dir');
+	await writeFile(join(working, 'edit.sscape'), 'unrelated project');
+	await writeFile(join(media, 'edit.sscape'), 'selected project');
+	await symlink('edit.sscape', join(media, 'alias.sscape'), 'file');
+	assert.deepEqual(extractProjectPaths(['soundscaper', 'edit.sscape', './edit.sscape'], working), [join(working, 'edit.sscape')]);
+
+	const paths = extractProjectPaths(['soundscaper', 'shared/../edit.sscape'], working);
+	assert.equal(paths.length, 1);
+	assert.equal(await readFile(paths[0], 'utf8'), 'selected project');
+	const [alias] = extractProjectPaths(['soundscaper', 'shared/../alias.sscape'], working);
+	const [unreachable] = extractProjectPaths(['soundscaper', 'missing/../edit.sscape'], working);
+	const delivered = [], errors = [];
+	const delivery = createPendingProjectDelivery({
+		isReady: () => true, currentOwner: () => ({}), isOwnerCurrent: () => true,
+		async register(path) { return { path, content: await readFile(path, 'utf8') }; },
+		send: descriptor => { delivered.push(descriptor); return true; },
+		reportError: error => { errors.push(error); },
+	});
+	assert.equal(await delivery(unreachable), true);
+	assert.equal(await delivery(paths[0]), true);
+	assert.equal(await delivery(alias), true);
+	assert.deepEqual(errors.map(error => error.code), ['ENOENT']);
+	const physicalDirectory = await realpath(media);
+	assert.deepEqual(delivered, ['edit.sscape', 'alias.sscape'].map(name => ({ path: join(physicalDirectory, name), content: 'selected project' })));
 });
 
 test('pending project dispatch stays serial and retries its visible head for a replacement renderer', async () => {
@@ -120,7 +187,9 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 	assert.notEqual(exposed.get('scapeDesktop'), exposed.get('framescaperDesktop'));
 	const bridge = exposed.get('scapeDesktop');
 	const baseFields = [
+		'chooseBatchSaveDirectory', 'planBatchSaveOutputs', 'prepareBatchSaveTarget', 'releaseBatchSaveDirectory',
 		'rememberProjectFile', 'restoreProjectFile', 'temporaryDataStatus', 'chooseTemporaryDataFolder', 'confirmProjectSave',
+		'updatePreferences',
 		'captureExternalMedia', 'resolveExternalMedia', 'prepareOriginalOverwrite', 'releaseOriginalFile',
 		'abortWrite', 'applyNativeTierControl', 'ara', 'awaitVideoSourceProbe', 'beginDesktopVideoCodecOperation', 'beginVideoSourceProbe', 'beginWrite', 'bindNativeAudioSession', 'calibrateNativeAudioSession',
 			'cancelAssistanceModelInstall', 'cancelDesktopAudioCodecOperation', 'cancelDesktopVideoCodecOperation', 'cancelNativeVampAnalyzer', 'cancelVideoSourceProbe',
@@ -131,7 +200,7 @@ test('sandbox preload exposes only the versioned narrow bridge', async () => {
 		'reconcileAssistanceModels', 'reconcileLinkedOriginals', 'reconcileLinkedVideoOriginals', 'releaseLinkedOriginal', 'releaseLinkedVideoOriginal', 'releaseRead', 'releaseSaveTarget', 'releaseSesxSession', 'relocateAssistanceModels', 'removeAssistanceModel', 'reportNativeAudioSessionLoss', 'reportNativeAudioSessionTransfer', 'rescanExternalFfmpeg', 'resolveSesxMedia', 'respondToClose', 'restoreNativePluginState', 'runNativePluginOffline', 'scanNativePlugins', 'selectNativePluginInstallation',
 		'collectAssistanceModelGarbage', 'runDesktopAudioCodecOperation', 'runDesktopAudioCodecStreamCommand', 'runWindowAction', 'setLocale', 'setNativeAudioHelperEnabled', 'setNativePluginBypassed', 'setNativePluginConsent', 'setNativePluginInstallationAllowed', 'signalReady', 'startNativeVampAnalyzer', 'statDesktopVideoCodecOutput', 'writeChunk', 'writeDesktopVideoCodecInput',
 		].sort();
-	const mcpFields = ['readMcpStatus', 'startMcp', 'stopMcp', 'onMcpRequest', 'respondMcpRequest'];
+	baseFields.push('cpuProfiler'); const mcpFields = ['readMcpStatus', 'startMcp', 'stopMcp', 'onMcpRequest', 'respondMcpRequest'];
 	const freesoundFields = ['openFreesoundAuthorization', 'openAudiocomAuthorization', 'openAudiocomLink'];
 	assert.deepEqual(Object.keys(bridge.v1).sort(), [...baseFields, 'blender', 'persistentDelivery', ...mcpFields, ...freesoundFields].sort());
 	const framescaperBridge = exposed.get('framescaperDesktop');

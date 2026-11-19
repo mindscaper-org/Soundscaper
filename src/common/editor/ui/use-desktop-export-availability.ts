@@ -5,7 +5,8 @@ import { normalizeDesktopAudioCodecCapabilityResult } from '../../../../desktop/
 import { DESKTOP_AUDIO_CODEC_FORMATS } from '../../../../desktop/desktop-audio-codec-operation-contract.ts';
 import { createExportFormatAvailability } from '../controller/export/export-format-availability.ts';
 import { createDesktopExportCodecQuery } from './desktop-export-codec-model.ts';
-import type { DesktopVideoExportFileService } from '../desktop-video-export-capability.ts';
+import { videoExportPlanFormat } from '../video-export-request-format.ts';
+import type { DesktopVideoExportFormat, DesktopVideoExportFileService } from '../desktop-video-export-capability.ts';
 
 interface FileService extends DesktopVideoExportFileService {
 	readonly getDesktopAudioCodecCapabilities?: (query: unknown) => unknown | Promise<unknown>;
@@ -35,7 +36,7 @@ export function useDesktopExportAvailability(
 			return { ...batch, operations: batch.operations.filter(tuple => tuple.format === format) };
 		} catch (error) { return error instanceof Error ? error : new Error(String(error)); }
 	}, [desktop, format, projectChannelCount, settings.sampleRate, settings.channelMapping, settings.channelMatrix,
-		settings.binaural, settings.sampleFormat, settings.compressionLevel, settings.quality, settings.bitRate,
+		settings.binaural, settings.earLayout, settings.sampleFormat, settings.compressionLevel, settings.quality, settings.bitRate,
 		settings.bitRateMode, settings.averageBitRate, settings.vbrQuality, settings.bitRatePreset, settings.vbrMode]);
 	const selection = useMemo(() => ({ owner, query, format }), [owner, query, format]);
 	const needsCheck = desktop && (COMPRESSED.has(format) || format.startsWith('video-') || format === 'custom-ffmpeg');
@@ -47,7 +48,7 @@ export function useDesktopExportAvailability(
 			if (format.startsWith('video-')) {
 				const { resolveDesktopRendererVideoExportCapabilities } = await import('../platform-video-delivery-encoder.ts');
 				const capabilities = await resolveDesktopRendererVideoExportCapabilities(fileService!);
-				const entry = capabilities.formats[format === 'video-mp4' ? 'mp4' : 'webm'];
+				const entry = capabilities.formats[videoExportPlanFormat(format) as DesktopVideoExportFormat];
 				return { available: entry.available, requiresFfmpeg: true, cause: entry.reason ?? undefined };
 			}
 			if (!query || !fileService?.getDesktopAudioCodecCapabilities) throw new Error('The desktop audio codec capability service is unavailable.');

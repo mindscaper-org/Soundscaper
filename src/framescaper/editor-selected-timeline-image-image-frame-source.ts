@@ -5,14 +5,10 @@ import { resizeRgba8NearestV1 } from '../common/editor/imaging/pixel-frame-resiz
 import { resolveVideoCanvasMaterializationSize, type VideoCanvasFit } from '../common/editor/video-canvas-fit.ts';
 import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
-	estimateFramescaperImageFramePackReaderMetadataBytesV1,
-	openFramescaperImageFramePackV1,
+	openFramescaperImageFramePackSnapshotV1,
 	type FramescaperImageFramePackReaderV1,
+	type FramescaperImageFramePackSnapshotReaderV1,
 } from '../common/editor/timeline-image-frame-pack-v1.ts';
-import {
-	decodeFramescaperImageFramePackHeaderV1,
-	FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES,
-} from '../common/editor/timeline-image-frame-pack-v1-layout.ts';
 import {
 	createFramescaperImageTimelineTickMapperV1,
 	normalizeFramescaperImageClipV1,
@@ -26,6 +22,8 @@ export type FramescaperCurrentImageSourceTimelineImage = FramescaperImageSourceC
 export function framescaperImageDimensionsTimelineImage(source: FramescaperCurrentImageSourceTimelineImage) {
 	return source.schemaVersion !== 1 ? source.developed : source.canonical;
 }
+
+export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE = 33_554_432;
 
 export interface FramescaperStoredImageFrameTimelineImage {
 	readonly sourceTicks: bigint;
@@ -47,7 +45,7 @@ export async function openFramescaperStoredImageFramePackTimelineImage(
 	sourceValue: unknown,
 	signal?: AbortSignal,
 	admitResidentMetadata?: (byteLength: number) => void,
-): Promise<FramescaperImageFramePackReaderV1> {
+): Promise<FramescaperImageFramePackSnapshotReaderV1> {
 	if (!store || typeof store.loadMediaAsset !== 'function') {
 		throw new TypeError('timelineImage image preview requires an AudioEditorProjectStore.');
 	}
@@ -64,28 +62,7 @@ export async function openFramescaperStoredImageFramePackTimelineImage(
 	if (!(loaded instanceof ArrayBuffer) || loaded.byteLength !== source.assetByteLength) {
 		throw new Error(`timelineImage image frame pack ${source.id} changed while its body was snapshotted.`);
 	}
-	const snapshot = new Uint8Array(
-		structuredClone(loaded, { transfer: [loaded] }),
-	) as Uint8Array<ArrayBuffer>;
-	const header = decodeFramescaperImageFramePackHeaderV1(
-		snapshot.subarray(0, FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES), source,
-	);
-	const metadataByteEstimate = estimateFramescaperImageFramePackReaderMetadataBytesV1(
-		header.receiptByteLength, source.canonical.frameCount,
-	);
-	admitResidentMetadata?.(metadataByteEstimate);
-	const reader = await openFramescaperImageFramePackV1({
-		source,
-		signal,
-		read(offset, length) {
-			throwIfAborted(signal);
-			return Promise.resolve(snapshot.slice(offset, offset + length));
-		},
-	});
-	if (reader.residentMetadataByteEstimate !== metadataByteEstimate) {
-		throw new Error(`timelineImage image frame pack ${source.id} changed its reader metadata estimate.`);
-	}
-	return reader;
+	return openFramescaperImageFramePackSnapshotV1(source, loaded, signal, admitResidentMetadata);
 }
 
 /** Resolve one runtime sample through the exact sequence grid and packed tick table. */
@@ -106,7 +83,7 @@ export async function readFramescaperStoredImageFrameAtSampleTimelineImage(
 	});
 }
 
-/** Synchronous address resolution for a preloaded preview session. */
+/** Synchronous address resolution against authenticated preview timings. */
 export function mapFramescaperImageFrameAtSampleTimelineImage(
 	reader: FramescaperImageFramePackReaderV1,
 	clipValue: unknown,
@@ -133,7 +110,7 @@ export function scaleFramescaperImageRgbaTimelineImage(
 	const sourceHeight = dimension(sourceHeightValue, 'timelineImage image source height');
 	const targetWidth = dimension(targetWidthValue, 'timelineImage image target width');
 	const targetHeight = dimension(targetHeightValue, 'timelineImage image target height');
-	if (targetWidth * targetHeight > 33_554_432) {
+	if (targetWidth * targetHeight > FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE) {
 		throw new RangeError('A timelineImage image preview frame may contain at most 33554432 pixels.');
 	}
 	if (!(pixelsValue instanceof Uint8Array)

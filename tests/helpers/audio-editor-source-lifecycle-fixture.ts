@@ -10,6 +10,7 @@ import {
 
 export function createSourceLifecycleFixture(options: Readonly<{
 	reuseContainedWaveformRequests?: boolean;
+	additionalAudioClips?: number;
 	videoFailure?: Error;
 	maximumWaveformFrames?: number;
 	clipSourceWindowRange?: (
@@ -22,7 +23,10 @@ export function createSourceLifecycleFixture(options: Readonly<{
 }> = {}) {
 	const source = { id: 'source', kind: 'audio', frameCount: 100, storageKey: 'source' };
 	const clip = { id: 'clip', sourceId: source.id, durationFrames: 100 };
-	let project = { id: 'project-a', clips: [clip], sources: [source] };
+	const clips = [clip, ...Array.from({ length: options.additionalAudioClips ?? 0 }, (_, index) => ({
+		...clip, id: `clip-${index + 1}`,
+	}))];
+	let project = { id: 'project-a', clips, sources: [source] };
 	let resolveRead: (channels: Float32Array[]) => void = () => undefined;
 	let waveformPcmReads = 0;
 	const waveformPcmReadSignals: Array<AbortSignal | undefined> = [];
@@ -110,6 +114,7 @@ export function createSourceLifecycleFixture(options: Readonly<{
 		service: createSourceLifecycleService(runtime),
 		source,
 		clip,
+		clips,
 		cachedBuffers,
 		deletedAnalyses,
 		sourceChunkProviders,

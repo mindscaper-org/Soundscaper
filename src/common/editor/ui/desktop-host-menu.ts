@@ -52,8 +52,6 @@ export interface DesktopHostMenuItem {
 interface DesktopHostCopy {
 	readonly desktopServices: string;
 	readonly 'ui.desktopMcp.connection'?: string;
-	readonly useNativeProbeHelper: string;
-	readonly clearProbeHelperQuarantine: string;
 	readonly useNativeAudioHelper: string;
 	readonly clearAudioHelperQuarantine: string;
 	readonly discoverNativeEffects: string;
@@ -111,11 +109,6 @@ export function createDesktopHostMenuItems(input: DesktopHostMenuInput | null): 
 			item('desktop-toggle-dev-tools', input.copy.toggleDeveloperTools, () => input.runWindowAction('toggle-dev-tools'), 'F12'),
 		] : []),
 		tools: Object.freeze([item('desktop-services', input.copy.desktopServices, undefined, undefined, [
-			checkedItem('desktop-use-native-probe-helper', input.copy.useNativeProbeHelper,
-				input.snapshot.probeHelperEnabled,
-				apply('set-probe-helper-enabled', !input.snapshot.probeHelperEnabled)),
-			item('desktop-clear-probe-helper-quarantine', input.copy.clearProbeHelperQuarantine,
-				apply('clear-probe-helper-quarantine')),
 			item('desktop-clear-audio-helper-quarantine', input.copy.clearAudioHelperQuarantine,
 				apply('clear-audio-helper-quarantine')),
 			checkedItem('desktop-discover-native-effects', input.copy.discoverNativeEffects,

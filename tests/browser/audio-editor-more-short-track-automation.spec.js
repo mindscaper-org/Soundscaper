@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction, clipByName, importFiles } from '
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('a short track keeps every automation curve menu action clickable', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const row = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
 	for (let index = 0; index < 12; index += 1) {

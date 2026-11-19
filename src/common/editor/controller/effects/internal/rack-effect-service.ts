@@ -47,6 +47,8 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 		if (!project) throw new Error('Audio project not found.');
 		return project;
 	}
+	const ownerTrackId = (scope: string, targetId: string | null) => scope === 'clip'
+		? getProject()?.tracks.find(track => track.clipIds?.includes(targetId))?.id : targetId;
 
 	function effectStack(
 		scope: string,
@@ -54,6 +56,11 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 		snapshot: RackEffectProject | null = getProject(),
 	): readonly ControllerRackEffect[] {
 		if (scope === 'master') return snapshot?.master?.effects || [];
+		if (scope === 'clip') {
+			const clip = snapshot?.clips?.find(candidate => candidate.id === trackId && candidate.kind === 'audio');
+			if (!clip) throw new Error('Audio clip not found.');
+			return clip.effects || [];
+		}
 		if (scope === 'group' || scope === 'send') {
 			const buses = scope === 'group' ? snapshot?.mixer?.groups : snapshot?.mixer?.sends;
 			const bus = (buses || []).find((candidate) => String(candidate.id) === String(trackId));
@@ -73,7 +80,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 	}
 
 	function rackScope(scope: string): RackEffectScope {
-		if (scope === 'track' || scope === 'master' || scope === 'group' || scope === 'send') return scope;
+		if (scope === 'clip' || scope === 'track' || scope === 'master' || scope === 'group' || scope === 'send') return scope;
 		throw new RangeError('Effect stack scope must be track, master, group, or send.');
 	}
 
@@ -87,7 +94,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 	function addEffect(request: AddRackEffectRequest = {}): string | null | undefined {
 		if (editingBlocked()) return undefined;
 		if (!request.type) throw createLocalizedError(TypeError, copy, 'effectTypeRequired');
-		const scope: RackEffectScope = ['master', 'group', 'send'].includes(request.scope || '')
+		const scope: RackEffectScope = ['clip', 'master', 'group', 'send'].includes(request.scope || '')
 			? request.scope as RackEffectScope
 			: 'track';
 		const trackId = request.trackId ?? request.busId ?? state.selectedTrackId;
@@ -104,7 +111,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 		const effectOptions = { ...(request.options || {}) };
 		if (type === 'audacity-auto-duck') {
 			const candidates = project.tracks.filter((track) => (
-				track.type === 'audio' && (scope === 'master' || track.id !== trackId)
+				track.type === 'audio' && (scope === 'master' || track.id !== ownerTrackId(scope, trackId))
 			));
 			const requestedControlTrackId = effectOptions.context?.controlTrackId || state.audacityControlTrackId;
 			const controlTrackId = candidates.some((track) => track.id === requestedControlTrackId)
@@ -430,7 +437,7 @@ export function createRackEffectService(runtime: RackEffectServiceRuntime) {
 		if (effect.type === 'audacity-auto-duck') {
 			const requestedControlTrackId = effectOptions.context?.controlTrackId || state.audacityControlTrackId;
 			const candidates = requireProject().tracks.filter((track) => (
-				track.type === 'audio' && (scope === 'master' || track.id !== trackId)
+				track.type === 'audio' && (scope === 'master' || track.id !== ownerTrackId(scope, trackId))
 			));
 			const controlTrackId = candidates.some((track) => track.id === requestedControlTrackId)
 				? String(requestedControlTrackId)
@@ -508,7 +515,7 @@ function parseEffectGestureKey(value: string): Readonly<{
 }
 
 function rackScopeValue(value: unknown): RackEffectScope {
-	if (value === 'track' || value === 'master' || value === 'group' || value === 'send') return value;
+	if (value === 'clip' || value === 'track' || value === 'master' || value === 'group' || value === 'send') return value;
 	throw new RangeError('Effect stack scope must be track, master, group, or send.');
 }
 

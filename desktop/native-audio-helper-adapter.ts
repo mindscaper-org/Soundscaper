@@ -18,7 +18,7 @@ const PORT_PROTOCOL_VERSION = 1
 const MAXIMUM_MESSAGE_BYTES = 16 * 1_024 * 1_024
 
 export interface NativeMainMessagePort {
-	postMessage(message: unknown, transfer?: readonly ArrayBuffer[]): void
+	postMessage(message: unknown): void
 	start?(): void
 	close(): void
 	on?(event: 'message', listener: (event: unknown) => void): void

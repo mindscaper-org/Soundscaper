@@ -16,9 +16,8 @@ interface Props extends Pick<FreesoundPanelProps, 'copy' | 'disabled' | 'project
 	readonly positionSeconds: number;
 }
 export const FreesoundResultRow = memo(function FreesoundResultRow({ result, previewing, playing, positionSeconds, copy, disabled, projectBinVisible, onPreview, onPausePreview, onResumePreview, onSeekPreview, onInsertAtPlayhead, onAddToProjectBin }: Props) {
-	const positionPercent = result.durationSeconds > 0
-		? Math.min(100, Math.max(0, 100 * positionSeconds / result.durationSeconds))
-		: 0;
+	const position = previewing ? Math.min(result.durationSeconds, Math.max(0, positionSeconds)) : 0;
+	const positionPercent = result.durationSeconds > 0 ? 100 * position / result.durationSeconds : 0;
 	const previewPlayhead = previewing ? <span className="kw-audio-editor__freesound-preview-playhead"
 		aria-hidden="true" style={{ left: `${positionPercent}%` }} /> : null;
 	const previewLabel = playing ? copy.pausePreview : copy.playPreview;
@@ -67,13 +66,12 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 				{result.waveformUrl ? <button
 					type="button" role="slider" aria-orientation="horizontal"
 					aria-valuemin={0} aria-valuemax={result.durationSeconds}
-					aria-valuenow={previewing ? positionSeconds : 0}
+					aria-valuenow={position}
 					className="kw-audio-editor__freesound-waveform"
 					disabled={result.previewAvailable === false}
 					aria-label={`${copy.seekPreview}: ${result.name}`}
 					onKeyDown={(event) => {
 						if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-						const position = previewing ? positionSeconds : 0;
 						const step = Math.min(1, result.durationSeconds / 100) * (event.shiftKey ? 10 : 1);
 						const next = event.key === 'Home' ? 0 : event.key === 'End' ? result.durationSeconds
 							: event.key === 'ArrowRight' || event.key === 'ArrowUp' ? position + step
@@ -82,7 +80,7 @@ export const FreesoundResultRow = memo(function FreesoundResultRow({ result, pre
 						event.preventDefault();
 						onSeekPreview(result.soundId, Math.max(0, Math.min(result.durationSeconds, next)));
 					}}
-					onClick={(event) => onSeekPreview(result.soundId, event.detail === 0 ? (previewing ? positionSeconds : 0) : waveformSeekSeconds(
+					onClick={(event) => onSeekPreview(result.soundId, event.detail === 0 ? position : waveformSeekSeconds(
 						event.clientX,
 						event.currentTarget.getBoundingClientRect(),
 						result.durationSeconds,

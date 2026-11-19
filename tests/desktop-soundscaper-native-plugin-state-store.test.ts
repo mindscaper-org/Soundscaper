@@ -21,6 +21,23 @@ import {
 	type SoundscaperNativePluginStateBodyDescriptor,
 } from '../desktop/soundscaper-native-plugin-state-store.ts'
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts'
+import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts'
+
+test('native state referenced only by a named snapshot survives reclamation', (context) => {
+	const database = new DatabaseSync(':memory:')
+	context.after(() => { database.close() })
+	initializeSoundscaperDesktopProjectLibraryDatabase(database)
+	const store = new SoundscaperNativePluginStateStore(database)
+	const retained = store.put(Uint8Array.of(7)), orphan = store.put(Uint8Array.of(8))
+	let document = applySoundscaperProjectCommand(project('snapshots', 0, retained), {
+		type: 'project/snapshot-create', id: 'snapshot', name: 'Before removing plug-in', createdAt: '2026-11-16T12:00:00.000Z',
+	})
+	document = applySoundscaperProjectCommand(document, { type: 'native-plugin-state/remove', instanceId: 'native-instance-1' })
+	insertRevision(database, document)
+	assert.equal(store.reclaimUnreferencedProjectStateBodies(), 1)
+	assert.equal(store.has(retained.bodyId), true)
+	assert.equal(store.has(orphan.bodyId), false)
+})
 
 test('native plug-in state reclamation preserves every retained project revision', (context) => {
 	const database = new DatabaseSync(':memory:')
@@ -74,7 +91,6 @@ test('saving an existing native plug-in state rejects changed persisted bytes', 
 
 test('Soundscaper desktop startup reclaims state left outside durable projects', async (context) => {
 	const appDataPath = await mkdtemp(join(tmpdir(), 'soundscaper-native-state-gc-'))
-	context.after(() => rm(appDataPath, { recursive: true, force: true }))
 	const paths = createSoundscaperDesktopProjectLibraryPaths(appDataPath)
 	await mkdir(paths.libraryRoot, { recursive: true })
 	const database = new DatabaseSync(paths.databasePath)
@@ -82,16 +98,19 @@ test('Soundscaper desktop startup reclaims state left outside durable projects',
 	const body = new SoundscaperNativePluginStateStore(database).put(Uint8Array.from([4]))
 	database.close()
 
-	const main = await SoundscaperDesktopProjectLibraryMain.start({
+	const main = SoundscaperDesktopProjectLibraryMain.start({
 		appDataPath,
 		owner: { product: 'soundscaper', processId: 1, instanceId: 'native-state-gc' },
 		handshake: createSoundscaperDesktopProjectLibraryHandshake(),
 		onLeaseLost: () => undefined,
 		testControl: null,
 	})
-	context.after(() => main.close())
+	context.after(async () => {
+		try { await (await main).close() }
+		finally { await rm(appDataPath, { recursive: true, force: true }) }
+	})
 
-	assert.equal(main.readNativePluginState(body.bodyId), null)
+	assert.equal((await main).readNativePluginState(body.bodyId), null)
 })
 
 function project(

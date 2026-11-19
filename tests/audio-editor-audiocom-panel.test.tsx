@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import React, { act } from 'react';
+import React, { act, useLayoutEffect, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { AUDIOCOM_COPY_BY_LOCALE } from '../src/common/i18n/audiocom-copy.ts';
@@ -205,17 +205,24 @@ test('search submission trims the query, pagination preserves the executed query
 	const files: File[][] = [];
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
+	const searchInput = () => {
+		const input = dom.container.querySelectorAll('input').find(node => node.type === 'search');
+		assert.ok(input);
+		return input;
+	};
+	function EnterQueryOnMount({ children }: { readonly children: ReactNode }) {
+		useLayoutEffect(() => {
+			reactProps(searchInput()).onChange({ currentTarget: { value: '  wind  ' } });
+		}, []);
+		return children;
+	}
 	try {
-		await act(async () => root.render(<AudiocomPanel {...BASE}
-			state={{ ...BASE.state, auth: { status: 'connected' }, search: {
+		await act(async () => root.render(<EnterQueryOnMount>
+			<AudiocomPanel {...BASE} state={{ ...BASE.state, auth: { status: 'connected' }, search: {
 				...BASE.state.search, query: 'rain', hasNext: true, status: 'ready',
-			} }}
-			onSearch={(request) => searches.push(request)}
-			onUploadFiles={(value) => files.push([...value])}
-		/>));
-		const searchInput = dom.container.querySelectorAll('input').find((node) => node.type === 'search');
-		assert.ok(searchInput);
-		await act(async () => reactProps(searchInput).onChange({ currentTarget: { value: '  wind  ' } }));
+			} }} onSearch={(request) => searches.push(request)} onUploadFiles={(value) => files.push([...value])} />
+		</EnterQueryOnMount>));
+		assert.equal(searchInput().value, '  wind  ');
 		await act(async () => reactProps(dom.one('[role="search"]')).onSubmit({ preventDefault() {} }));
 		const next = dom.container.querySelectorAll('button').find((node) => node.textContent === 'Next');
 		assert.ok(next);

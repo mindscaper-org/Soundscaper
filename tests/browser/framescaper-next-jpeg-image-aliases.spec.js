@@ -33,18 +33,22 @@ test('Generate Add Images native chooser offers supported JPEG filename aliases'
 	for (const suffix of ['exe', 'js', 'sscape']) expect(extensions).not.toContain(suffix);
 });
 
-for (const suffix of ['jfif', 'jpe']) test(`existing browser image decoder imports JPEG ${suffix} bytes from Generate`, async ({ page }) => {
+test('native JPEG aliases import together with independent Undo and Redo', async ({ page }) => {
 	const editor = await bootEditor(page, '/framescaper/en/');
 	const choosing = page.waitForEvent('filechooser');
 	const menu = await openNestedCommandMenu(page, editor, 'Generate', []);
 	await getMenuItem(menu, EDITOR_ENGLISH_COPY['ui.framescaperMenus.addVideoStill']).click();
-	await (await choosing).setFiles({ name: `Photo.${suffix}`, mimeType: 'image/jpeg', buffer: JPEG });
+	await (await choosing).setFiles(['jfif', 'jpe'].map(suffix => ({ name: `Photo.${suffix}`, mimeType: 'image/jpeg', buffer: JPEG })));
 	const clip = editor.locator('[data-clip-kind="image"]');
-	await expect(clip).toHaveCount(1);
-	await expect(clip).toHaveAttribute('aria-label', 'Image clip: Photo');
+	await expect(clip).toHaveCount(2);
+	for (const image of await clip.all()) await expect(image).toHaveAttribute('aria-label', 'Image clip: Photo');
 	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(clip).toHaveCount(1);
 	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 	await expect(clip).toHaveCount(0);
 	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
 	await expect(clip).toHaveCount(1);
+	await editor.getByRole('button', { name: 'Redo', exact: true }).click();
+	await expect(clip).toHaveCount(2);
 });

@@ -18,6 +18,7 @@ import { AUDIO_EDITOR_SAMPLE_RATE } from '../../project.js';
 import { useControlTrackOptions } from './useEffectPresentation.ts';
 import { canonicalCopyValue } from '../../../i18n/canonical-extras.js';
 import { AudacityEffectLayout } from '../AudacityEffectLayout.jsx';
+import EditorHelpTooltip from '../EditorHelpTooltip.tsx';
 import AudacityDynamicsEffectLayout from '../AudacityDynamicsEffectLayout.jsx';
 import { ParametricEqEditor } from '../ParametricEqEditor.jsx';
 import FilterCurveEqEditor from './FilterCurveEqEditor.tsx';
@@ -38,6 +39,7 @@ import { nativeRackEffectCommit } from './live-rack-effect-gesture.ts';
 import { nativeEffectParamRange } from './native-effect-param-range.ts';
 import { audacityAdvancedParameters } from './audacity-effect-options.ts';
 import AudacityNoiseProfileButton from './AudacityNoiseProfileButton.tsx';
+import AutoTuneControlTrack from './AutoTuneControlTrack.tsx';
 import { audacityNyquistControl, isAudacityNyquistPort } from '../audacity-port-layouts.ts';
 
 export default function EffectParameterEditor({
@@ -75,7 +77,7 @@ export default function EffectParameterEditor({
 		if (definition || effect.type === 'missing' || effect.type === 'eq') return null;
 		const nyquistPort = isAudacityNyquistPort(effect.type);
 		const parameterNames = Object.entries(effect.params || {}).filter(([name, value]) => (
-			(typeof value === 'number' || nativeParameterChoices(effect.type, name) !== null)
+			(typeof value === 'number' || nativeParameterChoices(effect.type, name) !== null || effect.type === 'auto-tune' && name === 'controlTrackId')
 			&& (!nyquistPort || advancedSettings || !audacityAdvancedParameters(effect.type).includes(name))
 		)).map(([name]) => name);
 		return { params: Object.fromEntries(parameterNames.map((name) => [name, {}])) };
@@ -196,6 +198,8 @@ export default function EffectParameterEditor({
 		}
 		const nyquistPort = isAudacityNyquistPort(effect.type);
 			const renderNativeParameter = (name) => {
+			if (effect.type === 'auto-tune' && name === 'controlTrackId') return <AutoTuneControlTrack tracks={tracks}
+				value={effect.params?.controlTrackId || ''} copy={copy} disabled={disabled} onChange={(controlTrackId) => update({ params: { controlTrackId } })} />;
 			const choices = nativeParameterChoices(effect.type, name);
 			if (choices) {
 				return (
@@ -211,7 +215,7 @@ export default function EffectParameterEditor({
 								String(option) === String(next)
 							))),
 						})}
-						disabled={disabled}
+						disabled={disabled || Boolean(effect.type === 'auto-tune' && effect.params?.controlTrackId && ['key', 'scale'].includes(name))}
 						hook={`effect-param-${name}`}
 					/>
 				);
@@ -250,7 +254,11 @@ export default function EffectParameterEditor({
 				return (
 					<ParameterNumber
 					label={parameterLabel}
-					displayLabel={displayLabel}
+					displayLabel={effect.type === 'hum-removal' && name === 'frequency' ? <span className="audio-editor-help-label">
+						<span>{displayLabel}</span>
+						<EditorHelpTooltip subject={parameterLabel} description={canonicalCopyValue('effectHumRemovalHint', copy)}
+							helpLabel={copy.helpMenu || 'Help'} hook="hum-removal-frequency" />
+					</span> : displayLabel}
 					value={sourceControl ? Number(effect.params?.[name]) * scale : effect.params?.[name]}
 					defaultValue={(AUDIO_EFFECT_DEFINITIONS[effect.type] || AUDIO_SELECTION_EFFECT_DEFINITIONS[effect.type])?.defaults?.[name] * scale}
 					range={sourceControl && range ? range.map(value => value * scale) : range}

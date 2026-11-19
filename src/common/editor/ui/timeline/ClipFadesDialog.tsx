@@ -11,6 +11,7 @@ import { clipInteractionCopy } from '../../../i18n/editor-clip-interactions-copy
 import { clipFadeLengthChange } from './clip-fade-edit.ts';
 import { fadeField, fadeShapeField, type ClipFadeEdge, type FadeClip } from './clip-fade-geometry.ts';
 import type { ClipFadeChanges } from './ClipFadeOverlays.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 interface Clip extends FadeClip { readonly id: string; }
 interface Props {
@@ -51,7 +52,7 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 			const shapeField = fadeShapeField(edge);
 			const shapeLabel = edge === 'in' ? labels.fadeInShape : labels.fadeOutShape;
 			return <div key={edge} className="audio-editor-fades-dialog__row">
-				<label>{edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
+				<label><EditorControlLabel>{edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}</EditorControlLabel>
 					<NumberStepper ariaLabel={edge === 'in' ? labels.fadeInLength : labels.fadeOutLength}
 						incrementLabel={labels.increaseValue} decrementLabel={labels.decreaseValue} value={lengthDrafts[edge] ?? String((value[field] ?? 0) / sampleRate)} min={0} max={clip.durationFrames / sampleRate}
 						step={0.1} disabled={blocked} onChange={text => {
@@ -68,7 +69,7 @@ export default function ClipFadesDialog({ clip, sampleRate, copy, blocked, onPre
 							if (length) setChanges(previous => ({ ...shapesForNewClipFades(clip, length), ...previous, ...length }));
 						}} /><span aria-hidden="true">{` ${labels.secondsUnit}`}</span>
 				</label>
-				<label htmlFor={`${baseId}-${edge}`}>{shapeLabel}</label>
+				<label htmlFor={`${baseId}-${edge}`}><EditorControlLabel>{shapeLabel}</EditorControlLabel></label>
 				<select id={`${baseId}-${edge}`} value={selectedEndFadeShapePreset(value[shapeField]) ?? ''} disabled={blocked}
 					onChange={event => {
 						const preset = END_FADE_SHAPE_PRESETS.find(item => item.id === event.currentTarget.value);

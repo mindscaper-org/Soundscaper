@@ -4,7 +4,7 @@ import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, openExportDialog, chooseDropdown, readDownloadBytes, closeDialog, disableNativeSavePicker } from './audio-editor-test-helpers.js';
 
 test('Tone defaults to the selected duration', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
@@ -13,7 +13,7 @@ test('Tone defaults to the selected duration', async ({ page }) => {
 });
 
 test('Tone also reads the duration of a clip selected through its header', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
@@ -22,7 +22,7 @@ test('Tone also reads the duration of a clip selected through its header', async
 });
 
 test('a generator knob changes by one step for one arrow key press', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Morse code');
 	const dialog = page.getByRole('dialog', { name: 'Morse code', exact: true });
 	const knob = dialog.getByRole('slider').first();
@@ -37,7 +37,7 @@ test('a generator knob changes by one step for one arrow key press', async ({ pa
 });
 
 test('generator frequency entries respect the project Nyquist limit', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
 	const dialog = page.getByRole('dialog', { name: 'Tone', exact: true });
 	const frequency = dialog.getByRole('textbox', { name: 'Frequency (Hz)', exact: true });
@@ -47,7 +47,7 @@ test('generator frequency entries respect the project Nyquist limit', async ({ p
 });
 
 test('editing generator amplitude cannot leave an out-of-range value', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Generate', 'Tone');
 	const dialog = page.getByRole('dialog', { name: 'Tone', exact: true });
 	const amplitude = dialog.getByRole('textbox', { name: 'Amplitude', exact: true });
@@ -58,7 +58,7 @@ test('editing generator amplitude cannot leave an out-of-range value', async ({ 
 
 test('Silence audio applies to every selected audio track', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Edit', ['Remove special', 'Silence audio']);

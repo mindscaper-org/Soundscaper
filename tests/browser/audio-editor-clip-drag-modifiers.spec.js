@@ -9,7 +9,7 @@ test.describe('clip header drag modifiers', () => {
 
 	test('Ctrl drag duplicates onto another track at its horizontal destination, with one undo', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		const source = clip.locator('xpath=ancestor::*[@data-track-row][1]');
@@ -43,7 +43,7 @@ test.describe('clip header drag modifiers', () => {
 
 	test('Shift drag moves every clip on the source track and leaves other tracks in place', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA, toneB]);
 		const clip = clipByName(editor, toneA.name);
 		const sourceId = await clip.locator('xpath=ancestor::*[@data-track-row][1]').getAttribute('data-track-id');
@@ -77,7 +77,7 @@ test.describe('clip header drag modifiers', () => {
 	});
 
 	test('clip menu exposes whole-track selection and time-preserving track moves', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [toneA]);
 		const clip = clipByName(editor, toneA.name);
 		await clip.click({ button: 'right', position: { x: 32, y: 10 } });

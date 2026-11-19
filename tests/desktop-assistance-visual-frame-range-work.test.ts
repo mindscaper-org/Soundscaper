@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, writeFile, stat, rm } from 'node:fs/promises';
+import { mkdtemp, open, writeFile, stat, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -35,4 +35,33 @@ test('reviewed inference frames use a cached ordinal range and indexed jumps wit
 	for (const ordinal of [0, source.frameCount - 1, 1024, 500, 4096]) assert.equal((await source.readFrame(ordinal)).presentationTick, String(ordinal * 500));
 	assert.equal(scans, 0, 'sequential and random inference reads do not scan the complete pack catalog');
 	source.release(); await assert.rejects(source.readFrame(0), /released/u);
+});
+
+test('an uncached visual pack member must match its authenticated pixels before inference', async context => {
+	const directory = await mkdtemp(join(tmpdir(), 'visual-member-custody-'));
+	context.after(async () => { await rm(directory, { recursive: true, force: true }); });
+	const firstPixels = Uint8Array.of(5, 10, 15, 255);
+	const secondPixels = Uint8Array.of(20, 25, 30, 255);
+	const parts = createAssistanceVisualFramePackSetV1([firstPixels, secondPixels].map((rgba, sourceFrame) =>
+		createAssistanceVisualFramePackV2({
+			sourceWidth: 1920, sourceHeight: 1080, rasterWidth: 1, rasterHeight: 1, timescale: 1000,
+			frames: [{ sourceFrame, presentationTick: String(sourceFrame * 500), rgba }],
+		})));
+	const bytes = Buffer.concat(parts);
+	const path = join(directory, 'frames.pack');
+	await writeFile(path, bytes);
+	const source = await openAssistanceOnnxVisualFrameSourceV1([{
+		claimId: 'ab'.repeat(20), role: 'frame-pack', mediaType: 'application/vnd.soundscaper.frame-pack',
+		path, byteLength: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex'),
+		identity: nativeChildFileIdentityFromStat(await stat(path, { bigint: true })),
+	}]);
+	context.after(() => { source.release(); });
+	assert.deepEqual((await source.readFrame(0)).rgba, firstPixels);
+
+	const handle = await open(path, 'r+');
+	try { await handle.write(Uint8Array.of(128), 0, 1, bytes.length - 1); }
+	finally { await handle.close(); }
+
+	await assert.rejects(source.readFrame(1), /pack digest changed/u);
+	assert.deepEqual((await source.readFrame(0)).rgba, firstPixels);
 });

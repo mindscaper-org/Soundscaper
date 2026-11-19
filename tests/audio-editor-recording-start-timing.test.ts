@@ -74,3 +74,17 @@ test('timed recording disables count-in and rejects an elapsed start', () => {
 		name: 'RangeError', message: 'past',
 	});
 });
+
+test('custom lead-in uses elapsed seconds across tempos and clamps at the project start', () => {
+	const timing = planRecordingStartTiming({ ...base, timedStartTimeMs: null,
+		requestedStartFrame: 240_000, leadInDurationSeconds: 3.125 });
+	assert.equal(timing.availableLeadInFrames, 150_000);
+	assert.equal(timing.seekFrame, 90_000);
+	assert.equal(timing.captureStartFrame(10.25), 642_000);
+	assert.equal(planRecordingStartTiming({ ...base, timedStartTimeMs: null,
+		leadInDurationSeconds: 10 }).seekFrame, 0);
+	assert.equal(planRecordingStartTiming({ ...base, timedStartTimeMs: null,
+		leadInDurationSeconds: 0 }).availableLeadInFrames, 0);
+	assert.equal(planRecordingStartTiming({ ...base, timedStartTimeMs: 2_500,
+		leadInDurationSeconds: 3 }).availableLeadInFrames, 0);
+});

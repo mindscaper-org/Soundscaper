@@ -1,5 +1,55 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { randomUUID } from 'node:crypto';
+
+type CloseReason = 'quit' | 'window-close';
+type CloseRequest = Readonly<{ requestId: string; reason: CloseReason }>;
+
+/** An unconfirmed close request belongs to the renderer that received it. */
+export class DesktopMainWindowClose {
+	#pending: CloseRequest | null = null;
+	#quitting = false;
+	#allowed = false;
+
+	get isIntentionalShutdown(): boolean { return this.#allowed || (this.#quitting && this.#pending === null); }
+
+	beginQuit(): void { this.#quitting = true; }
+
+	resetForWindow(): void {
+		this.#pending = null;
+		this.#allowed = false;
+	}
+
+	intercept(event: { preventDefault(): void }, rendererReady: boolean, send: (request: CloseRequest) => void): void {
+		if (this.#allowed || !rendererReady) return;
+		event.preventDefault();
+		if (this.#pending) {
+			if (this.#quitting && this.#pending.reason === 'window-close') this.#pending = { ...this.#pending, reason: 'quit' };
+			return;
+		}
+		this.#pending = { requestId: randomUUID(), reason: this.#quitting ? 'quit' : 'window-close' };
+		send(this.#pending);
+	}
+
+	respond(value: Readonly<{ requestId?: unknown; allow?: unknown }> | null | undefined): CloseReason | null {
+		const request = this.#pending;
+		if (!request || value?.requestId !== request.requestId) return null;
+		this.#pending = null;
+		if (value.allow !== true) {
+			this.#quitting = false;
+			return null;
+		}
+		this.#allowed = true;
+		return request.reason;
+	}
+
+	retireRenderer(): void {
+		if (!this.#pending) return;
+		this.#pending = null;
+		this.#quitting = false;
+	}
+}
+
 export interface DesktopMainWindowRecoveryOptions {
 	readonly cleanup: () => void | Promise<void>;
 	readonly reload: () => void | Promise<void>;

@@ -3,11 +3,11 @@
 import { installDesktopSpeedWarmupManifest } from './desktop-speed-warmup-fixture.js';
 import { createDeterministicAvFixture } from '../fixtures/deterministic-av-media.js';
 
-export async function installWebVcrHost(page, { recordingFixture = false } = {}) {
+export async function installWebVcrHost(page, { recordingFixture = false, redirectTo = null } = {}) {
 	const recordedVideoBase64 = recordingFixture
 		? createDeterministicAvFixture('web-vcr-recording.webm').buffer.toString('base64') : null;
 	await installDesktopSpeedWarmupManifest(page);
-	await page.addInitScript(({ recordingFixture: hasRecordingFixture, recordedVideoBase64: videoBase64 }) => {
+	await page.addInitScript(({ recordingFixture: hasRecordingFixture, recordedVideoBase64: videoBase64, redirectTo }) => {
 		const harness = {
 			audioDataClosed: 0,
 			captureStates: [],
@@ -109,7 +109,7 @@ export async function installWebVcrHost(page, { recordingFixture = false } = {})
 					case 'navigate':
 						update({ navigation: {
 							generation: host.navigation.generation + 1,
-							url: new URL(command.url).href,
+							url: new URL(redirectTo ?? command.url).href,
 							canGoBack: true,
 							canGoForward: false,
 						} });
@@ -308,5 +308,5 @@ export async function installWebVcrHost(page, { recordingFixture = false } = {})
 			enumerable: true,
 			value: Object.freeze({ v1: bridge }),
 		});
-	}, { recordingFixture, recordedVideoBase64 });
+	}, { recordingFixture, recordedVideoBase64, redirectTo });
 }

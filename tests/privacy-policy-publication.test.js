@@ -18,6 +18,7 @@ import { AUDIO_EDITOR_APPLICATION_MENU_UTILITY_IDS } from '../src/common/editor/
 import { createPrivacyPolicyMenuItem } from '../src/common/editor/ui/privacy-policy-menu.ts';
 import { desktopExternalDestination } from '../src/common/editor/ui/workspace-runtime.js';
 import { staticRouteGeneratorArguments } from './helpers/static-route-generator-subprocess.ts';
+import { bundledSiteCopyForLocale } from '../src/common/i18n/site-copy.js';
 
 const execFileAsync = promisify(execFile);
 const CONTROLLER = 'Mindscaper';
@@ -42,7 +43,7 @@ test('privacy policy locale and product URLs are closed over English and German 
 
 test('English and German dialog content carries equivalent privacy disclosures', () => {
 	const policies = [privacyPolicyContent('en'), privacyPolicyContent('de')];
-	const effectiveDates = ['3 November 2026', '3. November 2026'];
+	const effectiveDates = ['10 November 2026', '10. November 2026'];
 	for (const [index, policy] of policies.entries()) {
 		const prose = [policy.effectiveDate, policy.summary, ...policy.sections.flatMap(
 			({ heading, body }) => [heading, body],
@@ -125,9 +126,37 @@ test('English and German dialog content carries equivalent privacy disclosures',
 		policies[0].sections.map(({ id }) => id),
 		policies[1].sections.map(({ id }) => id),
 	);
-	assert.equal(policies[0].sections.length, 13);
+	assert.equal(policies[0].sections.length, 14);
 	assert.match(policies[0].sections.map(({ body }) => body).join('\n'), /HTTP log retention is disabled/iu);
 	assert.match(policies[1].sections.map(({ body }) => body).join('\n'), /HTTP-Log-Aufbewahrung ist deaktiviert/iu);
+});
+
+test('the public legal policy includes the SignPath application notices in both languages', () => {
+	const copy = bundledSiteCopyForLocale('en');
+	assert.equal(copy.legalLink, 'Privacy & Code signing policy');
+	const menu = createPrivacyPolicyMenuItem(copy, () => undefined);
+	assert.equal(menu.label, 'Privacy & Code signing policy');
+	for (const locale of ['en', 'de']) {
+		const policy = privacyPolicyContent(locale);
+		const signing = policy.sections.find(({ id }) => id === 'code-signing-policy');
+		assert.ok(signing, `${locale} has a code signing policy`);
+		assert.match(signing.heading, /Code signing policy/u);
+		assert.match(signing.body, /application is being prepared|Antrag wird vorbereitet/u);
+		assert.match(signing.body, /Soundscaper.*Windows/u);
+		assert.match(signing.body, /Free code signing provided by <a href="https:\/\/about\.signpath\.io">SignPath\.io<\/a>, certificate by <a href="https:\/\/signpath\.org">SignPath Foundation<\/a>/u);
+		for (const role of locale === 'en' ? ['Authors', 'Reviewers', 'Approvers'] : ['Autoren', 'Prüfer', 'Freigabeverantwortliche']) {
+			assert.ok(signing.body.includes(`<strong>${role}:</strong> <a href="https://github.com/LeoWattenberg">Leo Wattenberg</a>`));
+		}
+		assert.match(signing.body, /manual approval|manuell.*freigegeben/u);
+		assert.ok(signing.body.includes(`href="/privacy/${locale}/"`));
+		assert.match(signing.body, /href="https:\/\/signpath\.org\/terms"/u);
+		const recipients = policy.sections.find(({ id }) => id === 'recipients')?.body ?? '';
+		for (const url of ['https://www.cloudflare.com/privacypolicy/',
+			'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement',
+			'https://www.migadu.com/privacy/', 'https://freesound.org/help/privacy/', 'https://audio.com/legal/privacy-notice']) {
+			assert.ok(recipients.includes(`href="${url}"`), `${locale} links to ${url}`);
+		}
+	}
 });
 
 test('the static route generator emits dialog-only policy application routes, including /privacy/', async (t) => {

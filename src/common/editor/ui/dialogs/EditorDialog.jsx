@@ -5,7 +5,7 @@ import { NumberStepper } from '@soundscaper/design-system/NumberStepper';
 import EditorDialogNameField from './EditorDialogNameField.tsx';
 
 import AudioEditorDialogShell from '../AudioEditorDialogShell.tsx';
-import TimedRecordingDialogFields from './TimedRecordingDialogFields.tsx';
+import TimedRecordingDialogFields, { useTimedRecordingStartExpired } from './TimedRecordingDialogFields.tsx';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { useOwnedDialogOperation } from '../useOwnedDialogOperation.ts';
 import { formatDate } from '../workspace-runtime.js';
@@ -28,13 +28,16 @@ import {
 	TRACK_RATE_DIALOG_INVALID_RATE,
 	TRACK_RATE_DIALOG_MISSING_TRACK,
 } from './editor-dialog-model.js';
-import { timedRecordingDialogRange } from './timed-recording-dialog-model.ts';
+import { normalizeTimedRecordingDialogValue, timedRecordingDialogRange } from './timed-recording-dialog-model.ts';
 import { submitCompletedNumberField } from './completed-number-field-submit.ts';
 import { selectAudioEditorEditBlock } from '../../edit-blocking.ts';
 import { resetSoundscaperPluginPreferences } from '../soundscaper-plugin-preferences-reset.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export default function EditorDialog({ type, value, onValueChange, trackId, controller, snapshot, copy, locale, run, fileService = null, showArmControls = false, onClose }) {
 	const cancelTimedRecordingOnClose = useRef(false);
+	const timedStartExpired = useTimedRecordingStartExpired(type === 'timed-recording' && !snapshot.scheduledRecording
+		? normalizeTimedRecordingDialogValue(value).startTimeMs : undefined);
 	const projectSession = editorProjectEditSessionKey(controller, snapshot.project?.id);
 	const projectIdAtOpen = useRef(snapshot.project?.id ?? null);
 	const editingTargetAtOpen = useRef({ type, projectSession, trackId: snapshot.selectedTrackId ?? null });
@@ -227,17 +230,17 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 					{type === 'rename' && (
 						<form onSubmit={(event) => { event.preventDefault(); submitRename(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.projectName}</span>
-								<span data-project-name-input>
+								<EditorControlLabel>{copy.projectName}</EditorControlLabel>
+								<EditorControlLabel data-project-name-input>
 									<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitRename} />
-								</span>
+								</EditorControlLabel>
 							</label>
 						</form>
 					)}
 					{type === 'track-rename' && (
 						<form onSubmit={(event) => { event.preventDefault(); submitTrackRename(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.trackName}</span>
+								<EditorControlLabel>{copy.trackName}</EditorControlLabel>
 								<EditorDialogNameField value={value} onChange={onValueChange} onSubmit={submitTrackRename} />
 							</label>
 						</form>
@@ -246,13 +249,14 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 						<TimedRecordingDialogFields controller={controller} project={snapshot.project}
 							originFrame={controller.getTelemetrySnapshot?.().positionFrame}
 							value={value} onValueChange={onValueChange}
+							startExpired={timedStartExpired}
 							onSubmit={submitTimedRecording} scheduledRecording={snapshot.scheduledRecording}
 							copy={copy} locale={locale} />
 					)}
 					{type === 'resample' && (
 						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitResample)} onSubmit={(event) => { event.preventDefault(); submitResample(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.sampleRate} (Hz)</span>
+								<EditorControlLabel>{copy.sampleRate} (Hz)</EditorControlLabel>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
 							</label>
 						</form>
@@ -260,7 +264,7 @@ export default function EditorDialog({ type, value, onValueChange, trackId, cont
 					{type === 'track-rate' && (
 						<form onKeyDownCapture={event => submitCompletedNumberField(event, submitTrackRate)} onSubmit={(event) => { event.preventDefault(); submitTrackRate(); }}>
 							<label className="kw-audio-editor-dialog__field">
-								<span>{copy.sampleRate} (Hz)</span>
+								<EditorControlLabel>{copy.sampleRate} (Hz)</EditorControlLabel>
 								<NumberStepper value={String(value)} min={8_000} max={384_000} step={1_000} width="100%" onChange={onValueChange} />
 							</label>
 						</form>

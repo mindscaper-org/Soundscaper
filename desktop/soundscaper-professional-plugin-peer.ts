@@ -3,10 +3,12 @@
 /** Addon-shaped async proxy for the actually isolated professional plug-in peer. */
 
 import { realpath } from 'node:fs/promises';
+import { validatePluginMidiEvents } from './plugin-midi-events.ts';
 import { createAraPluginPeerMethods } from './ara-plugin-peer.ts';
 import { dirname } from 'node:path';
 
-import type { HelperFileIdentity, HelperPluginFormat } from './helper-job-grant.ts';
+import type { HelperPluginFormat } from './helper-job-grant.ts';
+import type { NativeChildFileIdentity } from './native-child-file-identity.ts';
 import { collectProfessionalCandidates, exactProfessionalCandidateGrant } from './professional-candidate-custody.ts';
 import {
 	isEnforcedNativeChildLaunch,
@@ -18,6 +20,7 @@ import type { HelperJobResourcePolicy } from './helper-resource-policy.ts';
 import { prepareProfessionalPluginCandidate } from './professional-plugin-custody.ts';
 import { isSupervisedNativePluginLaunch, type NativePluginProcessLaunch } from './native-plugin-process-launcher.ts';
 import { professionalPeerLoaderArgumentsValid } from './professional-peer-loader-arguments.ts';
+import { isWinePluginSupervised, type WinePluginProcessLaunch } from './wine-plugin-launcher.ts';
 
 const VERSION = 2;
 const MAXIMUM_FRAME_BYTES = 16 * 1024 ** 2;
@@ -32,7 +35,7 @@ const STATUS = Object.freeze([
 ]);
 
 export interface ProfessionalPluginPeerContext {
-	readonly identity: Readonly<HelperFileIdentity>;
+	readonly identity: Readonly<NativeChildFileIdentity>;
 	readonly byteLength: number;
 	readonly sha256: string;
 	readonly resourcePolicy: HelperJobResourcePolicy;
@@ -77,7 +80,7 @@ export interface ProfessionalPluginPeerLauncher {
 			readonly maximumMessageBytes: number;
 			readonly maximumInFlightMessages: number;
 		}>;
-	}>): Promise<NativeChildIsolationLaunch | NativePluginProcessLaunch>;
+	}>): Promise<NativeChildIsolationLaunch | NativePluginProcessLaunch | WinePluginProcessLaunch>;
 }
 
 interface PeerDescription {
@@ -102,7 +105,7 @@ interface PeerInstance {
 }
 
 interface PeerSession {
-	readonly launch: NativeChildIsolationLaunch | NativePluginProcessLaunch;
+	readonly launch: NativeChildIsolationLaunch | NativePluginProcessLaunch | WinePluginProcessLaunch;
 	readonly pluginPath: string;
 	request(operation: number, build?: (writer: BinaryWriter) => void): Promise<BinaryReader>;
 	close(): Promise<void>;
@@ -117,6 +120,9 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 	readonly entryArguments?: readonly string[];
 	readonly runtimeReadExecute: readonly NativeChildIsolationArtifactDescriptor[];
 	readonly pluginFormats: readonly Exclude<HelperPluginFormat, 'fixture'>[];
+	readonly prepareCandidate?: (path: string, context: ProfessionalPluginPeerContext) => Promise<Readonly<{
+		path: string; identity: NativeChildFileIdentity; dispose: () => Promise<void>;
+	}>>;
 }>) {
 	const formats = pluginFormats(options.pluginFormats);
 	const executable = options.peerExecutable;
@@ -137,7 +143,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		inspectPluginCandidate: async (path: string, format: HelperPluginFormat, context: ProfessionalPluginPeerContext) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context, format);
+				runtimeReadExecute, path, context, format, options.prepareCandidate);
 			let scanCompleted = false;
 			let operationFailed = false;
 			let operationError: unknown;
@@ -179,7 +185,7 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 		) => {
 			admittedFormat(formats, format);
 			const session = await openSession(options.launcher, executable, entryExecutable, entryArguments,
-				runtimeReadExecute, path, context, format);
+				runtimeReadExecute, path, context, format, options.prepareCandidate);
 			try {
 				const answer = await session.request(OPERATION.open, (writer) => {
 					writer.text(format); writer.text(session.pluginPath); writer.text(stableId);
@@ -200,6 +206,18 @@ export function createSoundscaperProfessionalPluginPeer(options: Readonly<{
 			const { inputChannels, outputChannels } = liveInstance(value).description;
 			return Object.freeze({ inputChannels, outputChannels });
 		},
+		pluginMidiEvents: async (value: PeerInstance, frames: number, events: unknown) => {
+			const messages = validatePluginMidiEvents(events, frames);
+			const answer = await liveInstance(value).session.request(20, writer => {
+				writer.unsigned32(frames); writer.unsigned32(messages.length);
+				for (const event of messages) {
+					writer.unsigned32(event.frame);
+					writer.unsigned32(event.data[0]! | event.data[1]! << 8 | (event.data[2] ?? 0) << 16);
+				}
+			});
+			answer.done();
+		},
+
 		processPluginBlock: async (
 			value: PeerInstance, frames: number, input: readonly Float32Array[] | null,
 			output: readonly Float32Array[],
@@ -309,11 +327,16 @@ async function openSession(
 	pluginPath: string,
 	context: ProfessionalPluginPeerContext,
 	format: HelperPluginFormat,
+	prepareCandidate?: (path: string, context: ProfessionalPluginPeerContext) => Promise<Readonly<{
+		path: string; identity: NativeChildFileIdentity; dispose: () => Promise<void>;
+	}>>,
 ): Promise<PeerSession> {
-	const snapshot = await prepareProfessionalPluginCandidate(pluginPath, context, launcher.pluginFilesystemAccess === 'user');
+	const candidate = prepareCandidate ? await prepareCandidate(pluginPath, context) : null;
+	const original = candidate ? null : await prepareProfessionalPluginCandidate(pluginPath, context, launcher.pluginFilesystemAccess === 'user');
+	const snapshot = candidate ?? { ...original!, identity: original!.authentication.identity };
 	let launch;
 	try {
-		const pluginGrant = await exactProfessionalCandidateGrant(snapshot.path, snapshot.authentication.identity, true,
+		const pluginGrant = await exactProfessionalCandidateGrant(snapshot.path, snapshot.identity, true,
 			'The plug-in path changed before isolated launch.');
 		const arguments_ = entryExecutable.path === peerExecutable.path ? []
 			: [...entryArguments, peerExecutable.path];
@@ -332,7 +355,8 @@ async function openSession(
 			},
 		});
 	} catch (error) { await snapshot.dispose(); throw error; }
-	if (!(isEnforcedNativeChildLaunch(launch.enforcement) || isSupervisedNativePluginLaunch(launch.enforcement)) || !launch.control) {
+	if (!(isEnforcedNativeChildLaunch(launch.enforcement) || isSupervisedNativePluginLaunch(launch.enforcement)
+		|| isWinePluginSupervised(launch.enforcement)) || !launch.control) {
 		launch.kill('SIGKILL');
 		await snapshot.dispose();
 		throw new Error('The professional plug-in peer has no enforced framed child transport.');

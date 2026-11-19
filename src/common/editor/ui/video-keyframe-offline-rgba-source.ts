@@ -31,6 +31,11 @@ export type VideoKeyframeOfflineSourceResolver = (
 	options: Readonly<{ readonly signal: AbortSignal }>,
 ) => PromiseLike<VideoKeyframeOfflineSourcePresentation> | VideoKeyframeOfflineSourcePresentation;
 
+export interface VideoKeyframeOfflineSourceSession {
+	readonly resolveSource: VideoKeyframeOfflineSourceResolver;
+	dispose(): PromiseLike<void> | void;
+}
+
 interface SourceRecord {
 	readonly occurrenceKey: string;
 	readonly sourceId: string;

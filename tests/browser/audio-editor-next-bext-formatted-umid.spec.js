@@ -8,7 +8,7 @@ for (const scope of ['project', 'export']) test(`${scope} BEXT editor preserves 
 	const expected = Array.from({ length: 64 }, (_value, index) => index);
 	const formatted = `0x${expected.map(value => value.toString(16).padStart(2, '0')).join(':')}`;
 	const canonical = expected.map(value => value.toString(16).padStart(2, '0')).join('');
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	if (scope === 'project') {
 		await chooseCommandAction(page, editor, 'Edit', 'Metadata editor');

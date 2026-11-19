@@ -13,9 +13,9 @@ import type {
 
 export interface ProductVideoExportPlan extends Readonly<Record<string, unknown>> {
 	readonly version: number;
-	readonly format: 'mp4' | 'webm';
-	readonly extension: 'mp4' | 'webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly format: 'mp4' | 'webm' | 'mov';
+	readonly extension: 'mp4' | 'webm' | 'mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 	readonly range: Readonly<{
 		readonly startFrame: number;
 		readonly endFrame: number;
@@ -42,7 +42,7 @@ export interface ProductVideoExportProjectRequest {
 export interface ProductVideoExportStrategyPlanRequest {
 	readonly canonicalProject: Readonly<Record<string, unknown>>;
 	readonly exportProject: Readonly<Record<string, unknown>>;
-	readonly format: 'mp4' | 'webm';
+	readonly format: 'mp4' | 'webm' | 'mov';
 	readonly range: unknown;
 	readonly includeAudio: boolean;
 	readonly canvas: unknown;
@@ -84,8 +84,8 @@ export interface ProductVideoExportEncodedOutput {
 	/** Which encoder produced these bytes, so the report states a fact. */
 	readonly videoEncoder?: 'ffmpeg' | 'webcodecs';
 	readonly codec?: string;
-	readonly extension: '.mp4' | '.webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly extension: '.mp4' | '.webm' | '.mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 }
 
 export interface ProductVideoExportSinkOutput<Output> {
@@ -94,8 +94,8 @@ export interface ProductVideoExportSinkOutput<Output> {
 	readonly chunkCount: number;
 	readonly videoEncoder?: 'ffmpeg' | 'webcodecs';
 	readonly codec?: string;
-	readonly extension: '.mp4' | '.webm';
-	readonly mimeType: 'video/mp4' | 'video/webm';
+	readonly extension: '.mp4' | '.webm' | '.mov';
+	readonly mimeType: 'video/mp4' | 'video/webm' | 'video/quicktime';
 }
 
 export interface ProductVideoExportStrategy {

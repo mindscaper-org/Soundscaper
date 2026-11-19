@@ -12,7 +12,7 @@ test('a slowed Change Tempo preview plays the complete short selection', async (
 			return Reflect.apply(start, this, args);
 		};
 	});
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Change tempo']);

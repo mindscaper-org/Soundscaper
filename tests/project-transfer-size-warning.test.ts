@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { receiveProjectTransfer, sendProjectTransfer, type ProjectTransferPort,
 	type ProjectTransferInboundMessage } from '../src/common/transfer/project-transfer-handshake.ts';
-import { exportProjectTransferBundle } from '../src/common/transfer/project-transfer-bundle.ts';
+import { exportProjectTransferBundle, importProjectTransferBundle } from '../src/common/transfer/project-transfer-bundle.ts';
 import { importTransferArchiveFiles } from '../src/common/transfer/transfer-manual-import.ts';
 import { archiveBytes, collectExport, createFakeArchive, FakeStore } from './project-transfer-bundle-fixture.ts';
 import { runtimeFor } from './project-transfer-runtime-fixture.ts';
@@ -12,6 +12,7 @@ import { receiveTransferArchives } from '../src/common/transfer/transfer-session
 import { confirmFileSizeWarning } from '../src/common/editor/controller/shared/file-size-warning.ts';
 import { negotiateTransferSizeOffer } from '../src/common/transfer/project-transfer-size-warning.ts';
 import { PROJECT_TRANSFER_MAX_ENTRY_BYTES } from '../src/common/transfer/project-transfer-handshake-wire.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 function wire() {
 	const subscribers = [new Set<(message: ProjectTransferInboundMessage) => void>(), new Set<(message: ProjectTransferInboundMessage) => void>()];
@@ -130,4 +131,61 @@ test('manual transfer warnings precede reads and accepted files retain exact bod
 	const invalid = await importTransferArchiveFiles({ runtime, store, files: [{ ...file, byteLength: bytes.byteLength + 1 }],
 		maximumEntryBytes: 1, confirmFileSizeWarning: async () => true });
 	assert.equal(invalid.completed, false); assert.match(invalid.stopped?.reason ?? '', /declared.*but read/);
+});
+
+test('manual transfer cancellation settles without waiting for a pending file read', async () => {
+	const runtime = runtimeFor(createFakeArchive());
+	const store = new FakeStore();
+	const bytes = archiveBytes({ id: 'project', title: 'Project' });
+	const readStarted = deferred<void>();
+	const read = deferred<Uint8Array>();
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel manual import', 'AbortError');
+	const importing = importTransferArchiveFiles({
+		runtime, store, signal: abort.signal,
+		files: [{ name: 'project.scape', byteLength: bytes.byteLength, read: () => { readStarted.resolve(); return read.promise; } }],
+	}).catch((error: unknown) => error);
+	await readStarted.promise;
+	abort.abort(reason);
+	const outcome = await Promise.race([importing, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	read.resolve(bytes);
+	assert.deepEqual(outcome, {
+		completed: false, entries: [], failed: 0, imported: 0, skipped: 0, total: 0,
+		stopped: { code: 'aborted', index: 0, reason: reason.message },
+	});
+	assert.equal(store.projects.size, 0);
+});
+
+test('cancelled transfer export settles without publishing late archive bytes', async () => {
+	const blob = new Blob(['archive']);
+	const readStarted = deferred<void>();
+	const read = deferred<ArrayBuffer>();
+	blob.arrayBuffer = () => { readStarted.resolve(); return read.promise; };
+	const abort = new AbortController();
+	const reason = new DOMException('Cancel export', 'AbortError');
+	const exported = collectExport(exportProjectTransferBundle({
+		store: new FakeStore([{ id: 'project', title: 'Project' }]),
+		exportProject: async () => ({ blob }), signal: abort.signal,
+	})).catch((error: unknown) => error);
+	await readStarted.promise;
+	abort.abort(reason);
+	const outcome = await Promise.race([exported, new Promise(resolve => setImmediate(resolve, 'pending'))]);
+	read.resolve(new ArrayBuffer(blob.size));
+	assert.equal(outcome, reason);
+});
+
+test('a pre-cancelled bundle import never pulls the first archive from its source', async () => {
+	const runtime = runtimeFor(createFakeArchive());
+	let read = 0;
+	const reason = new DOMException('Cancel before reading', 'AbortError');
+	const result = await importProjectTransferBundle({
+		store: new FakeStore(), importProject: runtime.importProject, inspectProject: runtime.inspectProject,
+		signal: AbortSignal.abort(reason),
+		entries: {
+			async *[Symbol.asyncIterator]() { read += 1; yield { bytes: new Uint8Array(1) }; },
+		},
+	});
+	assert.equal(read, 0);
+	assert.equal(result.completed, false);
+	assert.equal(result.stopped?.reason, reason.message);
 });

@@ -3,6 +3,7 @@
 import { basename, join } from 'node:path';
 import signing from './lib/desktop-signing-config.cjs';
 import { buildMacInstaller } from './desktop-mac-pkg.mjs';
+import { parseReleaseVersion } from '../src/common/release/release-version.ts';
 import verifyReleaseArtifacts from './desktop-verify-release-artifacts.mjs';
 
 /** The custom PKG Distribution exposes choices unavailable in electron-builder's synthesized target. */
@@ -14,7 +15,10 @@ export default async function afterAllArtifactBuild(context, dependencies = {}) 
 	const additionalArtifacts = [];
 	if (platform === 'darwin') {
 		for (const artifact of [...context.artifactPaths]) {
-			const match = /^(Soundscaper|Framescaper)-(.+)-mac-arm64\.dmg$/u.exec(basename(artifact));
+			const stem = basename(artifact).replace(/-mac-arm64\.dmg$/u, '');
+			const version = parseReleaseVersion(stem);
+			const match = version?.kind === 'calendar' ? [null, version.product, version.text]
+				: /^(Soundscaper|Framescaper)-(.+)-mac-arm64\.dmg$/u.exec(basename(artifact));
 			if (!match) continue;
 			const installer = await buildInstaller({
 				appPath: join(context.outDir, 'mac-arm64', `${match[1]}.app`), outDir: context.outDir,

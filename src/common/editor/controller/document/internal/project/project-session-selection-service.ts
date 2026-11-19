@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { isActiveAudioEditorProjectSchema } from '../../../../project-schema-version.ts';
-import type { SelectedLabelState } from '../../../../label-clipboard-selection.ts';
+import { selectedLabelsForProject, type SelectedLabelRef, type SelectedLabelState } from '../../../../label-clipboard-selection.ts';
 
 export interface ProjectSessionSelectionState extends SelectedLabelState {
 	selectedTrackId: string | null;
@@ -15,6 +15,7 @@ export interface ProjectSessionSelectionTrack {
 }
 
 export interface ProjectSessionSelectionProject {
+	readonly id?: string;
 	readonly schemaVersion?: unknown;
 	readonly selection?: unknown;
 	readonly timelineAnnotations?: unknown;
@@ -25,12 +26,14 @@ export interface ProjectSessionSelectionMetadata {
 	readonly selectedTrackId?: string | null;
 	readonly selectedClipId?: string | null;
 	readonly selectedAnnotationId?: string | null;
+	readonly selectedLabels?: readonly SelectedLabelRef[];
 }
 
 export interface CapturedProjectSessionSelection {
 	readonly selectedTrackId: string | null;
 	readonly selectedClipId: string | null;
 	readonly selectedAnnotationId: string | null;
+	readonly selectedLabels: readonly SelectedLabelRef[];
 }
 
 export interface ProjectSessionSelectionServiceDependencies<
@@ -52,11 +55,12 @@ export function createProjectSessionSelectionService<
 >(dependencies: ProjectSessionSelectionServiceDependencies<Project>) {
 	return Object.freeze({ capture, restore });
 
-	function capture(): Readonly<CapturedProjectSessionSelection> {
+	function capture(project?: Project | null): Readonly<CapturedProjectSessionSelection> {
 		return Object.freeze({
 			selectedTrackId: dependencies.state.selectedTrackId,
 			selectedClipId: dependencies.state.selectedClipId,
 			selectedAnnotationId: dependencies.state.selectedAnnotationId,
+			selectedLabels: selectedLabelsForProject(project, dependencies.state),
 		});
 	}
 
@@ -64,7 +68,12 @@ export function createProjectSessionSelectionService<
 		project: Project,
 		metadata: Readonly<ProjectSessionSelectionMetadata> = {},
 	): void {
-		if (dependencies.state.selectedLabels?.length) dependencies.state.selectedLabels = [];
+		if (dependencies.state.selectedLabels?.length || metadata.selectedLabels?.length) {
+			dependencies.state.selectedLabels = selectedLabelsForProject(project, {
+				selectedLabels: metadata.selectedLabels, selectedLabelsProjectId: project.id,
+			});
+			dependencies.state.selectedLabelsProjectId = project.id ?? null;
+		}
 		dependencies.state.selectedTrackId = metadata.selectedTrackId === null ? null
 			: dependencies.findTrack(project, metadata.selectedTrackId ?? durableSelectionId(project, 'trackIds',
 				(id) => dependencies.findTrack(project, id) !== null))?.id

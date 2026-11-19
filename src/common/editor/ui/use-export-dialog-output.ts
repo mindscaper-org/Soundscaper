@@ -32,11 +32,9 @@ export function useExportDialogOutput<Settings extends DataRecord>({
 }: OutputContext<Settings>) {
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const singleFileOnly = videoFormat || settings.format === 'bw64';
-	// A mastering sequence delivers one spliced mix, so split outputs and
-	// programme/video formats cannot also deliver one.
-	const masteringSequences = useMemo(() => (
-		settings.mode !== 'mix' || singleFileOnly ? [] : sequences ?? []
-	), [sequences, settings.mode, singleFileOnly]);
+	// Choosing a mastering sequence selects mix mode. Programme/video formats
+	// still cannot deliver the spliced order.
+	const masteringSequences = useMemo(() => singleFileOnly ? [] : sequences ?? [], [sequences, singleFileOnly]);
 	const deliveredProject = useMemo(() => project !== null && typeof project === 'object'
 		? exportSequenceProject(project) : project, [project]);
 	const labelChapterCount = useMemo(() => exportChapterCount(deliveredProject, 'labels'), [deliveredProject]);

@@ -10,6 +10,8 @@ import { fileSavingChunkGroups } from './build-chunk-file-saving.mjs';
 // back-edge through the reachability-placed musical time-code context.
 export const EDITOR_DIALOG_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]ui[\\/](?:AudioEditorDialogShell\.tsx|AudioEditorResizableSurface\.jsx|dialog-(?:escape-ownership|focus-ownership|drag-bounds|move-lifecycle)\.ts|file-input-selection\.ts|modal-native-range-keys\.ts|focus-restoration\.ts|resizable-surface-mouse-lifecycle\.ts)$|(?:^|[\\/])vendor[\\/]audacity-design-system[\\/]components[\\/]src[\\/]DialogHeader[\\/])/;
 
+export const HDR_MERGE_COPY_CHUNK_TEST = /src[\\/]common[\\/]i18n[\\/]image-hdr-merge-copy\.ts$/;
+
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const editorUiChunkGroups = [
 	...mediaRetentionChunkGroups,
@@ -74,7 +76,7 @@ export const editorUiChunkGroups = [
 		// Both product menus read these inert labels before the HDR dialog opens.
 		// They must not acquire the complete timeline catalog's co-owned modules.
 		name: 'editor-hdr-merge-copy',
-		test: /src[\\/]common[\\/]i18n[\\/]image-hdr-merge-copy\.ts$/,
+		test: HDR_MERGE_COPY_CHUNK_TEST,
 		priority: 98,
 		minSize: 0,
 		maxSize: 400_000,

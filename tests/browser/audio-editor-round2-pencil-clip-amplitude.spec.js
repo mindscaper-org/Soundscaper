@@ -8,7 +8,7 @@ import { chooseClipMediaSetting } from './audio-editor-clip-settings-test-helper
 
 test('drawing an inverted clip places the audible sample at the visible pencil height', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'pencil-polarity.wav', frequency: 1000, duration: 0.002, channelCount: 1 });
 	await importFiles(editor, [recording]);
 	const clip = clipByName(editor, recording.name);

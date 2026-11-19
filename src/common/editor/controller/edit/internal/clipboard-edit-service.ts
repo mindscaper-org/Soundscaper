@@ -150,7 +150,7 @@ export interface ClipboardEditService {
 	prepareSessionClipboard(descriptor: AudioEditorClipboard): () => AudioEditorClipboard;
 	splitAtFrame(frame: unknown, trackIds?: string | readonly string[] | null): unknown;
 	commitSplitAtFrames(frames: readonly unknown[], trackIds?: string | readonly string[] | null): unknown;
-	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean): CurrentAudioEditorMutationCommandV2;
+	prepareControllerPaste(mode: ClipboardPasteMode, atFrame?: number, pasteAsNewClip?: boolean, scope?: Readonly<{ trackIds: readonly string[] }>): CurrentAudioEditorMutationCommandV2;
 	disjoinSelectedClip(options?: Readonly<{ nativeSilence?: boolean }>): Promise<void>;
 	disjoinLabeledRegions(
 		regions: readonly Readonly<{ startFrame: number; endFrame: number }>[],
@@ -255,6 +255,7 @@ export function createClipboardEditService(
 	function prepareControllerPaste(
 		mode: ClipboardPasteMode,
 		atFrame = dependencies.getPositionFrames(), pasteAsNewClip = true,
+		scope?: Readonly<{ trackIds: readonly string[] }>,
 	): CurrentAudioEditorMutationCommandV2 {
 		dependencies.lifetime.assertActive();
 		const project = dependencies.getProject();
@@ -263,8 +264,8 @@ export function createClipboardEditService(
 		const sessionClipboard = dependencies.session.clipboardForProject(project.id);
 		const preparedCarrier = editSessionClipboard && sameClipboardDescriptor(editSessionClipboard.descriptor, clipboard) && dependencies.prepareEditClipboardPasteCommand ? editSessionClipboard : null;
 		const { commands, trackMap, sequenceMap } = prepareClipboardPasteTrackPlan(project, dependencies.state.selectedTrackId,
-			clipboard.tracks, sessionClipboard?.sources ?? [], preparedCarrier !== null, dependencies.createId, dependencies.copy);
-		const paste = preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap);
+			clipboard.tracks, sessionClipboard?.sources ?? [], preparedCarrier !== null, dependencies.createId, dependencies.copy, scope?.trackIds);
+		const paste = preparePaste(clipboard, project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap, scope?.trackIds);
 		const pasteCommands: CurrentAudioEditorMutationCommandV2[] = [...commands, paste];
 		const command: CurrentAudioEditorMutationCommandV2 = pasteCommands.length === 1 ? pasteCommands[0]! : { type: 'batch', commands: pasteCommands };
 		if (!preparedCarrier || !dependencies.prepareEditClipboardPasteCommand) return command;
@@ -417,12 +418,13 @@ export function createClipboardEditService(
 		atFrame: number,
 		trackMap: Readonly<Record<string, string>>,
 		mode: ClipboardPasteMode, pasteAsNewClip: boolean, sequenceMap: Readonly<Record<string, string>>,
+		rippleTrackIds?: readonly string[],
 	): Extract<CurrentAudioEditorMutationCommandV2, { readonly type: 'clipboard/paste' }> {
 		if (isCurrentAudioEditorFrameClipboardDescriptorV7(clipboard)) return preparePasteCommandV7(clipboard,
 			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap }, dependencies.createId);
 		return prepareLegacyPasteCommand(
 			clipboard,
-			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap },
+			{ project, atFrame, trackMap, mode, pasteAsNewClip, sequenceMap, rippleTrackIds },
 			dependencies.createId,
 		) as Extract<AudioEditorCommand, { readonly type: 'clipboard/paste' }>;
 	}

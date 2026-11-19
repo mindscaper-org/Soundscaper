@@ -2,8 +2,7 @@
 
 import type { ProductVideoExportStrategyEncodeRequest } from '../common/editor/controller/export/product-video-export-strategy.ts';
 import { createVideoExactPictureExportFrameSource } from '../common/editor/video-keyframe-export-frame-source.ts';
-import { createVideoKeyframeOfflineEncoderRequest, preflightVideoKeyframeOfflineEncoder,
-	type VideoKeyframeOfflineEncoderOptions } from '../common/editor/ui/video-keyframe-offline-video-export-encoder.ts';
+import type { VideoKeyframeOfflineEncoderOptions } from '../common/editor/ui/video-keyframe-offline-video-export-encoder.ts';
 import type { VideoKeyframeOfflineRgbaRenderer } from '../common/editor/ui/video-keyframe-offline-rgba-renderer.ts';
 import type { FramescaperVideoExportExactExecutionCore } from './video-export-exact-execution-core.ts';
 import type { FramescaperVideoVisualPlanFinishing } from './video-export-visual-plan-finishing.ts';
@@ -32,6 +31,10 @@ export async function createFramescaperPictureEncoderRequest(
 	request: ProductVideoExportStrategyEncodeRequest, plan: FramescaperVideoVisualPlanFinishing,
 	exact: FramescaperVideoExportExactExecutionCore<13 | 16>,
 ) {
+	const { createVideoKeyframeOfflineEncoderRequest, preflightVideoKeyframeOfflineEncoder } = await import(
+		'../common/editor/ui/video-keyframe-offline-video-export-encoder.ts'
+	);
+	request.assertCurrent();
 	const frameSource = createVideoExactPictureExportFrameSource({
 		sampleRate: plan.sampleRate,
 		startFrame: plan.range.startFrame,

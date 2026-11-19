@@ -1,8 +1,9 @@
 // @ts-check
 import react from '@vitejs/plugin-react';
+import { fluidSynthModulePlugin } from './scripts/lib/vite-fluid-synth-module.mjs';
 import { defineConfig } from 'vite';
 
-import { chunkGroups, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
+import { chunkGroupsForProduct, workerChunkGroups } from './scripts/lib/build-chunk-groups.mjs';
 import {
 	buildSourceMapsRequested,
 	relocateBuildSourceMaps,
@@ -113,6 +114,7 @@ export default defineConfig({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 		}),
 		createPffftNodeModuleBrowserShim(),
+		fluidSynthModulePlugin(),
 		createTranslationCatalogBundlePlugin(),
 		react(),
 		assertDesignSystemCssLayered(),
@@ -145,6 +147,7 @@ export default defineConfig({
 				productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 			}),
 			createPffftNodeModuleBrowserShim(),
+			fluidSynthModulePlugin(),
 		],
 		rolldownOptions: {
 			output: {
@@ -164,7 +167,7 @@ export default defineConfig({
 		rolldownOptions: {
 			output: {
 				codeSplitting: {
-					groups: chunkGroups,
+					groups: chunkGroupsForProduct(productId),
 					minSize: 20_000,
 				},
 				strictExecutionOrder: true,

@@ -22,7 +22,7 @@ function audioRuntimeRequirement(descriptor) {
 function videoRuntimeRequirement(descriptor) {
 	const encoders = (descriptor.requiredEncoders ?? []).join(', ') || 'runtime-selected';
 	const muxers = (descriptor.requiredMuxers ?? []).join(', ') || 'runtime-selected';
-	return ffmpegRuntimeRequirement(encoders, muxers);
+	return `${descriptor.desktopOnly ? 'Desktop only; external ' : ''}${ffmpegRuntimeRequirement(encoders, muxers)}`;
 }
 
 function assertAudioFormatInventory(audioFormatIds, audioFormats) {
@@ -62,7 +62,7 @@ export function renderFormatReference({ products, audioFormatIds, audioFormats, 
 			`.${descriptor.extension}`,
 			`${descriptor.videoCodec} video; ${descriptor.audioCodec} audio / ${descriptor.container}`,
 			videoRuntimeRequirement(descriptor),
-			productNames(videoProducts),
+			productNames(videoProducts.filter(product => !descriptor.productIds || descriptor.productIds.includes(product.id))),
 		])
 		.sort((left, right) => compareText(left[0], right[0]));
 

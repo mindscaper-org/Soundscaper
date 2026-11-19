@@ -6,6 +6,7 @@ import {
 	resolveSoundscaperNativeServicesCopy,
 	type SoundscaperNativeServicesCopy,
 } from './soundscaper-native-services-copy.ts';
+import { JUCE_EFFECTS, juceEffectLabel } from '../juce-effects/catalog.ts';
 
 export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
 	'native-effect-manage',
@@ -13,7 +14,7 @@ export const SOUNDSCAPER_NATIVE_SERVICE_SURFACES = Object.freeze([
 ] as const);
 
 export type SoundscaperNativeServiceSurface =
-	(typeof SOUNDSCAPER_NATIVE_SERVICE_SURFACES)[number];
+	(typeof SOUNDSCAPER_NATIVE_SERVICE_SURFACES)[number] | 'native-instrument-manage';
 
 /** Plugin management stays reachable so the user can enable or repair effects. */
 export const SOUNDSCAPER_ALWAYS_REACHABLE_SURFACES: readonly SoundscaperNativeServiceSurface[] =
@@ -62,11 +63,12 @@ export interface SoundscaperNativeServicesMenuInput {
 	readonly readOnly?: boolean;
 	readonly analyzerRuntimeAvailable?: boolean;
 	readonly analyzerSelectionAvailable?: boolean;
+	readonly effectTargetAvailable?: boolean;
 	readonly copy?: Readonly<Record<string, string | undefined>>;
 }
 
 export interface SoundscaperNativeServicesMenuActions {
-	open(surface: SoundscaperNativeServiceSurface): unknown;
+	open(surface: SoundscaperNativeServiceSurface, stablePluginId?: string): unknown;
 }
 
 const EMPTY: SoundscaperNativeServicesMenuItems = Object.freeze({
@@ -111,6 +113,15 @@ export function createSoundscaperNativeServicesMenuItems(
 		tools: Object.freeze([]),
 		effect: Object.freeze([
 			manage,
+			Object.freeze({ id: 'juce-effects', label: 'JUCE', disabled: false, disabledReason: '',
+				items: Object.freeze(JUCE_EFFECTS.map(effect => {
+					const reason = input.editingBlocked || input.readOnly ? copy.projectReadOnly
+						: input.effectTargetAvailable ? '' : copy.selectAudioTrack;
+					return Object.freeze({ id: effect.menuId, label: juceEffectLabel(effect, input.copy),
+						disabled: Boolean(reason), disabledReason: reason,
+						...(reason ? {} : { onClick: () => actions.open('native-effect-manage', effect.stablePluginId) }) });
+				})),
+			}),
 		]),
 		analyze: Object.freeze([analyzer]),
 	});

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, chooseFileAction, clipByName, disableNativeSavePicker, downloadBytes, openExportDialog, readDownloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
-import { chooseTrackMenuAction } from './helpers/track-menu.js';
+import { bootEditor, chooseCommandAction, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker, downloadBytes, openExportDialog, readDownloadBytes, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { encodeWav } from '../../src/common/editor/wav.js';
@@ -44,7 +43,9 @@ test('Generate Tone persists admitted 768 kHz PCM when its native buffer cache i
 	expect(positiveCrossings).toBeLessThanOrEqual(441);
 });
 
-for (const sourceRate of [48_000, 768_000]) test(`a stored ${sourceRate} Hz source exports after native archive reopening`, async ({ page, browser, browserName }) => {
+// Ordinary-clock and high-rate split custody use real source PCM and fresh Scape stores in Node.
+// Retain native 768 kHz generation, export, fresh-context reopening and playback here.
+for (const sourceRate of [768_000]) test(`a stored ${sourceRate} Hz source exports after native archive reopening`, async ({ page, browser, browserName }) => {
 	await disableNativeSavePicker(page);
 	const editor = await openEmptyProject(page, 48_000);
 	const samples = Float32Array.from({ length: sourceRate }, (_value, frame) => 0.5 * Math.sin(2 * Math.PI * 440 * frame / sourceRate));
@@ -81,30 +82,6 @@ for (const sourceRate of [48_000, 768_000]) test(`a stored ${sourceRate} Hz sour
 		const reopenedPcm = await exportedTone(freshPage, reopened);
 		expect(Math.abs(reopenedPcm.peak - firstPcm.peak)).toBeLessThan(0.00001);
 	} finally { await freshContext.close(); }
-});
-
-test('splitting an imported high-rate stereo source keeps its immutable PCM despite native cache limits', async ({ page }) => {
-	await disableNativeSavePicker(page);
-	const editor = await openEmptyProject(page, 48_000);
-	const sampleRate = 768_000;
-	const channels = [440, 880].map(frequency => Float32Array.from({ length: sampleRate },
-		(_value, frame) => 0.5 * Math.sin(2 * Math.PI * frequency * frame / sampleRate)));
-	const name = 'High-rate stereo.wav';
-	await editor.locator('[data-import-input]').setInputFiles({ name, mimeType: 'audio/wav',
-		buffer: Buffer.from(encodeWav(channels, { sampleRate, bitDepth: 24, dither: false })) });
-	await expect(editor).toHaveAttribute('data-clip-count', '1');
-	const track = clipByName(editor, name).locator('xpath=ancestor::div[@data-track-row][1]');
-	await chooseTrackMenuAction(page, editor, track, ['Track channels', 'Split stereo to left/right mono']);
-	await expect(editor).toHaveAttribute('data-clip-count', '2');
-	await exportedTone(page, editor);
-	await page.getByRole('dialog', { name: 'Export audio', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
-	const saved = await savedProject(page, editor);
-	const document = JSON.parse(strFromU8(unzipSync(saved)['project.json']));
-	expect(document.clips).toHaveLength(2);
-	for (const clip of document.clips) {
-		const source = document.sources.find(source => source.id === clip.sourceId);
-		expect(source).toMatchObject({ channelCount: 1, sampleRate, frameCount: sampleRate });
-	}
 });
 
 async function openEmptyProject(page, sampleRate) {

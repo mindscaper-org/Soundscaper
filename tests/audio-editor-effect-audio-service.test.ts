@@ -388,6 +388,28 @@ test('project switching during spectral persistence fences stale commit and publ
 	assert.notEqual(harness.statuses.at(-1), 'Spectral applied');
 });
 
+test('project switching during spectral module admission leaves the new project untouched', async () => {
+	const harness = createHarness();
+	const pending = harness.service.applySpectralSelection(-6);
+	harness.switchProject();
+
+	await assert.rejects(pending, { code: 'PROJECT_CHANGED' });
+	assert.deepEqual(harness.preflightBytes, []);
+	assert.deepEqual(harness.persisted, []);
+	assert.equal(harness.publications, 0);
+});
+
+test('changing the selected band during spectral module admission leaves both bands untouched', async () => {
+	const harness = createHarness();
+	const pending = harness.service.applySpectralSelection(-6);
+	harness.setSelection({ startFrame: 100, endFrame: 4_100, trackIds: ['track-a'],
+		frequencyRange: { minimumFrequency: 2_000, maximumFrequency: 3_000 } });
+
+	await assert.rejects(pending, { name: 'AbortError' });
+	assert.deepEqual(harness.preflightBytes, []);
+	assert.deepEqual(harness.persisted, []);
+});
+
 test('aggregate spectral admission refuses before preflight, rendering, workers, persistence, or processing UI', async () => {
 	const harness = createHarness({
 		memoryLimitBytes: 210_304,

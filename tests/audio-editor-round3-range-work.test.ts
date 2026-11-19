@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { collectAvLinkedClipIds, collectLinkedTrackRippleTargets, deleteRange, keepRange, prepareRangeDeleteCommand, processTrackRange, replaceRange } from '../src/common/editor/commands/range-runtime.js';
+import { collectAvLinkedClipIds, collectLinkedTrackRippleTargets, deleteRange, keepRange, prepareDisjointRangeDeleteCommand, prepareRangeDeleteCommand, processTrackRange, replaceRange } from '../src/common/editor/commands/range-runtime.js';
 import { commandFixture, countPropertyReads } from './helpers/round3-command-fixtures.ts';
 
 void test('A/V range seeds resolve through one index with bounded identity reads', context => {
@@ -50,4 +50,18 @@ void test('range delete shares requested track resolution across staging and pub
 	deleteRange(project, command, 'track');
 	context.diagnostic(`120 range tracks: ${String(reads())} track identity reads`);
 	assert.ok(reads() <= 120 * 12, String(reads()));
+});
+
+void test('disjoint lift commands carry only clips they split or remove', () => {
+	const project = commandFixture(6);
+	const command = prepareDisjointRangeDeleteCommand(project, {
+		trackIds: ['track-0'], ranges: [{ startFrame: 100, endFrame: 120 }, { startFrame: 305, endFrame: 315 }],
+	}, () => 'right-split');
+	assert.equal(command.type, 'batch');
+	if (command.type !== 'batch') return;
+	assert.deepEqual(command.commands.map(child => child.type === 'range/lift-delete' && child.clipIds), [['clip-3'], ['clip-1']]);
+	for (const child of command.commands) deleteRange(project, child, 'none');
+	assert.deepEqual(project.tracks[0]!.clipIds, ['clip-0', 'clip-2', 'clip-3', 'right-split', 'clip-4', 'clip-5']);
+	assert.deepEqual(project.clips.filter(clip => clip.id === 'clip-3' || clip.id === 'right-split')
+		.map(clip => [clip.timelineStartFrame, clip.durationFrames, clip.sourceStartFrame]), [[300, 5, 60], [315, 5, 75]]);
 });

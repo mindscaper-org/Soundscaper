@@ -1,0 +1,10 @@
+.selection-toolbar[data-backgrounded] .selection-toolbar__left,
+.kw-audio-editor__selection-surface--status-only[data-backgrounded] {
+	opacity: 0.55;
+}
+
+.selection-toolbar__instruction-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}

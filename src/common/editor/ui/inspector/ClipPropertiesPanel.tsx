@@ -24,6 +24,7 @@ import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import { upstreamClipPropertiesLabels } from './upstream-clip-properties-copy.ts';
 import ClipPropertiesColorPicker from './ClipPropertiesColorPicker.tsx';
 import ClipAudioSettingsMenu from './ClipAudioSettingsMenu.tsx';
+import ClipEffectRack from './ClipEffectRack.tsx';
 import { NumberField } from '@soundscaper/design-system/ClipPropertiesPanel/clip-properties-controls';
 import { clipLinkedPitchSpeed } from './clip-properties-linked-pitch.ts';
 import { clipPitchInUnit, clipPitchUnitToCents } from './inspector-helpers.ts';
@@ -173,6 +174,8 @@ export default function ClipPropertiesPanel({ controller, snapshot, copy, focusR
 				resetPitchSpeedDisabled={presentation.clips.every(clip => (clip.pitchCents ?? 0) === 0 && (clip.speedRatio ?? 1) === 1 && !clip.preserveFormants)}
 				onResetPitchSpeed={timePitchEnabled ? () => setTimePitch({ pitchCents: 0, speedRatio: 1, preserveFormants: false }) : undefined} />
 		</fieldset>
+			{clip && !presentation.selection && capabilities?.audioEffects !== false && <ClipEffectRack key={`effects:${targetKey}`}
+				controller={controller} snapshot={{ ...snapshot, project }} clipId={clip.id} copy={copy} disabled={blocked} />}
 			{clip && source && !presentation.selection && <ClipAudioSettingsMenu key={`settings:${targetKey}`} controller={controller} clip={clip}
 				copy={copy} disabled={blocked} effectsEnabled={capabilities?.audioEffects !== false} run={run} />}
 		</> : clip?.kind === 'image' ? <ImageClipPropertiesBody controller={controller} project={snapshot.project} clipId={clip.id} copy={copy} disabled={blocked} onError={reportFailure} />

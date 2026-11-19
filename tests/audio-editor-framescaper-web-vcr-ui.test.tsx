@@ -237,6 +237,42 @@ test('recovery import remains reachable with no writable active project', () => 
 	assert.doesNotMatch(markup, /<button[^>]*disabled=""[^>]*>Import playable data as-is<\/button>/u);
 });
 
+test('an open browser-data confirmation respects the capture phase when recording starts', async () => {
+	const dom = installReactTestDom();
+	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
+	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
+	const { createRoot } = await import('react-dom/client');
+	const root = createRoot(dom.container as unknown as Element);
+	const calls: string[] = [];
+	const owner = controller(calls);
+	const renderPhase = async (phase: WebVcrUiSnapshot['phase']) => {
+		await act(async () => root.render(<WebVcrPanel controller={owner}
+			snapshot={{ productId: 'framescaper', project: { id: 'timeline' }, webVcr: webVcr({ phase }) }}
+			copy={ENGLISH_COPY} run={operation => operation()} />));
+	};
+	const button = (text: string) => {
+		const found = dom.container.querySelectorAll('button').find(node => node.textContent === text);
+		assert.ok(found);
+		return found;
+	};
+	try {
+		await renderPhase('ready');
+		await act(async () => reactProps(button(ENGLISH_COPY.webVcrClearData)).onClick());
+		assert.equal(button(ENGLISH_COPY.webVcrClearDataConfirm).hasAttribute('disabled'), false);
+		await act(async () => reactProps(button(ENGLISH_COPY.webVcrRecord)).onClick());
+		assert.deepEqual(calls, ['record']);
+		await renderPhase('recording');
+		assert.equal(button(ENGLISH_COPY.webVcrClearDataConfirm).hasAttribute('disabled'), true);
+		await renderPhase('ready');
+		assert.equal(button(ENGLISH_COPY.webVcrClearDataConfirm).hasAttribute('disabled'), false);
+	} finally {
+		await act(async () => root.unmount());
+		actGlobal.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		dom.restore();
+	}
+});
+
 test('crop keyboard editing uses one or ten surface pixels and preserves aspect lock', () => {
 	const surface = { width: 1920, height: 1080 };
 	const crop = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };

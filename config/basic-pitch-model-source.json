@@ -1,0 +1,67 @@
+{
+	"schemaVersion": 1,
+	"modelId": "basic-pitch",
+	"version": "1.0.0",
+	"task": "music-transcription",
+	"runtimeFamily": "onnxruntime-node",
+	"platforms": [
+		"darwin-arm64",
+		"linux-x64",
+		"linux-arm64",
+		"win32-x64",
+		"win32-arm64"
+	],
+	"minimumMemoryBytes": 2147483648,
+	"sourceRevision": "fa5997af0a8210982619003269994a1be25eddf3",
+	"sourceRepository": "https://github.com/spotify/basic-pitch",
+	"catalogActivation": "after-public-readback",
+	"artifact": {
+		"fileName": "nmp.onnx",
+		"byteLength": 230444,
+		"sha256": "2c3c1d144bfa61ad236e92e169c13535c880469a12a047d4e73451f2c059a0ec",
+		"url": "https://raw.githubusercontent.com/spotify/basic-pitch/fa5997af0a8210982619003269994a1be25eddf3/basic_pitch/saved_models/icassp_2022/nmp.onnx"
+	},
+	"notices": [
+		{
+			"path": "LICENSES/local-models/basic-pitch-NOTICE.txt",
+			"sourceUrl": "https://raw.githubusercontent.com/spotify/basic-pitch/fa5997af0a8210982619003269994a1be25eddf3/NOTICE",
+			"sha256": "b810e55c0e3b520fabb45fc2ccc74880187bf84e309971968541cc812dcde905"
+		},
+		{
+			"path": "LICENSES/local-models/basic-pitch-LICENSE.txt",
+			"sourceUrl": "https://raw.githubusercontent.com/spotify/basic-pitch/fa5997af0a8210982619003269994a1be25eddf3/LICENSE",
+			"sha256": "929c910bae2152fa87199a5d0660e09263419b7eee6d4b301d05ee2aaf211c37"
+		},
+		{
+			"path": "LICENSES/local-models/basic-pitch-README.md",
+			"sourceUrl": "https://raw.githubusercontent.com/spotify/basic-pitch/fa5997af0a8210982619003269994a1be25eddf3/README.md",
+			"sha256": "308eca019d334104487822197d8fdc81574e9f07a80436d860e044248f26f520"
+		}
+	],
+	"realTestCase": {
+		"id": "basic-pitch-melody-chords",
+		"modelIds": [
+			"basic-pitch"
+		],
+		"operation": "music-transcription",
+		"fixtureId": "melody-chords-22050hz",
+		"validation": "midi-notes",
+		"documentation": {
+			"modelTitles": {
+				"basic-pitch": "Basic Pitch audio to MIDI"
+			},
+			"summary": "Transcribe the notes of one melodic or polyphonic instrument into an editable MIDI track.",
+			"menu": "Tools \u2192 Advanced Local Processing \u2192 Audio to MIDI (Basic Pitch)",
+			"steps": [
+				"Select a recording of one instrument or a clean vocal melody.",
+				"Install Basic Pitch through Model Manager, choose Audio to MIDI (Basic Pitch), and run the selected passage.",
+				"Review the detected note count, accept to create a MIDI track, then audition and correct it through Window \u2192 Piano roll (beta)."
+			],
+			"limitations": [
+				"Full mixes, reverberation and strong harmonics can produce missed or extra notes.",
+				"This mode creates discrete notes and estimated velocities, without pitch bends, instrument separation or rhythmic quantization.",
+				"Selections are limited to 30 minutes; GPU availability and speed depend on the authenticated runtime and machine."
+			]
+		}
+	}
+}

@@ -187,12 +187,13 @@ export default function WorkspacePanelHeader({
 				style={PANEL_MENU_STYLE}
 			>
 				{menuOnly && grouped && onTabActivate && <ContextMenuItem label={copy.panels} hasSubmenu onClose={closeMenu}>
-					{tabs.map((tab) => <ContextMenuItem key={tab.id} label={tab.label}
+					{tabs.map((tab) => <ContextMenuItem key={tab.id} tooltipKey={`panel-${tab.id}`} label={tab.label}
 						checked={tab.id === activePanelId} onClick={() => onTabActivate(tab.id)} onClose={closeMenu} />)}
 				</ContextMenuItem>}
 				{onDock && WORKSPACE_DOCK_IDS.map((dockId) => (
 					<ContextMenuItem
 						key={dockId}
+						tooltipKey={`dock-${dockId}`}
 						label={workspaceDockLabel(copy, dockId)}
 						checked={dockId === currentDock}
 						disabled={dockId === currentDock && !grouped}
@@ -207,6 +208,7 @@ export default function WorkspacePanelHeader({
 				>
 					{arrangeTargets.map((target) => <ContextMenuItem
 						key={target.panelId}
+						tooltipKey="arrangePanel"
 						label={`${target.label} — ${workspaceDockLabel(copy, target.dock)}`}
 						hasSubmenu
 						onClose={closeMenu}
@@ -220,6 +222,7 @@ export default function WorkspacePanelHeader({
 							] : []),
 						].map(([kind, placementLabel]) => <ContextMenuItem
 							key={kind}
+							tooltipKey={`arrange-${kind}`}
 							label={placementLabel}
 							disabled={kind === 'tab' ? target.tabDisabled : target.splitDisabled}
 							onClick={() => onArrange(target.panelId, kind, ownerDocument(), menuButtonRef.current)}

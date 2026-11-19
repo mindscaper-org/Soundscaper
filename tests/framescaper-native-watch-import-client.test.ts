@@ -181,6 +181,21 @@ test('an unusable live watch capability never reaches the claim handler', async 
 	assert.equal(claims, 0);
 });
 
+test('disposing a poll while its capability check is pending prevents a later claim', async () => {
+	let release = (): void => undefined;
+	const gate = new Promise<void>(resolve => { release = resolve; });
+	let claims = 0;
+	const watcher = createFramescaperNativeWatchImportClient(options({ bridge: enabledBridge({
+		capabilities: async () => { await gate; return nativeWatchCapabilitySnapshot(true); },
+		claimWatchImport: async () => { claims += 1; return null; },
+	}) }));
+	const poll = watcher.pollNow();
+	const disposal = watcher.dispose();
+	release();
+	await Promise.all([poll, disposal]);
+	assert.equal(claims, 0);
+});
+
 test('concurrent polls share one in-flight claim rather than racing the bridge', async () => {
 	let claimed = 0;
 	const watcher = client({

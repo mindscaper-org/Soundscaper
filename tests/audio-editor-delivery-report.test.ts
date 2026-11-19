@@ -49,12 +49,14 @@ test('a wav delivery at the project rate reports quantization and lossless prese
 	const codes = inventoryDeliveryConversions(plan, source).map(({ code }) => code);
 	assert.ok(codes.includes('delivery.quantize'), 'writing int24 from a float render is a conversion');
 	assert.ok(codes.includes('delivery.lossless-encode'));
-	assert.ok(
-		codes.includes('delivery.dither'),
-		'integer sample formats enable triangular dither by default, so every such delivery reports it',
-	);
+	assert.ok(!codes.includes('delivery.dither'), 'dither defaults off even for integer output');
 	assert.ok(!codes.includes('delivery.resample'), 'no rate change means no resample item');
 	assert.ok(!codes.includes('delivery.lossy-encode'));
+});
+
+test('explicit dither remains a reported conversion', () => {
+	const plan = createExportPlan(audioProject(), { format: 'wav', range: RANGE, dither: 'triangular' });
+	assert.ok(inventoryDeliveryConversions(plan, source).some(item => item.code === 'delivery.dither'));
 });
 
 test('a rate change and a channel fold are each inventoried', () => {
@@ -117,10 +119,9 @@ test('a deliberately injected unreported conversion trips the collector', () => 
 		'dropping a performed conversion from the report must be visible to the collector',
 	);
 
-	// Resample, quantization, and the dither that integer sample formats turn on
-	// by default: an empty report hides all three.
-	assert.equal(countUnreportedDeliveryConversions(plan, source, { items: [] }), 3);
-	assert.equal(countUnreportedDeliveryConversions(plan, source, null), 3);
+	// An empty report hides both resampling and quantization.
+	assert.equal(countUnreportedDeliveryConversions(plan, source, { items: [] }), 2);
+	assert.equal(countUnreportedDeliveryConversions(plan, source, null), 2);
 });
 
 test('preservation is not counted as an unreported conversion', () => {

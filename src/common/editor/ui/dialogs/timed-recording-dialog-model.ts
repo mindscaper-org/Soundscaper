@@ -17,6 +17,7 @@ export interface TimedRecordingDialogRange {
 }
 
 const DEFAULT_DURATION_SECONDS = 60 * 60;
+const LOCAL_DATE_TIME = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/u;
 
 export function createTimedRecordingDialogValue(
 	startValue: unknown,
@@ -55,8 +56,9 @@ export function normalizeTimedRecordingDialogValue(value: unknown): TimedRecordi
 export function updateTimedRecordingDialogStart(
 	value: TimedRecordingDialogValue,
 	startTime: string,
+	nowMs: number = Date.now(),
 ): TimedRecordingDialogValue {
-	const startTimeMs = dateTimeMs(startTime);
+	const startTimeMs = enteredDateTimeAfter(startTime, nowMs);
 	if (value.endMode === 'end') {
 		const endTimeMs = dateTimeMs(value.endTime, value.endTimeMs);
 		const durationSeconds = elapsedDuration(startTimeMs, endTimeMs, value.durationSeconds);
@@ -79,7 +81,7 @@ export function updateTimedRecordingDialogEnd(
 	endTime: string,
 ): TimedRecordingDialogValue {
 	const startTimeMs = dateTimeMs(value.startTime, value.startTimeMs);
-	const endTimeMs = dateTimeMs(endTime);
+	const endTimeMs = enteredDateTimeAfter(endTime, startTimeMs);
 	const durationSeconds = elapsedDuration(startTimeMs, endTimeMs, value.durationSeconds);
 	return Object.freeze({ ...value, endTime, startTimeMs, endTimeMs, durationSeconds });
 }
@@ -136,12 +138,23 @@ function formatDateTimeLocalInput(value: number): string {
 	return local.toISOString().slice(0, 23).replace(/\.000$/u, '');
 }
 
+/** Prefer the earlier occurrence unless only the repeated one fits the entered range. */
+function enteredDateTimeAfter(value: string, boundary: number): number {
+	const first = dateTimeMs(value);
+	if (!Number.isFinite(first) || first > boundary || !LOCAL_DATE_TIME.test(value)) return first;
+	const offset = new Date(first).getTimezoneOffset();
+	const offsetNextDay = new Date(first + 86_400_000).getTimezoneOffset();
+	const repeated = first + (offsetNextDay - offset) * 60_000;
+	return repeated > first && repeated > boundary
+		&& dateTimeMs(formatDateTimeLocalInput(repeated)) === first ? repeated : first;
+}
+
 function dateTimeMs(value: unknown, retainedTimeMs?: unknown): number {
 	if (typeof value === 'number') return Number.isFinite(value) ? value : Number.NaN;
 	if (value instanceof Date) return value.getTime();
 	if (typeof value !== 'string' || value === '') return Number.NaN;
 	const date = new Date(value);
-	const parts = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/u.exec(value);
+	const parts = LOCAL_DATE_TIME.exec(value);
 	if (parts) {
 		const expected = parts.slice(1, 7).map((part) => Number(part ?? 0));
 		expected.push(Number((parts[7] ?? '').padEnd(3, '0')));
@@ -162,8 +175,8 @@ export function timedRecordingLocalDateTimeValid(value: string): boolean {
 }
 
 function positiveDuration(value: unknown): number | null {
-	const duration = Number(value);
-	return Number.isFinite(duration) && duration > 0 ? duration : null;
+	const milliseconds = Math.round(Number(value) * 1_000);
+	return Number.isSafeInteger(milliseconds) && milliseconds > 0 ? milliseconds / 1_000 : null;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

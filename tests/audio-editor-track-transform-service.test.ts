@@ -310,16 +310,16 @@ test('stereo splitting creates left and right tracks, sources, clips, and indepe
 	assert.equal(batch?.type, 'batch');
 	if (batch?.type !== 'batch') assert.fail('Expected a split batch.');
 	assert.deepEqual(batch.commands.map((command) => command.type), [
-		'source/add', 'source/add', 'track/remove', 'track/add', 'track/add', 'clip/add', 'clip/add',
+		'source/add', 'source/add', 'clip/remove-many', 'track/update', 'track/add', 'clip/add', 'clip/add',
 	]);
 	const trackAdds = batch.commands.filter((command) => command.type === 'track/add');
-	assert.equal(trackAdds[0]?.type, 'track/add');
-	assert.equal(trackAdds[1]?.type, 'track/add');
-	if (trackAdds[0]?.type !== 'track/add' || trackAdds[1]?.type !== 'track/add') assert.fail('Expected split tracks.');
-	assert.equal(trackAdds[0].track.pan, -1);
-	assert.equal(trackAdds[1].track.pan, 1);
-	assert.equal(trackAdds[1].track.armed, false);
-	const rightEffects = trackAdds[1].track.effects as Array<{ id?: unknown }> | undefined;
+	const original = batch.commands.find(command => command.type === 'track/update');
+	assert.equal(original?.type, 'track/update');
+	if (original?.type !== 'track/update' || trackAdds[0]?.type !== 'track/add') assert.fail('Expected retained left and new right tracks.');
+	assert.equal(original.changes.pan, -1);
+	assert.equal(trackAdds[0].track.pan, 1);
+	assert.equal(trackAdds[0].track.armed, false);
+	const rightEffects = trackAdds[0].track.effects as Array<{ id?: unknown }> | undefined;
 	assert.notEqual(rightEffects?.[0]?.id, 'effect');
 });
 
@@ -380,7 +380,7 @@ for (const operation of ['splitStereoTrack', 'makeStereoTrack'] as const) {
 		assert.deepEqual(trackAdds.map(({ sequenceId, parentFolderId, parentIndex }) => (
 			{ sequenceId, parentFolderId, parentIndex }
 		)), operation === 'splitStereoTrack'
-			? [{ sequenceId: undefined, parentFolderId: 'band', parentIndex: 0 }, { sequenceId: undefined, parentFolderId: 'band', parentIndex: 1 }]
+			? [{ sequenceId: undefined, parentFolderId: 'band', parentIndex: 1 }]
 			: [{ sequenceId: undefined, parentFolderId: 'band', parentIndex: 0 }]);
 	});
 }

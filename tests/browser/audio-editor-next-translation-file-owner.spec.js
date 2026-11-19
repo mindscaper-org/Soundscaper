@@ -15,7 +15,7 @@ test('an old translation-file refusal cannot appear after choosing another langu
 		};
 	});
 	const copy = COMMUNITY_TRANSLATIONS_COPY_BY_LOCALE.en;
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Help', copy.menu);
 	const surface = page.getByRole('dialog', { name: copy.title, exact: true });
 	await expect(surface.getByRole('textbox', { name: copy.source, exact: true })).toBeVisible();

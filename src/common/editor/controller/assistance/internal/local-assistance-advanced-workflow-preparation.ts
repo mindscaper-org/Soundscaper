@@ -25,6 +25,7 @@ import type {
 	LocalAssistancePreparedMedia,
 	LocalAssistanceSelectedMediaPreparationPort,
 } from '../../../assistance/local-assistance-preparation.ts';
+import type { LocalAssistanceReviewAuthority } from '../../../assistance/local-assistance-result-review.ts';
 import { localAssistanceSelectedModels } from '../local-assistance-model-selection.ts';
 import { normalizeLocalAssistancePreparedMedia } from '../local-assistance-prepared-media.ts';
 import { createLocalAssistanceGuidedAggregateFenceV1 } from
@@ -36,6 +37,7 @@ import { assertSlottedCustodyClaim } from './local-assistance-slotted-custody-cl
 import {
 	PROJECT_SCHEMA_VERSION, isTimelineProjectSchemaFamily, readProjectSchemaIdentity,
 } from '../../../project-schema-identity.ts';
+import { createLocalAssistancePreparedAudioScope } from './audio/local-assistance-prepared-audio-scope.ts';
 
 export interface LocalAssistanceAdvancedWorkflowPreparationRequest {
 	readonly jobId: string;
@@ -53,6 +55,7 @@ export type LocalAssistanceAdvancedWorkflowPreparationOutcome = Readonly<{
 	outcome: 'prepared';
 	workflow: AssistanceWorkflowV1;
 	prepared: LocalAssistancePreparedMedia;
+	reviewAuthority: LocalAssistanceReviewAuthority;
 }> | Readonly<{
 	outcome: 'unavailable';
 	reason: 'aggregate-custody-unavailable' | 'model-binding-unavailable'
@@ -107,18 +110,19 @@ export function createLocalAssistanceAdvancedWorkflowPreparation(
 			return unavailable('source-custody-unavailable');
 		}
 		const token = dependencies.captureProject();
+		const audioScope = createLocalAssistancePreparedAudioScope();
 		try {
 			request.signal.throwIfAborted();
-			const preparedValue = await dependencies.selected.prepareSelectedMedia({
+			const preparedValue = audioScope.capture(await dependencies.selected.prepareSelectedMedia({
 				sourceId: request.sourceId, operation: request.operation,
 				...(mode ? { shotDetectionMode: mode } : {}), signal: request.signal,
-			});
+			}));
 			const prepared = normalizeLocalAssistancePreparedMedia(preparedValue, {
 				sourceId: request.sourceId, operation: request.operation,
 				...(mode ? { shotDetectionMode: mode } : {}),
 			});
 			dependencies.assertProject(token);
-			await deriveLocalAssistanceReviewAuthority(prepared);
+			const reviewAuthority = await deriveLocalAssistanceReviewAuthority(prepared);
 			dependencies.assertProject(token);
 			const graph = assistanceWorkflowStageGraph(workflowId);
 			if (graph.length !== 1 || graph[0]!.operation !== request.operation) {
@@ -167,13 +171,15 @@ export function createLocalAssistanceAdvancedWorkflowPreparation(
 			const workflow = validateAssistanceWorkflow({ contractVersion: 1, jobId: request.jobId,
 				workflowId, recipeVersion: 1, settingsVersion: 1, settings, fence,
 				stageIds: [stage.stageId], models, inputs, outputs });
-			return Object.freeze({ outcome: 'prepared', workflow, prepared });
+			return Object.freeze({ outcome: 'prepared', workflow, prepared, reviewAuthority });
 		} catch (error) {
 			await request.custody.release(request.jobId).catch(() => false);
 			if (error instanceof LocalAssistanceAdvancedContextUnavailableError) {
 				return unavailable('source-custody-unavailable');
 			}
 			throw error;
+		} finally {
+			await audioScope.release(null);
 		}
 	}
 }

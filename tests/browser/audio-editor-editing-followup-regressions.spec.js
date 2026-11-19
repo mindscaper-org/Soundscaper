@@ -8,7 +8,7 @@ import { showClipTimingFields, bootEditor, clipByName, importFiles, openClipProp
 import { chooseClipMediaSetting, expectClipMediaSettingChecked } from './audio-editor-clip-settings-test-helpers.js';
 
 test('Reset pitch and speed clears the independent pitch while linkage is enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	const properties = await openClipProperties(page, editor, clipByName(editor, monoTone.name));
 	await clipField(properties, 'pitchCents').fill('6');
@@ -22,7 +22,7 @@ test('Reset pitch and speed clears the independent pitch while linkage is enable
 });
 
 test('clip properties apply the exact entered start frame when Snap is enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await showToolbarButton(page, editor, 'Snap');
 	await editor.getByRole('checkbox', { name: 'Snap', exact: true }).check();
@@ -35,7 +35,7 @@ test('clip properties apply the exact entered start frame when Snap is enabled',
 test('paste into an existing clip retains repeated pauses from copied looped audio', async ({ page }) => {
 	test.setTimeout(60_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Editing$/u }).click();

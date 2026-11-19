@@ -13,6 +13,7 @@ import {
 	createAddTrackCommand,
 } from '../../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../../commands/protocol.ts';
+import { projectAssistanceSourceRange } from '../../../../assistance/selected-media-identity-timing.ts';
 import {
 	createAudioClip,
 	createAudioSource,
@@ -192,7 +193,6 @@ function createPublicationPlans(
 			sampleRate: canonicalRate ? authority.projectSampleRate : output.review.sampleRate,
 			originalSampleRate: output.review.sampleRate,
 			sampleFormat: 'float32', chunkFrames: SOURCE_CHUNK_FRAMES,
-			contentSha256: output.claim.sha256, byteLength: output.claim.byteLength,
 			...(provenance ? { provenance } : {}),
 			opaqueExtensions: {
 				[EXTENSION_KEY]: {
@@ -358,7 +358,9 @@ function normalizeAuthority(
 	const sourceStartFrame = integer(value.sourceStartFrame, 0, 'selected source start');
 	const sourceEndFrame = integer(value.sourceEndFrame, 1, 'selected source end');
 	const duration = timelineEndFrame - timelineStartFrame;
-	if (duration < 1 || sourceEndFrame - sourceStartFrame !== duration
+	const projected = projectAssistanceSourceRange(clip, timelineStartFrame, timelineEndFrame);
+	if (duration < 1 || sourceEndFrame <= sourceStartFrame || !projected
+		|| sourceStartFrame !== projected.startFrame || sourceEndFrame !== projected.endFrame
 		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
 		throw new AssistanceProposalStaleError();
 	}

@@ -26,12 +26,12 @@ interface Processor {
 	process: (input: Float32Array[][], output: Float32Array[][]) => boolean
 }
 const Processor = NativePluginRealtimeProcessor as unknown as new (options: {
-	processorOptions: { instanceId: string; inputChannelCount: number; outputChannelCount: number; strictRender: boolean }
+	processorOptions: { instanceId: string; inputChannelCount: number; outputChannelCount: number; strictRender: boolean; sampleRate: number }
 }) => Processor
 
-function attached(strictRender = false) {
+function attached(strictRender = false, render: (block: number, output: Float32Array[], input: Float32Array[]) => void = (_block, output) => { for (const channel of output) channel.fill(.125) }) {
 	const processor = new Processor({ processorOptions: {
-		instanceId: 'native-idle-1', inputChannelCount: 2, outputChannelCount: 2, strictRender,
+		instanceId: 'native-idle-1', inputChannelCount: 2, outputChannelCount: 2, strictRender, sampleRate: 1000,
 	} })
 	const control: Packet[] = []
 	const processed: Packet[] = []
@@ -41,11 +41,14 @@ function attached(strictRender = false) {
 		postMessage(message) {
 			if (message.kind === 'process') {
 				processed.push({ ...message, input: message.input?.map((plane) => plane.slice()) })
-				for (const channel of message.output ?? []) channel.fill(.125)
+				render(processed.length - 1, message.output ?? [], message.input ?? [])
 				this.onmessage?.({ data: { ...message, kind: 'processed' } })
 			} else if (message.kind === 'capabilities') {
 				this.onmessage?.({ data: { protocolVersion: 1, requestId: message.requestId,
 					kind: 'capabilities', parameterCount: 1, hasVendorUi: false } })
+			} else if (message.kind === 'open-vendor-ui' || message.kind === 'close-vendor-ui') {
+				this.onmessage?.({ data: { protocolVersion: 1, requestId: message.requestId,
+					kind: 'vendor-ui', status: message.kind === 'open-vendor-ui' ? 'opened' : 'closed' } })
 			}
 		},
 	}
@@ -78,4 +81,73 @@ test('live native plug-in still refuses a nonempty topology change', () => {
 	const { processor, control } = attached()
 	processor.process([[new Float32Array(128)]], [[new Float32Array(128), new Float32Array(128)]])
 	assert.ok(control.some(({ type, reason }) => type === NATIVE_PLUGIN_CONTROL.fault && reason === 'topology-mismatch'))
+})
+
+
+test('native silence detection drains sparse tails, sleeps after five quiet seconds, and resumes at the same pipeline latency', () => {
+	const { processor, processed, control } = attached(false, (block, output, input) => {
+		for (const channel of output) channel.fill(input[1]?.[99] ? .25 : block === 20 || block === 60 ? .5 : 0)
+	})
+	processor.port.onmessage({ data: { type: 'suspend-idle-effect-processing', enabled: true }, ports: [] })
+	const input = [new Float32Array(100), new Float32Array(100)]
+	const output = [new Float32Array(100), new Float32Array(100)]
+	input[0]![0] = 1
+	processor.process([input], [output]); input[0]!.fill(0)
+	const echoes: number[] = []
+	for (let block = 1; block < 150; block++) {
+		processor.process([input], [output])
+		if (output[0]![0] > 0) echoes.push(block)
+	}
+	assert.deepEqual(echoes, [24, 64], 'the silence between feedback repeats is preserved')
+	const sleeping = processed.length
+	assert.ok(sleeping > 100 && sleeping < 130)
+	for (let block = 0; block < 20; block++) processor.process([input], [output])
+	assert.equal(processed.length, sleeping)
+	input[1]![99] = 1e-12
+	processor.process([input], [output])
+	assert.equal(processed.length, sleeping + 1, 'any nonzero channel wakes the first input block')
+	assert.equal(output[0]![0], 0)
+	input[1]!.fill(0)
+	for (let block = 1; block <= 4; block++) {
+		processor.process([input], [output])
+		assert.equal(output[0]![0], block === 4 ? .25 : 0, 'wake preserves the four-block native pipeline')
+	}
+	assert.equal(control.some(packet => packet.type === NATIVE_PLUGIN_CONTROL.fault), false)
+})
+
+test('native auto-idle opt-out and strict rendering keep processing silence', () => {
+	for (const strictRender of [false, true]) {
+		const { processor, processed } = attached(strictRender, (_block, output) => { for (const channel of output) channel.fill(0) })
+		processor.port.onmessage({ data: { type: 'suspend-idle-effect-processing', enabled: strictRender }, ports: [] })
+		for (let block = 0; block < 150; block++) processor.process([[new Float32Array(100), new Float32Array(100)]], [[new Float32Array(100), new Float32Array(100)]])
+		assert.equal(processed.length, 150)
+	}
+})
+
+test('native control RPC and a live preference opt-out wake a sleeping plug-in without audio input', () => {
+	const { processor, processed } = attached(false, (_block, output) => { for (const channel of output) channel.fill(0) })
+	const input = [new Float32Array(100), new Float32Array(100)], output = [new Float32Array(100), new Float32Array(100)]
+	processor.port.onmessage({ data: { type: 'suspend-idle-effect-processing', enabled: true }, ports: [] })
+	for (let block = 0; block < 100; block++) processor.process([input], [output])
+	const sleeping = processed.length
+	processor.port.onmessage({ data: { type: NATIVE_PLUGIN_CONTROL.capabilities, requestId: 'wake-control' }, ports: [] })
+	processor.process([input], [output])
+	assert.equal(processed.length, sleeping + 1)
+	for (let block = 0; block < 100; block++) processor.process([input], [output])
+	const resuspended = processed.length
+	processor.port.onmessage({ data: { type: 'suspend-idle-effect-processing', enabled: false }, ports: [] })
+	for (let block = 0; block < 100; block++) processor.process([input], [output])
+	assert.equal(processed.length, resuspended + 100)
+})
+
+test('an open vendor editor keeps native DSP active until it closes', () => {
+	const { processor, processed } = attached(false, (_block, output) => { for (const channel of output) channel.fill(0) })
+	const input = [new Float32Array(100), new Float32Array(100)], output = [new Float32Array(100), new Float32Array(100)]
+	processor.port.onmessage({ data: { type: 'suspend-idle-effect-processing', enabled: true }, ports: [] })
+	processor.port.onmessage({ data: { type: NATIVE_PLUGIN_CONTROL.openVendorUi, requestId: 'open-editor', windowHandleId: 'editor' }, ports: [] })
+	for (let block = 0; block < 150; block++) processor.process([input], [output])
+	assert.equal(processed.length, 150)
+	processor.port.onmessage({ data: { type: NATIVE_PLUGIN_CONTROL.closeVendorUi, requestId: 'close-editor', windowHandleId: 'editor' }, ports: [] })
+	for (let block = 0; block < 150; block++) processor.process([input], [output])
+	assert.ok(processed.length < 220, 'the closed editor permits suspension after the silence reserve')
 })

@@ -5,7 +5,7 @@ import { openSourceMonitor } from './audio-editor-inspector-test-helpers.js';
 import { clipDescriptionForLocale } from './audio-editor-clip-locators.js';
 
 for (const locale of ['en', 'ar']) test(`Source monitor arrows follow visible recording tabs in ${locale}`, async ({ page }) => {
-	let editor = await bootEditor(page, '/embed/en/');
+	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const third = { ...toneA, name: 'Third recording.wav' };
 	await importFiles(editor, [toneA, toneB, third]);
 	for (const [index, file] of [toneA, toneB, third].entries()) {
@@ -16,7 +16,7 @@ for (const locale of ['en', 'ar']) test(`Source monitor arrows follow visible re
 		await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 		const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 		await preferences.getByRole('tab', { name: /General$/u }).click();
-		await preferences.getByRole('button', { name: 'Language', exact: true }).click();
+		await preferences.getByRole('button', { name: /^Language(?::|$)/u }).click();
 		await page.getByRole('option', { name: 'العربية', exact: true }).click();
 		await expect(page).toHaveURL(/\/embed\/ar\//u);
 		editor = await waitForEditor(page);

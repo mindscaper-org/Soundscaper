@@ -19,12 +19,13 @@ import { requireWritableAudioTransformTrack } from './track-transform-admission.
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
 import { planSplitStereoSources, splitStereoClipCommands } from './split-stereo-clip-commands.ts';
-import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
+import { assertStereoSplitRepresentable } from './stereo-split-routing-admission.ts';
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
 import { sequenceTrackMembers } from '../../../sequence-track-members.ts';
-import { assertTakeCompChannelRewriteAllowed } from './take-comp-channel-rewrite-admission.ts';
+import { assertTrackChannelRewriteAllowed } from './track-channel-rewrite-admission.ts';
+import { stereoSplitTrackCommands } from './stereo-split-track-commands.ts';
 import { isStandaloneMonoAudioTrack } from '../../../mono-track-pair-admission.ts';
 import { copyDerivedTrackStripAutomation } from '../../../derived-track-strip-automation.ts';
 import { copyDerivedTrackEffectAutomation } from '../../../derived-track-effect-automation.ts';
@@ -243,10 +244,10 @@ export function createTrackTransformService(
 		if (dependencies.editingBlocked()) return null;
 		const project = dependencies.getProject();
 		const track = requireStereoTrack(project, trackId);
-		assertTakeCompChannelRewriteAllowed(project, [track.id], dependencies.copy);
-		assertStereoSplitRoutingRepresentable(project, track.id, dependencies.copy);
-		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
+		assertTrackChannelRewriteAllowed(project, [track.id], dependencies.copy);
 		const clips = trackClips(project, track);
+		assertStereoSplitRepresentable(project, track, clips, dependencies.copy);
+		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
 		const { sourceById, sourcePairs, sourcesToSplit } = planSplitStereoSources(clips, sources);
 		const bytes = sourcesToSplit.reduce((sum, source) => sum
@@ -286,7 +287,6 @@ export function createTrackTransformService(
 				};
 				const laneTracks = track.laneGroupId == null ? [] : project.tracks
 					.filter((candidate) => candidate.laneGroupId === track.laneGroupId);
-				const leftEffectIds = new Map((track.effects ?? []).map(effect => [effect.id, effect.id]));
 				const rightEffectIds = new Map((track.effects ?? []).map((effect, index) => [effect.id, rightTrack.effects[index]!.id]));
 				const avLinkClipIds = new Map(clips.flatMap((clip) => (
 					typeof clip.avLinkId === 'string' && clip.avLinkId
@@ -301,14 +301,10 @@ export function createTrackTransformService(
 					...[...avLinkClipIds.values()].map((linkedClipId): AudioEditorCommand => ({
 						type: 'clip/unlink-av', clipId: linkedClipId,
 					})),
-					{ type: 'track/remove', trackId: track.id },
-					{ ...createAddTrackCommand({ ...leftTrack, laneGroupId: null }), index: trackIndex,
-						...trackReplacementPlacement(project, track.id) },
+					...stereoSplitTrackCommands(project, track, clips, leftTrack.name, leftTrack.pan),
 					{ ...createAddTrackCommand(rightTrack), index: trackIndex + 1,
 						...trackReplacementPlacement(project, track.id, 1) },
-					...copyDerivedTrackStripAutomation(project, track.id, track.id, dependencies.createId, true),
 					...copyDerivedTrackStripAutomation(project, track.id, rightTrackId, dependencies.createId, true),
-					...copyDerivedTrackEffectAutomation(project, track.id, track.id, leftEffectIds, dependencies.createId),
 					...copyDerivedTrackEffectAutomation(project, track.id, rightTrackId, rightEffectIds, dependencies.createId),
 				];
 				for (const clip of clips) {
@@ -346,7 +342,7 @@ export function createTrackTransformService(
 		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const partner = findMonoPartner(project, track, trackIndex, partnerTrackId);
 		if (!partner) throw createLocalizedError(Error, dependencies.copy, dependencies.copy.compatibleMonoTrackRequired ? 'compatibleMonoTrackRequired' : dependencies.copy.monoTrackRequired ? 'monoTrackRequired' : 'audioTrackRequired');
-		assertTakeCompChannelRewriteAllowed(project, [track.id, partner.id], dependencies.copy);
+		assertTrackChannelRewriteAllowed(project, [track.id, partner.id], dependencies.copy);
 		const partnerIndex = project.tracks.findIndex((candidate) => candidate.id === partner.id);
 		const clipById = new Map(project.clips.map(clip => [clip.id, clip]));
 		const clips = [...(track.clipIds ?? []), ...(partner.clipIds ?? [])]

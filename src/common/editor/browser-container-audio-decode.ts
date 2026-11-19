@@ -12,6 +12,7 @@ const DEFAULT_MAXIMUM_OUTPUT_BYTES = 128 * 1024 * 1024;
 const MAXIMUM_AUDIO_CHANNELS = 32;
 const MAXIMUM_SAMPLE_FRAMES = 65_536;
 const MAXIMUM_TIMESTAMP_JITTER_SECONDS = 0.001;
+const MAXIMUM_OPUS_PACKET_SECONDS = 0.12;
 
 export interface BrowserContainerAudioSample {
 	readonly timestamp: number;
@@ -33,6 +34,9 @@ export interface BrowserContainerAudioDecodeSession {
 	readonly sampleRate: number;
 	readonly channelCount: number;
 	readonly endPaddingFrames?: number;
+	readonly programmeCapacitySeconds?: number;
+	/** End of a contiguous authored presentation edit, relative to picture zero. */
+	readonly presentationEndFrame?: number;
 	samples(endTimestamp?: number): AsyncIterable<BrowserContainerAudioSample>;
 	dispose(): void;
 }
@@ -41,6 +45,8 @@ export interface BrowserContainerAudioDecodeOptions {
 	readonly signal?: AbortSignal;
 	readonly durationSeconds: number;
 	readonly maximumOutputBytes?: number;
+	/** Preserve the reviewed programme only when its source and project-rate PCM both fit. */
+	readonly programmeSampleRate?: number;
 	readonly openSession?: (
 		blob: Blob,
 		signal?: AbortSignal,
@@ -51,6 +57,8 @@ export interface BrowserContainerAudioDecodeResult {
 	readonly channels: readonly Float32Array[];
 	readonly sampleRate: number;
 	readonly frameCount: number;
+	/** Complete PCM extent beyond the requested picture window, excluding encoder padding. */
+	readonly programmeFrameCount?: number;
 }
 
 /** Decode and place PCM at its container timestamps, retaining real leading gaps. */
@@ -61,7 +69,9 @@ export async function decodeBrowserContainerAudio(
 	if (!(blob instanceof Blob)) throw new TypeError('A video Blob is required for container audio decode.');
 	const maximumOutputBytes = outputBound(options.maximumOutputBytes);
 	throwIfAborted(options.signal);
-	const session = await (options.openSession ?? openMediabunnySession)(blob, options.signal);
+	const session = options.openSession
+		? await options.openSession(blob, options.signal)
+		: await openMediabunnySession(blob, options.signal, options.programmeSampleRate !== undefined);
 	const onAbort = (): void => session.dispose();
 	options.signal?.addEventListener('abort', onAbort, { once: true });
 	try {
@@ -71,7 +81,15 @@ export async function decodeBrowserContainerAudio(
 		}
 		validateSession(session);
 		const durationSeconds = positiveDuration(options.durationSeconds);
-		const targetFrameCount = Math.ceil(durationSeconds * session.sampleRate);
+		const pictureFrameCount = Math.ceil(durationSeconds * session.sampleRate);
+		const programmeCapacity = session.presentationEndFrame
+			?? Math.ceil((session.programmeCapacitySeconds ?? 0) * session.sampleRate);
+		const projectRate = options.programmeSampleRate;
+		const retainProgramme = projectRate !== undefined
+			&& Number.isSafeInteger(programmeCapacity) && programmeCapacity > pictureFrameCount
+			&& Math.ceil(programmeCapacity * Math.max(projectRate, session.sampleRate) / session.sampleRate)
+				* session.channelCount * Float32Array.BYTES_PER_ELEMENT <= maximumOutputBytes;
+		const targetFrameCount = retainProgramme ? programmeCapacity : pictureFrameCount;
 		const byteLength = targetFrameCount * session.channelCount * Float32Array.BYTES_PER_ELEMENT;
 		if (!Number.isSafeInteger(targetFrameCount) || targetFrameCount < 1
 			|| !Number.isSafeInteger(byteLength) || byteLength > maximumOutputBytes) {
@@ -85,47 +103,60 @@ export async function decodeBrowserContainerAudio(
 		let copiedFrames = 0;
 		let decodedEndFrame = 0, completed = true;
 		const padding = session.endPaddingFrames ?? 0;
-		for await (const sample of session.samples(padding ? undefined : session.timelineOrigin + durationSeconds)) {
-			try {
-				throwIfAborted(options.signal);
-				validateSample(sample, session.sampleRate, session.channelCount);
-				const rawStartFrame = Math.round(
-					(sample.timestamp - session.timelineOrigin) * session.sampleRate,
-				);
-				if (!Number.isSafeInteger(rawStartFrame)) {
-					throw new RangeError('The container audio timestamp is outside the safe frame range.');
-				}
-				if (padding && rawStartFrame >= targetFrameCount) { completed = false; break; }
-				decodedEndFrame = rawStartFrame + sample.numberOfFrames;
-				if (!Number.isSafeInteger(decodedEndFrame)) throw new RangeError('The container audio ending exceeds the safe frame range.');
-				let frameOffset = Math.max(0, -rawStartFrame);
-				let startFrame = Math.max(0, rawStartFrame);
-				const overlapFrames = Math.max(0, previousEndFrame - startFrame);
-				if (overlapFrames > Math.ceil(session.sampleRate * MAXIMUM_TIMESTAMP_JITTER_SECONDS)) {
-					throw new RangeError('The container audio samples overlap or exceed the safe timeline.');
-				}
-				frameOffset += overlapFrames;
-				startFrame += overlapFrames;
-				const frameCount = Math.min(
-					sample.numberOfFrames - frameOffset,
-					targetFrameCount - startFrame,
-				);
-				if (frameCount <= 0) continue;
-				const nextEndFrame = startFrame + frameCount;
-				if (!Number.isSafeInteger(nextEndFrame)) {
-					throw new RangeError('The container audio samples overlap or exceed the safe timeline.');
-				}
-				for (let planeIndex = 0; planeIndex < session.channelCount; planeIndex += 1) {
-					sample.copyTo(channels[planeIndex]!.subarray(startFrame, nextEndFrame), {
-						planeIndex, format: 'f32-planar', frameOffset, frameCount,
-					});
+		const presentationEndFrame = session.presentationEndFrame ?? Infinity;
+		let endTimestamp = padding || retainProgramme ? undefined : session.timelineOrigin + durationSeconds;
+		if (session.presentationEndFrame !== undefined) {
+			endTimestamp = session.timelineOrigin + Math.min(targetFrameCount, presentationEndFrame) / session.sampleRate;
+		}
+		try {
+			for await (const sample of session.samples(endTimestamp)) {
+				try {
 					throwIfAborted(options.signal);
+					validateSample(sample, session.sampleRate, session.channelCount);
+					const rawStartFrame = Math.round(
+						(sample.timestamp - session.timelineOrigin) * session.sampleRate,
+					);
+					if (!Number.isSafeInteger(rawStartFrame)) {
+						throw new RangeError('The container audio timestamp is outside the safe frame range.');
+					}
+					if (rawStartFrame >= presentationEndFrame) break;
+					if ((padding || retainProgramme) && rawStartFrame >= targetFrameCount) { completed = false; break; }
+					decodedEndFrame = Math.min(rawStartFrame + sample.numberOfFrames, presentationEndFrame);
+					if (!Number.isSafeInteger(decodedEndFrame)) throw new RangeError('The container audio ending exceeds the safe frame range.');
+					if (retainProgramme && decodedEndFrame > targetFrameCount) completed = false;
+					let frameOffset = Math.max(0, -rawStartFrame);
+					let startFrame = Math.max(0, rawStartFrame);
+					const overlapFrames = Math.max(0, previousEndFrame - startFrame);
+					if (overlapFrames > Math.ceil(session.sampleRate * MAXIMUM_TIMESTAMP_JITTER_SECONDS)) {
+						throw new RangeError('The container audio samples overlap or exceed the safe timeline.');
+					}
+					frameOffset += overlapFrames;
+					startFrame += overlapFrames;
+					const frameCount = Math.min(
+						decodedEndFrame - rawStartFrame - frameOffset,
+						targetFrameCount - startFrame,
+					);
+					if (frameCount <= 0) continue;
+					const nextEndFrame = startFrame + frameCount;
+					if (!Number.isSafeInteger(nextEndFrame)) {
+						throw new RangeError('The container audio samples overlap or exceed the safe timeline.');
+					}
+					for (let planeIndex = 0; planeIndex < session.channelCount; planeIndex += 1) {
+						sample.copyTo(channels[planeIndex]!.subarray(startFrame, nextEndFrame), {
+							planeIndex, format: 'f32-planar', frameOffset, frameCount,
+						});
+						throwIfAborted(options.signal);
+					}
+					copiedFrames += frameCount;
+					previousEndFrame = nextEndFrame;
+				} finally {
+					sample.close();
 				}
-				copiedFrames += frameCount;
-				previousEndFrame = nextEndFrame;
-			} finally {
-				sample.close();
 			}
+		} catch (error) {
+			throwIfAborted(options.signal);
+			if (!retainProgramme || previousEndFrame < pictureFrameCount) throw error;
+			completed = false;
 		}
 		throwIfAborted(options.signal);
 		if (padding && completed) {
@@ -135,10 +166,13 @@ export async function decodeBrowserContainerAudio(
 		if (copiedFrames === 0) {
 			throw new Error('The video container has no decodable primary audio samples.');
 		}
+		const frameCount = retainProgramme && completed
+			? Math.max(pictureFrameCount, decodedEndFrame - padding) : pictureFrameCount;
 		return Object.freeze({
-			channels: Object.freeze(channels),
+			channels: Object.freeze(frameCount === targetFrameCount ? channels : channels.map(channel => channel.subarray(0, frameCount))),
 			sampleRate: session.sampleRate,
-			frameCount: targetFrameCount,
+			frameCount,
+			...(frameCount > pictureFrameCount ? { programmeFrameCount: frameCount } : {}),
 		});
 	} catch (error) {
 		throwIfAborted(options.signal);
@@ -174,6 +208,7 @@ function validateSample(sample: BrowserContainerAudioSample, sampleRate: number,
 async function openMediabunnySession(
 	blob: Blob,
 	signal?: AbortSignal,
+	retainProgramme?: boolean,
 ): Promise<BrowserContainerAudioDecodeSession> {
 	throwIfAborted(signal);
 	const { AudioSampleSink, BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
@@ -188,9 +223,14 @@ async function openMediabunnySession(
 		]);
 		throwIfAborted(signal);
 		const codec = await track?.getCodec();
-		if (track && codec === 'opus') await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
-			opusTimestampsIncludePreSkip: [MP4, QTFF].includes(await input.getFormat()),
-		});
+		const format = codec === 'opus' || retainProgramme ? await input.getFormat() : null;
+		const isoTimeline = format === MP4 || format === QTFF;
+		let reviewedOpus = false;
+		if (track && codec === 'opus') {
+			reviewedOpus = await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
+				source: blob, opusTimestampsIncludePreSkip: isoTimeline,
+			});
+		}
 		if (!track || !await track.canDecode()) {
 			throw new Error('The video container has no browser-decodable primary audio track.');
 		}
@@ -200,12 +240,43 @@ async function openMediabunnySession(
 			track.getNumberOfChannels(),
 		]);
 		throwIfAborted(signal);
-		const endPaddingFrames = sampleRate === 48_000 && codec === 'opus'
+		const matroska = format === MATROSKA || format === WEBM;
+		const endPaddingFrames = matroska && sampleRate === 48_000 && codec === 'opus'
 			? await (await import('./matroska-opus-end-padding.ts')).readMatroskaOpusEndPadding(blob, track.id, signal) : 0;
+		let programmeCapacitySeconds: number | undefined;
+		let presentationEndFrame: number | undefined;
+		const reviewedIsoOpus = reviewedOpus && isoTimeline;
+		if (retainProgramme && reviewedOpus && matroska) {
+			try {
+				const [end, resolution] = await Promise.all([track.computeDuration(), track.getTimeResolution()]);
+				// A final Matroska packet can declare duration zero. Use the estimate
+				// only to reserve space, with room for the last packet and timestamp rounding.
+				if (Number.isFinite(end) && Number.isFinite(resolution) && resolution > 0) {
+					programmeCapacitySeconds = Math.max(0, end - timelineOrigin) + MAXIMUM_OPUS_PACKET_SECONDS + 1 / resolution;
+				}
+			} catch { throwIfAborted(signal); }
+		} else if (reviewedIsoOpus || retainProgramme && format === QTFF && isQuickTimeS16Pcm(codec) && channelCount <= 2) {
+			try {
+				const { readIsoAudioPresentationEnd } = await import('./iso-audio-presentation-edit.ts');
+				const [audioTracks, videoTracks, editEnd] = await Promise.all([
+					input.getAudioTracks(), input.getVideoTracks(),
+					readIsoAudioPresentationEnd(blob, track.id, signal),
+				]);
+				if (audioTracks.length === 1 && videoTracks.length === 1 && (!reviewedIsoOpus || editEnd !== null)) {
+					const end = await track.computeDuration();
+					const duration = Math.max(0, Math.min(end, editEnd ?? end) - timelineOrigin);
+					if (reviewedIsoOpus && Number.isFinite(end)) {
+						const frame = Math.round(duration * sampleRate);
+						if (Number.isSafeInteger(frame)) presentationEndFrame = frame;
+					} else if (Number.isFinite(end)) programmeCapacitySeconds = duration;
+				}
+			} catch { throwIfAborted(signal); }
+		}
 		throwIfAborted(signal);
 		const sink = new AudioSampleSink(track);
 		return Object.freeze({
-			timelineOrigin, sampleRate, channelCount, ...(endPaddingFrames ? { endPaddingFrames } : {}),
+			timelineOrigin, sampleRate, channelCount, programmeCapacitySeconds, presentationEndFrame,
+			...(endPaddingFrames ? { endPaddingFrames } : {}),
 			samples: (endTimestamp?: number) => sink.samples(undefined, endTimestamp),
 			dispose: () => input.dispose(),
 		});
@@ -216,6 +287,10 @@ async function openMediabunnySession(
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 	}
+}
+
+export function isQuickTimeS16Pcm(codec: unknown): boolean {
+	return codec === 'pcm-s16' || codec === 'pcm-s16be';
 }
 
 function validateSession(session: BrowserContainerAudioDecodeSession): void {

@@ -1,0 +1,5 @@
+.kw-cpu-profiling table { width: 100%; border-collapse: collapse; }
+.kw-cpu-profiling th, .kw-cpu-profiling td { padding: 6px 10px; text-align: end; font-variant-numeric: tabular-nums; }
+.kw-cpu-profiling th:first-child { text-align: start; }
+.kw-cpu-profiling thead { border-bottom: 1px solid currentColor; }
+.kw-cpu-profiling small { display: block; font-weight: normal; }

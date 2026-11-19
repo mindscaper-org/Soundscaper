@@ -13,7 +13,7 @@ test('keyboard workspace creation keeps focus inside the open authoring form', a
 	const create = preferences.getByRole('button', { name: 'Create from current layout', exact: true });
 	await create.focus();
 	await create.press('Enter');
-	await expect(preferences.getByRole('button', { name: 'Workspace preset', exact: true })).toHaveText(/Keyboard layout/u);
+	await expect(preferences.getByRole('button', { name: /^Workspace preset(?::|$)/u })).toHaveText(/Keyboard layout/u);
 	await expect(name).toHaveValue('');
 	await expect(create).toBeDisabled();
 	expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');

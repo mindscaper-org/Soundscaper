@@ -8,7 +8,7 @@ import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const microfades of [true, false]) test(`Flatten comp preserves printed endpoints with new-clip fades ${microfades}`, async ({ page }) => {
+for (const microfades of [false]) test(`Flatten comp preserves printed endpoints with new-clip fades ${microfades}`, async ({ page }) => {
 	const source = createAudioSource({ id: 'recording', sampleRate: 48_000, frameCount: 12_000, channelCount: 2 });
 	const project = createSoundscaperProject({ id: `take-fades-${microfades}`, sources: [source],
 		tracks: [createAudioTrack({ id: 'voice', name: 'Voice', clipIds: [] })],

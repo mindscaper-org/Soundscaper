@@ -54,7 +54,7 @@ monitor, grid-view, cloud-download, sparkles and sliders glyphs omitted from the
 upstream enum. Literal codepoints stay in that inventory; component mappings keep their
 existing glyphs. Covered by `tests/vendored-design-system-icon-map.test.ts`.
 
-Tracked so upstream syncs know what to preserve. Aside from this list, keep the tree pristine.
+Tracked so upstream syncs know what to preserve. Also retain the [selective UI ports](SELECTIVE_UI_PORTS.md).
 See the [2026-09-09 override audit](OVERRIDE_AUDIT.md) for the latest comparison of
 application overrides and source patches against the pin and upstream master.
 
@@ -645,7 +645,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
     grips. `Button` forwards native button attributes and `ContextMenu` accepts
     an accessible label, preserving menu semantics without DOM mutation in
     consumer code. Covered by the mounted inspector, exact-time and error-routing
-    regressions and ordinary Clip properties browser workflows. Upstream-PR
+    regressions and ordinary Clip properties browser workflows. Choice names
+    include the visible selected value; custom color controls retain their own
+    accessible names, covered by the browser accessibility workflow. Upstream-PR
     candidates; the selective upstream pin remains unchanged.
 
 81. The clip properties `NumberField` reveals its full authored precision on
@@ -950,3 +952,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      sorting. Covered by mounted crossing, cancellation, ownership and bounded-work
      controls plus native project and rendered-audio workflows.
      Upstream-PR candidate.
+
+127. `Flyout` defers content resize repositioning to one animation frame so it
+     cannot change its own bounds during ResizeObserver delivery. Initial
+     placement stays synchronous, and closing cancels pending position work.
+     Covered by `tests/vendored-design-system-flyout-observer.test.tsx` and the
+     production transcript-editing and macro workflows. Upstream-PR candidate.

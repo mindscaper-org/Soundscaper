@@ -20,6 +20,7 @@ interface Dependencies {
 	readonly state: State;
 	getProject(): unknown;
 	getPositionFrames(): number;
+	seekSelectionStart?(frame: number): void;
 	createId(prefix: string): string;
 	updateSelection(command: AudioEditorCommand): unknown;
 	commit(command: AudioEditorCommand, selection?: { selectTrackId: string; selectClipId: null }): unknown;
@@ -36,7 +37,7 @@ const PASTE_ACTIONS = new Set(['paste', 'paste-overlap', 'paste-insert', 'paste-
 export function createSelectedLabelClipboardService(d: Dependencies) {
 	return Object.freeze({ select, handle });
 
-	function select(trackId: string, labelId: string | null, options: { additive?: boolean } = {}) {
+	function select(trackId: string, labelId: string | null, options: { additive?: boolean; seek?: boolean } = {}) {
 		const project = requireProject();
 		if (labelId === null) {
 			d.state.selectedLabels = [];
@@ -49,13 +50,20 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 		const previous = options.additive ? selectedLabelsForProject(project, d.state) : [];
 		const refs = previous.some(ref => ref.trackId === trackId && ref.labelId === labelId)
 			? previous : [...previous, { trackId, labelId }];
+		const { selectedTrackId, selectedClipId, selectedAnnotationId } = d.state;
 		d.state.selectedTrackId = trackId;
 		d.state.selectedClipId = null;
 		d.state.selectedAnnotationId = null;
-		d.updateSelection({ type: 'selection/set', startFrame: label.startFrame, endFrame: label.endFrame,
-			trackIds: [trackId], clipIds: [], frequencyRange: null });
+		try {
+			d.updateSelection({ type: 'selection/set', startFrame: label.startFrame, endFrame: label.endFrame,
+				trackIds: [trackId], clipIds: [], frequencyRange: null });
+		} catch (error) {
+			Object.assign(d.state, { selectedTrackId, selectedClipId, selectedAnnotationId });
+			throw error;
+		}
 		d.state.selectedLabelsProjectId = project.id;
 		d.state.selectedLabels = refs;
+		if (options.seek && label.endFrame > label.startFrame) d.seekSelectionStart?.(label.startFrame);
 		d.publish();
 		return refs;
 	}
@@ -108,7 +116,9 @@ export function createSelectedLabelClipboardService(d: Dependencies) {
 		let toBeat: ReturnType<typeof createSampleFrameBeatProjector> | undefined;
 		return descriptor.labels.map(label => {
 			const startFrame = nonNegativeFrame(atFrame + scaleSampleFrame(label.startOffsetFrame, descriptor.sampleRate, project.sampleRate, 'point'));
-			const endFrame = nonNegativeFrame(atFrame + scaleSampleFrame(label.endOffsetFrame, descriptor.sampleRate, project.sampleRate, 'point'));
+			const scaledEnd = atFrame + scaleSampleFrame(label.endOffsetFrame, descriptor.sampleRate, project.sampleRate, 'point');
+			const minimumEnd = startFrame + Number(label.endOffsetFrame > label.startOffsetFrame);
+			const endFrame = nonNegativeFrame(Math.max(scaledEnd, minimumEnd));
 			const common = { id: d.createId('label'), title: label.title, color: label.color,
 				opaqueExtensions: structuredClone(label.opaqueExtensions) };
 			if (label.anchor === 'sample') return { ...common, anchor: 'sample' as const, startFrame, endFrame };

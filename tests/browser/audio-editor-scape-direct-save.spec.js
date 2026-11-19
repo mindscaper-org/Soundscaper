@@ -5,6 +5,9 @@ import {
 	bootEditor,
 	collectClientErrors,
 	chooseExportProjectFileAction,
+	chooseNestedCommandAction,
+	chooseFileAction,
+	waitForProjectActivation,
 	registerAudioEditorHooks,
 } from './audio-editor-test-helpers.js';
 
@@ -15,7 +18,7 @@ test.describe('direct Scape save publication', () => {
 		const errors = collectClientErrors(page);
 		let downloads = 0;
 		page.on('download', () => { downloads += 1; });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await page.evaluate(() => {
 			globalThis.__scapeDirectSave = {
 				aborts: 0,
@@ -66,14 +69,25 @@ test.describe('direct Scape save publication', () => {
 
 		const archive = Buffer.concat(saved.chunks.map((chunk) => Buffer.from(chunk)));
 		const projectInput = editor.locator('[data-aup4-input]');
+		const projectId = await editor.getAttribute('data-project-id');
 		const fileMenu = editor.getByRole('menuitem', { name: 'File', exact: true });
+		const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
+		await chooseFileAction(page, editor, 'New');
+		await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		await projectInput.setInputFiles({ name: 'direct.sscape', mimeType: 'application/vnd.soundscaper.scape+zip', buffer: archive });
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await expect(collision).toBeHidden();
+
+		await chooseNestedCommandAction(page, editor, 'Tracks', ['Add new track', 'Audio track']);
+		await expect(editor).toHaveAttribute('data-track-count', '2');
 		await fileMenu.focus();
 		await projectInput.setInputFiles({
 			name: 'direct.sscape',
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			buffer: archive,
 		});
-		const collision = page.getByRole('dialog', { name: 'Project already exists', exact: true });
 		await expect(collision).toBeVisible();
 		await expect(collision).toHaveAccessibleDescription(/has the same ID\.$/u);
 		await expect(collision.getByRole('button', { name: 'Replace', exact: true })).toHaveCount(0);
@@ -101,7 +115,7 @@ test.describe('direct Scape save publication', () => {
 
 	test('retains the bounded browser-download fallback when File System Access is unavailable', async ({ page }) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await page.evaluate(() => Object.defineProperty(globalThis, 'showSaveFilePicker', {
 			configurable: true,
 			value: undefined,
@@ -114,12 +128,18 @@ test.describe('direct Scape save publication', () => {
 		expect(path).toBeTruthy();
 		const archive = await readFile(path);
 		expect(archive.byteLength).toBeGreaterThan(0);
+		const projectId = await editor.getAttribute('data-project-id');
+		await chooseFileAction(page, editor, 'New');
+		await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
 		await editor.locator('[data-aup4-input]').setInputFiles({
 			name: 'fallback.sscape',
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			buffer: archive,
 		});
-		await expect(page.getByRole('dialog', { name: 'Project already exists', exact: true })).toBeVisible();
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await expect(page.getByRole('dialog', { name: 'Project already exists', exact: true })).toBeHidden();
 		expect(errors).toEqual([]);
 	});
 });

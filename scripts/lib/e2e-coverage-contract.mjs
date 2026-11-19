@@ -3,6 +3,7 @@
 import { diagnosticErrorMessage as errorMessage } from './diagnostic-error-message.ts';
 
 import { canonicalJson as stableJson } from './canonical-json.mjs';
+import { E2E_COVERAGE_METRICS, normalizedFileCoverage, mergeCounters, summarizeCoverage } from './e2e-coverage-metrics.mjs';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, sep } from 'node:path';
@@ -19,12 +20,7 @@ export { E2E_REPOSITORY_URL_PREFIX } from './e2e-coverage-prefixes.mjs';
 
 export const E2E_COVERAGE_SCHEMA_VERSION = 1;
 export const E2E_EXECUTABLE_URL_PREFIX = 'file:///__soundscaper_e2e__/';
-export const E2E_COVERAGE_METRICS = Object.freeze([
-	'lines',
-	'statements',
-	'functions',
-	'branches',
-]);
+export { E2E_COVERAGE_METRICS } from './e2e-coverage-metrics.mjs';
 export const E2E_COVERAGE_CONFIGURATION_URL = new URL(
 	'../../config/e2e-coverage-gate.json',
 	import.meta.url,
@@ -210,6 +206,7 @@ export function analyzeE2ECoverage({
 	coverageBySurface,
 	coverageUnion,
 	expectedRevision,
+	qualifiedNodeSources = new Set(),
 }) {
 	const failures = [];
 	if (inventory.sourceRevision !== expectedRevision) {
@@ -260,7 +257,8 @@ export function analyzeE2ECoverage({
 	for (const path of sources.keys()) {
 		if (!merged.has(path)) failures.push(`E2E reported no coverage for executable source ${path}.`);
 	}
-	const metrics = summarizeCoverage([...merged.values()].map(({ coverage }) => coverage));
+	const metrics = summarizeCoverage([...merged.entries()]
+		.filter(([path]) => !qualifiedNodeSources.has(path)).map(([, { coverage }]) => coverage));
 	for (const metric of E2E_COVERAGE_METRICS) {
 		const counts = metrics[metric];
 		if (counts.total === 0) {
@@ -307,6 +305,17 @@ export function formatE2ECoverageResult(result) {
 	for (const metric of E2E_COVERAGE_METRICS) {
 		const counts = result.metrics[metric];
 		lines.push(`  ${metric} ${counts.percentage.toFixed(2)}% (${counts.covered}/${counts.total})`);
+	}
+	if (result.nodeCoverage?.files > 0) {
+		lines.push(`Independent qualified Node coverage (${result.nodeCoverage.files} full compiled artifacts):`);
+		for (const metric of E2E_COVERAGE_METRICS) {
+			const counts = result.nodeCoverage.metrics[metric];
+			lines.push(`  ${metric} ${counts.percentage.toFixed(2)}% (${counts.covered}/${counts.total})`);
+		}
+		if (result.nodeCoverage.sourceFunctions) {
+			const { covered, total } = result.nodeCoverage.sourceFunctions;
+			lines.push(`  source-derived function invocations ${covered}/${total}`);
+		}
 	}
 	return `${lines.join('\n')}\n`;
 }
@@ -386,91 +395,6 @@ function admittedSurfaces(value, configuredSurfaces, label) {
 	assertUnique(surfaces, `${label} names a surface twice.`);
 	assertSorted(surfaces, `${label} surfaces must be sorted.`);
 	return Object.freeze([...surfaces]);
-}
-
-function normalizedFileCoverage(path, value) {
-	assertObject(value, `Coverage for ${path}`);
-	const maps = {
-		statementMap: coverageMap(value.statementMap, value.s, `${path} statements`),
-		fnMap: coverageMap(value.fnMap, value.f, `${path} functions`),
-		branchMap: coverageMap(value.branchMap, value.b, `${path} branches`, true),
-	};
-	const coverage = {
-		path,
-		statementMap: maps.statementMap.map,
-		fnMap: maps.fnMap.map,
-		branchMap: maps.branchMap.map,
-		s: maps.statementMap.counts,
-		f: maps.fnMap.counts,
-		b: maps.branchMap.counts,
-	};
-	return {
-		coverage,
-		mapDigest: digest(Buffer.from(stableJson({
-			statementMap: coverage.statementMap,
-			fnMap: coverage.fnMap,
-			branchMap: coverage.branchMap,
-		}))),
-	};
-}
-
-function coverageMap(map, counters, label, branches = false) {
-	assertObject(map, `${label} map`);
-	assertObject(counters, `${label} counters`);
-	const mapKeys = Object.keys(map).sort();
-	const counterKeys = Object.keys(counters).sort();
-	if (stableJson(mapKeys) !== stableJson(counterKeys)) throw new Error(`${label} map and counters differ.`);
-	for (const key of counterKeys) {
-		const counts = branches ? counters[key] : [counters[key]];
-		if (!Array.isArray(counts) || counts.some((count) => !Number.isSafeInteger(count) || count < 0)) {
-			throw new TypeError(`${label} has an invalid counter.`);
-		}
-		if (branches && (!Array.isArray(map[key]?.locations) || map[key].locations.length !== counts.length)) {
-			throw new Error(`${label} locations and counters differ.`);
-		}
-	}
-	return { map, counts: structuredClone(counters) };
-}
-
-function mergeCounters(target, incoming) {
-	for (const [metric, name] of [['s', 'statementMap'], ['f', 'fnMap']]) {
-		for (const key of Object.keys(target[name])) target[metric][key] += incoming[metric][key];
-	}
-	for (const key of Object.keys(target.branchMap)) {
-		target.b[key] = target.b[key].map((count, index) => count + incoming.b[key][index]);
-	}
-}
-
-function summarizeCoverage(files) {
-	const totals = Object.fromEntries(E2E_COVERAGE_METRICS.map((metric) => [metric, { covered: 0, total: 0 }]));
-	for (const file of files) {
-		const lines = new Map();
-		for (const [key, count] of Object.entries(file.s)) {
-			const line = file.statementMap[key]?.start?.line;
-			if (!Number.isSafeInteger(line) || line < 1) throw new TypeError(`${file.path} has an invalid statement line.`);
-			lines.set(line, (lines.get(line) ?? false) || count > 0);
-			totals.statements.total += 1;
-			if (count > 0) totals.statements.covered += 1;
-		}
-		for (const covered of lines.values()) {
-			totals.lines.total += 1;
-			if (covered) totals.lines.covered += 1;
-		}
-		for (const count of Object.values(file.f)) {
-			totals.functions.total += 1;
-			if (count > 0) totals.functions.covered += 1;
-		}
-		for (const counts of Object.values(file.b)) {
-			for (const count of counts) {
-				totals.branches.total += 1;
-				if (count > 0) totals.branches.covered += 1;
-			}
-		}
-	}
-	return Object.fromEntries(Object.entries(totals).map(([metric, counts]) => [metric, {
-		...counts,
-		percentage: counts.total === 0 ? 100 : 100 * counts.covered / counts.total,
-	}]));
 }
 
 function safeRelativePath(value) {

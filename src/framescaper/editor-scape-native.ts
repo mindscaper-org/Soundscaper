@@ -4,6 +4,7 @@ import { deferredArchiveRuntime } from '../common/editor/controller/document/def
 import { FRAMESCAPER_PROJECT_SCHEMA_FAMILY, PROJECT_SCHEMA_VERSION } from
 	'../common/editor/project-schema-identity.ts';
 import type { ScapeProjectInput } from '../common/editor/scape-project-input.ts';
+import type { BlobLike } from '../common/editor/storage/media-records.ts';
 import {
 	createFramescaperProjectFeatureCompatibilityService,
 } from './editor-project-feature-requirements.ts';
@@ -18,6 +19,7 @@ import { createFramescaperScapeProjectAssetExtension } from './editor-scape-asse
 
 export interface FramescaperScapeNativeStore {
 	loadProject?(projectId: string, options?: Readonly<{ signal?: AbortSignal }>): PromiseLike<unknown> | unknown;
+	loadMediaAsset?(key: string, options?: Readonly<{ signal?: AbortSignal }>): PromiseLike<BlobLike | null>;
 }
 
 /** Prepared Framescaper v1 portable document boundary. */
@@ -56,9 +58,14 @@ export function createFramescaperScapeNativeRuntime(profile: unknown) {
 				projectAssetExtension,
 			});
 			if (result.readOnly) return result;
+			const project = cloneFramescaperProject(profile, result.project);
+			if (result.collision === 'reuse' && project.sources.some(({ kind }) => kind === 'image')) {
+				const { requireReusedTimelineImageBodies } = await import('./editor-scape-image-reopen.ts');
+				await requireReusedTimelineImageBodies(project, store, options.signal instanceof AbortSignal ? options.signal : undefined);
+			}
 			return Object.freeze({
 				...result,
-				project: cloneFramescaperProject(profile, result.project),
+				project,
 			});
 		},
 		exportScapeProject: (

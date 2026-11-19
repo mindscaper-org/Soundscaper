@@ -11,6 +11,7 @@ interface StandaloneAudioFile {
 interface CodecDecodedAudio {
 	readonly channels: readonly Float32Array[];
 	readonly sampleRate: number;
+	readonly originalSampleRate?: number | null;
 }
 
 interface DecodedAudio {
@@ -69,7 +70,8 @@ export async function decodeStandaloneAudioForImport<
 		const codec = await raceAbortableRead(() => options.decodeWithCodec(options.file, codecSettings), options.signal);
 		const context = await raceAbortableRead(() => options.getAudioContext(), options.signal);
 		const decoded = await raceAbortableRead(() => options.bufferFromChannels(codec.channels, codec.sampleRate, context), options.signal);
-		const inspectedSampleRate = await inspectOriginalSampleRate(options);
+		const inspectedSampleRate = codec.originalSampleRate === undefined
+			? await inspectOriginalSampleRate(options) : codec.originalSampleRate;
 		return Object.freeze({
 			context,
 			decoded,

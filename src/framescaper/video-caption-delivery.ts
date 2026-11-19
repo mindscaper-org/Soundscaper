@@ -139,11 +139,7 @@ export function createFramescaperCaptionDeliveryAdapter(
 			: request.sidecar === 'imsc1' ? 'imsc1.1' : 'srt', context.sampleRate,
 	);
 	const burnInterchange = request.burnIn ? document(track, 'srt', context.sampleRate) : null;
-	const burnInStage = request.burnIn
-		? resolveVideoBurnInStage(track.cues.map((cue) => Object.freeze({
-			startFrame: cue.startFrame, endFrame: cue.endFrame, title: cue.text,
-		})), context.canvas, context.sampleRate)
-		: null;
+	const burnInStage = request.burnIn ? burnInTrack(track, context.canvas, context.sampleRate) : null;
 	if (request.burnIn && burnInStage === null) {
 		throw new RangeError('The selected Framescaper caption track has no drawable cues in the delivered range.');
 	}
@@ -188,6 +184,24 @@ export function createFramescaperCaptionDeliveryAdapter(
 			burnIn: burnInterchange?.losses ?? Object.freeze([]),
 		}),
 	});
+}
+
+export function resolveFramescaperCaptionBurnInStage(
+	track: VideoCaptionTrackV1,
+	range: FramescaperCaptionDeliveryContext['range'],
+	canvas: FramescaperCaptionDeliveryContext['canvas'],
+	sampleRate: number,
+): VideoBurnInStage {
+	const stage = burnInTrack(deliveredTrack(track, range), canvas, sampleRate);
+	if (!stage) throw new RangeError('The selected Framescaper caption track has no drawable cues in the delivered range.');
+	return stage;
+}
+
+function burnInTrack(track: VideoCaptionTrackV1, canvas: FramescaperCaptionDeliveryContext['canvas'],
+	sampleRate: number): VideoBurnInStage | null {
+	return resolveVideoBurnInStage(track.cues.map(({ startFrame, endFrame, text }) => ({
+		startFrame, endFrame, title: text,
+	})), canvas, sampleRate);
 }
 
 function deliveredTrack(

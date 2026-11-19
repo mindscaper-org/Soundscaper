@@ -34,12 +34,15 @@ for (const placement of ['populated', 'empty-root', 'empty-child'] as const) {
 		}
 		let ordinal = 0;
 		const plan = buildDawprojectProject(document, { media: new Map(), createStableId: prefix => `${prefix}-${++ordinal}` });
-		const imported = importSoundscaperAudacityProject(createAudioEditorProjectV17(plan.project));
+		const foundation = importSoundscaperAudacityProject(createAudioEditorProjectV17(plan.project));
+		const imported = createSoundscaperProject({ ...foundation,
+			mixer: plan.routingContext.mixerGraph, automationLanes: plan.routingContext.automationLanes });
 		assert.equal(validateSoundscaperProject(imported), true);
 		assert.deepEqual(imported.trackFolders.map(folder => folder.name), placement === 'populated' ? ['Dialogue'] : ['Dialogue', 'Pickups']);
 		const parent = imported.trackFolders.find(folder => folder.name === 'Dialogue');
 		const empty = imported.trackFolders.find(folder => folder.name === 'Pickups');
 		assert.ok(parent);
+		assert.deepEqual(imported.mixer.groups.map(group => group.name), ['Dialogue']);
 		assert.equal(imported.sequences[0]!.trackNodes.find(node => node.id === imported.tracks[0]!.id)?.parentFolderId, parent.id);
 		if (empty) assert.equal(imported.sequences[0]!.trackNodes.find(node => node.id === empty.id)?.parentFolderId,
 			placement === 'empty-child' ? parent.id : null);

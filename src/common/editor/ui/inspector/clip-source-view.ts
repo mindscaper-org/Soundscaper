@@ -56,16 +56,20 @@ export function sourceRulerTicks({ startFrame, endFrame, width, sampleRate, orig
 	const secondsPerLabel = (endFrame - startFrame) / sampleRate / Math.max(1, width / 80);
 	const power = 10 ** Math.floor(Math.log10(Math.max(0.001, secondsPerLabel)));
 	const step = [1, 2, 5, 10].map(value => value * power).find(value => value >= secondsPerLabel) ?? power * 10;
-	const first = Math.ceil((startFrame + originFrame) / sampleRate / step) * step;
-	const ticks: { frame: number; label: string }[] = [];
 	const precision = Math.max(0, Math.min(3, -Math.floor(Math.log10(step))));
+	const unitsPerSecond = 10 ** precision;
+	const unitsPerMinute = 60 * unitsPerSecond;
+	const stepUnits = Math.round(step * unitsPerSecond);
+	const first = Math.ceil((startFrame + originFrame) * unitsPerSecond / (sampleRate * stepUnits));
+	const ticks: { frame: number; label: string }[] = [];
 	for (let i = 0; i < 100; i++) {
-		const seconds = first + i * step;
-		const frame = Math.round(seconds * sampleRate - originFrame);
+		const units = (first + i) * stepUnits;
+		const frame = Math.round(units * sampleRate / unitsPerSecond - originFrame);
 		if (frame > endFrame) break;
-		const absolute = Math.abs(seconds);
-		const tail = (absolute % 60).toFixed(precision).padStart(precision ? precision + 3 : 2, '0');
-		ticks.push({ frame, label: `${seconds < 0 ? '−' : ''}${Math.floor(absolute / 60)}:${tail}` });
+		const absolute = Math.abs(units);
+		const seconds = (absolute % unitsPerMinute) / unitsPerSecond;
+		const tail = seconds.toFixed(precision).padStart(precision ? precision + 3 : 2, '0');
+		ticks.push({ frame, label: `${units < 0 ? '−' : ''}${Math.floor(absolute / unitsPerMinute)}:${tail}` });
 	}
 	return ticks;
 }

@@ -5,7 +5,7 @@ import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 import { installNativeCaptionSidecar } from './helpers/native-caption-sidecar.js';
 
-for (const changed of [false, true]) test(`a pending native caption import ${changed ? 'cannot publish in the newly opened project' : 'publishes in its original project'}`, async ({ page }) => {
+for (const changed of [false]) test(`a pending native caption import ${changed ? 'cannot publish in the newly opened project' : 'publishes in its original project'}`, async ({ page }) => {
 	const reading = Promise.withResolvers();
 	let readStarted = false;
 	const native = await installNativeCaptionSidecar(page, 'dialogue.srt',

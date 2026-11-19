@@ -6,6 +6,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import {
 	normalizeVideoProcessorStackV1,
+	type VideoMotionAnalysisReferenceV1,
 	requireFreshVideoMotionAnalysisV1,
 } from './video-motion-model-v27.ts';
 import type { VideoSimilarityTransformV1 } from './video-motion-processing-v27.ts';
@@ -41,10 +42,12 @@ export function videoMotionSettingsSha256V1(stackValue: unknown): string {
 	return bytesToHex(sha256(UTF8.encode(JSON.stringify(stack))));
 }
 
-/** Authenticate body bytes and reject stale source or settings authority. */
+const authenticatedReferences = new WeakMap<VideoMotionAnalysisBodyV1, VideoMotionAnalysisReferenceV1>();
+
+/** Authenticate bytes or recheck an admitted immutable body against current authority. */
 export function requireVideoMotionAnalysisBodyV1(
 	referenceValue: unknown,
-	bytesValue: Uint8Array,
+	analysis: Uint8Array | VideoMotionAnalysisBodyV1,
 	expected: Readonly<{ readonly inputSha256: string; readonly processorStack: unknown }>,
 ): VideoMotionAnalysisBodyV1 {
 	const stack = normalizeVideoProcessorStackV1(expected?.processorStack);
@@ -55,20 +58,14 @@ export function requireVideoMotionAnalysisBodyV1(
 		inputSha256: expected?.inputSha256,
 		settingsSha256,
 	});
-	const bytes = wholeBytes(bytesValue);
-	if (bytes.byteLength !== reference.byteLength
-		|| bytesToHex(sha256(bytes)) !== reference.sha256) {
-		throw new RangeError('The motion analysis body digest or byte length changed.');
-	}
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(UTF8_DECODER.decode(bytes)) as unknown;
-	} catch (error) {
-		throw new TypeError('The motion analysis body is not canonical UTF-8 JSON.', { cause: error });
-	}
-	const body = normalizeVideoMotionAnalysisBodyV1(parsed);
-	if (JSON.stringify(body) !== UTF8_DECODER.decode(bytes)) {
-		throw new TypeError('The motion analysis body is not canonical JSON.');
+	const encoded = analysis instanceof Uint8Array;
+	const body = encoded ? decodeAnalysisBody(analysis, reference) : analysis;
+	if (!encoded) {
+		const admitted = authenticatedReferences.get(body);
+		if (!admitted) throw new TypeError('The motion analysis body has not been authenticated.');
+		if (admitted.byteLength !== reference.byteLength || admitted.sha256 !== reference.sha256) {
+			throw new RangeError('The motion analysis body digest or byte length changed.');
+		}
 	}
 	if (body.analysisId !== reference.id || body.sourceId !== reference.sourceId
 		|| body.processorStackId !== reference.processorStackId
@@ -76,6 +73,27 @@ export function requireVideoMotionAnalysisBodyV1(
 		|| body.settingsSha256 !== reference.settingsSha256
 		|| body.startFrame !== reference.startFrame || body.endFrame !== reference.endFrame) {
 		throw new RangeError('The motion analysis body does not match its persisted reference.');
+	}
+	if (encoded) authenticatedReferences.set(body, reference);
+	return body;
+}
+
+function decodeAnalysisBody(bytesValue: Uint8Array, reference: VideoMotionAnalysisReferenceV1): VideoMotionAnalysisBodyV1 {
+	const bytes = wholeBytes(bytesValue);
+	if (bytes.byteLength !== reference.byteLength
+		|| bytesToHex(sha256(bytes)) !== reference.sha256) {
+		throw new RangeError('The motion analysis body digest or byte length changed.');
+	}
+	let parsed: unknown, json: string;
+	try {
+		json = UTF8_DECODER.decode(bytes);
+		parsed = JSON.parse(json) as unknown;
+	} catch (error) {
+		throw new TypeError('The motion analysis body is not canonical UTF-8 JSON.', { cause: error });
+	}
+	const body = normalizeVideoMotionAnalysisBodyV1(parsed);
+	if (JSON.stringify(body) !== json) {
+		throw new TypeError('The motion analysis body is not canonical JSON.');
 	}
 	return body;
 }

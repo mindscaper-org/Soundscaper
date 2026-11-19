@@ -26,7 +26,7 @@ test.describe('Audacity selection default preset', () => {
 		await expect(threshold).toHaveValue('-12');
 		await commitInput(threshold, '-24');
 		await expect(threshold).toHaveValue('-24');
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('Default preset*');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Default preset*');
 		await dialog.getByRole('button', { name: 'Reset preset', exact: true }).click();
 		await expect(threshold).toHaveValue('-12');
 		await closeDialog(dialog);
@@ -34,8 +34,8 @@ test.describe('Audacity selection default preset', () => {
 		// transient local reset cannot satisfy this assertion.
 		dialog = await openCompressor();
 		await expect(dialog.getByRole('group', { name: 'Threshold (dB)', exact: true }).getByRole('spinbutton')).toHaveValue('-12');
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('Default preset');
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).not.toContainText('*');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Default preset');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).not.toContainText('*');
 		await closeDialog(dialog);
 		expect(errors).toEqual([]);
 	});
@@ -101,7 +101,7 @@ test.describe('Audacity selection default preset', () => {
 		await dialog.getByRole('button', { name: 'Reset preset', exact: true }).click();
 		await expect(pitch.getByRole('button')).toContainText('Pitch shift (keep tempo)');
 		await expect(duration.getByRole('button')).toContainText('Keep selected duration');
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).not.toContainText('*');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).not.toContainText('*');
 		await closeDialog(dialog);
 		await chooseNestedCommandAction(page, editor, 'Effect', ['Delay and reverb', 'Delay']);
 		await expect(pitch.getByRole('button')).toContainText('Pitch shift (keep tempo)');

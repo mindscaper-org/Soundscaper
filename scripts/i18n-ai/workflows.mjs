@@ -14,7 +14,7 @@ import { InvalidModelOutputError, generateValidated } from '../docs-ai/generatio
 import { readCache, writeCache } from '../docs-ai/cache.mjs';
 import { sha256 } from '../docs-ai/provenance.mjs';
 import { EDITOR_COPY_AUDIT_INVENTORY as ENGLISH_COPY } from '../lib/editor-copy-audit-inventory.mjs';
-import { loadTranslationCatalog } from '../../src/common/i18n/translation-catalog.js';
+import { currentTranslations } from '../../src/common/i18n/translation-catalog.js';
 import { TRANSLATION_EXCLUDED_KEYS } from '../../src/common/i18n/translation-scope.ts';
 import { editorTranslationCoverage } from './coverage.mjs';
 import { compareCodeUnits } from '../lib/canonical-json.mjs';
@@ -58,7 +58,8 @@ export function defaultModelForLocale(locale) {
 export async function translateLocale(options) {
 	const locale = assertMachineTranslatableLocale(options.locale);
 	const englishCopy = options.englishCopy ?? ENGLISH_COPY;
-	const germanCopy = locale === 'de' ? {} : options.germanCopy ?? await loadTranslationCatalog('de', { englishCopy }) ?? {};
+	const german = locale === 'de' || options.germanCopy ? null : await readTranslationCatalog('de');
+	const germanCopy = locale === 'de' ? {} : options.germanCopy ?? (german ? currentTranslations(german, englishCopy, { locale: 'de' }) : {});
 	const directory = options.directory ?? TRANSLATION_CATALOG_DIRECTORY;
 	const batchSize = validateBatchSize(options.batchSize ?? DEFAULT_BATCH_SIZE);
 	const batchCharacters = options.batchCharacters ?? DEFAULT_BATCH_CHARACTERS;
@@ -91,7 +92,7 @@ export async function translateLocale(options) {
 		if (existing && Object.keys(existing.entries).some((key) => !Object.hasOwn(entries, key))) {
 			await writeTranslationCatalog({ locale, provenance: existing.provenance, community: existing.community, entries }, directory);
 		}
-		await writeTranslationCatalogIndex(directory);
+		await writeTranslationCatalogIndex(directory, options.indexOptions);
 		return summary;
 	}
 	const modelIdentity = await options.client.identity();
@@ -125,7 +126,7 @@ export async function translateLocale(options) {
 		handled += keys.length;
 		await writeTranslationCatalog({ locale, provenance: handled === pending.length ? provenance : interimProvenance,
 			community: existing?.community, entries }, directory);
-		await writeTranslationCatalogIndex(directory);
+		await writeTranslationCatalogIndex(directory, options.indexOptions);
 		log(`${locale}: ${handled}/${pending.length} pending keys handled (${summary.translated} translated, ${summary.skipped.length} skipped)`);
 	}
 	return summary;

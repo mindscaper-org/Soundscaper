@@ -92,7 +92,11 @@ export function createSherpaDiarizerFactory(runtime: unknown, options: SherpaAcc
 					if (!Array.isArray(nativeTurns)) {
 						throw new TypeError('The speaker diarizer returned an invalid segment collection.');
 					}
-					const turns = nativeTurns.map((turn, index) => speakerTurn(turn, index, wave.samples.length));
+					const turns: SpeakerTurnResult[] = [];
+					for (const [index, segment] of nativeTurns.entries()) {
+						const turn = speakerTurn(segment, index, wave.samples.length);
+						if (turn) turns.push(turn);
+					}
 					turns.sort(compareSpeakerTurns);
 					request.onProgress?.(Object.freeze({ completed: wave.samples.length, total: wave.samples.length }));
 					return normalizeSpeakerDiarizationResult({ sampleRate: SAMPLE_RATE, turns });
@@ -102,7 +106,7 @@ export function createSherpaDiarizerFactory(runtime: unknown, options: SherpaAcc
 	});
 }
 
-function speakerTurn(value: unknown, index: number, audioSampleCount: number): SpeakerTurnResult {
+function speakerTurn(value: unknown, index: number, audioSampleCount: number): SpeakerTurnResult | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new TypeError(`Sherpa speaker segment ${index} must be a record.`);
 	}
@@ -117,10 +121,9 @@ function speakerTurn(value: unknown, index: number, audioSampleCount: number): S
 	if (!Number.isSafeInteger(startSample) || !Number.isSafeInteger(endSample) || endSample <= startSample) {
 		throw new RangeError(`Sherpa speaker segment ${index} has unrepresentable sample timing.`);
 	}
-	if (endSample > audioSampleCount) {
-		throw new RangeError(`Sherpa speaker segment ${index} exceeds the selected audio.`);
-	}
+	// Pyannote can report intervals from the padded end of its last inference window.
+	if (startSample >= audioSampleCount) return null;
 	return Object.freeze({
-		startSample, sampleCount: endSample - startSample, speakerId: segment.speaker as number,
+		startSample, sampleCount: Math.min(endSample, audioSampleCount) - startSample, speakerId: segment.speaker as number,
 	});
 }

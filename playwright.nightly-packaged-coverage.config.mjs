@@ -6,7 +6,9 @@ import { defineConfig } from '@playwright/test';
 const SMOKE = 'desktop-packaged-runtime-smoke.spec.js';
 const AUDIO_IO = 'desktop-packaged-audio-io.spec.js';
 const DISPLAY_AUDIO = 'desktop-packaged-display-audio.spec.js';
+const WEB_VCR = 'desktop-packaged-web-vcr.spec.ts';
 const SOAK = 'audio-editor-soak-debug.spec.js';
+const DELIVERY_RESTART = 'desktop-packaged-delivery-restart.spec.ts';
 const PACKAGED_SOAK = /(?:executes the current-host packaged operations|recovers a real persistent delivery job)/u;
 
 export function createNightlyPackagedCoverageConfig(environment = process.env) {
@@ -35,7 +37,7 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 			{
 				name: 'packaged-coverage-soundscaper',
 				metadata: { productId: 'soundscaper' },
-				testMatch: [SMOKE],
+				testMatch: [SMOKE, DELIVERY_RESTART],
 			},
 			{
 				name: 'packaged-coverage-soundscaper-audio-devices',
@@ -53,6 +55,15 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 				testMatch: [SMOKE],
 			},
 			{
+				name: 'packaged-coverage-framescaper-web-vcr',
+				metadata: { productId: 'framescaper' },
+				testMatch: [WEB_VCR],
+				dependencies: [
+					'packaged-coverage-soundscaper', 'packaged-coverage-soundscaper-audio-devices',
+					'packaged-coverage-soundscaper-soak', 'packaged-coverage-framescaper',
+				],
+			},
+			{
 				name: 'packaged-coverage-soundscaper-display-audio',
 				metadata: { productId: 'soundscaper' },
 				testMatch: [DISPLAY_AUDIO],
@@ -61,6 +72,7 @@ export function createNightlyPackagedCoverageConfig(environment = process.env) {
 				dependencies: [
 					'packaged-coverage-soundscaper', 'packaged-coverage-soundscaper-audio-devices',
 					'packaged-coverage-soundscaper-soak', 'packaged-coverage-framescaper',
+					'packaged-coverage-framescaper-web-vcr',
 				],
 			},
 		],

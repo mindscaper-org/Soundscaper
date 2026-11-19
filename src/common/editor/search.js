@@ -272,17 +272,31 @@ export function searchAudioEditorEntries(entries, query, options = {}) {
 	if (!limit) return [];
 	const normalizedQuery = normalizeAudioEditorSearchText(query);
 	const source = arrayOrEmpty(entries).filter((entry) => entry && typeof entry === 'object');
-	if (!normalizedQuery) return source
+	const literalQuery = normalizedQuery ? '' : literalSearchText(query);
+	if (!normalizedQuery && !literalQuery) return source
 		.sort(compareSourceOrder)
 		.slice(0, limit);
 
 	const queryTokens = normalizedQuery.split(' ');
 	return source
-		.map((entry) => ({ entry, score: scoreEntry(entry, normalizedQuery, queryTokens) }))
+		.map((entry) => ({ entry, score: literalQuery ? scoreLiteralEntry(entry, literalQuery) : scoreEntry(entry, normalizedQuery, queryTokens) }))
 		.filter(({ score }) => Number.isFinite(score))
 		.sort((left, right) => left.score - right.score || compareSourceOrder(left.entry, right.entry))
 		.slice(0, limit)
 		.map(({ entry }) => entry);
+}
+
+function literalSearchText(value) {
+	return String(value ?? '').normalize('NFKC').trim().toLowerCase();
+}
+
+function scoreLiteralEntry(entry, query) {
+	let best = Number.POSITIVE_INFINITY;
+	for (const [value, weight] of searchFields(entry)) {
+		const text = literalSearchText(value);
+		if (text.includes(query)) best = Math.min(best, text === query ? weight : 300 + weight);
+	}
+	return best;
 }
 
 function walkMenuItems(items, parentContext, visit) {

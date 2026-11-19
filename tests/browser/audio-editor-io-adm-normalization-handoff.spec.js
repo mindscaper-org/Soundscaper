@@ -16,7 +16,7 @@ for (const priorTarget of [false, true]) test(`BW64 passthrough retires an incom
 	expect(original.adm?.valid).toBe(true);
 	const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	// A pristine pass-through intentionally excludes authored import microfades.
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });

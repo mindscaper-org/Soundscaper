@@ -18,7 +18,7 @@ test('NP028: read-only folder inspection is local, respects busy ownership and r
 	let generation = 1;
 	const noop = () => undefined;
 	const controller = { captureProjectGeneration: () => ({ projectId: project.id, generation }), actions: { trackFolders: {
-		select: noop, toggleCollapsed: (...args: unknown[]) => { edits.push(args); }, update: noop, rename: noop, moveNode: noop,
+		selectedFolderId: () => null, select: noop, toggleCollapsed: (...args: unknown[]) => { edits.push(args); }, update: noop, rename: noop, moveNode: noop,
 	} } };
 	const dom = installReactTestDom(), root = createRoot(dom.container as unknown as Element);
 	const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };

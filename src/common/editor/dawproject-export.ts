@@ -6,6 +6,7 @@ import {
 	createDeliveryReport,
 	sealDeliveryReport,
 } from './delivery-report.ts';
+import { dawprojectTrackMidiAttributes } from './dawproject-export-midi.ts';
 import { reportInterchangeCaptionTrackOmission } from './interchange-omission-inventory.ts';
 import { reportOmittedDawprojectRouting } from './dawproject-export-routing-omissions.ts';
 import { createDawprojectAudioWidthReader } from './dawproject-export-channel-width.ts';
@@ -249,7 +250,7 @@ function buildAudioTrack(track: DataRecord, context: DawprojectExportContext): X
 	const key = `track:${trackId}`;
 	const route = context.routing.routes.get(trackId);
 	return xmlElement('Track', {
-		contentType: 'audio',
+		...dawprojectTrackMidiAttributes(track, context),
 		loaded: true,
 		id: context.ids.id('track', trackId),
 		name: String(track.name ?? trackId),

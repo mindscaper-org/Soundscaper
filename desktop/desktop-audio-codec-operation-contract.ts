@@ -6,7 +6,7 @@ export const DESKTOP_AUDIO_CODEC_FORMATS = Object.freeze([
 	'flac', 'mp3', 'ogg-vorbis', 'opus', 'wavpack', 'mp2', 'aac-m4a',
 ] as const);
 export type DesktopAudioCodecFormat = typeof DESKTOP_AUDIO_CODEC_FORMATS[number];
-
+export const DESKTOP_AUDIO_CODEC_IPC_MAXIMUM_ACTIVE_INPUT_BYTES = 64 * 1024 * 1024;
 export const DESKTOP_AUDIO_CODEC_INPUT_LIMIT_BYTES = 32 * 1024 * 1024;
 export const DESKTOP_AUDIO_CODEC_OUTPUT_LIMIT_BYTES = 128 * 1024 * 1024;
 export const DESKTOP_AUDIO_CODEC_MINIMUM_SAMPLE_RATE = 8_000;

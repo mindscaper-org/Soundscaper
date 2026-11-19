@@ -55,7 +55,7 @@ async function waveformRepeatProfile(waveform) {
 test.describe('clip looping', () => {
 	registerAudioEditorHooks();
 	test('shows the loop icon beneath the clock whenever the clip is selected, without a menu toggle', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -77,7 +77,7 @@ test.describe('clip looping', () => {
 	});
 
 	test('keeps ordinary trim behavior and placement until the loop handle extends past one repetition', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -96,7 +96,7 @@ test.describe('clip looping', () => {
 
 	test('snaps repetitions, trims the loop period while preserving total length, and undoes each drag', async ({ page }, testInfo) => {
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -123,7 +123,7 @@ test.describe('clip looping', () => {
 
 	test('returns to native trim placement and length changes after dragging four repetitions back to one', async ({ page }) => {
 		await page.setViewportSize({ width: 1920, height: 900 });
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -153,7 +153,7 @@ test.describe('clip looping', () => {
 	});
 
 	test('supports keyboard resizing, cancellation, partial repeats and returning to one repetition', async ({ page }) => {
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -183,7 +183,7 @@ test.describe('clip looping', () => {
 		const errors = collectClientErrors(page);
 		await page.setViewportSize({ width: 1920, height: 900 });
 		const fixture = patternedTone();
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [fixture]);
 		const clip = clipByName(editor, fixture.name);
 		await selectClip(clip);
@@ -222,7 +222,7 @@ test.describe('clip looping', () => {
 	test('preserves loop length and repeat count when rendering pitch and speed from the clip menu', async ({ page }) => {
 		test.setTimeout(90_000);
 		const errors = collectClientErrors(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);
@@ -250,7 +250,7 @@ test.describe('clip looping', () => {
 
 	test('exports repeated audio at its original speed through the offline renderer', async ({ page }) => {
 		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/embed/en/');
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 		await importFiles(editor, [monoTone]);
 		const clip = clipByName(editor, monoTone.name);
 		await selectClip(clip);

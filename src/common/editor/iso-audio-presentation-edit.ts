@@ -1,47 +1,21 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-interface Box { readonly type: string; readonly start: number; readonly end: number }
-const MAXIMUM_HEADERS = 8192;
+import { createIsoBoxReader, type IsoBox } from './iso-box-reader.ts';
+
 const MAXIMUM_EDITS = 1024;
 
 /** A contiguous presentation edit bounds the imported programme, not its retained media. */
 export async function readIsoAudioPresentationEnd(file: Blob, trackId: number, signal?: AbortSignal): Promise<number | null> {
-	let headers = 0;
-	const read = async (start: number, length: number, end: number): Promise<DataView<ArrayBuffer>> => {
-		signal?.throwIfAborted();
-		if (start < 0 || length < 1 || length > 32 || start + length > end || end > file.size) invalid();
-		const bytes = await file.slice(start, start + length).arrayBuffer();
-		signal?.throwIfAborted();
-		if (bytes.byteLength !== length) invalid();
-		return new DataView(bytes);
-	};
-	const boxes = async (start: number, end: number): Promise<readonly Box[]> => {
-		const result: Box[] = [];
-		for (let offset = start; offset < end;) {
-			if (++headers > MAXIMUM_HEADERS) invalid();
-			const view = await read(offset, 8, end);
-			const type = String.fromCharCode(...Array.from({ length: 4 }, (_, index) => view.getUint8(index + 4)));
-			let size = view.getUint32(0), width = 8;
-			if (size === 1) { size = safeInteger((await read(offset + 8, 8, end)).getBigUint64(0)); width = 16; }
-			else if (size === 0) size = end - offset;
-			if (!Number.isSafeInteger(size) || size < width || offset + size > end) invalid();
-			result.push({ type, start: offset + width, end: offset + size });
-			offset += size;
-		}
-		return result;
-	};
+	const { read, boxes, trackId: readTrackId } = createIsoBoxReader(file, signal);
 	const movie = (await boxes(0, file.size)).find(box => box.type === 'moov');
 	if (!movie) return null;
 	const children = await boxes(movie.start, movie.end);
-	let selected: Box | undefined;
+	let selected: IsoBox | undefined;
 	for (const track of children.filter(box => box.type === 'trak')) {
 		const fields = await boxes(track.start, track.end);
 		const header = fields.find(box => box.type === 'tkhd');
 		if (!header) continue;
-		const version = (await read(header.start, 1, header.end)).getUint8(0);
-		if (version > 1) invalid();
-		const id = (await read(header.start + (version === 1 ? 20 : 12), 4, header.end)).getUint32(0);
-		if (id !== trackId) continue;
+		if (await readTrackId(header) !== trackId) continue;
 		const edits = fields.find(box => box.type === 'edts');
 		if (edits) selected = (await boxes(edits.start, edits.end)).find(box => box.type === 'elst');
 		break;
@@ -71,6 +45,41 @@ export async function readIsoAudioPresentationEnd(file: Blob, trackId: number, s
 	if (!body && duration > 0) throw new RangeError('This MP4 audio edit list contains no presented audio. Flatten or render its programme before importing.');
 	if (!body) return null;
 	return duration / timescale;
+}
+
+/** A classic movie view for audio-only decoding, leaving every sample offset intact. */
+export async function isolateIsoAudioProgramme(file: Blob, selectedTrackId: number,
+	alternateTrackIds: readonly number[], signal?: AbortSignal): Promise<Blob | null> {
+	const { boxes, trackId } = createIsoBoxReader(file, signal);
+	const roots = await boxes(0, file.size);
+	const movies = roots.filter(box => box.type === 'moov');
+	const movie = movies[0];
+	if (!movie || movies.length !== 1 || roots.some(box => box.type === 'moof')) return null;
+	const children = await boxes(movie.start, movie.end);
+	if (children.some(box => box.type === 'mvex')) return null;
+	const alternates = new Set(alternateTrackIds);
+	const offsets: number[] = [];
+	const seen = new Set<number>();
+	for (const track of children.filter(box => box.type === 'trak')) {
+		const fields = await boxes(track.start, track.end);
+		if (fields.some(box => box.type === 'tref' || box.type === 'trgr')) return null;
+		const header = fields.find(box => box.type === 'tkhd');
+		if (!header) return null;
+		const id = await trackId(header);
+		if (seen.has(id)) return null;
+		seen.add(id);
+		if (alternates.delete(id)) offsets.push(track.offset + 4);
+	}
+	if (!seen.has(selectedTrackId) || alternates.size || !offsets.length) return null;
+	const parts: BlobPart[] = [];
+	let previous = 0;
+	for (const offset of offsets) {
+		parts.push(file.slice(previous, offset), 'free');
+		previous = offset + 4;
+	}
+	parts.push(file.slice(previous));
+	return typeof File !== 'undefined' && file instanceof File
+		? new File(parts, file.name, { type: file.type, lastModified: file.lastModified }) : new Blob(parts, { type: file.type });
 }
 
 function safeInteger(value: bigint): number {

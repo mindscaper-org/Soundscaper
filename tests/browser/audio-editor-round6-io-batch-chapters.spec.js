@@ -29,7 +29,7 @@ test.describe('chapter preset delivery applicability', () => {
 		await prompt.getByRole('textbox', { name: 'Preset name', exact: true }).fill('Podcast chapters');
 		await prompt.getByRole('button', { name: 'Save preset', exact: true }).click();
 		await expect(prompt).toBeHidden();
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText('Podcast chapters');
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText('Podcast chapters');
 		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await chooseFileAction(page, editor, 'Delivery queue');
 		const queue = page.getByRole('dialog', { name: 'Delivery queue', exact: true });

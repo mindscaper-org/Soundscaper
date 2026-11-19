@@ -98,7 +98,7 @@ Desktop packages copy the repository license, `THIRD_PARTY_LICENSES.md`, and
 the retained license directory. Desktop preparation, pre-pack, post-copy, and
 release-inventory gates reject application-supplied FFmpeg/libav and the FFmpeg
 WebAssembly runtime. Separately, electron-builder replaces stock Electron
-43.8.3's Chromium media library with Electron's matching alternate release
+45.2.3's Chromium media library with Electron's matching alternate release
 asset, intended upstream to omit proprietary codec support, and afterPack
 runs `scripts/lib/electron-alternate-ffmpeg.mjs` to verify its exact target,
 file type, byte length, and SHA-256 against
@@ -218,7 +218,7 @@ admission and its absence does not turn passing technical evidence into pending
 work.
 
 The same separation applies to Electron's Chromium media library. Stock
-Electron 43.8.3 includes proprietary codec support; packaging selects
+Electron 45.2.3 includes proprietary codec support; packaging selects
 Electron's alternate asset intended upstream to omit it. Exact digest
 verification establishes the selected framework bytes, not a complete codec
 inventory, observed codec behavior, absence of patent exposure, or patent
@@ -438,7 +438,7 @@ The matrix's `nativeFormatPolicies` register carries one fail-closed row for
 the JUCE native-audio stack, one per operating-system backend (CoreAudio,
 WASAPI, ASIO, PipeWire and ALSA), and one per plug-in format (VST2, VST3, CLAP, Audio
 Units, Linux-only LADSPA effects, LV2, cross-platform Vamp analyzers, and OFX).
-The acquisition register pins the exact JUCE, CLAP, VST3, FST 0.177.0, LADSPA 1.17, Vamp
+The acquisition register pins complete Surge XT 1.3.4 and Dexed 1.1.0 preferred-source archives for bundled MIDI instruments under GPL-3.0-or-later, with their factory-data and dependency notices. It also pins the exact JUCE, CLAP, VST3, FST 0.177.0, LADSPA 1.17, Vamp
 Plugin SDK 2.10.0, ASIO and LV2 source inputs, the four external native codec
 libraries, and zlib. LADSPA selects the official header's
 LGPL-2.1-or-later terms; Vamp selects BSD-3-Clause. VST2 uses the

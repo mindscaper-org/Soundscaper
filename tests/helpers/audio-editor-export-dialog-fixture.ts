@@ -14,6 +14,7 @@ const SAMPLE_RATE = 48_000;
 
 interface ExportDialogFixtureOptions {
 	readonly productId?: string;
+	readonly sampleRate?: number;
 	readonly metadata?: Readonly<Record<string, unknown>>;
 	readonly labels?: readonly Readonly<Record<string, unknown>>[];
 	readonly masteringSequences?: readonly Readonly<Record<string, unknown>>[];
@@ -35,7 +36,7 @@ export async function mountedExportDialog(options: ExportDialogFixtureOptions = 
 	const root = createRoot(dom.container as unknown as Element);
 	let project = { ...exportProject(options.labels ?? [
 		{ id: 'one', title: 'Intro', startFrame: 0, endFrame: SAMPLE_RATE },
-	], options.video === true, options.metadata), selection: options.selection ?? null };
+	], options.video === true, options.metadata, options.sampleRate), selection: options.selection ?? null };
 	const render = async (output: Readonly<Record<string, unknown>> | null = null) => {
 		await act(async () => root.render(React.createElement(ExportDialog, {
 			isOpen: true,
@@ -162,24 +163,24 @@ export async function mountedExportDialog(options: ExportDialogFixtureOptions = 
 	};
 }
 
-function exportProject(labels: readonly Readonly<Record<string, unknown>>[], video: boolean, metadata: Readonly<Record<string, unknown>> = {}) {
+function exportProject(labels: readonly Readonly<Record<string, unknown>>[], video: boolean, metadata: Readonly<Record<string, unknown>> = {}, sampleRate = SAMPLE_RATE) {
 	return {
 		id: 'export-surface',
 		revision: 1,
 		title: 'Export surface',
-		sampleRate: SAMPLE_RATE,
+		sampleRate,
 		masterChannels: 2,
 		metadata,
 		clips: [
-			{ id: 'clip', kind: 'audio', timelineStartFrame: 0, durationFrames: SAMPLE_RATE, sourceStartFrame: 0 },
-			...(video ? [{ id: 'video-clip', kind: 'video', timelineStartFrame: 0, durationFrames: SAMPLE_RATE, sourceStartFrame: 0 }] : []),
+			{ id: 'clip', kind: 'audio', timelineStartFrame: 0, durationFrames: sampleRate, sourceStartFrame: 0 },
+			...(video ? [{ id: 'video-clip', kind: 'video', timelineStartFrame: 0, durationFrames: sampleRate, sourceStartFrame: 0 }] : []),
 		],
 		tracks: [
 			{ id: 'track', type: 'audio', clipIds: ['clip'] },
 			{ id: 'labels', type: 'label', labels },
 			...(video ? [{ id: 'video-track', type: 'video', clipIds: ['video-clip'] }] : []),
 		],
-		loop: { enabled: true, startFrame: 0, endFrame: SAMPLE_RATE },
+		loop: { enabled: true, startFrame: 0, endFrame: sampleRate },
 	};
 }
 

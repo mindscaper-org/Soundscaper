@@ -11,7 +11,7 @@ for (const handoff of [false, true]) test(`File Import chooser belongs to its in
 	expect(exported.blob).toBeInstanceOf(Blob); const incoming = Buffer.from(await exported.blob.arrayBuffer()).toString('base64');
 	await page.addInitScript(() => Object.defineProperty(globalThis, 'launchQueue', { configurable: true,
 		value: { setConsumer(consumer) { globalThis.__importChooserLaunch = consumer; } } }));
-	const editor = await bootEditor(page, '/embed/en/'); const choosing = page.waitForEvent('filechooser');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false }); const choosing = page.waitForEvent('filechooser');
 	await chooseCommandAction(page, editor, 'File', 'Import'); const outgoing = await choosing;
 	if (handoff) {
 		await page.evaluate(base64 => {

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { applyVideoPreviewPixelate } from './video-preview-pixelate.ts';
 import { EFFECT_CODES } from './video-preview-effects.js';
 import { videoPreviewBlurViewport } from './video-preview-viewports.js';
 
@@ -28,6 +29,10 @@ export function applyVideoPreviewEntryEffects(compositor, videoTexture, passes, 
 	);
 	let sourceTarget = compositor.targets.ping;
 	for (const pass of passes) {
+		if (pass.code === EFFECT_CODES.pixelate) {
+			sourceTarget = applyVideoPreviewPixelate(compositor, sourceTarget, pass, contentViewport);
+			continue;
+		}
 		if (pass.preserveSource) {
 			compositor.clearTarget(compositor.targets.anchor);
 			compositor.draw(

@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, clipByName, importFiles, showToolbarButton } from './audio-editor-test-helpers.js';
 
 test('Manage labels Select preserves its authored region when Snap is enabled', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await chooseCommandAction(page, editor, 'Edit', 'Add label');

@@ -8,7 +8,7 @@ import type {
 import { resolveTerminalChannelWidths } from './terminal-channel-widths.ts';
 
 export interface UnsafeAdmRenderEffect {
-	readonly scope: 'track' | 'group' | 'send' | 'master';
+	readonly scope: 'clip' | 'track' | 'group' | 'send' | 'master';
 	readonly targetId: string | null;
 	readonly effectId: string | null;
 	readonly effectType: string;
@@ -31,6 +31,7 @@ export function findStereoLimitedMultichannelRenderEffects(
 }
 
 export const STEREO_LIMITED_RENDER_EFFECT_TYPES: readonly string[] = Object.freeze([
+	'ai-denoise',
 	'compressor',
 	'convolver',
 	'reverb',
@@ -64,7 +65,8 @@ function findUnsafeRenderEffects(
 	const issues: UnsafeAdmRenderEffect[] = [];
 	for (const rack of projectEffectRacks(project)) {
 		if (rack.scope === 'master' && options.includeMaster === false) continue;
-		const channelCount = rack.scope === 'master'
+		const clip = rack.scope === 'clip' ? project?.clips?.find(clip => clip.id === rack.targetId) : null;
+		const channelCount = clip ? Number(project?.sources?.find(source => source.id === clip.sourceId)?.channelCount ?? 2) : rack.scope === 'master'
 			? masterChannelCount
 			: rack.scope === 'track'
 				? widths.tracks.get(rack.targetId ?? '') ?? 2
@@ -86,7 +88,7 @@ function findUnsafeRenderEffects(
 
 function isUnsafeWidthTransform(
 	effect: EngineEffect,
-	scope: 'track' | 'group' | 'send' | 'master',
+	scope: UnsafeAdmRenderEffect['scope'],
 	channelCount: number,
 ): boolean {
 	const type = normalizedEffectType(effect);

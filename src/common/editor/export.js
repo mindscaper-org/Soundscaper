@@ -1,3 +1,4 @@
+import { exportRendersAsLoop } from './export-loop.ts';
 import { projectEffectTailFrames } from './effects.js';
 import { fitExportFileName } from './export-name-byte-budget.ts';
 import { createBwfExportMetadata, projectBextMetadata } from './broadcast-wave-project.ts';
@@ -25,7 +26,7 @@ import { createStemArchivePlan } from './controller/export/stem-archive.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from './ebu-r128.js';
 import { resolveAdmEbuChannelWeights } from './loudness-channel-layout.ts';
 import { createExportSpanMarkers } from './export-span-markers.ts';
-import { resolveBinauralDelivery } from './binaural-delivery.ts';
+import { resolveSpatialDelivery, spatialLoudnessMetadata, spatialRenderWorkingSetBytes } from './export-spatial-delivery.ts';
 import { resolveExportChapters } from './export-chapters.ts';
 import { assertEmbeddedChapterRequest, createEmbeddedChapterEncoding } from './export-embedded-chapter-encoding.ts';
 import { resolveExportClips } from './export-clip-boundaries.ts';
@@ -86,6 +87,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {AudioExportPlanOutput[]} outputs
  * @property {import('./controller/export/stem-archive.ts').StemArchivePlan|null} archive
  * @property {import('./broadcast-wave.ts').BextMetadata} [bext]
+ * @property {string} [aifcCompression]
  * @property {'bw64'} [container]
  * @property {{ mode: 'authored'|'passthrough', metadata: import('./adm-project-metadata.ts').AdmProjectMetadata, channelCount: number, channelOrder: readonly string[], preDataChunks: Uint8Array|readonly Uint8Array[]|undefined, trailingChunks: Uint8Array|readonly Uint8Array[]|undefined }} [adm]
  * @property {Uint8Array|readonly Uint8Array[]} [preDataChunks]
@@ -94,9 +96,11 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {import('./timeline-annotation-interchange-report.ts').TimelineAnnotationInterchangeReport} markerInterchangeReport
  * @property {import('./loudness-normalization.ts').LoudnessNormalizationTarget|null} loudnessNormalization
  * @property {readonly number[]} [loudnessChannelWeights]
+ * @property {import('./ear-delivery.ts').EarDeliveryPlan} [ear]
  * @property {import('./binaural-delivery.ts').BinauralDeliveryPlan} [binaural]
  * @property {import('./mastering-sequence-delivery.ts').MasteringSequenceDeliveryPlan} [masteringSequence]
  * @property {{startFrame: number, endFrame: number, durationFrames: number}} range
+ * @property {boolean} [renderAsLoop]
  * @property {number} tailFrames
  */
 
@@ -142,23 +146,6 @@ export function chooseRenderStrategy(options = {}) {
 	};
 }
 
-/**
- * The binaural delivery this plan carries, or none.
- *
- * The refusals are stated as refusals rather than quietly downgraded: a request
- * this cannot honour is an error at plan time, where the operator can still
- * change it, and never a delivery that silently came out as something else.
- */
-function resolveBinauralBw64Delivery(project, options, format, mode) {
-	const { plan, refusal } = resolveBinauralDelivery(
-		options.adm !== undefined ? options.adm : project.metadata?.adm,
-		{ binaural: options.binaural, mode, format },
-	);
-	if (plan) return plan;
-	if (refusal === null || refusal === 'not-requested') return null;
-	throw new Error(`A binaural delivery is not available: ${refusal}.`);
-}
-
 export function sanitizeExportName(value, fallback = 'audio-project') {
 	const normalized = String(value || '')
 		.normalize('NFKD')
@@ -186,14 +173,17 @@ export function createExportFileName(project, options = {}) {
 export function createExportPlan(project, options = {}) {
 	const runtimeProject = inheritTrackFolderMediaStateProjectionV12(project, projectForRuntimeConsumers(project));
 	const mode = options.mode || 'mix';
+	const renderAsLoop = exportRendersAsLoop(options);
 	if (mode !== 'mix' && mode !== 'stems' && mode !== 'chapters' && mode !== 'clips') {
 		throw new RangeError('Export mode must be mix, stems, chapters, or clips.');
 	}
 	const format = canonicalMediaExportFormat(options.format || 'wav');
+	const aifcCompression = format === 'aiff' ? options.aifcCompression : undefined;
 	assertEmbeddedChapterRequest(format, options);
 	if (format === 'bw64' && mode !== 'mix') throw new RangeError('BW64 / ADM export is mix-only.');
 	const bw64Adm = format === 'bw64' ? resolveBw64Adm(runtimeProject, options) : null;
-	const binaural = resolveBinauralBw64Delivery(runtimeProject, options, format, mode);
+	if (renderAsLoop && bw64Adm?.metadata.mode === 'passthrough') throw new RangeError('ADM passthrough cannot render as loop.');
+	const { ear, binaural } = resolveSpatialDelivery(runtimeProject, options, format, mode);
 	let encoding = normalizeMediaExportSettings(format, {
 		...options,
 		sampleRate: options.sampleRate ?? runtimeProject.sampleRate ?? AUDIO_EDITOR_SAMPLE_RATE,
@@ -202,7 +192,7 @@ export function createExportPlan(project, options = {}) {
 		...(bw64Adm ? { channelMapping: 'preserve' } : {}),
 		// A binaural delivery is two channels whatever the programme was, and the
 		// renderer places the sources itself, so no mapping precedes it.
-		...(binaural ? { channelCount: 2, channelMapping: 'preserve', inputChannelCount: 2 } : {}),
+		...(ear || binaural ? { channelCount: ear?.channelCount ?? 2, channelMapping: 'preserve', inputChannelCount: ear?.channelCount ?? 2 } : {}),
 	});
 	const preservedRiffChunks = bw64Adm?.metadata.mode === 'passthrough'
 		? inspectPreservedAdmRiffChunks(bw64Adm.metadata)
@@ -242,13 +232,6 @@ export function createExportPlan(project, options = {}) {
 		masteringSequenceCues: masteringSequence !== null,
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
-	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
-	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
-	const ixmlMetadata = (deliveryRange) => ixmlForDeliveryRange(
-		ixmlDelivery.metadata, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan,
-	);
-	const ixml = ixmlMetadata(range);
-	const spanIxml = spans?.map((span) => ixmlMetadata(span));
 	const cartMetadata = (deliveryRange) => cartForDeliveryRange(
 		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth,
 	);
@@ -279,10 +262,17 @@ export function createExportPlan(project, options = {}) {
 	}
 	if (preservedRiffChunks?.cart) cart = null;
 	if (bext) encoding = Object.freeze({ ...encoding, bext });
+	const spanBext = bext ? spans?.map(span => bwfMetadata(span.startFrame)) : undefined;
+	const ixmlChannels = ixmlForDeliveryChannels(preservedRiffChunks?.ixml ? null : runtimeProject.metadata?.ixml, encoding.channelMapping);
+	const ixmlDelivery = ixmlForDeliveryFileIdentity(ixmlChannels.metadata, options.preserveIxmlFileIdentity === true);
+	const ixmlMetadata = (deliveryRange, timeReference) => ixmlForDeliveryRange(ixmlDelivery.metadata, deliveryRange,
+		runtimeProject.sampleRate, sampleRate, encoding.bitDepth, masteringSequence?.plan, timeReference);
+	const ixml = ixmlMetadata(range, bext?.timeReference);
+	const spanIxml = spans?.map((span, index) => ixmlMetadata(span, spanBext?.[index]?.timeReference));
 	// Sequences, chapters and clips deliver their authored extents without tails.
 	const tailFrames = masteringSequence || spans
 		? 0
-		: determineTailFrames(runtimeProject, mode, options.includeTail !== false);
+		: determineTailFrames(runtimeProject, mode, renderAsLoop || options.includeTail === true);
 	const outputFrameCount = (durationFrames) => scaleSampleFrame(
 		durationFrames, runtimeProject.sampleRate, sampleRate, 'enclosingEnd',
 	);
@@ -296,7 +286,7 @@ export function createExportPlan(project, options = {}) {
 		? masteringSequence.outputFrames
 		: spanOutputFrames
 			? Math.max(...spanOutputFrames)
-			: rangeOutputFrames + tailOutputFrames;
+			: rangeOutputFrames + (renderAsLoop ? 0 : tailOutputFrames);
 	encoding = createEmbeddedChapterEncoding(encoding, runtimeProject, options, range, { rangeOutputFrames, deliveryOutputFrames: outputFrames });
 	const adm = bw64Adm ? createBw64AdmExport(runtimeProject, bw64Adm, {
 		range,
@@ -308,7 +298,7 @@ export function createExportPlan(project, options = {}) {
 	const layoutForFrames = (totalFrames, outputMarkers = markers, outputIxml = ixml, outputMetadata = encoding.metadata) => (format === 'aiff'
 		? inspectAiffLayout({
 			sampleRate, channelCount: encoding.channelCount, totalFrames,
-			sampleFormat: encoding.sampleFormat, metadata: outputMetadata, markers: outputMarkers,
+			sampleFormat: encoding.sampleFormat, aifcCompression, metadata: outputMetadata, markers: outputMarkers,
 		})
 		: format === 'wav' || format === 'bwf' || format === 'bw64'
 			? inspectWavLayout({
@@ -349,7 +339,7 @@ export function createExportPlan(project, options = {}) {
 			metadata: spanMetadata[spanIndex],
 			...markerExport.outputs[spanIndex],
 			// Where this file, rather than the whole delivery, sits on the timeline.
-			...(bext ? { bext: bwfMetadata(span.startFrame) } : {}),
+			...(spanBext ? { bext: spanBext[spanIndex] } : {}),
 			...(cart ? { cart: cartMetadata(span) } : {}),
 			...(ixml ? { ixml: spanIxml[spanIndex] } : {}),
 		}))
@@ -373,13 +363,14 @@ export function createExportPlan(project, options = {}) {
 	const renderStrategyOptions = {
 		mobile: Boolean(options.mobile),
 		outputBytes,
-		livePcmBytes: options.livePcmBytes ?? admission.estimateSourceWorkingSetBytes(
+		livePcmBytes: (options.livePcmBytes ?? admission.estimateSourceWorkingSetBytes(
 			masteringSequence
 				? masteringSequence.plan.segments.map((segment) => ({ startFrame: segment.sourceStartFrame, endFrame: segment.sourceEndFrame }))
 				: spans || [range])
-			// Sequence assembly retains its rendered regions beside the complete
-			// delivery, at the render width before the encoder's channel mapping.
-			+ (masteringSequence ? estimatePcmBytes(outputFrames, runtimeProject.masterChannels) * 2 : 0),
+			// Reserve the delivery and bound assembly scratch at the render width
+			// before the encoder's channel mapping.
+			+ (masteringSequence ? estimatePcmBytes(outputFrames, runtimeProject.masterChannels) * 2 : 0))
+			+ spatialRenderWorkingSetBytes(ear, outputFrames),
 	};
 	const legacyRender = chooseRenderStrategy(renderStrategyOptions);
 	const render = legacyRender.strategy === 'offline'
@@ -393,7 +384,7 @@ export function createExportPlan(project, options = {}) {
 					durationFrames: segment.sourceEndFrame - segment.sourceStartFrame,
 				})),
 				tailFrames,
-				channelCount: adm?.channelCount,
+				channelCount: ear?.sourceChannelCount ?? adm?.channelCount,
 			}),
 		})
 		: legacyRender;
@@ -404,10 +395,10 @@ export function createExportPlan(project, options = {}) {
 		// under a name that promised the sequence's.
 		throw new Error('Mastering sequence delivery requires the offline render; this delivery is too large for it.');
 	}
-	if (binaural && render.strategy !== 'offline') {
+	if ((ear || binaural) && render.strategy !== 'offline') {
 		// The renderer holds a delay line per source per ear; a stream that hands
 		// out one chunk at a time and re-encodes on fallback would restart it.
-		throw new Error('A binaural delivery requires the offline render.');
+		throw new Error(ear ? 'An EBU EAR delivery requires the offline render.' : 'A binaural delivery requires the offline render.');
 	}
 	const loudnessNormalization = resolveExportLoudnessNormalization(options, {
 		mode,
@@ -429,7 +420,7 @@ export function createExportPlan(project, options = {}) {
 	}
 	const loudnessChannelWeights = measuresLoudness && mode === 'mix'
 		&& encoding.channelMapping.mode === 'preserve'
-		? resolveAdmEbuChannelWeights(runtimeProject.metadata?.adm, encoding.channelCount)
+		? resolveAdmEbuChannelWeights(spatialLoudnessMetadata(ear, runtimeProject.metadata?.adm), encoding.channelCount)
 		: null;
 	const fallbackTemporaryBytes = spans
 		? spans.reduce(
@@ -473,6 +464,7 @@ export function createExportPlan(project, options = {}) {
 		ixmlFileUidOmitted: ixmlDelivery.omittedFileUid,
 		cart,
 		...(bext ? { bext } : {}),
+		...(aifcCompression ? { aifcCompression } : {}),
 		...(adm ? {
 			container: 'bw64',
 			adm,
@@ -481,10 +473,12 @@ export function createExportPlan(project, options = {}) {
 		} : {}),
 		loudnessNormalization,
 		...(loudnessChannelWeights ? { loudnessChannelWeights } : {}),
+		...(ear ? { ear } : {}),
 		...(binaural ? { binaural } : {}),
 		...(masteringSequence ? { masteringSequence: masteringSequence.plan } : {}),
 		range: masteringSequence ? masteringSequence.sourceRange : range,
 		tailFrames,
+		...(renderAsLoop ? { renderAsLoop } : {}),
 		outputFrames,
 		outputBytesPerRender: outputBytes,
 		// Spans differ in length; each output and archive entry states its own size.

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IMPORT_FILE_EXTENSIONS, IMPORT_FILE_EXTENSION_LIST, isImportFileName } from '../src/common/editor/import-file-extensions.ts';
+import { isTimelineInterchangeFile } from '../src/common/editor/timeline-interchange-file.ts';
 import { maintainedAiffMimeType } from '../src/common/editor/controller/import/internal/aiff-file-identity.ts';
 import { isScapeProjectFile, SCAPE_MIME_TYPE } from '../src/common/editor/scape-project-format.ts';
 import { WORKSPACE_IMPORT_FILE_ACCEPT, partitionWorkspaceFiles } from '../src/common/editor/ui/workspace/workspace-file-routing.js';
@@ -17,7 +18,9 @@ test('the complete import registry supplies chooser, MIME conflict and filename 
 		assert.equal(isScapeProjectFile({ name, type: SCAPE_MIME_TYPE }), false);
 		assert.equal(maintainedAiffMimeType({ name, type: 'audio/aiff' }), /^\.aif[fc]?$/u.test(suffix) ? 'audio/aiff' : null);
 		const file = { name, type: 'text/plain' };
-		if (!['.txt', '.srt', '.vtt', '.cue'].includes(suffix)) assert.deepEqual(partitionWorkspaceFiles([file]), { projects: [], media: [file], labels: [], cues: [] });
+		if (isTimelineInterchangeFile(name)) {
+			assert.deepEqual(partitionWorkspaceFiles([file]), { projects: [file], media: [], labels: [], cues: [] });
+		} else if (!['.txt', '.srt', '.vtt', '.cue'].includes(suffix)) assert.deepEqual(partitionWorkspaceFiles([file]), { projects: [], media: [file], labels: [], cues: [] });
 	}
 	assert.equal(chunkGroupForModulePath('src/common/editor/import-file-extensions.ts'), 'project-interchange-foundations');
 });

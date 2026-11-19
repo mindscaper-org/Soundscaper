@@ -2,6 +2,8 @@
 
 /** Exact build/stage/runtime authority for the professional Soundscaper addon. */
 import { createHash } from 'node:crypto';
+import { validateBundledPluginResources } from '../../desktop/bundled-plugin-resources.ts';
+import { isBundledInstrumentArtifactPath } from '../../desktop/bundled-native-plugins.ts';
 import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 
@@ -89,6 +91,8 @@ export async function verifySoundscaperProfessionalNativePayload({
 			entrypointPath: selected.isolation.entrypointPath,
 			runtimeClosure: Object.freeze(await Promise.all(selected.isolation.runtimeClosure.map((entry) =>
 				readArtifact(root, entry, entry.path, 'professional runtime closure')))),
+			pluginResources: Object.freeze(await Promise.all(selected.isolation.pluginResources.map((entry) =>
+				readArtifact(root, entry, entry.path, 'professional runtime closure')))),
 		});
 		assertBuildResultMatchesTarget(resultReceipt, selected);
 	} else {
@@ -135,7 +139,8 @@ export function professionalNativePayloadStageSummary(release, { pluginOnly = fa
 			sandboxProfile: summaryArtifact(release.isolation.sandboxProfile),
 			brokerPolicy: summaryArtifact(release.isolation.brokerPolicy),
 			entrypointPath: release.isolation.entrypointPath,
-			runtimeClosure: Object.freeze(release.isolation.runtimeClosure.map(summaryArtifact)),
+			runtimeClosure: Object.freeze(projectedClosure(release, pluginOnly).map(summaryArtifact)),
+			pluginResources: Object.freeze((pluginOnly ? [] : release.isolation.pluginResources).map(summaryArtifact)),
 		}),
 	});
 }
@@ -168,7 +173,7 @@ export async function stageVerifiedSoundscaperProfessionalNativePayload({ releas
 		release.buildResult, ...(pluginOnly || release.osAudioCodec === null ? [] : [release.osAudioCodec]),
 		release.pluginPeer, ...(pluginOnly ? [] : [release.deliveryFilesystem]), release.isolation.launcher,
 		release.isolation.sandboxProfile,
-		release.isolation.brokerPolicy, ...release.isolation.runtimeClosure,
+		release.isolation.brokerPolicy, ...projectedClosure(release, pluginOnly), ...(pluginOnly ? [] : release.isolation.pluginResources),
 	];
 	await renameIntoPlaceExclusively(resolve(outputRoot), 'professional native payload output', async (temporary) => {
 		await writeFile(resolve(temporary, release.manifest.staging.manifestName), manifestBytes, { flag: 'wx' });
@@ -199,7 +204,8 @@ export async function verifyStagedSoundscaperProfessionalNativePayload({
 			relativeTargetPath(release, release.isolation.launcher.path),
 			relativeTargetPath(release, release.isolation.sandboxProfile.path),
 			relativeTargetPath(release, release.isolation.brokerPolicy.path),
-			...release.isolation.runtimeClosure.map(({ path }) => relativeTargetPath(release, path)),
+			...projectedClosure(release, pluginOnly).map(({ path }) => relativeTargetPath(release, path)),
+			...(pluginOnly ? [] : release.isolation.pluginResources).map(({ path }) => relativeTargetPath(release, path)),
 		] : []),
 	].sort();
 	assert(JSON.stringify(entries) === JSON.stringify(expected),
@@ -216,7 +222,7 @@ export async function verifyStagedSoundscaperProfessionalNativePayload({
 		for (const artifact of [release.pluginPeer, ...(pluginOnly ? [] : [release.deliveryFilesystem]),
 			release.isolation.launcher,
 			release.buildResult, ...(pluginOnly || release.osAudioCodec === null ? [] : [release.osAudioCodec]),
-			release.isolation.sandboxProfile, release.isolation.brokerPolicy, ...release.isolation.runtimeClosure]) {
+			release.isolation.sandboxProfile, release.isolation.brokerPolicy, ...projectedClosure(release, pluginOnly), ...(pluginOnly ? [] : release.isolation.pluginResources)]) {
 			verifyBytes(await regularFile(resolve(outputRoot, relativeTargetPath(release, artifact.path)),
 				'staged professional native artifact'), artifact, 'staged professional native artifact');
 		}
@@ -228,6 +234,10 @@ export async function verifyStagedSoundscaperProfessionalNativePayload({
 		'The desktop stage manifest does not retain the professional native payload summary.');
 	}
 	return professionalNativePayloadStageSummary(release, { pluginOnly });
+}
+
+function projectedClosure(release, pluginOnly) {
+	return release.isolation.runtimeClosure.filter(({ path }) => !pluginOnly || !isBundledInstrumentArtifactPath(path));
 }
 
 function validateManifest(value, sourceRegister) {
@@ -285,7 +295,7 @@ function validateManifest(value, sourceRegister) {
 }
 
 function validSourceAuthentication(value, target, sourceRegister) {
-	const ids = ['electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return value?.schemaVersion === 1 && value.status === 'authenticated'
@@ -313,15 +323,17 @@ function validIsolation(target, manifest) {
 	const root = `native/soundscaper-professional-host/prebuilt/${target.id}`;
 	if (!validArtifact(target.pluginPeer, `${root}/${professionalPluginPeerName(manifest, target.id)}`)
 		|| !target.isolation || !exactKeys(target.isolation,
-			['launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure'])
+			['launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure', 'pluginResources'])
 		|| !validArtifact(target.isolation.launcher,
 			`${root}/${professionalIsolationLauncherName(manifest, target.id)}`)
 		|| !validArtifact(target.isolation.sandboxProfile, `${root}/${manifest.isolation.profileName}`)
 		|| !validArtifact(target.isolation.brokerPolicy, `${root}/${manifest.isolation.brokerPolicyName}`)
 		|| !Array.isArray(target.isolation.runtimeClosure) || target.isolation.runtimeClosure.length > 128) return false;
 	const runtimePrefix = `${root}/${manifest.isolation.runtimeDirectory}/`;
+	try { validateBundledPluginResources(target.isolation.pluginResources, runtimePrefix); } catch { return false; }
 	const paths = target.isolation.runtimeClosure.map(({ path }) => path);
-	return paths.length === new Set(paths).size
+	return (target.id !== 'win-x64' || paths.includes(`${root}/runtime/soundscaper_vst2_x86_peer.exe`))
+		&& paths.length === new Set(paths).size
 		&& target.isolation.runtimeClosure.every((entry) => validArtifact(entry)
 			&& entry.path.startsWith(runtimePrefix) && !entry.path.slice(runtimePrefix.length).includes('/../'))
 		&& (target.isolation.entrypointPath === target.pluginPeer.path
@@ -345,6 +357,7 @@ function assertBuildResultMatchesTarget(result, target) {
 		&& sameJson(staged(result.isolation.sandboxProfile), target.isolation.sandboxProfile)
 		&& sameJson(staged(result.isolation.brokerPolicy), target.isolation.brokerPolicy)
 		&& sameJson(result.isolation.runtimeClosure.map(staged), target.isolation.runtimeClosure)
+		&& sameJson(result.isolation.pluginResources.map(staged), target.isolation.pluginResources)
 		&& buildResultVerificationFor(result, 'toolchain').identity === target.toolchainIdentity
 		&& sameJson(buildResultVerificationFor(result, 'source-authentication').authentication,
 			target.sourceAuthentication),
@@ -413,7 +426,7 @@ function assertRelease(release) {
 	for (const artifact of release.payload ? [release.buildResult,
 		...(release.osAudioCodec === null ? [] : [release.osAudioCodec]),
 		release.pluginPeer, release.deliveryFilesystem, release.isolation.launcher,
-		release.isolation.sandboxProfile, release.isolation.brokerPolicy, ...release.isolation.runtimeClosure] : []) {
+		release.isolation.sandboxProfile, release.isolation.brokerPolicy, ...release.isolation.runtimeClosure, ...release.isolation.pluginResources] : []) {
 		verifyBytes(artifact.bytes, artifact, 'buffered professional native artifact');
 	}
 }

@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { addDeliveryReportItem, type createDeliveryReport } from './delivery-report.ts';
-import { parameterToLinearGain, parameterToPan } from './dawproject-format.ts';
+import { parameterToPan } from './dawproject-format.ts';
 import type { DawprojectChannel, DawprojectDocument, DawprojectTrack } from './dawproject-import.ts';
-import type { DawprojectAudioEvent, DawprojectAutomationEvent, DawprojectAutomationPoint } from './dawproject-import-timeline.ts';
-import { dawprojectImportedVolumeCurve } from './dawproject-import-volume-curve.ts';
+import type { MixerGraphV21 } from './mixer-graph-v21.ts';
+import type { AutomationLaneV21 } from './automation-lane-v21.ts';
+import type { ParameterAddress } from './parameter-address.ts';
 import { dawprojectStaticGain } from './dawproject-import-gain.ts';
+import { readDawprojectMidiTrackComment } from './dawproject-midi-metadata.ts';
+import { withMidiTrackData } from './midi-model.ts';
 import { dawprojectImportColor } from './dawproject-colors.ts';
 
 /**
@@ -32,9 +35,11 @@ export interface EnvelopePoint {
 }
 
 export interface TrackBuild {
+	readonly opaqueExtensions?: Readonly<Record<string, unknown>>;
 	readonly id: string;
 	readonly name: string;
 	readonly color?: string;
+	effects?: readonly Readonly<Record<string, unknown>>[];
 	gain: number;
 	readonly pan: number;
 	readonly mute: boolean;
@@ -47,6 +52,7 @@ export interface StripBuild {
 	readonly id: string;
 	readonly name: string;
 	readonly channelCount?: number;
+	effects?: readonly Readonly<Record<string, unknown>>[];
 	gain: number;
 	readonly pan: number;
 	readonly mute: boolean;
@@ -57,7 +63,12 @@ export interface StripBuild {
 export interface ParameterTarget {
 	readonly kind: 'track' | 'master' | 'group' | 'send';
 	readonly id: string | null;
-	readonly parameter: 'volume' | 'pan' | 'mute';
+	readonly parameter: 'volume' | 'pan' | 'mute' | 'effect';
+	readonly address?: ParameterAddress;
+	readonly inactive?: boolean;
+	readonly convert?: (value: number) => number;
+	readonly minimum?: number;
+	readonly maximum?: number;
 	readonly unit: string | null;
 }
 
@@ -69,6 +80,8 @@ export interface DawprojectImportNodeRoute {
 
 /** Per-import graph semantics that the shared numeric-send document cannot carry. */
 export interface DawprojectImportRoutingContext {
+	readonly mixerGraph?: MixerGraphV21;
+	readonly automationLanes?: readonly AutomationLaneV21[];
 	readonly sendTaps: readonly Readonly<{ trackId: string; sendId: string; level?: number; position: 'pre-fader' | 'post-fader' }>[];
 	readonly nodeRoutes?: readonly DawprojectImportNodeRoute[];
 	readonly stripChannelCounts?: readonly Readonly<{ id: string; channelCount: number }>[];
@@ -76,6 +89,7 @@ export interface DawprojectImportRoutingContext {
 
 export interface Build {
 	readonly draft: Draft;
+	readonly automationLanes: AutomationLaneV21[];
 	readonly sampleRate: number;
 	readonly createStableId: (prefix: string) => string;
 	readonly tracks: TrackBuild[];
@@ -100,7 +114,6 @@ export interface Build {
 	devices: number;
 }
 
-const MAXIMUM_ENVELOPE_VALUE = 4;
 
 export function walkTrack(track: DawprojectTrack, parentFolderId: string | null, build: Build, document: DawprojectDocument): void {
 	const channel = track.channel;
@@ -121,7 +134,7 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 				// duplicate them as independent mixer mute or solo state.
 				build.groups.push({ ...strip(id, name, channel, build), mute: false, solo: false });
 				if (channel.id) build.busByChannelId.set(channel.id, id);
-				registerParameters(channel, { kind: 'group', id }, build);
+				registerParameters(channel, { kind: 'group', id, inactive: track.loaded === false }, build);
 			} else {
 				addDeliveryReportItem(build.draft, {
 					code: 'dawproject.nested-bus-converted', disposition: 'converted', severity: 'warning',
@@ -137,36 +150,41 @@ export function walkTrack(track: DawprojectTrack, parentFolderId: string | null,
 	if (role === 'master') {
 		build.master = strip('master', 'Master', channel!, build, track.loaded === false);
 		build.masterChannels = channel!.audioChannels ?? 2;
-		registerParameters(channel!, { kind: 'master', id: null }, build);
+		registerParameters(channel!, { kind: 'master', id: null, inactive: track.loaded === false }, build);
 		return;
 	}
 	if (role === 'submix' || role === 'effect') {
 		const id = build.createStableId(role === 'submix' ? 'group-bus' : 'send-bus');
-		(role === 'submix' ? build.groups : build.sends).push(strip(id, track.name || (role === 'submix' ? 'Group' : 'Send'), channel!, build, track.loaded === false));
+		const strips = role === 'submix' ? build.groups : build.sends;
+		const fallbackName = `${role === 'submix' ? 'Group' : 'Send'} ${String(strips.length + 1)}`;
+		strips.push(strip(id, track.name.trim() || fallbackName, channel!, build, track.loaded === false));
 		if (channel!.id) {
 			build.stripByChannelId.set(channel!.id, { kind: role === 'submix' ? 'group' : 'send', id });
 			build.busByChannelId.set(channel!.id, id);
 		}
-		registerParameters(channel!, { kind: role === 'submix' ? 'group' : 'send', id }, build);
+		registerParameters(channel!, { kind: role === 'submix' ? 'group' : 'send', id, inactive: track.loaded === false }, build);
 		return;
 	}
 	if (role === 'vca') {
 		build.omittedNodes += 1;
 		return;
 	}
-	if (track.contentTypes.length > 0 && !track.contentTypes.includes('audio')) {
+	if (track.contentTypes.length > 0 && !track.contentTypes.includes('audio') && !track.contentTypes.includes('notes')) {
 		build.omittedTracks += 1;
 		addDeliveryReportItem(build.draft, {
 			code: 'dawproject.track-content-omitted', disposition: 'omitted', severity: 'warning',
 			scope: { kind: 'track', id: track.id ?? track.name },
 			data: { name: track.name, contentTypes: track.contentTypes },
-			message: 'The track holds no audio; note, automation, and video tracks have no audio track to become.',
+			message: 'The track holds no audio or notes; automation and video tracks have no audio track to become.',
 		});
 		return;
 	}
 	const built = createAudioTrack(track.name, channel, build, track.color, track.loaded === false);
+	const midi = readDawprojectMidiTrackComment(track.comment);
+	if (midi || track.contentTypes.includes('notes')) Object.assign(built,
+		withMidiTrackData({ ...built, type: 'audio' }, midi ?? { version: 1, instrument: 'triangle' }));
 	if (track.id) build.trackByDawId.set(track.id, built);
-	if (channel) registerParameters(channel, { kind: 'track', id: built.id }, build);
+	if (channel) registerParameters(channel, { kind: 'track', id: built.id, inactive: track.loaded === false }, build);
 	build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId });
 	build.parentFolderIds.set(built.id, parentFolderId);
 }
@@ -224,7 +242,7 @@ function importedMute(inactive: boolean, mute: boolean | null | undefined, build
 	return inactive || mute === true;
 }
 
-function registerParameters(channel: DawprojectChannel, target: Readonly<{ kind: ParameterTarget['kind']; id: string | null }>, build: Build): void {
+function registerParameters(channel: DawprojectChannel, target: Readonly<{ kind: ParameterTarget['kind']; id: string | null; inactive?: boolean }>, build: Build): void {
 	if (channel.volume?.id) build.parameters.set(channel.volume.id, { ...target, parameter: 'volume', unit: channel.volume.unit });
 	if (channel.pan?.id) build.parameters.set(channel.pan.id, { ...target, parameter: 'pan', unit: channel.pan.unit });
 	if (channel.mute?.id) build.parameters.set(channel.mute.id, { ...target, parameter: 'mute', unit: null });
@@ -257,6 +275,7 @@ export function resolveRouting(document: DawprojectDocument, build: Build): void
 			const target = build.stripByChannelId.get(send.destination);
 			if (target?.kind !== 'send') continue;
 			route.sends[target.id] = dawprojectStaticGain(send.volume, build.draft, { kind: 'track', id: built.id, sendId: target.id });
+			if (send.volume?.id) build.parameters.set(send.volume.id, { kind: 'track', id: built.id, parameter: 'volume', unit: send.volume.unit, address: { kind: 'edge', edgeId: `imported-track-send:${String(build.sendTaps.length)}`, parameterId: 'level' } });
 			build.sendTaps.push({ trackId: built.id, sendId: target.id, level: route.sends[target.id],
 				position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 		}
@@ -282,6 +301,7 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 		if (!send.enabled || !send.destination) continue;
 		const target = build.stripByChannelId.get(send.destination);
 		if (target?.kind !== 'send') continue;
+		if (send.volume?.id) build.parameters.set(send.volume.id, { kind: 'group', id: busId, parameter: 'volume', unit: send.volume.unit, address: { kind: 'edge', edgeId: `imported-bus-send:${busId}:${String(sends.length)}`, parameterId: 'level' } });
 		sends.push({ sendId: target.id, level: dawprojectStaticGain(send.volume, build.draft, { kind: 'mixer-node', id: busId, sendId: target.id }),
 			position: send.type === 'pre' ? 'pre-fader' : 'post-fader' });
 	}
@@ -289,7 +309,7 @@ function resolveBusRouting(channel: DawprojectChannel, build: Build): void {
 		sends });
 }
 
-export function trackForEvent(event: DawprojectAudioEvent, build: Build, document: DawprojectDocument): TrackBuild {
+export function trackForEvent(event: Readonly<{ trackId: string | null }>, build: Build, document: DawprojectDocument): TrackBuild {
 	if (event.trackId) {
 		const existing = build.trackByDawId.get(event.trackId);
 		if (existing) return existing;
@@ -299,7 +319,14 @@ export function trackForEvent(event: DawprojectAudioEvent, build: Build, documen
 		// Its channel state belongs to that bus, never to this synthetic leaf too.
 		const built = createAudioTrack(declared?.name ?? event.trackId, folderId ? null : declared?.channel ?? null, build, declared?.color, !folderId && declared?.loaded === false);
 		build.trackByDawId.set(event.trackId, built);
-		build.trackNodes.push({ kind: 'track', id: built.id, parentFolderId: folderId });
+		const node = { kind: 'track', id: built.id, parentFolderId: folderId };
+		if (folderId) {
+			const index = build.trackNodes.findIndex(node => node.id === folderId) + 1;
+			const trackIndex = build.trackNodes.slice(0, index).filter(node => node.kind === 'track').length;
+			build.trackNodes.splice(index, 0, node);
+			build.tracks.pop();
+			build.tracks.splice(trackIndex, 0, built);
+		} else build.trackNodes.push(node);
 		build.parentFolderIds.set(built.id, folderId);
 		return built;
 	}
@@ -320,80 +347,8 @@ function findTrack(tracks: readonly DawprojectTrack[], id: string): DawprojectTr
 	return null;
 }
 
-export function applyAutomation(events: readonly DawprojectAutomationEvent[], build: Build): void {
-	for (const event of events) {
-		const target = event.parameterId ? build.parameters.get(event.parameterId) : undefined;
-		if (!target) {
-			addDeliveryReportItem(build.draft, {
-				code: 'dawproject.automation-omitted', disposition: 'omitted', severity: 'warning',
-				scope: { kind: 'automation', id: event.parameterId ?? '' }, data: { points: event.points.length },
-				message: 'The automation targets a parameter that is not a written channel\'s volume, pan, or mute — a plug-in or an unknown id — and is not imported.',
-			});
-			continue;
-		}
-		if (target.parameter !== 'volume') {
-			addDeliveryReportItem(build.draft, {
-				code: 'dawproject.automation-omitted', disposition: 'omitted', severity: 'warning',
-				scope: { kind: 'automation', id: event.parameterId ?? '' }, data: { parameter: target.parameter, points: event.points.length },
-				message: 'Only volume automation has a track envelope to become; pan and mute automation are not imported.',
-			});
-			continue;
-		}
-		const visible = visibleAutomationPoints(event.points);
-		const envelope = dawprojectImportedVolumeCurve(visible, event.unit ?? target.unit, MAXIMUM_ENVELOPE_VALUE);
-		let held = 0;
-		let clamped = 0;
-		for (const point of visible) {
-			const value = parameterToLinearGain(point.value, event.unit ?? target.unit);
-			if (value === null) continue;
-			if (value > MAXIMUM_ENVELOPE_VALUE) clamped += 1;
-			if (point.interpolation === 'hold') held += 1;
-		}
-		if (envelope.length === 0) continue;
-		const owner = target.kind === 'master'
-			? build.master
-			: target.kind === 'track'
-				? build.tracks.find((track) => track.id === target.id)
-				: [...build.groups, ...build.sends].find((candidate) => candidate.id === target.id);
-		if (!owner) continue;
-		// DAWproject automates the parameter itself, while this legacy envelope
-		// multiplies its static fader. Retire that multiplier before promotion.
-		owner.gain = 1;
-		owner.envelope = envelope;
-		if (clamped > 0) addDeliveryReportItem(build.draft, {
-			code: 'dawproject.automation-gain-clamped', disposition: 'converted', severity: 'warning',
-			scope: { kind: target.kind, id: target.id ?? 'master' },
-			data: { points: clamped, maximum: MAXIMUM_ENVELOPE_VALUE },
-			message: 'Volume automation exceeds the supported strip gain range; those values are limited to its maximum.',
-		});
-		if (held > 0) {
-			addDeliveryReportItem(build.draft, {
-				code: 'dawproject.automation-hold-converted', disposition: 'converted', severity: 'info',
-				scope: { kind: target.kind, id: target.id ?? 'master' }, data: { points: held },
-				message: 'Volume envelopes interpolate linearly here; a held automation point becomes a line to the next.',
-			});
-		}
-		addDeliveryReportItem(build.draft, {
-			code: 'dawproject.automation-preserved', disposition: 'preserved', severity: 'info',
-			scope: { kind: target.kind, id: target.id ?? 'master' }, data: { points: envelope.length },
-			message: 'Volume automation becomes the strip\'s envelope.',
-		});
-	}
-}
-
-function visibleAutomationPoints(points: readonly DawprojectAutomationPoint[]): readonly DawprojectAutomationPoint[] {
-	const visible = points.filter((point) => point.frame >= 0);
-	const previous = points.filter((point) => point.frame < 0).at(-1);
-	if (!previous || visible[0]?.frame === 0) return visible;
-	const next = visible[0];
-	const value = previous.interpolation === 'linear' && next
-		? previous.value + (next.value - previous.value) * -previous.frame / (next.frame - previous.frame)
-		: previous.value;
-	return [{ frame: 0, value, interpolation: previous.interpolation }, ...visible];
-}
-
 export function stripRecord(value: StripBuild): DataRecord {
-	return { id: value.id, name: value.name, gain: value.gain, pan: value.pan, mute: value.mute, solo: value.solo, envelope: value.envelope };
+	return { id: value.id, name: value.name, gain: value.gain, pan: value.pan, mute: value.mute, solo: value.solo, envelope: value.envelope, effects: value.effects ?? [] };
 }
 
 function panOf(parameter: Readonly<{ value: number | null; unit: string | null }> | null | undefined): number {

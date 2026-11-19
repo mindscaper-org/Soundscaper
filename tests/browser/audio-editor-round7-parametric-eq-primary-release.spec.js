@@ -10,7 +10,7 @@ for (const kind of ['band', 'output']) test(`Parametric EQ ${kind} completes at 
 	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: `Parametric ${kind} recording.wav`, frequency: 500,
 		duration: 1, channelCount: 1, channelAmplitudes: [.15] });
 	await importFiles(editor, [recording]);
@@ -64,7 +64,7 @@ test('Parametric output retains native keyboard and outside mouse completion wit
 	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'Outside Parametric recording.wav', frequency: 500,
 		duration: 1, channelCount: 1, channelAmplitudes: [.15] });
 	await importFiles(editor, [recording]);

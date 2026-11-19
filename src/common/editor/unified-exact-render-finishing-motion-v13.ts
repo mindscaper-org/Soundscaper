@@ -8,7 +8,7 @@ import {
 	type VideoSimilarityTransformV1,
 } from './video-motion-processing-v27.ts';
 import type { UnifiedExactRenderRgbaFrameV13 } from './unified-exact-render-finishing-consumers-v13.ts';
-import { sampleUnifiedExactRgbaChannelV13 } from './unified-exact-rgba-sampling-v13.ts';
+import { writeUnifiedExactRgbaSampleV13 } from './unified-exact-rgba-sampling-v13.ts';
 
 /** Compose first then second. */
 export function composeMotion(
@@ -57,11 +57,7 @@ export function warpApplied(
 			const sourceY = sine * x + cosine * y + sourceTransform.translateY;
 			const offset = (y * frame.width + x) * 4;
 			if (sourceX < 0 || sourceY < 0 || sourceX > frame.width - 1 || sourceY > frame.height - 1) continue;
-			for (let channel = 0; channel < 4; channel += 1) {
-				pixels[offset + channel] = Math.round(
-					sampleUnifiedExactRgbaChannelV13(frame, sourceX, sourceY, channel),
-				);
-			}
+			writeUnifiedExactRgbaSampleV13(frame, sourceX, sourceY, pixels, offset);
 		}
 	}
 	return Object.freeze({ width: frame.width, height: frame.height, pixels });

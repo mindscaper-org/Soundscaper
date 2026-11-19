@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('source editor effects target the selected phase of a repeated clip', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'source-wave-cycle.wav', frequency: 1000,
 		duration: 0.002, channelCount: 1 });
 	await importFiles(editor, [recording]);

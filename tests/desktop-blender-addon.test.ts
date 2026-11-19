@@ -19,6 +19,7 @@ for (const [scenario, description] of [
 	['validation', 'rejects unsafe paths and malformed track manifests before importing'],
 	['reconcile', 'reconciles audio revisions by track identity and preserves unrelated Blender strips'],
 	['legacy', 'supports Blender 4.2 sequences and fractional frame rates'],
+	['meta', 'reconciles managed sounds nested in Meta strips without duplicating playback'],
 	['channels', 'preflights Blender channel capacity before changing existing strips'],
 	['connection', 'accepts only authenticated loopback connections and rejects redirects'],
 	['live', 'receives real IPC updates off-thread and applies audio changes on the Blender timer'],

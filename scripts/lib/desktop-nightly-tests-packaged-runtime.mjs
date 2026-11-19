@@ -31,7 +31,8 @@ export function packagedRuntimeChromiumArguments(platform) {
 
 export async function seedDesktopNightlyPackagedLocale(profile) {
 	assertAbsolute(profile, 'Packaged runtime profile');
-	await writeFile(join(profile, 'desktop-settings.json'), JSON.stringify({ schemaVersion: 1, locale: 'en' }));
+	// This disposable profile has no interactive owner to answer native update dialogs.
+	await writeFile(join(profile, 'desktop-settings.json'), JSON.stringify({ schemaVersion: 1, locale: 'en', updatesEnabled: false }));
 }
 
 export function createDesktopNightlyTestsPackagedMetricsPlan({

@@ -13,7 +13,7 @@
  *
  * **Nothing is read that the visitor did not tick**, and the ticked set is read
  * back at the moment consent is given rather than at the moment the button was
- * pressed. `selectionPredicate()` is the only thing an exporter is ever handed.
+ * pressed. `trackTransferSelection()` admits only those selected projects.
  *
  * **Every ticked row is accounted for.** The page deliberately offers rows it
  * knows cannot cross, so it must also report them: `refusedChoices()` carries
@@ -53,12 +53,12 @@ import {
 import {
 	describeTransferProduct,
 	listTransferProjects,
+	trackTransferSelection,
 	transferProductForOrigin,
 	type TransferProjectOffer,
 } from './transfer-project-selection.ts';
 import type { TransferChoiceHandle } from './transfer-page-view.ts';
 import type { TransferPageContext } from './transfer-page-context.ts';
-import { readProjectSchemaIdentity } from '../editor/project-schema-identity.ts';
 import {
 	parseCrossProductHandoffLaunchIntent,
 	type CrossProductHandoffLaunchIntentV1,
@@ -81,14 +81,27 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 	let offers: readonly TransferProjectOffer[] = [];
 	let choices: TransferChoiceHandle | null = null;
 	let activeSend: Promise<void> | null = null;
+	let transportActive = false;
 	const archiveSaver = createArchiveSaver(context.scope);
+	const transportBusy = (): boolean => {
+		if (!transportActive) return false;
+		view.status('Wait for the current project transfer to finish.', 'error');
+		return true;
+	};
 
 	const download = view.action('Download the ticked archives', async () => {
+		if (transportBusy()) return;
 		const chosen = requireChosen(context, choices, offers, intent);
 		if (!chosen) return;
-		await runSenderDownload(context, chosen, archiveSaver);
+		transportActive = true;
+		try {
+			await runSenderDownload(context, chosen, archiveSaver);
+		} finally {
+			transportActive = false;
+		}
 	});
 	const send = view.action(`Send the ticked projects to ${configuration.peerOrigin}`, async () => {
+		if (transportBusy()) return;
 		if (activeSend !== null) {
 			view.status('A project transfer is already awaiting confirmation or in progress.', 'error');
 			return;
@@ -97,6 +110,7 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 		const confirmationOffers = offers;
 		const chosen = requireChosen(context, confirmationChoices, confirmationOffers, intent);
 		if (!chosen || !confirmationChoices) return;
+		const reviewedProjectIds = new Set(chosen.map(({ projectId }) => projectId));
 		// Confirmed by name before anything is read, let alone posted - and
 		// counted over what can actually cross. A ticked row this page cannot
 		// move is still listed below with its reason, but it is not one of the
@@ -112,19 +126,29 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 				confirmLabel: `Yes, send ${sending === 1 ? 'it' : 'these'}`,
 				cancelLabel: 'Cancel',
 				cancel: finish,
-				// Read back a second time, at the moment consent is actually given.
-				// The confirmation is a panel on the page, not a modal that takes the
-				// boxes away, so the set ticked when Send was clicked is not
-				// necessarily the set the visitor means now - and the set they mean
-				// now is the only one this page is entitled to read. Still
-				// synchronous, because the popup below has to open inside this click.
+				// Projects can be unticked while the panel is open. Any unreviewed
+				// selection needs a new prompt before opening the popup.
 				confirm: async () => {
 					try {
+					if (transportBusy()) return;
+						if (choices !== confirmationChoices) {
+							view.status('The project list changed. Please choose Send again to review it.', 'error');
+							return;
+						}
 						const confirmed = requireChosen(
 							context, confirmationChoices, confirmationOffers, intent,
 						);
 						if (!confirmed) return;
+						if (confirmed.some(({ projectId }) => !reviewedProjectIds.has(projectId))) {
+							view.status('The selection changed. Please choose Send again to review it.', 'error');
+							return;
+						}
+					transportActive = true;
+					try {
 						await runSenderHandshake(context, confirmed, confirmationChoices);
+					} finally {
+						transportActive = false;
+					}
 					} finally {
 						finish();
 					}
@@ -179,8 +203,14 @@ export async function mountSender(context: TransferPageContext): Promise<void> {
 		download.disabled = offers.length === 0;
 		send.disabled = offers.length === 0;
 	};
-	view.action('Find my projects', findProjects);
-	if (intent) await findProjects();
+	const find = view.action('Find my projects', findProjects);
+	if (!intent) return;
+	find.disabled = true;
+	try {
+		await findProjects();
+	} finally {
+		find.disabled = false;
+	}
 }
 
 function bindOffersToIntent(
@@ -232,25 +262,6 @@ function requireChosen(
 	return chosen;
 }
 
-/** The exporter never sees a project the visitor did not tick. */
-function selectionPredicate(chosen: readonly TransferProjectOffer[]): (project: { id: string }) => boolean {
-	const ticked = new Set(chosen
-		.filter((offer) => offer.storeProjectId !== null)
-		.map((offer) => offer.schemaFamily === null
-			? offer.storeProjectId as string
-			: `${offer.schemaFamily}:${offer.storeProjectId as string}`));
-	return (project) => {
-		let key = project.id;
-		try {
-			key = `${readProjectSchemaIdentity(project).schemaFamily}:${project.id}`;
-		} catch {
-			// A malformed identity was never preselected, but remains visible for
-			// explicit custody. Its raw id is the only selection handle available.
-		}
-		return ticked.has(key);
-	};
-}
-
 /**
  * The ticked rows a transport can actually be given.
  *
@@ -289,20 +300,21 @@ async function runSenderDownload(
 	const runtime = await context.dependencies.loadRuntime();
 	const exportingRuntime = editableRuntime(runtime, context);
 	const source = await context.dependencies.openStore();
+	const selection = trackTransferSelection(transferable);
 	try {
 		const report = await downloadTransferArchives({
 			archives: streamTransferArchives({
 				confirmFileSizeWarning: context.confirmFileSizeWarning,
 				runtime: exportingRuntime,
 				store: source.store as ExportStore,
-				select: selectionPredicate(transferable),
+				select: selection.select,
 				maximumTotalBytes: null,
 				onProgress: (progress) => view.status(exportProgressText(progress)),
 			}),
 			save: (entry) => saver.saveArchive(entry.bytes, entry.fileName, entry.mimeType),
 			saveSidecar: (file) => saver.saveCompanion(file.bytes, file.fileName, file.mimeType),
 		});
-		view.report(withRefusedTransferChoices(describeTransferDownload(report), refused));
+		view.report(withRefusedTransferChoices(describeTransferDownload(report, [...report.exportFailures, ...selection.missing()]), refused));
 	} finally {
 		await source.close().catch(() => undefined);
 	}
@@ -357,6 +369,7 @@ async function runSenderHandshake(
 		const exportingRuntime = editableRuntime(runtime, context);
 		source = await context.dependencies.openStore();
 		const exportStore = source.store as ExportStore;
+		const selection = trackTransferSelection(transferable);
 		const report = await sendTransferArchives({
 			confirmFileSizeWarning: context.confirmFileSizeWarning,
 			runtime: exportingRuntime,
@@ -367,14 +380,16 @@ async function runSenderHandshake(
 				signal,
 				runtime: exportingRuntime,
 				store: exportStore,
-				select: selectionPredicate(transferable),
+				select: selection.select,
 				onProgress: (progress) => view.status(exportProgressText(progress)),
 			}),
 			port,
 			targetOrigin: configuration.peerOrigin,
 			allowedOrigins: configuration.allowedOrigins,
 		});
-		view.report(withRefusedTransferChoices(describeTransferSend(report), refused));
+		const missing = report.completed ? selection.missing() : [];
+		view.report(withRefusedTransferChoices(describeTransferSend({ ...report, total: report.total + missing.length,
+			failed: report.failed + missing.length, exportFailures: [...report.exportFailures, ...missing] }), refused));
 	} catch (error) {
 		notifyTransferPeerOfSenderFailure(port, configuration.peerOrigin, error);
 		view.status(

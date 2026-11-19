@@ -16,11 +16,9 @@ async function contrast(locator, property = 'color', minimum = 4.5, outside = fa
 	await expect(locator.first()).toBeVisible();
 	for (const element of await locator.all()) {
 		if (!await element.isVisible() || !await element.isEnabled()) continue;
-		await element.evaluate(async (node) => {
+		const result = await element.evaluate(async (node, { property, outside }) => {
 			getComputedStyle(node).backgroundColor;
 			await Promise.all(node.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => {})));
-		});
-		const result = await element.evaluate((node, { property, outside }) => {
 			const rgb = (value) => {
 				const values = value.match(/[\d.]+/gu).map(Number);
 				if (value.startsWith('color(srgb ')) return values.map((v, i) => i < 3 ? v * 255 : v);
@@ -80,6 +78,30 @@ for (const product of ['soundscaper', 'framescaper']) {
 	test.describe(`${product} skin contrast`, () => {
 		registerAudioEditorHooks();
 		const path = product === 'soundscaper' ? '/embed/en/' : '/framescaper/embed/en/';
+		for (const mode of ['Light', 'Dark']) {
+			test(`high-contrast/${mode} keeps track headings, labels, rulers and meters readable`, async ({ page }, testInfo) => {
+				const editor = await bootEditor(page, path);
+				await importFiles(editor, [monoTone]);
+				await chooseCommandAction(page, editor, 'Edit', 'Add label');
+				await page.keyboard.press('Escape');
+				const dialog = await appearance(page, editor);
+				await dialog.getByRole('radio', { name: mode, exact: true }).click();
+				await dialog.getByRole('button', { name: 'High-contrast theme', exact: true }).click();
+				await expect(editor).toHaveAttribute('data-editor-skin', 'high-contrast');
+				await expect(page.locator('html')).toHaveAttribute('data-theme', mode.toLowerCase());
+				await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
+				await contrast(editor.locator('.audio-editor-ruler-corner'));
+				await contrast(editor.locator('.audio-editor-label-track-title [data-track-name]'));
+				// Framescaper exposes playback metering; Soundscaper also has recording metering.
+				const meters = product === 'soundscaper' ? ['playback-meter', 'recording-meter'] : ['playback-meter'];
+				for (const panel of meters) {
+					await contrast(editor.locator(`[data-workspace-panel="${panel}"] .kw-audio-editor__playback-meter-ruler span`));
+				}
+				await contrast(editor.locator('.audio-editor-vertical-ruler .vertical-ruler__label'));
+				await contrast(editor.locator('.vertical-ruler__tick-mark'), 'backgroundColor', 3, true);
+				await capturePassingScreenshot(page, { path: testInfo.outputPath(`High-contrast-${mode}.png`) });
+			});
+		}
 		for (const skin of ['sakura', 'lilac', 'techno']) {
 			for (const mode of ['Light', 'Dark']) {
 				test(`${skin}/${mode} scale, dialogs, buttons, checkboxes and portals`, async ({ page }) => {
@@ -119,13 +141,18 @@ for (const product of ['soundscaper', 'framescaper']) {
 					await page.mouse.up();
 					await dialog.getByRole('tab', { name: /Track display$/u }).click();
 					await dialog.getByRole('group', { name: 'Default view', exact: true }).getByRole('button').click();
-					await contrast(page.getByRole('listbox', { name: 'Default view', exact: true }).getByRole('option'));
+					await contrast(page.getByRole('listbox', { name: /^Default view(?::|$)/u }).getByRole('option'));
 					await page.keyboard.press('Escape');
 					await button.click();
 					const labels = editor.locator('.audio-editor-vertical-ruler .vertical-ruler__label');
 					await expect(labels.first()).toBeVisible();
 					await expect(page.locator('html')).toHaveAttribute('data-theme', mode.toLowerCase());
 					await contrast(labels);
+					const rulerBackground = await editor.locator('.audio-editor-vertical-ruler').first()
+						.evaluate((node) => getComputedStyle(node).backgroundColor);
+					// The rightmost gradient continues the ruler through empty timeline space.
+					await expect(editor.locator('.audio-editor-timeline-scroll'))
+						.toHaveCSS('background-image', new RegExp(`${RegExp.escape(rulerBackground)} 1px\\)`));
 					await contrast(editor.locator('.vertical-ruler__tick-mark'), 'backgroundColor', 3, true);
 					if (product === 'soundscaper') {
 						await chooseNestedCommandAction(page, editor, 'View', ['Workspace', 'Audacity']);
@@ -134,7 +161,7 @@ for (const product of ['soundscaper', 'framescaper']) {
 						await chooseCommandAction(page, editor, 'Generate', 'Tone');
 						const generator = page.getByRole('dialog', { name: 'Tone', exact: true });
 						await expect(generator).toBeVisible();
-						await contrast(generator.locator('input'));
+						await contrast(generator.getByRole('textbox'));
 						for (const variant of ['primary', 'secondary']) {
 							const action = generator.locator(`.button--${variant}`).first();
 							await contrast(action);

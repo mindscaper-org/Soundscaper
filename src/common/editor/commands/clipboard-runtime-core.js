@@ -180,6 +180,8 @@ export function createClipboardRuntimeOwner(owner) {
 						...(typeof segment.linkPitchAndTempo === 'boolean' ? { linkPitchAndTempo: segment.linkPitchAndTempo } : {}),
 						...(typeof segment.preserveFormants === 'boolean' ? { preserveFormants: segment.preserveFormants } : {}),
 						...(typeof segment.stretchToTempo === 'boolean' ? { stretchToTempo: segment.stretchToTempo } : {}),
+						...(Array.isArray(segment.effects) ? { effects: structuredClone(segment.effects) } : {}),
+						...(typeof segment.effectsActive === 'boolean' ? { effectsActive: segment.effectsActive } : {}),
 						opaqueExtensions: structuredClone(midiTransferExtensions(segment, track)),
 						...(Number.isSafeInteger(segment.renderCacheRevision) ? {
 							renderCacheRevision: segment.renderCacheRevision,
@@ -203,7 +205,7 @@ export function createClipboardRuntimeOwner(owner) {
 				};
 			}),
 			...(currentClipboard ? {
-				annotations: createTimelineAnnotationClipboardDescriptors(project, {
+				annotations: options.includeTimelineAnnotations === false ? [] : createTimelineAnnotationClipboardDescriptors(project, {
 					startFrame: range.startFrame,
 					endFrame: range.endFrame,
 					sourceSequenceIds,
@@ -256,7 +258,7 @@ export function createClipboardRuntimeOwner(owner) {
 		};
 		preparePasteAnnotationMaps(normalizedClipboard, options, command, idFactory);
 		prepareTakeIds(normalizedClipboard, command, idFactory);
-		if (options.project) preparePasteCollisionIds(options.project, command, idFactory);
+		if (options.project) preparePasteCollisionIds(options.project, command, idFactory, options.rippleTrackIds);
 		return command;
 	}
 
@@ -385,12 +387,16 @@ export function createClipboardRuntimeOwner(owner) {
 		commitTakePaste();
 	}
 
-	function preparePasteCollisionIds(project, command, idFactory) {
+	function preparePasteCollisionIds(project, command, idFactory, rippleTrackIds) {
 		const scale = project.sampleRate / command.clipboard.sampleRate;
 		const durationFrames = Math.max(1, Math.round(command.clipboard.durationFrames * scale));
 		const conformsToVideoGrid = hasSequenceGeometryProjectAuthority(project)
 			&& clipboardContainsVideo(command.clipboard);
 		const targetIds = new Set((command.clipboard.tracks || []).map((track) => command.trackMap?.[track.sourceTrackId] || track.sourceTrackId));
+		if (rippleTrackIds) {
+			if (command.mode !== 'insert-track') throw new RangeError('Scoped ripple tracks require insert-track paste.');
+			for (const id of rippleTrackIds) { requireTrack(project, id); targetIds.add(id); }
+		}
 		const targetTracks = command.mode === 'insert-all'
 			? project.tracks.filter((track) => Array.isArray(track.clipIds))
 			: project.tracks.filter((track) => targetIds.has(track.id) && Array.isArray(track.clipIds));
@@ -424,7 +430,7 @@ export function createClipboardRuntimeOwner(owner) {
 		const collisionClipIdSet = new Set(collisionClipIds);
 		const tracks = project.tracks.filter((track) => (
 			Array.isArray(track.clipIds)
-			&& track.clipIds.some((clipId) => collisionClipIdSet.has(clipId))
+			&& (track.clipIds.some((clipId) => collisionClipIdSet.has(clipId)) || rippleTrackIds?.includes(track.id))
 		));
 		command.collisionClipIds = collisionClipIds;
 		command.collisionTrackIds = tracks.map((track) => track.id);

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
+	localAssistanceMusicTranscription: 'Audio to MIDI (Basic Pitch)',
+	localAssistanceMusicNotes: '{count} detected notes. Accept to create an editable MIDI track alongside the original audio. Review and audition it in the piano roll.',
 	localAssistanceChoiceCaptionOne: "{count} caption cue",
 	localAssistanceChoiceCaptionOther: "{count} caption cues",
 	localAssistanceChoiceCleanup: "Cleanup edit {index}",
@@ -75,6 +77,13 @@ export const LOCAL_ASSISTANCE_ADDITIONAL_COPY = Object.freeze({
 	localAssistanceHighlightTitle: "Title",
 	localAssistanceHighlightTransportPreview: "Transport preview",
 	localAssistanceHighlightTrimSnap: "Trim values snap inward to exact admitted source-time boundaries.",
+	'localAssistanceEnhancer.deepfilternet3': 'DeepFilterNet3',
+	'localAssistanceEnhancer.gtcrn': 'GTCRN — lightweight noise reduction',
+	'localAssistanceEnhancer.dpdfnet2-48khz': 'DPDFNet2 — 48 kHz noise reduction',
+	'localAssistanceEnhancer.voxlock': 'VoxLock — isolate the main voice',
+	'localAssistanceEnhancer.voicefixer': 'VoiceFixer — speech declipping and restoration',
+	localAssistanceVoiceFixerScope: 'Restores clipped speech and can also change noise, room sound, and voice timbre. Designed for speech recordings. Processing can be slow without a GPU.',
+	localAssistanceVoxLockReference: 'Keeps the voice in the loudest three seconds of the first 15 seconds. Select at least three seconds containing the voice you want to keep. Other voices may be removed.',
 	localAssistanceLanguage: "Language",
 	localAssistanceLanguageAuto: "Automatic",
 	localAssistanceLanguageEnglish: "English",

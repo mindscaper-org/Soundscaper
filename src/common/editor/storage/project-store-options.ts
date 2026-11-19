@@ -8,6 +8,7 @@ export interface AudioEditorProjectStoreOptions {
 	readonly databaseName?: string;
 	readonly projectStorageProfile?: unknown;
 	readonly memoryFallback?: boolean;
+	readonly ephemeralMemory?: boolean;
 	readonly storageManager?: StorageManager | null;
 	readonly opfsRoot?: FileSystemDirectoryHandle | null;
 	readonly preferOpfs?: boolean;

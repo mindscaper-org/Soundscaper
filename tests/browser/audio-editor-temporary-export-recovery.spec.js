@@ -1,3 +1,4 @@
+import { originPrivateFileSystemAvailable } from './helpers/storage-capabilities.js';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
@@ -14,7 +15,7 @@ test.describe('temporary export recovery', () => {
 	test('reload removes an abandoned OPFS export', async ({ page }) => {
 		const errors = collectClientErrors(page);
 		await bootEditor(page, '/embed/en/');
-		test.skip(!await page.evaluate(() => typeof navigator.storage?.getDirectory === 'function'),
+		test.skip(!await originPrivateFileSystemAvailable(page),
 			'This browser does not expose OPFS.');
 		await page.evaluate(async () => {
 			const root = await navigator.storage.getDirectory();
@@ -33,8 +34,8 @@ test.describe('temporary export recovery', () => {
 	test('a second tab preserves a locked export until its owner closes', async ({ context, page }) => {
 		const firstErrors = collectClientErrors(page);
 		await bootEditor(page, '/embed/en/');
-		test.skip(!await page.evaluate(() => typeof navigator.storage?.getDirectory === 'function'
-			&& typeof navigator.locks?.request === 'function'), 'This browser does not expose OPFS and Web Locks.');
+		test.skip(!await originPrivateFileSystemAvailable(page)
+			|| !await page.evaluate(() => typeof navigator.locks?.request === 'function'), 'This browser does not expose OPFS and Web Locks.');
 
 		const liveName = 'live-export.wav';
 		const abandonedName = 'abandoned-export.wav';

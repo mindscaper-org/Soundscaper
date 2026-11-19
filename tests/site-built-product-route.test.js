@@ -86,6 +86,15 @@ test('the root path still redirects to the default locale', async () => {
 	assert.deepEqual(replaced, ['/en/']);
 });
 
+test('the default locale redirect preserves launch parameters and the document fragment', async () => {
+	const replaced = [];
+	await resolveApplicationRoute({ location: {
+		pathname: '/', search: '?project=field-recording&source=library', hash: '#timeline',
+		replace: (target) => replaced.push(target),
+	} });
+	assert.deepEqual(replaced, ['/en/?project=field-recording&source=library#timeline']);
+});
+
 test('a Framescaper bundle resolves its own product without a path segment', async () => {
 	globalThis.__SCAPE_PRODUCT__ = 'framescaper';
 	try {
@@ -111,4 +120,9 @@ test('a locale no build serves falls back to English without losing the route', 
 		embedded: false,
 		desktop: false,
 	});
+});
+
+test('an upstream locale without an editor catalog cannot label the English editor as translated', async () => {
+	const route = await resolveApplicationRoute({ location: { pathname: '/sv/' } });
+	assert.equal(route.locale, 'en');
 });

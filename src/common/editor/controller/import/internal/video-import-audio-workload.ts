@@ -4,7 +4,7 @@ import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import { readIsoAudioPresentationEnd } from '../../../iso-audio-presentation-edit.ts';
 import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
 
-const MAXIMUM_PCM_BYTES = 128 * 1024 ** 2;
+export const MAXIMUM_VIDEO_AUDIO_PCM_BYTES = 128 * 1024 ** 2;
 const MAXIMUM_MOVIE_BYTES = 1024 ** 2;
 const MAXIMUM_HEADERS = 8192;
 interface Box { readonly type: string; readonly body: number; readonly end: number }
@@ -164,7 +164,7 @@ export function assertDecodedVideoAudioWorkload(decoded: ImportedVideoDecodedAud
 }
 function fits(frames: number, channels: number): boolean {
 	const bytes = frames * channels * Float32Array.BYTES_PER_ELEMENT;
-	return Number.isSafeInteger(frames) && frames > 0 && Number.isSafeInteger(bytes) && bytes <= MAXIMUM_PCM_BYTES;
+	return Number.isSafeInteger(frames) && frames > 0 && Number.isSafeInteger(bytes) && bytes <= MAXIMUM_VIDEO_AUDIO_PCM_BYTES;
 }
 function resampledFrames(frames: number, from: number, to: number): number {
 	if (!Number.isSafeInteger(frames * to) || !Number.isSafeInteger(from) || from < 1 || !Number.isSafeInteger(to) || to < 1 || to > 768_000) return Infinity;

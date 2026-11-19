@@ -51,6 +51,13 @@ interface VideoSourceIdentity {
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAXIMUM_TIMEOUT_MS = 30_000;
+const MAXIMUM_RETRY_INSET_SECONDS = .001;
+
+export class VideoRetimeFrameIntervalMismatch extends RangeError {
+	constructor() {
+		super('The presented video frame is outside its requested half-open source interval.');
+	}
+}
 
 /** Adapt one exact source-frame descriptor into this seek port's validated request. */
 export function createVideoRetimeHtmlVideoPresentationRequest(
@@ -154,20 +161,22 @@ export function createVideoRetimeHtmlVideoSeekPort(
 		return new Promise<Readonly<{ readonly mediaTime: number }>>((resolve, reject) => {
 			const seek = createActiveSeek(request, resolve, reject);
 			active = seek;
-			let retriedAtIntervalStart = false;
+			let retriedEarlier = false;
 			const requestPresentedFrame = (): void => {
 				const mayPrecedeTargetAssignment = !seek.seekIssued;
 				const frameCallbackId = requestFrame((_now, metadata) => {
 					if (seek.settled || seek.failure !== null) return;
-					const mediaTime = metadata.mediaTime;
+					const mediaTime = authoredCallbackTime(metadata.mediaTime, request);
 					if (!mediaTimeInRequestedInterval(mediaTime, request)) {
 						// WebKit can snap an interior seek forward to the following
-						// frame. Retry once at the interval start after the seek drains;
-						// the replacement callback must authenticate the same interval.
-						if (seek.seekIssued && !retriedAtIntervalStart
+						// frame, and an exact start seek can paint the previous picture.
+						// Retry earlier inside the same interval after the seek drains.
+						if (seek.seekIssued && !retriedEarlier
 							&& mediaTime >= request.intervalEndSeconds
 							&& targetSeconds > request.intervalStartSeconds) {
-							retriedAtIntervalStart = true;
+							retriedEarlier = true;
+							const start = request.intervalStartSeconds;
+							const retryTarget = start + Math.min(MAXIMUM_RETRY_INSET_SECONDS, (targetSeconds - start) / 2);
 							cancelFrame(frameCallbackId);
 							seek.frameCallbackId = null;
 							const retry = (): void => {
@@ -175,7 +184,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 								try {
 									assertCurrent();
 									requestPresentedFrame();
-									video.currentTime = request.intervalStartSeconds;
+									video.currentTime = retryTarget;
 								} catch (error) {
 									requestFailure(seek, errorValue(error, 'The retime preview boundary seek failed.'));
 								}
@@ -202,9 +211,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 							}
 							return;
 						}
-						requestFailure(seek, new RangeError(
-							'The presented video frame is outside its requested half-open source interval.',
-						));
+						requestFailure(seek, new VideoRetimeFrameIntervalMismatch());
 						return;
 					}
 					seek.presentedMediaTime = mediaTime;
@@ -364,6 +371,22 @@ function mediaTimeInRequestedInterval(mediaTime: number, request: ActiveSeek['re
 	return Number.isFinite(mediaTime)
 		&& mediaTime >= request.intervalStartSeconds
 		&& mediaTime < request.intervalEndSeconds;
+}
+
+function authoredCallbackTime(mediaTime: number, request: ActiveSeek['request']): number {
+	// Browser decoders can round or truncate a reporting boundary to a whole
+	// microsecond. A representation shared by both boundaries proves neither.
+	const atStart = reportsBoundary(mediaTime, request.intervalStartSeconds);
+	const atEnd = reportsBoundary(mediaTime, request.intervalEndSeconds);
+	if (atStart && atEnd) return Number.NaN;
+	if (atStart) return request.intervalStartSeconds;
+	if (atEnd) return request.intervalEndSeconds;
+	return mediaTime;
+}
+
+function reportsBoundary(mediaTime: number, boundary: number): boolean {
+	const micros = boundary * 1_000_000;
+	return mediaTime === Math.round(micros) / 1_000_000 || mediaTime === Math.floor(micros) / 1_000_000;
 }
 
 function samePresentationRequest(left: ActiveSeek['request'], right: ActiveSeek['request']): boolean {

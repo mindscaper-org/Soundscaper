@@ -16,11 +16,12 @@ import {
 import { auditDesktopPackageArtifactContent } from '../scripts/lib/desktop-package-artifact-extractor.mjs';
 import { createFixture } from './helpers/ffmpeg-runtime-fixture.mjs';
 import { createSoundscaperLinuxPackageFixture } from './helpers/milestone-5-linux-package-fixture.mjs';
+import { releaseArtifactStem } from '../src/common/release/release-packaging.ts';
 import { resolveProductApplicationVersion } from '../scripts/lib/product-release-lines.mjs';
 
 const VERSION = resolveProductApplicationVersion('soundscaper');
-const APPIMAGE = `Soundscaper-${VERSION}-linux-x64.AppImage`;
-const DEBIAN = `Soundscaper-${VERSION}-linux-x64.deb`;
+const APPIMAGE = `${releaseArtifactStem(VERSION, 'Soundscaper')}-linux-x64.AppImage`;
+const DEBIAN = `${releaseArtifactStem(VERSION, 'Soundscaper')}-linux-x64.deb`;
 const MANIFEST = 'runtime-manifest-soundscaper-linux-x64.json';
 const SOURCE_REVISION = 'a'.repeat(40);
 

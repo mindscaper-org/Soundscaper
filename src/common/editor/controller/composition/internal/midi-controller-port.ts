@@ -6,6 +6,7 @@ import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import type { AnalysisActions } from '../../analysis/analysis-composition.ts';
 
 export interface MidiControllerBinding {
+	readonly importDocument?: import('../../track-audio/midi-service-types.ts').MidiService['importDocument'];
 	followSelection(before: MidiProject, after: MidiProject): void;
 	settled(expectedProject?: MidiProject, readiness?: PromiseLike<unknown>): Promise<void>;
 	hasPendingEdits(): boolean;
@@ -17,6 +18,10 @@ export interface MidiControllerBinding {
 export function createMidiControllerPort() {
 	let owner: MidiControllerBinding | null = null;
 	return Object.freeze({
+		async importDocument(...args: Parameters<NonNullable<MidiControllerBinding['importDocument']>>): Promise<unknown> {
+			if (!owner?.importDocument) throw new Error('The MIDI controller is not ready.');
+			return owner.importDocument(...args);
+		},
 		bind(value: MidiControllerBinding): void {
 			if (owner && owner !== value) throw new Error('The MIDI controller owner is already bound.');
 			owner = value;
@@ -101,5 +106,6 @@ export function createMidiPendingAnalysisActions<Project extends object>(
 	return Object.freeze({
 		run: prepare(service.run), plotSpectrum: prepare(service.plotSpectrum), findClipping: prepare(service.findClipping),
 		contrast: prepare(service.captureContrast), repeatLast: prepare(service.repeatLast), measureLoudness: prepare(service.measureLoudness),
+		findRepeatedSound: prepare(service.findRepeatedSound),
 	});
 }

@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { addRackEffect, bootEditor, disableNativeSavePicker, downloadBytes, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const rack of [false, true]) test(`Unicode preset downloads retain their distinct names; rack=${rack}`, async ({ page }) => {
-	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/');
+	await disableNativeSavePicker(page); const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	let dialog;
 	if (rack) {
@@ -22,7 +22,7 @@ for (const rack of [false, true]) test(`Unicode preset downloads retain their di
 		await prompt.getByRole('textbox').fill(name);
 		await prompt.getByRole('button', { name: 'Save preset', exact: true }).click();
 		await expect(prompt).toBeHidden();
-		await expect(dialog.getByRole('button', { name: 'Preset', exact: true })).toContainText(name);
+		await expect(dialog.getByRole('button', { name: /^Preset(?::|$)/u })).toContainText(name);
 		await dialog.getByRole('button', { name: 'More options', exact: true }).click();
 		const downloading = page.waitForEvent('download');
 		await page.getByRole('menuitem', { name: 'Export preset', exact: true }).click();

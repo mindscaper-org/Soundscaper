@@ -20,6 +20,40 @@
 #include <sstream>
 #include <vector>
 
+#if defined(_WIN32) && defined(SOUNDSCAPER_PRO_AUDIO_ONLY)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <objbase.h>
+
+namespace {
+
+// WASAPI creates COM interfaces on the calling thread of the utility process.
+class WasapiApartment {
+public:
+	WasapiApartment() = default;
+	WasapiApartment(const WasapiApartment &) = delete;
+	WasapiApartment &operator=(const WasapiApartment &) = delete;
+
+	bool enter()
+	{
+		result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+		return SUCCEEDED(result) || result == RPC_E_CHANGED_MODE;
+	}
+
+	~WasapiApartment() { if (SUCCEEDED(result)) CoUninitialize(); }
+
+private:
+	HRESULT result = E_FAIL;
+};
+
+} // namespace
+#endif
+
 #if defined(__linux__) && defined(SOUNDSCAPER_PRO_AUDIO_ONLY)
 extern "C" {
 #include "../../soundscaper-helper-addon/src/audio_backends.h"
@@ -29,6 +63,10 @@ extern "C" {
 
 #if defined(SOUNDSCAPER_PRO_AUDIO_ONLY)
 struct soundscaper_pro_audio_session {
+#if defined(_WIN32)
+	// Destroy the device and its COM interfaces before leaving the apartment.
+	WasapiApartment wasapiApartment;
+#endif
 	std::unique_ptr<soundscaper::JuceAudioSession> juce;
 #if defined(__linux__)
 	soundscaper_audio_stream *linuxStream = nullptr;
@@ -191,6 +229,10 @@ soundscaper_pro_status soundscaper_pro_audio_enumerate(
 	}
 	std::string serialized;
 	const std::string selected(backend);
+#if defined(_WIN32)
+	WasapiApartment apartment;
+	if (selected == "wasapi" && !apartment.enter()) return SOUNDSCAPER_PRO_BACKEND_ABSENT;
+#endif
 #if defined(__linux__)
 	const auto status = selected == "pipewire" || selected == "alsa" || selected == "jack"
 		? enumerateLinuxAudio(selected, serialized)
@@ -214,6 +256,14 @@ soundscaper_pro_audio_result soundscaper_pro_audio_open(
 	if (!audioRequestValid(request) || session == nullptr) return refused;
 	*session = nullptr;
 	auto owned = std::make_unique<soundscaper_pro_audio_session>();
+#if defined(_WIN32)
+	if (std::strcmp(request->backend, "wasapi") == 0 && !owned->wasapiApartment.enter()) {
+		refused.status = SOUNDSCAPER_PRO_BACKEND_ABSENT;
+		constexpr char detail[] = "The WASAPI helper could not initialize COM.";
+		std::memcpy(refused.detail, detail, sizeof(detail));
+		return refused;
+	}
+#endif
 	soundscaper_pro_audio_result result;
 #if defined(__linux__)
 	const std::string selected(request->backend);
@@ -311,6 +361,13 @@ soundscaper_pro_status soundscaper_pro_plugin_open(
 	return status;
 }
 
+soundscaper_pro_status soundscaper_pro_plugin_midi(
+	soundscaper_pro_plugin_instance *instance, const soundscaper_pro_midi_event *events, uint32_t count, uint32_t frames)
+{
+	return instance == nullptr || instance->juce == nullptr ? SOUNDSCAPER_PRO_UNSUPPORTED
+		: instance->juce->midiEvents(events, count, frames);
+}
+
 soundscaper_pro_status soundscaper_pro_plugin_process(
 	soundscaper_pro_plugin_instance *instance, const float *const *inputs, uint32_t inputChannels,
 	float **outputs, uint32_t outputChannels, uint32_t frames)
@@ -368,8 +425,7 @@ soundscaper_pro_status soundscaper_pro_plugin_get_capabilities(
 	if (instance == nullptr || report == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	*report = {};
 	if (instance->clap != nullptr) {
-		report->has_vendor_ui = instance->clap->hasVendorUi() ? 1u : 0u;
-		return SOUNDSCAPER_PRO_OK;
+		return instance->clap->capabilities(*report);
 	}
 	return instance->juce == nullptr ? SOUNDSCAPER_PRO_PLUGIN_MALFORMED
 		: soundscaper::dispatchJuceMessageTask([&]() {
@@ -385,10 +441,10 @@ soundscaper_pro_status soundscaper_pro_plugin_describe_parameters(
 		return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	}
 	*written = 0u;
-	if (instance->clap != nullptr) return SOUNDSCAPER_PRO_OK;
-	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
+	if (instance->juce == nullptr && instance->clap == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
 	std::vector<soundscaper_pro_plugin_parameter> found;
-	const auto status = soundscaper::describeJucePluginParameters(*instance->juce, found);
+	const auto status = instance->clap != nullptr ? instance->clap->describeParameters(found)
+		: soundscaper::describeJucePluginParameters(*instance->juce, found);
 	if (status != SOUNDSCAPER_PRO_OK) return status;
 	*written = found.size();
 	if (parameters == nullptr) return SOUNDSCAPER_PRO_OK;
@@ -401,7 +457,10 @@ soundscaper_pro_status soundscaper_pro_plugin_read_parameter(
 	soundscaper_pro_plugin_instance *instance, uint32_t index, double *value)
 {
 	if (instance == nullptr || value == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
-	if (instance->clap != nullptr || instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
+	if (instance->clap != nullptr) return soundscaper::dispatchJuceMessageTask([&]() {
+		return instance->clap->readParameter(index, *value);
+	});
+	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
 	return soundscaper::readJucePluginParameter(*instance->juce, index, *value);
 }
 
@@ -409,7 +468,8 @@ soundscaper_pro_status soundscaper_pro_plugin_write_parameter(
 	soundscaper_pro_plugin_instance *instance, uint32_t index, double value)
 {
 	if (instance == nullptr) return SOUNDSCAPER_PRO_PLUGIN_MALFORMED;
-	if (instance->clap != nullptr || instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
+	if (instance->clap != nullptr) return instance->clap->writeParameter(index, value);
+	if (instance->juce == nullptr) return SOUNDSCAPER_PRO_UNSUPPORTED;
 	return soundscaper::dispatchJuceMessageTask([&]() {
 		return soundscaper::writeJucePluginParameter(*instance->juce, index, value);
 	});

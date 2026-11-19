@@ -27,9 +27,10 @@ test('professional utility smoke is dormant without its packaged-only argument',
 test('professional utility audio canary reaches a valid native open and closes any session', () => {
 	let request = null;
 	let closed = null;
+	const device = { handle: 'studio-out', label: 'Studio interface', direction: 'output', isDefault: true };
 	const result = runSoundscaperProfessionalNativeAudioCanary({
 		enumerateAudioBackends: () => [{
-			backend: 'coreaudio', status: 'ok', detail: '', devices: [],
+			backend: 'coreaudio', status: 'ok', detail: '', devices: [device],
 		}],
 		openAudioDevice(value) {
 			request = value;
@@ -51,7 +52,7 @@ test('professional utility audio canary reaches a valid native open and closes a
 		direction: 0, exclusive: 0, sampleRate: 48_000, periodFrames: 256, channelCount: 2,
 	});
 	assert.equal(closed, null);
-	assert.deepEqual(result.backends, [{ backend: 'coreaudio', status: 'ok', detail: '', devices: [] }]);
+	assert.deepEqual(result.backends, [{ backend: 'coreaudio', status: 'ok', detail: '', devices: [device] }]);
 	assert.equal(result.audioOperation.operation, 'native-device-open-probe');
 	assert.equal(result.audioOperation.resultStatus, 'device-unavailable');
 });
@@ -66,6 +67,18 @@ test('professional utility audio canary refuses unknown backend and open statuse
 	};
 	assert.throws(() => runSoundscaperProfessionalNativeAudioCanary(addon, 'mac-arm64'),
 		/backend status/iu);
+});
+
+test('the macOS audio canary requires the compiled-in Core Audio backend', () => {
+	const addon = {
+		enumerateAudioBackends: () => [{
+			backend: 'coreaudio', status: 'backend-unavailable', detail: 'backend-unavailable', devices: [],
+		}],
+		openAudioDevice: () => { throw new Error('must not open'); },
+		closeAudioDevice: () => true,
+	};
+	assert.throws(() => runSoundscaperProfessionalNativeAudioCanary(addon, 'mac-arm64'),
+		/Core Audio inventory must complete/iu);
 });
 
 test('professional utility smoke accepts only exact Electron utility-process evidence', async () => {

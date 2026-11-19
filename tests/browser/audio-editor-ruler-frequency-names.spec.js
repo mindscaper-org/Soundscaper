@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 
 test('spectrogram ruler frequency inputs announce their labels during keyboard editing', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
 	const track = editor.locator('[data-track-row]').last();

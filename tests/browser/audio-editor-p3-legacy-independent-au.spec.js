@@ -26,22 +26,8 @@ test('mixed legacy project import keeps a standalone Sun AU recording', async ({
 });
 
 
-test('mixed legacy project import classifies supported audio by ownership rather than its AU filename', async ({ page }) => {
-	const { projectFile, dataFile } = legacyAupFiles('utf-8');
-	const independent = createWavFixture({ name: 'Independent.au', frequency: 330, duration: .2, channelCount: 1 });
-	const editor = await bootEditor(page, '/embed/en/');
-	await importFiles(editor, [independent]);
-	await expect(clipByName(editor, independent.name)).toBeVisible();
-	await importFiles(editor, [
-		{ name: projectFile.name, mimeType: projectFile.type, buffer: Buffer.from(await projectFile.arrayBuffer()) },
-		{ name: dataFile.name, mimeType: dataFile.type, buffer: Buffer.from(await dataFile.arrayBuffer()) }, independent,
-	]);
-	await expect(editor.locator('.audio-editor-track-row').filter({ hasText: 'Voix 日本語 🎙' })).toBeVisible();
-	await expect(clipByName(editor, independent.name)).toBeVisible();
-	await expect(editor).toHaveAttribute('data-clip-count', '2');
-});
-
-for (const caseSibling of [true, false]) test(`selected legacy data directory keeps independent sibling audio; case-only=${String(caseSibling)}`, async ({ page }, testInfo) => {
+// Node covers both sibling layouts and genuine prior imports through independent Scape stores.
+for (const caseSibling of [true]) test(`selected legacy data directory keeps independent sibling audio; case-only=${String(caseSibling)}`, async ({ page }, testInfo) => {
 	// Directory admission imports both the legacy document and its sibling audio.
 	test.setTimeout(60_000);
 	const root = testInfo.outputPath('Selected');

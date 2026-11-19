@@ -15,17 +15,107 @@ import {
 	createDeterministicAvFixture,
 	createDeterministicSilentVideoFixture,
 } from './fixtures/deterministic-av-media.js';
+import { classicAvcCaptureMedia } from './fixtures/video-native-capture-media.js';
+import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
+import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	completeMilestone7Run,
 	installMilestone7LocalAssistanceFixture,
 	milestone7FixtureSnapshot,
 } from './helpers/milestone-7-local-assistance.js';
+import { reviewAssistanceFramePackV1 } from '../../src/common/editor/assistance/binary-formats-v1.ts';
+import { reviewAssistanceVisualFramePackV2 } from '../../src/common/editor/assistance/visual-frame-pack-v2.ts';
 
 const VIDEO = createDeterministicSilentVideoFixture('milestone-7-workflows.webm');
 const LINKED_AV = createDeterministicAvFixture('milestone-7-linked-workflows.webm');
 
 test.describe('Milestone 7 Guided workflow qualification', () => {
 	registerAudioEditorHooks();
+
+	for (const [layout, makeFile] of [['classic', classicAvcCaptureMedia], ['reordered fragmented', videoOnlyFragmentedAvcFixture]])
+		test(`Accurate Mark Cuts stages all authored ${layout} AVC pictures`, async ({ page, browserName }) => {
+			test.skip(layout === 'classic' && browserName !== 'chromium', 'The classic AVC duration is rounded in Chromium.');
+			test.setTimeout(60_000);
+			await expectAccurateAvcPictures(page, makeFile());
+		});
+
+	test('Accurate Mark Cuts stages trimmed reordered AVC pictures in WebKit', async ({ page, browserName }) => {
+		test.skip(browserName !== 'webkit', 'The paused WebKit presentation can precede seek completion.');
+		test.setTimeout(60_000);
+		await expectAccurateAvcPictures(page, videoOnlyFragmentedAvcFixture(), 5);
+	});
+
+	test('Reframe stages authored geometry and orientation for rotated anamorphic AVC', async ({ page }) => {
+		const { file } = videoSourceGeometryMedia.find(({ id }) => id === 'geometry-rotated-anamorphic-mp4-v1');
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page);
+		const editor = await bootEditor(page, '/framescaper/en/');
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: `Add to timeline: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
+		await reselectTimelineVideo(editor, page);
+		const dialog = await openAssistanceTask(page, editor, 'Reframe');
+		acceptConsentDialogs(page);
+		await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots, { timeout: 20_000 })
+			.toContain('detect-subjects:frame-pack');
+		const bytes = await page.evaluate(async () => {
+			const input = [...globalThis.__milestone7Fixture.stagedInputBodies.entries()]
+				.find(([key]) => key.endsWith(':detect-subjects:frame-pack'))?.[1];
+			return Array.from(new Uint8Array(await input.arrayBuffer()));
+		});
+		const pack = reviewAssistanceVisualFramePackV2(Uint8Array.from(bytes));
+		expect([pack.sourceWidth, pack.sourceHeight, pack.rasterWidth, pack.rasterHeight]).toEqual([144, 384, 120, 320]);
+		expect([pack.frameCount, pack.timescale]).toEqual([2, 12_800]);
+		for (const [index, sourceFrame, presentationTick] of [[0, 0, '0'], [1, 12, '6144']]) {
+			const frame = pack.frame(index);
+			expect([frame.sourceFrame, frame.presentationTick]).toEqual([sourceFrame, presentationTick]);
+			const colors = [.25, .75].flatMap(y => [.25, .75].map(x => {
+				const offset = (Math.floor(y * pack.rasterHeight) * pack.rasterWidth + Math.floor(x * pack.rasterWidth)) * 4;
+				return Array.from(frame.rgba.subarray(offset, offset + 3), value => Number(value > 90));
+			}));
+			expect(colors).toEqual([[0, 1, 0], [1, 1, 1], [1, 0, 0], [0, 0, 1]]);
+		}
+	});
+
+	async function expectAccurateAvcPictures(page, file, trimStart = 0) {
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page, [['transnetv2', '1.0.0', 'shot-detection']]);
+		const editor = await bootEditor(page, '/framescaper/en/');
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: `Add to timeline: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
+		await editor.getByRole('group', { name: /^Video clip:/u }).first().press('Enter');
+		if (trimStart > 0) {
+			await seekFramescaperTimecode(page, editor, '00:00:00:07');
+			await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Trim left edge to playhead']);
+			await expect(editor.locator('[data-status]')).toContainText('Trimmed left edge to 00:00:00:07.');
+		}
+		const dialog = await openAssistanceTask(page, editor, 'Mark Cuts');
+		await dialog.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true }).click();
+		page.once('dialog', event => { void event.dismiss(); });
+		await dialog.getByRole('button', { name: 'Analyze', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots, { timeout: 30_000 })
+			.toContain('detect-shots:frame-pack');
+		const bytes = await page.evaluate(async () => {
+			const input = [...globalThis.__milestone7Fixture.stagedInputBodies.entries()]
+				.find(([key]) => key.endsWith(':detect-shots:frame-pack'))?.[1];
+			return Array.from(new Uint8Array(await input.arrayBuffer()));
+		});
+		const pack = reviewAssistanceFramePackV1(Uint8Array.from(bytes));
+		expect([pack.timescale, pack.frameCount]).toEqual([90_000, 22 - trimStart]);
+		expect(pack.frameTiming(0).sourceFrame).toBe(trimStart);
+		expect(pack.frameTiming(pack.frameCount - 1)).toEqual({ sourceFrame: 21, presentationTick: '84000' });
+		const labels = Array.from({ length: pack.frameCount }, (_, index) => {
+			const { rgba } = pack.frame(index);
+			const cells = [.25, .75].flatMap(y => [.125, .375, .625, .875].map(x => rgba[
+				(Math.floor(y * pack.height) * pack.width + Math.floor(x * pack.width)) * 4
+			]));
+			return cells[0] < 36 && cells[1] > 214
+				? cells.slice(2, 7).reduce((label, value, bit) => label | (value > 127 ? 1 << bit : 0), 0)
+				: null;
+		});
+		expect(labels).toEqual([0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28].slice(trimStart));
+	}
 
 	test('reviews transcript audition and independent beat publication choices', async ({ page }) => {
 		test.setTimeout(180_000);

@@ -54,7 +54,7 @@ export interface ExternalFfmpegProcessRunner {
 }
 
 export interface ExternalFfmpegCandidateLocator {
-	/** Candidate order is policy order; the first compatible pair wins. */
+	/** Manual choices override discovery; candidate order breaks equal-version automatic ties. */
 	discover(): Promise<readonly ExternalFfmpegCandidateInput[]>;
 }
 
@@ -305,18 +305,26 @@ export async function discoverExternalFfmpeg(options: Readonly<{
 		return discoveryUnavailable('discovery-failed', []);
 	}
 	if (candidates.length === 0) return discoveryUnavailable('no-candidates', []);
+	const manual = candidates.find((candidate) => candidate.source === 'user-selected');
 	const attempts: ExternalFfmpegProbeResult[] = [];
-	for (const candidate of candidates) {
+	let selected: Extract<ExternalFfmpegProbeResult, { status: 'available' }> | null = null;
+	for (const candidate of manual ? [manual] : candidates) {
 		const probe = await probeExternalFfmpegCandidate(candidate, options.runner);
 		attempts.push(probe);
-		if (probe.status === 'available') {
-			return Object.freeze({
-				status: 'available', selected: probe.candidate, probe,
-				attempts: Object.freeze([...attempts]),
-			});
+		if (probe.status === 'available' && (selected === null
+			|| compareVersions(probe.version, selected.version) > 0)) {
+			selected = probe;
 		}
 	}
+	if (selected !== null) return Object.freeze({
+		status: 'available', selected: selected.candidate, probe: selected,
+		attempts: Object.freeze([...attempts]),
+	});
 	return discoveryUnavailable('no-compatible-candidate', attempts);
+}
+
+function compareVersions(left: ExternalFfmpegVersion, right: ExternalFfmpegVersion): number {
+	return left.major - right.major || left.minor - right.minor || left.patch - right.patch;
 }
 
 async function runProbeCommand(

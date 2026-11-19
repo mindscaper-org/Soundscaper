@@ -1,9 +1,12 @@
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
 
-import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import { sourceMonitorFragmentedMedia, videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import { highRateIntraVideoFile } from './fixtures/video-paused-preview-media.js';
+import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	DURABLE_MEDIA_STORAGE_REQUIRED,
 	hasDurableMediaStorageCapability,
@@ -17,6 +20,127 @@ const MARKED_FRAMES = MARK_OUT_FRAME + 1 - MARK_IN;
 const SOURCE_FRAMES = CFR.presentationTicks.length;
 
 test.describe('3B-3b source monitor qualification', () => {
+	test('Match frame opens the picture that owns the Programme time on an unretimed VFR clip', async ({ page }) => {
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		const [file] = sourceMonitorFragmentedMedia();
+		const name = file.name.replace(/\.mp4$/u, '');
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: `Add to timeline: ${name}`, exact: true }).click();
+		await editor.getByRole('button', { name: `Open in source monitor: ${name}`, exact: true }).click();
+		const monitor = editor.locator('[data-source-monitor]');
+		const video = monitor.locator('video');
+		// The fifth decoded picture starts at 15,000 ticks on the 90 kHz source clock.
+		await scrubTo(page, 4);
+		const seekTime = (5 * .75 + 7 * .25) / 30;
+		await expect.poll(() => video.evaluate((element, target) => !element.seeking && element.readyState >= 2
+			&& Math.abs(element.currentTime - target) < .00001, seekTime)).toBe(true);
+		const sourceTimecode = await monitor.locator('[data-source-monitor-timecode]').textContent();
+		const readPicture = () => sourceMonitorPicture(video);
+		const expectedPicture = await readPicture();
+		expect(expectedPicture).not.toBeNull();
+		await scrubTo(page, 0);
+		await expect.poll(readPicture).not.toBe(expectedPicture);
+		await seekFramescaperTimecode(page, editor, '00:00:00:05');
+		await monitor.getByRole('button', { name: 'Match frame', exact: true }).click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-frame', '4');
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-in', '0');
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-out', '22');
+		await expect.poll(readPicture).toBe(expectedPicture);
+		await expect(editor.locator('[data-sequence-timecode]')).toHaveAttribute('data-source-timecode', sourceTimecode);
+	});
+
+	test('fragmented AVC with B-pictures preserves every Source Monitor ordinal', async ({ page }) => {
+		test.setTimeout(90_000);
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		const reference = [];
+		const boundaries = [0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28, 29];
+		for (const file of sourceMonitorFragmentedMedia()) {
+			await editor.locator('[data-project-bin-input]').setInputFiles(file);
+			await editor.getByRole('button', { name: `Open in source monitor: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
+			const monitor = editor.locator('[data-source-monitor]');
+			await expect(monitor.locator('video')).toHaveAttribute('aria-label', new RegExp(file.name.replaceAll('.', '\\.'), 'u'));
+			const picture = () => sourceMonitorPicture(monitor.locator('video'));
+			for (let ordinal = 0; ordinal < 22; ordinal++) {
+				await expect(monitor).toHaveAttribute('data-source-monitor-frame', String(ordinal));
+				const seekTime = (boundaries[ordinal] * .75 + boundaries[ordinal + 1] * .25) / 30;
+				await expect.poll(() => monitor.locator('video').evaluate((video, target) => !video.seeking
+					&& Math.abs(video.currentTime - Math.min(video.duration, target)) < .00001, seekTime)).toBe(true);
+				if (file.name.includes('-base')) {
+					await expect.poll(picture).not.toBeNull();
+					reference.push(await picture());
+				} else await expect.poll(picture).toBe(reference[ordinal]);
+				if (ordinal < 21) await monitor.getByRole('button', { name: 'Next frame', exact: true }).click();
+			}
+		}
+		await editor.locator('[data-source-monitor-action="mark-out"]').click();
+		await expect(editor.locator('[data-source-monitor]')).toHaveAttribute('data-source-monitor-mark-out', '22');
+	});
+
+	test('the Source Monitor displays the authored width of a rotated anamorphic picture', async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', 'The rotated AVC fixture follows its Chromium and Firefox import qualification.');
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		const fixture = videoSourceGeometryMedia.find(({ id }) => id === 'geometry-rotated-anamorphic-mp4-v1');
+		await editor.locator('[data-project-bin-input]').setInputFiles(fixture.file);
+		await editor.locator('[data-bin-action="source-monitor"]').first().click();
+		const picture = editor.locator('[data-source-monitor-video]').locator('..');
+		await expect.poll(async () => {
+			const screenshot = await picture.screenshot({ scale: 'css' });
+			return page.evaluate(async ({ png, width, height }) => {
+				const image = new Image();
+				image.src = `data:image/png;base64,${png}`;
+				await image.decode();
+				const canvas = document.createElement('canvas');
+				canvas.width = image.width;
+				const context = canvas.getContext('2d');
+				context.drawImage(image, 0, -Math.floor(image.height / 4));
+				const { data } = context.getImageData(0, 0, image.width, 1);
+				let occupied = 0;
+				for (let pixel = 2; pixel < image.width - 2; pixel++) {
+					const rgb = pixel * 4;
+					if (data[rgb] + data[rgb + 1] + data[rgb + 2] > 80) occupied++;
+				}
+				return Math.abs(occupied - image.height * width / height);
+			}, { png: screenshot.toString('base64'), ...fixture.display });
+		}).toBeLessThanOrEqual(2);
+	});
+
+	test('stepping displays each high-speed source picture at its exact ordinal', async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The high-speed AVC fixture exercises Chromium frame selection.');
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		await editor.locator('[data-project-bin-input]').setInputFiles(highRateIntraVideoFile);
+		await page.locator('[data-bin-action="source-monitor"]').first().click();
+		const monitor = editor.locator('[data-source-monitor]');
+		await expect(monitor.locator('[data-source-monitor-scrub]')).toHaveAttribute('max', '3');
+		const video = monitor.locator('video');
+		const picture = () => video.evaluate(element => {
+			const canvas = document.createElement('canvas');
+			canvas.width = canvas.height = 1;
+			const context = canvas.getContext('2d');
+			context.drawImage(element, 0, 0, 1, 1);
+			return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map(channel => Number(channel > 128));
+		});
+		await expect.poll(picture).toEqual([1, 0, 0]);
+		for (const [frame, color] of [[1, [0, 1, 0]], [2, [0, 0, 1]], [3, [1, 1, 0]]]) {
+			await monitor.getByRole('button', { name: 'Next frame', exact: true }).click();
+			await expect(monitor).toHaveAttribute('data-source-monitor-frame', String(frame));
+			await expect.poll(picture).toEqual(color);
+		}
+		await monitor.getByRole('button', { name: 'Previous frame', exact: true }).click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-frame', '2');
+		await expect.poll(picture).toEqual([0, 0, 1]);
+
+		await scrubTo(page, 1);
+		await scrubTo(page, 3);
+		await scrubTo(page, 1);
+		await monitor.locator('[data-source-monitor-action="mark-in"]').click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-in', '1');
+		await expect.poll(picture).toEqual([0, 1, 0]);
+	});
+
 	test('a marked range edits, matches back, and replaces in place', async ({ page }) => {
 		test.setTimeout(180_000);
 
@@ -126,6 +250,20 @@ test.describe('3B-3b source monitor qualification', () => {
 		expect(whole[0].sourceInFrame).toBe(0);
 	});
 });
+
+async function sourceMonitorPicture(video) {
+	return video.evaluate(element => {
+		if (element.seeking || element.readyState < 2) return null;
+		const canvas = document.createElement('canvas');
+		canvas.width = element.videoWidth;
+		canvas.height = element.videoHeight;
+		const context = canvas.getContext('2d');
+		context.drawImage(element, 0, 0);
+		let hash = 0;
+		for (const value of context.getImageData(0, 0, canvas.width, canvas.height).data) hash = Math.imul(hash, 31) + value | 0;
+		return hash;
+	});
+}
 
 async function addToTimeline(editor) {
 	const name = CFR.file.name.replace(/\.[^.]+$/u, '');

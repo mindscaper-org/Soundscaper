@@ -116,6 +116,10 @@ test('every committed desktop test target has a valid pinned runtime handoff', a
 			assert.doesNotThrow(() => desktopAssistanceNativeManifest(handoff, targetId));
 			const changedNative = structuredClone(native);
 			changedNative.targets[targetId].package.files['build-provenance.json'].sha256 = '0'.repeat(64);
+			assert.throws(() => assistanceNativeRuntimeStageSummary(changedNative, targetId), /package descriptor/u);
+			const changedSource = structuredClone(native);
+			changedSource.targets[targetId].package.sourceBuild.sourceRevision = '0'.repeat(40);
+			assert.throws(() => assistanceNativeRuntimeStageSummary(changedSource, targetId), /package descriptor/u);
 			const configuration = join(output, targetId, 'config');
 			const authority = {
 				targetId, receipt: handoff.assistanceRuntimeDistribution,

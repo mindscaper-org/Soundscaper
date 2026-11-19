@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Auto Duck keeps attenuation while voice spans both selection boundaries', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const files = ['music', 'voice'].map((name, index) => createWavFixture({
 		name: `${name}.wav`, frequency: index ? 1000 : 330, duration: 3,
 		channelCount: 1, channelAmplitudes: [0.35],

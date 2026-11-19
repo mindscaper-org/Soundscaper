@@ -45,21 +45,13 @@ export function commitPasteWithLinkedSourceAliases(request: LinkedSourcePasteReq
 		const aliases = await store.copyLinkedOriginalSourceAliases(
 			request.originProjectId!, request.projectId, transferredSources,
 		);
+		let commitStarted = false;
 		try {
 			request.assertCurrent();
+			commitStarted = true;
 			return await request.commit(request.command);
 		} catch (error) {
-			let published: boolean;
-			try {
-				const current = request.getCurrentProject?.();
-				published = current != null && (current.id !== request.projectId || aliases.some(
-					({ sourceId }) => current.sources.some((source) => source.id === sourceId),
-				));
-			} catch {
-				// If publication cannot be inspected, retaining the aliases keeps any pasted clip readable.
-				published = true;
-			}
-			if (published) throw error;
+			if (commitStarted && mayHavePublished(aliases)) throw error;
 			try { await store.rollbackLinkedOriginalSourceAliases(aliases); }
 			catch (rollbackError) {
 				throw new AggregateError(
@@ -69,6 +61,18 @@ export function commitPasteWithLinkedSourceAliases(request: LinkedSourcePasteReq
 				);
 			}
 			throw error;
+		}
+	}
+
+	function mayHavePublished(aliases: readonly LinkedOriginalBinding[]): boolean {
+		try {
+			const current = request.getCurrentProject?.();
+			return current != null && (current.id !== request.projectId || aliases.some(
+				({ sourceId }) => current.sources.some((source) => source.id === sourceId),
+			));
+		} catch {
+			// Keep any pasted clip readable when its publication cannot be inspected.
+			return true;
 		}
 	}
 }

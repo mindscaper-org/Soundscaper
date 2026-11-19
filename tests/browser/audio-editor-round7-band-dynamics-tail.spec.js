@@ -10,7 +10,7 @@ test('Include tails retains the audible Multiband compressor crossover release',
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [createWavFixture({ name: 'low bass recording.wav', frequency: 40,
 		duration: 1, channelCount: 2, channelAmplitudes: [.5, .5] })]);
-	const dry = await exportSamples(page, editor);
+	const dry = await exportSamples(page, editor, { includeTail: true });
 	expect(dry.length).toBe(48_000);
 	expect(Math.max(...dry.slice(47_000, 47_900).map(Math.abs))).toBeGreaterThan(.3);
 	const panel = await openEffectsForTrack(editor, 1);
@@ -21,7 +21,7 @@ test('Include tails retains the audible Multiband compressor crossover release',
 		await commitInput(dialog.locator(`[data-effect-param="${parameter}"] input[type="number"]`), value);
 	}
 	await closeDialog(dialog);
-	const wet = await exportSamples(page, editor);
+	const wet = await exportSamples(page, editor, { includeTail: true });
 	expect(wet.length).toBeGreaterThan(48_128);
 	expect(Math.max(...wet.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.1);
 	expect(Math.max(...wet.slice(-128).map(Math.abs))).toBeLessThan(.0001);

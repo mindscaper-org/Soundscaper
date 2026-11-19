@@ -19,6 +19,7 @@ export const WORKSPACE_PANEL_IDS = Object.freeze([
 	'freesound',
 	'audiocom',
 	'effects',
+	'macros-palette',
 	'mixer',
 	'analysis',
 	'recording-setup',
@@ -28,6 +29,7 @@ export const WORKSPACE_PANEL_IDS = Object.freeze([
 	'clip-properties',
 	'clip-spreadsheet',
 	'piano-roll',
+	'transcript-editing',
 	DEFERRED_WEB_VCR_PANEL_ID,
 ]);
 export const WORKSPACE_DISCOVERABLE_PANEL_IDS = Object.freeze(
@@ -106,8 +108,10 @@ export function workspacePanelLabel(copy: EditorCopy, panelId: string): string {
 		'clip-properties': copy.clipPropertiesCommand,
 		'clip-spreadsheet': copy['ui.clipSpreadsheet.title'] || 'Clip spreadsheet',
 		'piano-roll': resolveMidiCopy(copy).pianoRoll,
+		'transcript-editing': copy['ui.transcriptEditing.title'] || 'Transcript-based editing',
 		[DEFERRED_WEB_VCR_PANEL_ID]: copy.webVcrTitle,
 		analysis: copy.analysisCommand,
+		'macros-palette': copy.macrosPalette,
 	};
 	if (analyzerLabels[panelId]) return analyzerLabels[panelId];
 	return copy[`panel${panelId[0].toUpperCase()}${panelId.slice(1)}`] || panelId;

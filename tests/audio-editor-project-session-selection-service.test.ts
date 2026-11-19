@@ -48,6 +48,7 @@ test('project session selection capture retains explicit null metadata', () => {
 		selectedTrackId: null,
 		selectedClipId: null,
 		selectedAnnotationId: null,
+		selectedLabels: [],
 	});
 	assert.equal(Object.isFrozen(captured), true);
 });

@@ -74,6 +74,33 @@ test('authored musical label additions still undergo native clock admission', ()
 		label: { ...label, endBeat: { num: 1, den: 0 } } }), /denominator|den|positive/iu);
 });
 
+test('cross-rate label paste keeps a one-frame region distinct from a marker', () => {
+	let project = createSoundscaperProject({ id: 'high-rate', sampleRate: 192_000, tracks: [createLabelTrack({ id: 'labels', labels: [
+		{ id: 'marker', title: 'Point', startFrame: 0, endFrame: 0 }, { id: 'region', title: 'Region', startFrame: 0, endFrame: 1 },
+	] })] });
+	const state: SelectedLabelState & { clipboard: AudioEditorClipboard | null; selectedTrackId: string | null;
+		selectedClipId: string | null } = { clipboard: null, selectedTrackId: 'labels', selectedClipId: null };
+	let id = 0;
+	const service = createSelectedLabelClipboardService({ state,
+		getProject: () => resolveRuntimeProjectProjection(project), getPositionFrames: () => 100,
+		createId: () => `pasted-${String(++id)}`,
+		updateSelection: command => { project = applySoundscaperProjectCommand(project, command); },
+		commit: command => { project = applySoundscaperProjectCommand(project, command); },
+		prepareClipboard: descriptor => () => { state.clipboard = descriptor; },
+		publish() {}, copy: { labelTrackMissing: 'Label track missing' }, setStatus() {},
+	});
+	service.select('labels', 'marker');
+	service.select('labels', 'region', { additive: true });
+	assert.equal(service.handle('copy'), true);
+	project = createSoundscaperProject({ id: 'low-rate', sampleRate: 48_000,
+		tracks: [createLabelTrack({ id: 'labels' })] });
+	assert.equal(service.handle('paste'), true);
+	const resolved = resolveRuntimeProjectProjection(project).tracks[0];
+	assert.ok(resolved?.type === 'label');
+	assert.deepEqual(resolved.labels.map(label => [label.title, label.startFrame, label.endFrame]),
+		[['Point', 100, 100], ['Region', 100, 101]]);
+});
+
 test('Framescaper uses the same label-only native commands and retains target lock admission', () => {
 	let project = createFramescaperProject(PROFILE, { id: 'frames', tracks: [createLabelTrack({ id: 'labels',
 		labels: [{ id: 'point', title: 'Frame cue', startFrame: 1200, endFrame: 1200 }] })] });

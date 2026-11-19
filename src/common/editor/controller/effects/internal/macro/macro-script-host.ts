@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { MacroTransactionMetadata } from '../../macro-transaction-metadata.ts';
+import type { createMacroViewService } from './macro-view-service.ts';
+import type { createMacroSelfEdit } from './macro-self-edit.ts';
+import { normalizeMacroValue } from '../../../../macro-script/protocol.ts';
 import { projectForRuntimeConsumers } from '../../../../project-current-runtime.ts';
 import { hasSequenceGeometryProjectAuthority } from '../../../../project-schema-version.ts';
 import { resolveSelectionRange } from '../../../../selection-range.ts';
@@ -13,21 +16,23 @@ import { resolveSelectionRange } from '../../../../selection-range.ts';
  * below, and every argument is admitted before it reaches the editor.
  *
  * The table is deliberately small. A program can look at the project, move the
- * selection, and run the effects and commands a step-list macro can run — the
- * same vocabulary, so a program and a step list are provably the same reach. It
- * cannot open, save, export or import anything, touch preferences or storage,
- * ask for a device, or reach another project: the run's blast radius is the one
- * project that was open when it started.
+ * selection, run effects and commands, and find repeated sounds on that timeline.
+ * It can also control that project's timeline view and stage replacement of its
+ * own saved source. General preferences, storage, project files, devices, and
+ * other projects remain outside this dispatch table.
  */
 
 import { createMacroCommandStep, normalizeMacroCommandStep, type MacroCommandStep } from '../../../../macro-command-steps.ts';
 import type { MacroValue } from '../../../../macro-script/protocol.ts';
+import { admitMacroAudioInput, macroAudioInputKey, type MacroAudioInput, type MacroAudioInputResolver } from '../../../../macro-audio-input.ts';
 
 export interface MacroScriptTrack extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 }
 
 export interface MacroScriptHostRuntime {
+	readonly findRepeatedSound?: (options: Readonly<Record<string, unknown>>, signal?: AbortSignal, reference?: MacroAudioInput) => Promise<unknown>;
+	readonly deleteAndCloseGap?: () => unknown;
 	readonly getProject: () => Readonly<Record<string, unknown>> | null;
 	readonly projectSampleRate: () => number;
 	readonly runEffectMacro: (
@@ -40,6 +45,7 @@ export interface MacroScriptHostRuntime {
 	readonly listSavedMacros: () => readonly Readonly<{
 		id: string; name: string; effects: readonly Readonly<Record<string, unknown>>[];
 	}>[];
+	readonly view?: ReturnType<typeof createMacroViewService>;
 	readonly beginMacroTransaction: () => Readonly<{
 		assertCurrent(): void;
 		commit(command: MacroTransactionMetadata): unknown;
@@ -47,9 +53,11 @@ export interface MacroScriptHostRuntime {
 	}>;
 }
 
-export interface MacroScriptRunRequest {
+export interface MacroScriptRunRequest<Result = unknown> {
 	readonly name: string;
-	readonly run: (dispatch: MacroScriptDispatch, signal: AbortSignal) => Promise<unknown>;
+	readonly self?: ReturnType<typeof createMacroSelfEdit>;
+	readonly resolveAudioInput?: MacroAudioInputResolver;
+	readonly run: (dispatch: MacroScriptDispatch, signal: AbortSignal) => Promise<Result>;
 }
 
 export type MacroScriptDispatch = (method: string, args: readonly MacroValue[]) => Promise<MacroValue>;
@@ -73,7 +81,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 	 * one action to the person who pressed Run — so the whole run is a single
 	 * transaction, collapsed at the end or rolled back if the program throws.
 	 */
-	async function runMacroScript(request: MacroScriptRunRequest): Promise<unknown> {
+	async function runMacroScript<Result>(request: MacroScriptRunRequest<Result>): Promise<Result> {
 		const transaction = runtime.beginMacroTransaction();
 		const controller = new AbortController();
 		active.add(controller);
@@ -83,12 +91,18 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 			controller.signal.throwIfAborted();
 		};
 		let mutations = 0;
-		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent);
+		let openedView: ReturnType<NonNullable<MacroScriptHostRuntime['view']>['captureTransient']> | undefined;
+		const dispatch = createDispatch(() => { mutations += 1; }, assertCurrent, controller.signal,
+			{ resolve: request.resolveAudioInput, values: new Map(), self: request.self });
 		let dispatchTail: Promise<unknown> = Promise.resolve();
 		const trackedDispatch: MacroScriptDispatch = (method, args) => {
 			// Authored Promise.all calls still share one editor and its busy state.
 			// Preserve message order, including reads of a preceding async edit.
-			const work = dispatchTail.then(() => dispatch(method, args));
+			const work = dispatchTail.then(() => {
+				assertCurrent();
+				if (!openedView && (method === 'view.set' || method === 'view.zoom')) openedView = runtime.view?.captureTransient();
+				return dispatch(method, args);
+			});
 			dispatchTail = work.then(() => undefined, () => undefined);
 			pending.add(work);
 			void work.then(() => pending.delete(work), () => pending.delete(work));
@@ -103,11 +117,14 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 			const result = await request.run(trackedDispatch, controller.signal);
 			await drain();
 			assertCurrent();
+			request.self?.commit();
 			transaction.commit({ type: 'macro/run', name: request.name, stepCount: mutations });
 			return result;
 		} catch (error) {
 			try { await drain(); } catch { /* Preserve the run's failure. */ }
+			request.self?.rollback();
 			transaction.rollback();
+			if (openedView) await runtime.view?.restoreTransient(openedView);
 			throw error;
 		} finally {
 			active.delete(controller);
@@ -117,12 +134,14 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 	function createDispatch(
 		onMutation: () => void = () => undefined,
 		assertCurrent: () => void = () => undefined,
+		signal?: AbortSignal,
+		inputs: MacroInputs = { values: new Map() },
 	): MacroScriptDispatch {
 		return async (method, args) => {
 			assertCurrent();
 			const handler = READERS[method];
 			if (handler) {
-				const value = await handler(runtime, args, assertCurrent);
+				const value = await handler(runtime, args, assertCurrent, signal, inputs);
 				assertCurrent();
 				return value;
 			}
@@ -134,7 +153,7 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 				);
 			}
 			onMutation();
-			const value = await mutator(runtime, args, assertCurrent);
+			const value = await mutator(runtime, args, assertCurrent, signal, inputs);
 			assertCurrent();
 			return value;
 		};
@@ -143,9 +162,34 @@ export function createMacroScriptHost(runtime: MacroScriptHostRuntime) {
 
 type Handler = (
 	runtime: MacroScriptHostRuntime, args: readonly MacroValue[], assertCurrent: () => void,
+	signal?: AbortSignal,
+	inputs?: MacroInputs,
 ) => MacroValue | Promise<MacroValue>;
 
+interface MacroInputs {
+	readonly self?: ReturnType<typeof createMacroSelfEdit>;
+	readonly resolve?: MacroAudioInputResolver;
+	readonly values: Map<string, MacroAudioInput>;
+}
+
 const READERS: Readonly<Record<string, Handler>> = Object.freeze({
+	'view.snapshot': runtime => normalizeMacroValue(requireView(runtime).snapshot(), 'View'),
+	'self.source': (_runtime, _args, _assertCurrent, _signal, inputs) => {
+		if (!inputs?.self) throw new Error('Program source is unavailable.');
+		return inputs.self.source();
+	},
+	'input.audio': async (runtime, args, assertCurrent, signal, inputs) => {
+		const key = macroAudioInputKey(args[0]);
+		if (!inputs) throw new Error('Macro audio input is unavailable.');
+		let audio = inputs.values.get(key);
+		if (!audio) {
+			if (inputs.values.size >= 4) throw new RangeError('A macro may use at most four input audio files.');
+			if (!inputs.resolve || !signal) throw new Error('Choose an input audio file when running this program.');
+			audio = admitMacroAudioInput(await inputs.resolve(key, runtime.projectSampleRate(), signal), runtime.projectSampleRate());
+			assertCurrent(); inputs.values.set(key, audio);
+		}
+		return { key, name: audio.name, sampleRate: audio.sampleRate, channelCount: audio.channels.length, frameCount: audio.channels[0]!.length };
+	},
 	'project.snapshot': (runtime) => ({
 		sampleRate: runtime.projectSampleRate(),
 		tracks: readTracks(runtime),
@@ -168,6 +212,28 @@ const READERS: Readonly<Record<string, Handler>> = Object.freeze({
 });
 
 const MUTATORS: Readonly<Record<string, Handler>> = Object.freeze({
+	'view.set': async (runtime, args, assertCurrent) => normalizeMacroValue(await requireView(runtime).set(args[0], assertCurrent), 'View'),
+	'view.zoom': async (runtime, args, assertCurrent) => normalizeMacroValue(await requireView(runtime).zoom(args[0], assertCurrent), 'View'),
+	'self.replaceSource': (_runtime, args, _assertCurrent, _signal, inputs) => {
+		if (!inputs?.self) throw new Error('Program source is unavailable.');
+		return inputs.self.replaceSource(args[0]);
+	},
+	'analyze.repeatedSound': async (runtime, args, assertCurrent, signal, inputs) => {
+		if (!runtime.findRepeatedSound) throw new Error('Repeated sound analysis is unavailable.');
+		const options = optionsOf(args[0]);
+		if (Object.keys(options).some(key => key !== 'similarityThreshold' && key !== 'referenceInput')) throw new RangeError('Unknown repeated sound option.');
+		const { referenceInput, ...parameters } = options;
+		const reference = referenceInput === undefined ? undefined : inputs?.values.get(macroAudioInputKey(referenceInput));
+		if (referenceInput !== undefined && !reference) throw new Error('Load this reference with sound.input.audio first.');
+		const { normalizeMacroValue } = await import('../../../../macro-script/protocol.ts');
+		assertCurrent();
+		return normalizeMacroValue(await runtime.findRepeatedSound(parameters, signal, reference), 'Repeated sound result');
+	},
+	'edit.deleteAndCloseGap': async runtime => {
+		if (!runtime.deleteAndCloseGap) throw new Error('Delete and close gap is unavailable.');
+		await runtime.deleteAndCloseGap();
+		return readSelection(runtime);
+	},
 	'select.frames': (runtime, args) => {
 		const details = optionsOf(args[2]);
 		const selection = requireProject(runtime).selection as Record<string, unknown> | null | undefined;
@@ -236,6 +302,11 @@ const MUTATORS: Readonly<Record<string, Handler>> = Object.freeze({
 		runtime, String(args[0] ?? ''), optionsOf(args[1]),
 	),
 });
+
+function requireView(runtime: MacroScriptHostRuntime) {
+	if (!runtime.view) throw new Error('Macro view control is unavailable.');
+	return runtime.view;
+}
 
 async function runCommand(
 	runtime: MacroScriptHostRuntime,

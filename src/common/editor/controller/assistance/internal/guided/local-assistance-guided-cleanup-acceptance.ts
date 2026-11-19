@@ -23,6 +23,12 @@ import type {
 	LocalAssistanceTranscriptCleanupAuthority,
 } from '../local-assistance-cleanup-acceptance.ts';
 
+import {
+	localAssistanceSourceFrameToTimelineFrame,
+	normalizeLocalAssistanceAudioAcceptanceAuthority,
+	type NormalizedLocalAssistanceAudioAcceptanceAuthority,
+} from '../local-assistance-audio-acceptance-authority.ts';
+
 type Awaitable<Value> = PromiseLike<Value> | Value;
 
 export interface LocalAssistanceGuidedCleanupAcceptanceDependencies {
@@ -42,14 +48,9 @@ export interface LocalAssistanceGuidedCleanupAcceptance {
 	accept(request: LocalAssistanceGuidedCleanupAcceptanceRequest): Promise<void>;
 }
 
-interface NormalizedAuthority {
+interface NormalizedAuthority extends NormalizedLocalAssistanceAudioAcceptanceAuthority {
 	readonly project: LocalAssistanceTranscriptCleanupAuthority['project'];
-	readonly fence: AssistanceSelectionFence;
 	readonly trackId: string;
-	readonly timelineStartFrame: number;
-	readonly timelineEndFrame: number;
-	readonly sourceStartFrame: number;
-	readonly sourceEndFrame: number;
 }
 
 export function createLocalAssistanceGuidedCleanupAcceptance(
@@ -112,47 +113,20 @@ function selectedIds(
 	return Object.freeze(result);
 }
 
-function normalizeAuthority(
-	value: LocalAssistanceTranscriptCleanupAuthority,
-): NormalizedAuthority {
-	if (!value || typeof value !== 'object' || !value.project || typeof value.project !== 'object') {
-		throw new TypeError('Guided cleanup requires selected-media authority.');
-	}
-	const fence = validateAssistanceSelectionFence(value.fence);
-	if (value.project.id !== fence.projectId || value.project.schemaFamily !== fence.schemaFamily
-		|| value.project.schemaVersion !== fence.schemaVersion
-		|| value.project.revision !== fence.revision || !Array.isArray(value.project.tracks)) {
-		throw new AssistanceProposalStaleError();
-	}
-	const timelineStartFrame = frame(value.startFrame, 'selected timeline start');
-	const timelineEndFrame = frame(value.endFrame, 'selected timeline end');
-	const sourceStartFrame = frame(value.sourceStartFrame, 'selected source start');
-	const sourceEndFrame = frame(value.sourceEndFrame, 'selected source end');
-	if (timelineEndFrame <= timelineStartFrame || sourceEndFrame <= sourceStartFrame
-		|| timelineEndFrame - timelineStartFrame !== sourceEndFrame - sourceStartFrame
-		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
-		throw new AssistanceProposalStaleError();
-	}
+function normalizeAuthority(value: LocalAssistanceTranscriptCleanupAuthority): NormalizedAuthority {
+	const authority = normalizeLocalAssistanceAudioAcceptanceAuthority(value,
+		'Guided cleanup requires selected-media authority.');
 	const trackId = stableId(value.track?.id, 'selected cleanup track ID');
 	const tracks = value.project.tracks.filter(({ id }) => id === trackId);
-	if (tracks.length !== 1 || tracks[0]!.type !== 'audio'
-		|| !Array.isArray(tracks[0]!.clipIds)
-		|| !tracks[0]!.clipIds.some((id: unknown) => fence.occurrenceIds.includes(String(id)))) {
+	if (tracks.length !== 1 || tracks[0]!.type !== 'audio' || !Array.isArray(tracks[0]!.clipIds)
+		|| !tracks[0]!.clipIds.some((id: unknown) => authority.fence.occurrenceIds.includes(String(id)))) {
 		throw new AssistanceProposalStaleError();
 	}
-	return Object.freeze({ project: value.project, fence, trackId, timelineStartFrame,
-		timelineEndFrame, sourceStartFrame, sourceEndFrame });
+	return Object.freeze({ ...authority, project: value.project, trackId });
 }
 
-function timelineFrame(sourceFrameValue: number, authority: NormalizedAuthority): number {
-	const sourceFrame = frame(sourceFrameValue, 'Guided cleanup source frame');
-	const result = authority.timelineStartFrame + sourceFrame - authority.sourceStartFrame;
-	if (!Number.isSafeInteger(result) || sourceFrame < authority.sourceStartFrame
-		|| sourceFrame > authority.sourceEndFrame || result < authority.timelineStartFrame
-		|| result > authority.timelineEndFrame) {
-		throw new RangeError('A Guided cleanup proposal exceeds its selected occurrence.');
-	}
-	return result;
+function timelineFrame(sourceFrame: number, authority: NormalizedAuthority): number {
+	return localAssistanceSourceFrameToTimelineFrame(sourceFrame, authority);
 }
 
 function assertSameFence(left: AssistanceSelectionFence, right: AssistanceSelectionFence): void {
@@ -165,13 +139,6 @@ function validateDependencies(value: LocalAssistanceGuidedCleanupAcceptanceDepen
 		|| typeof value.commit !== 'function') {
 		throw new TypeError('Guided cleanup requires exact controller transaction ports.');
 	}
-}
-
-function frame(value: unknown, label: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) < 0) {
-		throw new RangeError(`The ${label} is invalid.`);
-	}
-	return Number(value);
 }
 
 function stableId(value: unknown, label: string): string {

@@ -5,7 +5,9 @@ import { bootEditor, chooseCommandAction, chooseNestedCommandAction, disableNati
 	downloadBytes, importFiles } from './audio-editor-test-helpers.js';
 import { createDeterministicAvFixture } from './fixtures/deterministic-av-media.js';
 
-for (const opacity of [100, 50]) {
+// The neutral/data matrix has actual controller/store/history/Scape/file-report
+// custody in audio-editor-video-report-archive-custody.test.ts. Keep native UI here.
+for (const opacity of [50]) {
 	test(`cut-only picture delivery ${opacity === 100 ? 'retains the neutral report control' : 'reports the authored opacity it omits'}`, async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/en/');

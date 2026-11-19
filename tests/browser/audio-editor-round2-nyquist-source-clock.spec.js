@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, chooseCommandAction, clipByName, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 
 test('Nyquist source selection properties use the source sample clock', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'nyquist-native.wav', frequency: 1000,
 		duration: 0.8, channelCount: 1, sampleRate: 44_100 });
 	await importFiles(editor, [recording]);

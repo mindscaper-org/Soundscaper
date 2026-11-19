@@ -31,6 +31,12 @@ import { prepareDisjointRangeDeleteCommand } from '../../../commands.js';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 
+import {
+	localAssistanceSourceFrameToTimelineFrame,
+	normalizeLocalAssistanceAudioAcceptanceAuthority,
+	type NormalizedLocalAssistanceAudioAcceptanceAuthority,
+} from './local-assistance-audio-acceptance-authority.ts';
+
 const REVIEW_RECIPE_ID = 'transcript-cleanup-review';
 const REVIEW_RECIPE_VERSION = 1;
 const DECISION_COMMAND_TYPE = 'assistance-cleanup/proposal';
@@ -126,15 +132,9 @@ export interface LocalAssistanceTranscriptCleanupSession {
 	cancel(): Promise<void>;
 }
 
-interface NormalizedAuthority {
+interface NormalizedAuthority extends NormalizedLocalAssistanceAudioAcceptanceAuthority {
 	readonly project: DataRecord;
-	readonly fence: AssistanceSelectionFence;
-	readonly sampleRate: number;
 	readonly trackId: string;
-	readonly timelineStartFrame: number;
-	readonly timelineEndFrame: number;
-	readonly sourceStartFrame: number;
-	readonly sourceEndFrame: number;
 }
 
 /**
@@ -156,7 +156,7 @@ export function createLocalAssistanceTranscriptCleanupSession(
 		review: request.review,
 		selectedMedia: {
 			selectionFence: expectedFence,
-			sampleRate: initial.sampleRate,
+			sampleRate: initial.sourceSampleRate,
 			sourceVideoTimingSha256: null,
 		},
 		model: request.model,
@@ -271,54 +271,20 @@ function timelineProposal(
 }
 
 function projectFrame(sourceFrame: number, authority: NormalizedAuthority): number {
-	const result = authority.timelineStartFrame + (sourceFrame - authority.sourceStartFrame);
-	if (!Number.isSafeInteger(result) || result < authority.timelineStartFrame
-		|| result > authority.timelineEndFrame) {
-		throw new RangeError('A transcript cleanup proposal exceeds its selected occurrence.');
-	}
-	return result;
+	return localAssistanceSourceFrameToTimelineFrame(sourceFrame, authority);
 }
 
 function normalizeAuthority(value: LocalAssistanceTranscriptCleanupAuthority): NormalizedAuthority {
-	if (!value || typeof value !== 'object' || !value.project || typeof value.project !== 'object') {
-		throw new TypeError('Transcript cleanup requires selected-media authority.');
-	}
-	const fence = validateAssistanceSelectionFence(value.fence);
+	const authority = normalizeLocalAssistanceAudioAcceptanceAuthority(value,
+		'Transcript cleanup requires selected-media authority.');
 	const project = value.project;
-	if (project.id !== fence.projectId || project.schemaFamily !== fence.schemaFamily
-		|| project.schemaVersion !== fence.schemaVersion
-		|| project.revision !== fence.revision) {
-		throw new AssistanceProposalStaleError();
-	}
-	const sampleRate = positiveInteger(project.sampleRate, 'selected project sample rate');
-	const timelineStartFrame = frame(value.startFrame, 'selected timeline start');
-	const timelineEndFrame = frame(value.endFrame, 'selected timeline end');
-	const sourceStartFrame = frame(value.sourceStartFrame, 'selected source start');
-	const sourceEndFrame = frame(value.sourceEndFrame, 'selected source end');
-	if (timelineEndFrame <= timelineStartFrame || sourceEndFrame <= sourceStartFrame
-		|| timelineEndFrame - timelineStartFrame !== sourceEndFrame - sourceStartFrame
-		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
-		throw new AssistanceProposalStaleError();
-	}
-	if (!Array.isArray(project.tracks)) {
-		throw new TypeError('Transcript cleanup requires the selected project track inventory.');
-	}
 	const trackId = stableId(value.track?.id, 'selected cleanup track ID');
-	const track = project.tracks.find((candidate) => candidate.id === trackId);
+	const track = project.tracks.find(candidate => candidate.id === trackId);
 	if (!track || track.type !== 'audio' || !Array.isArray(track.clipIds)
-		|| !track.clipIds.some((clipId: unknown) => fence.occurrenceIds.includes(String(clipId)))) {
+		|| !track.clipIds.some((clipId: unknown) => authority.fence.occurrenceIds.includes(String(clipId)))) {
 		throw new AssistanceProposalStaleError();
 	}
-	return Object.freeze({
-		project,
-		fence,
-		sampleRate,
-		trackId,
-		timelineStartFrame,
-		timelineEndFrame,
-		sourceStartFrame,
-		sourceEndFrame,
-	});
+	return Object.freeze({ ...authority, project, trackId });
 }
 
 function normalizeRequest(value: LocalAssistanceTranscriptCleanupRequest) {
@@ -445,7 +411,7 @@ function voiceActivityProposals(
 	if (!voiceActivity) return Object.freeze([]);
 	const selected = assistanceTranscriptCleanupPresetProfile(preset);
 	const outputFrames = Number(scaleSampleFrame(
-		authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
 		authority.sampleRate,
 		VAD_SAMPLE_RATE,
 		'point',
@@ -462,13 +428,13 @@ function voiceActivityProposals(
 		const startFrame = Math.min(authority.sourceEndFrame, safeAdd(
 			authority.sourceStartFrame,
 			Number(scaleSampleFrame(
-				proposal.startFrame, VAD_SAMPLE_RATE, authority.sampleRate, 'enclosingEnd',
+				proposal.startFrame, VAD_SAMPLE_RATE, authority.sourceSampleRate, 'enclosingEnd',
 			)),
 		));
 		const endFrame = Math.min(authority.sourceEndFrame, safeAdd(
 			authority.sourceStartFrame,
 			Number(scaleSampleFrame(
-				proposal.endFrame, VAD_SAMPLE_RATE, authority.sampleRate, 'enclosingStart',
+				proposal.endFrame, VAD_SAMPLE_RATE, authority.sourceSampleRate, 'enclosingStart',
 			)),
 		));
 		return endFrame > startFrame ? [Object.freeze({

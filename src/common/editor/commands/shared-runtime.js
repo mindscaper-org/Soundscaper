@@ -252,9 +252,7 @@ export function assertClipSourceBounds(project, clip, resolvedSource = undefined
 	if (clip.sourceStartFrame + (clip.sourceDurationFrames ?? clip.durationFrames) > sourceFrames) throw new RangeError('Clip exceeds its source bounds.');
 }
 
-export function assertClipSpace() {}
-
-export function validateTrackReplacement(project, _track, deletedIds, clips) {
+export function validateTrackReplacement(project, deletedIds, clips) {
 	const ids = new Set(project.clips.filter((clip) => !deletedIds.has(clip.id)).map((clip) => clip.id));
 	for (const clip of clips) {
 		if (ids.has(clip.id)) throw new RangeError(`Duplicate clip ID: ${clip.id}.`);

@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import React, { act } from 'react';
+import { createHash } from 'node:crypto';
+import React, { act, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import FramescaperSelectedVisualAuthoringDialog from '../src/common/editor/ui/dialogs/FramescaperSelectedVisualAuthoringDialog.tsx';
 import { bindFramescaperSelectedAuthoringController } from '../src/framescaper/editor-selected-finishing-authoring-controller.ts';
@@ -10,6 +11,12 @@ import { applyFramescaperOwnedVisualCommandVisual, snapshotFramescaperOwnedVisua
 import { applyFramescaperOwnedFinishingCommandFinishing, snapshotFramescaperOwnedFinishingCommandFinishing } from '../src/framescaper/editor-project-finishing-finishing-command.ts';
 import type { AudioEditorProjectStore } from '../src/common/editor/storage.js';
 import { installReactTestDom, reactProps, type ReactTestElement } from './helpers/react-test-dom.ts';
+import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
+import { normalizeVideoGeneratorClipV1, normalizeVideoGeneratorSourceV1 } from '../src/common/editor/video-visual-model-v24.ts';
+import { normalizeVideoVisualPresetV1 } from '../src/common/editor/video-visual-preset-v24.ts';
+import { reviewedVideoProjectCustody, currentReviewedVideoProject } from './helpers/reviewed-video-project-custody.ts';
+import { reopenVisualAuthoringArchive } from './helpers/framescaper-visual-authoring-archive-custody.ts';
+import { mountControllerDataDom } from './helpers/controller-data-dom.ts';
 
 for (const kind of ['visual', 'finishing'] as const) for (const focusMode of ['body', 'retained', 'deliberate'] as const) {
 	test(`production ${kind} preset removal ${focusMode === 'deliberate' ? 'preserves deliberate focus' : `recovers its picker from ${focusMode}`}`, async () => {
@@ -74,3 +81,58 @@ for (const kind of ['visual', 'finishing'] as const) for (const focusMode of ['b
 		}
 	});
 }
+
+test('actual Solid My solid preset removal retires both action targets through controller history, store and fresh Scape', async context => {
+	const editor = await reviewedVideoProjectCustody(context, [], { num: 30, den: 1 });
+	const { controller, environment } = editor;
+	const author = framescaperCandidateAuthoringActionRuntimeFor(controller); assert.ok(author); await author.run('video-solid');
+	const initial = currentReviewedVideoProject(controller.project), clip = normalizeVideoGeneratorClipV1(initial.clips.at(-1));
+	const source = normalizeVideoGeneratorSourceV1(initial.sources.find(value => value.id === clip.sourceId));
+	assert.deepEqual([clip.sequenceStartFrame, clip.sequenceFrameCount, clip.sourceInFrame, clip.sourceFrameCount], [0, 150, 0, 150]);
+	assert.deepEqual([source.width, source.height, source.frameRate, source.frameCount, source.generator], [1920, 1080, { num: 30, den: 1 }, 150, { kind: 'solid', color: '#000000ff' }]);
+	await controller.actions.timeline.selectClip(clip.id);
+	const fixture = mountControllerDataDom(), entries = controller.getSnapshot().history.undoEntries.length;
+	function Dialog() {
+		const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+		return <FramescaperSelectedVisualAuthoringDialog surface="video-visual-preset" controller={controller}
+			project={snapshot.project} selectedClipId={snapshot.selectedClipId} playheadSample={0}
+			editingBlocked={false} readOnly={false} run={fixture.run} onClose={() => undefined} />;
+	}
+	const document = (value: unknown) => {
+		const { revision: _revision, updatedAt: _updatedAt, selection: _selection, ...authored } = currentReviewedVideoProject(value); return authored;
+	};
+	try {
+		await fixture.render(<Dialog />);
+		await act(async () => { reactProps(fixture.dom.one('[data-framescaper-authoring-preset-name]')).onChange({ currentTarget: { value: 'My solid' } }); });
+		await act(async () => { reactProps(fixture.dom.one('[data-framescaper-authoring-save-visual]')).onClick(); await fixture.settle(); });
+		assert.equal(fixture.dom.one('[role="status"]').textContent, 'Selected visual preset saved.');
+		const saved = currentReviewedVideoProject(controller.project); assert.ok(Array.isArray(saved.videoVisualPresets));
+		assert.equal(saved.videoVisualPresets.length, 1); const preset = normalizeVideoVisualPresetV1(saved.videoVisualPresets[0]);
+		assert.equal(preset.name, 'My solid'); assert.equal(preset.modelKind, 'generator');
+		const donor = normalizeVideoGeneratorClipV1(saved.projectBin.clips[0]);
+		const donorSource = normalizeVideoGeneratorSourceV1(saved.sources.find(value => value.id === donor.sourceId));
+		assert.deepEqual(donor, { ...clip, id: donor.id, sourceId: donorSource.id }); assert.notEqual(donor.id, clip.id);
+		assert.deepEqual(donorSource, { ...source, id: donorSource.id, name: 'My solid Model' }); assert.notEqual(donorSource.id, source.id);
+		assert.equal(preset.authoredStateSha256, createHash('sha256').update(JSON.stringify({ ...source, id: donorSource.id, name: 'My solid Model' })).digest('hex'));
+		assert.deepEqual(saved.clips, initial.clips); assert.deepEqual(saved.tracks, initial.tracks);
+		assert.deepEqual(saved.sources, [...initial.sources, donorSource]); assert.equal(saved.projectBin.clips.length, 1);
+		assert.equal(controller.getSnapshot().history.undoEntries.length, entries + 1);
+		const picker = fixture.dom.one('[data-framescaper-authoring-visual-preset]');
+		await act(async () => { reactProps(picker).onChange({ currentTarget: { value: preset.id } }); });
+		assert.equal(reactProps(picker).value, preset.id);
+		assert.equal(fixture.dom.one('[data-framescaper-authoring-apply-visual]').hasAttribute('disabled'), false);
+		assert.equal(fixture.dom.one('[data-framescaper-authoring-remove-visual]').hasAttribute('disabled'), false);
+		await act(async () => { reactProps(fixture.dom.one('[data-framescaper-authoring-remove-visual]')).onClick(); await fixture.settle(); });
+		assert.equal(fixture.dom.one('[role="status"]').textContent, 'Selected authored state removed.');
+		assert.equal(reactProps(picker).value, '');
+		for (const action of ['apply', 'remove']) assert.equal(fixture.dom.one(`[data-framescaper-authoring-${action}-visual]`).hasAttribute('disabled'), true);
+		const expected = { ...document(saved), videoVisualPresets: [] };
+		assert.deepEqual(document(controller.project), expected);
+		assert.equal(controller.getSnapshot().history.undoEntries.length, entries + 2);
+		await act(async () => { controller.actions.edit.undo(); }); assert.deepEqual(document(controller.project), document(saved));
+		await act(async () => { controller.actions.edit.redo(); }); assert.deepEqual(document(controller.project), expected);
+		await act(async () => { await controller.actions.project.flush(); }); const final = currentReviewedVideoProject(controller.project);
+		assert.deepEqual(await environment.store.loadProject(final.id), final);
+		assert.deepEqual(document(await reopenVisualAuthoringArchive(final, environment.store)), expected);
+	} finally { await fixture.dispose(); }
+});

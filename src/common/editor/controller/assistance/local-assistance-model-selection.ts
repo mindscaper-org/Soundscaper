@@ -10,6 +10,7 @@
  */
 
 import type { AssistanceOperation } from '../../assistance/operation.ts';
+import { BASIC_PITCH_MODEL_ID, BASIC_PITCH_MODEL_VERSION, BASIC_PITCH_MODEL_SHA256 } from '../../assistance/basic-pitch-model.ts';
 import {
 	LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_ID,
 	LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_TASK,
@@ -29,6 +30,7 @@ const MODEL_TASK_SLOTS = Object.freeze({
 	'source-separation': modelTaskSlots(['source-separation']),
 	'audio-tagging': modelTaskSlots(['audio-tagging']),
 	'beat-tracking': modelTaskSlots(['beat-tracking']),
+	'music-transcription': modelTaskSlots(['music-transcription']),
 	'text-embedding': modelTaskSlots(['text-embedding']),
 	'image-text-embedding': modelTaskSlots(['image-text-embedding']),
 	'optical-character-recognition': modelTaskSlots(['optical-character-recognition']),
@@ -54,6 +56,9 @@ export function localAssistanceModelCompatible(
 	return slots.some((slot) => slot.includes(model.task))
 		&& (operation !== 'shot-detection' || model.modelId === LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_ID)
 		&& (operation !== 'video-keying' || model.modelId === 'corridorkey-2.0' && model.version === '2.0.0')
+		&& (operation !== 'music-transcription' || model.modelId === BASIC_PITCH_MODEL_ID
+			&& model.version === BASIC_PITCH_MODEL_VERSION && model.artifactSha256s.length === 1
+			&& model.artifactSha256s[0] === BASIC_PITCH_MODEL_SHA256)
 		&& (operation !== 'subject-detection'
 			|| model.task === 'face-detection' && model.modelId === YUNET_FACE_DETECTION_MODEL_ID
 			|| model.task === 'object-detection' && model.modelId === DFINE_OBJECT_DETECTION_MODEL_ID);

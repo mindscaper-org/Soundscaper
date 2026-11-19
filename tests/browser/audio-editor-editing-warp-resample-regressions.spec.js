@@ -6,7 +6,7 @@ import { bootEditor, clipByName, closeClipProperties, chooseCommandAction, choos
 	importFiles, openClipProperties } from './audio-editor-test-helpers.js';
 
 test('resampling a clip scales its authored warp source positions', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const clip = clipByName(editor, toneA.name);
 	const clipId = await clip.getAttribute('data-clip-id');
@@ -30,7 +30,7 @@ test('resampling a clip scales its authored warp source positions', async ({ pag
 
 test('a copied warped clip conforms to a normally opened Audacity project rate', async ({ page }) => {
 	test.setTimeout(60_000);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [monoTone]);
 	await clipByName(editor, monoTone.name).locator('.clip-header').click();
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Pitch and tempo', 'Audio warp and transients']);

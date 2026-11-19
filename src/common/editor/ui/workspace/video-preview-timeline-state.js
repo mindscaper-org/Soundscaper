@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createVideoPreviewSourceMembership } from '../../video-preview-source-membership.ts';
 import { resolveVideoCompositionIntervals } from '../../video-timeline.js';
 import { resolveVideoPreviewVisual } from './video-preview-visual.ts';
 
@@ -17,14 +18,17 @@ export function createVideoPreviewTimelineState(
 		const intervals = timelineResolver ? timelineResolver.resolveCompositionIntervals(options)
 			: resolveVideoCompositionIntervals(project, options);
 		const clipStateById = new Map();
+		let hasSource = null;
 		for (const clip of project.clips || []) {
 			if (clip?.kind !== 'video') continue;
 			const visual = resolveVideoPreviewVisual(controller, clip.id, clip.sourceId);
 			const sourceUrl = visual?.mediaUrl || visual?.url || null;
-			clipStateById.set(clip.id, { available: Boolean(
-				project.sources?.some((source) => source.id === clip.sourceId)
+			const usesProxy = visual?.mediaKind === 'proxy';
+			hasSource ??= createVideoPreviewSourceMembership(project);
+			clipStateById.set(clip.id, { usesProxy, available: Boolean(
+				hasSource(clip.sourceId)
 				&& sourceUrl && visual?.available !== false
-				&& (visual?.mediaKind === 'proxy' || !missingSourceIds.has(clip.sourceId))
+				&& (usesProxy || !missingSourceIds.has(clip.sourceId))
 				&& failedVideoSources.get(clip.id) !== sourceUrl,
 			) });
 		}

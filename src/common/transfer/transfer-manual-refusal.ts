@@ -13,3 +13,22 @@ export class TransferManualImportRefusalError extends Error {
 		this.code = code;
 	}
 }
+
+interface ManualTransferReadFailure {
+	readonly title: string;
+	readonly reason: string;
+}
+
+const localReadFailures = new WeakSet<object>();
+
+/** An unreadable browser File occupies its own position in a manual batch. */
+export function manualTransferReadFailure(title: string, reason: string): ManualTransferReadFailure {
+	const failure = Object.freeze({ title, reason });
+	localReadFailures.add(failure);
+	return failure;
+}
+
+/** Only local file reads can report this outcome. Wire entries still need archive bytes. */
+export function isManualTransferReadFailure(value: unknown): value is ManualTransferReadFailure {
+	return value !== null && typeof value === 'object' && localReadFailures.has(value);
+}

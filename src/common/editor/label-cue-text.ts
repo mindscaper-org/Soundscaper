@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { CUE_CHARACTER_REFERENCE, namedCueCharacterReference, numericCueCharacterReference } from './cue-character-reference.ts';
+
 /** Project supported whole-cue SubRip emphasis into the plain label title. */
 export function decodeSubRipLabelText(value: string): string {
 	let text = value;
@@ -10,9 +12,9 @@ export function decodeSubRipLabelText(value: string): string {
 	}
 }
 
-/** Detect literal emphasis wrappers that the maintained SubRip reader would consume. */
+/** SubRip players interpret these tags even when they occur inside otherwise plain text. */
 export function containsSubRipLabelMarkup(value: string): boolean {
-	return decodeSubRipLabelText(value) !== value;
+	return /<\/?(?:[bisu]|font|br)(?:[ \t]+[^<>\r\n]*)?\/?>/iu.test(value);
 }
 
 /** Labels are plain text; WebVTT cue payloads give punctuation markup meaning. */
@@ -20,16 +22,13 @@ export function encodeWebVttLabelText(value: string): string {
 	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 }
 
-const WEBVTT_ENTITIES: Readonly<Record<string, string>> = Object.freeze({
-	amp: '&', lt: '<', gt: '>', nbsp: '\u00a0', lrm: '\u200e', rlm: '\u200f',
-});
-
-/** Decode the six character references the WebVTT text reader recognizes once. */
+/** Project passive WebVTT cue text into a plain label title. */
 export function decodeWebVttLabelText(value: string): string {
 	// Remove source markup before decoding references so exported literal tags
 	// such as &lt;b&gt; remain ordinary label text after a round trip.
 	const plain = value.replace(/<\/?(?:b|i|u|c|v|lang|ruby|rt)(?:\.[^\s<>]+)?(?:[ \t][^<>]*)?>|<(?:\d+:)?[0-5]\d:[0-5]\d\.\d{3}>/gu, '');
-	return plain.replace(/&(amp|lt|gt|nbsp|lrm|rlm);/gu, (reference: string, name: string) => (
-		WEBVTT_ENTITIES[name] ?? reference
-	));
+	return plain.replace(CUE_CHARACTER_REFERENCE, (reference: string, name: string) => {
+		const decoded = name.startsWith('#') ? numericCueCharacterReference(name.toLowerCase()) : namedCueCharacterReference(name);
+		return decoded === '\0' ? '\ufffd' : decoded ?? reference;
+	});
 }

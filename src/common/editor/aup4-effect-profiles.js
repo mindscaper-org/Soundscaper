@@ -9,6 +9,7 @@
 
 import {
 	booleanParam,
+	booleanValue,
 	boundedIndex,
 	decodeCommandParameters,
 	encodeCommandParameters,
@@ -217,6 +218,9 @@ export function canEncodeAup4NativeRealtimeEffect(effect) {
 		.map((descriptor) => descriptor.model));
 	if (profile.curve) supportedParams.add('points');
 	if (profile.bands) supportedParams.add('gains');
+	// The pinned Audacity limiter has no oversampling control. Its disabled
+	// default is native-compatible; enabled settings use the portable payload.
+	if (effect.type === 'audacity-limiter' && booleanValue(effect.params.limitTruePeaks) === false) supportedParams.add('limitTruePeaks');
 	return Object.keys(effect.params).every((name) => supportedParams.has(name));
 }
 
@@ -226,6 +230,9 @@ export function canEncodeAup4NativeRealtimeEffect(effect) {
  * realtime effects and text macros.
  */
 export function encodeAudacityRealtimeEffectParameters(type, params = {}) {
+	if (type === 'audacity-limiter' && Object.hasOwn(params, 'limitTruePeaks') && booleanValue(params.limitTruePeaks) !== false) {
+		throw new RangeError('Native Audacity Limiter parameters cannot represent true peak limiting.');
+	}
 	const profile = requireRealtimeEffectProfile(type);
 	const output = encodeCommandParameters(profile, params);
 	appendEqualizationPoints(profile, params, output);

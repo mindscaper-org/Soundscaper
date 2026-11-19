@@ -99,10 +99,18 @@ export function createVideoMotionWebGl2AcceleratorAdmissionV1(
 	}
 	if (!gl) return unavailable(VIDEO_MOTION_WEBGL2_FALLBACK_REASONS_V1.contextUnavailable);
 	try {
+		const accelerator = createVideoMotionWebGl2AcceleratorV1(gl);
+		let released = false;
 		return Object.freeze({
-			accelerator: createVideoMotionWebGl2AcceleratorV1(gl), fallbackReason: null,
+			accelerator: Object.freeze({ ...accelerator, dispose() {
+				if (released) return;
+				accelerator.dispose();
+				released = true;
+				gl.getExtension('WEBGL_lose_context')?.loseContext?.();
+			} }), fallbackReason: null,
 		});
 	} catch (error) {
+		gl.getExtension('WEBGL_lose_context')?.loseContext?.();
 		return unavailable(error instanceof VideoMotionWebGl2AdmissionError
 			? error.fallbackReason
 			: VIDEO_MOTION_WEBGL2_FALLBACK_REASONS_V1.initializationFailed);

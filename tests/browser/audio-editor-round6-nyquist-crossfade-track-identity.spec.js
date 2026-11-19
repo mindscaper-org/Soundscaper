@@ -8,7 +8,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('Nyquist Crossfade Tracks keeps one fade direction across split clips on one track', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recordings = [440, 880].map((frequency, index) => createWavFixture({
 		name: `crossfade-microphone-${index}.wav`, frequency, duration: 2,
 		channelCount: 1, channelAmplitudes: [.2],
@@ -57,7 +57,7 @@ function amplitude(samples, frequency, start, end) {
 
 test('a normal Nyquist track-index program applies one gain to both clips on its owning track', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'track-index-recording.wav', frequency: 440,
 		duration: 2, channelCount: 1, channelAmplitudes: [.2] });
 	await importFiles(editor, [recording]);

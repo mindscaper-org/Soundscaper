@@ -29,6 +29,17 @@ test('a same-rate source cache retains its exact native PCM without a conversion
 	assert.deepEqual(cached.getChannelData(0), original);
 });
 
+for (const reversed of [false, true]) test(`direct offline buffers retain only the ${reversed ? 'reversed' : 'forward'} PCM crop`, async () => {
+	const input = Float32Array.from({ length: 3 * 4_096 }, (_, frame) => (frame % 127 - 63) / 256);
+	const start = 4_096 - 17, frames = 123;
+	const rendered = await scheduledPcm(input, 48_000, false, {
+		sourceStartFrame: start, sourceDurationFrames: frames, durationFrames: frames, reversed,
+	});
+	assert.equal(rendered.length, frames, 'unheard samples beside the buffer crop should not be retained');
+	const expected = input.slice(start, start + frames);
+	assert.deepEqual(rendered.getChannelData(0), reversed ? expected.reverse() : expected);
+});
+
 for (const reversed of [false, true]) {
 	test(`cached native-rate conversion retains a cropped ${reversed ? 'reversed' : 'forward'} source window`, async () => {
 		const input = Float32Array.from({ length: 96_000 }, (_, frame) => Math.sin(frame * .31));

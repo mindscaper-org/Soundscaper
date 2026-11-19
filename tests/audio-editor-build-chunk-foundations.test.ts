@@ -8,6 +8,36 @@ import { transformSync } from 'esbuild';
 import { chunkGroupForModulePath, chunkGroups, workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
 import { dynamicRelativeImports, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
+test('session snapshot model and archive inventory stay with eager owners', () => {
+	for (const [path, owner] of [
+		['src/common/editor/session-snapshots.ts', 'editor-domain'],
+		['src/common/editor/session-snapshot-media.ts', 'editor-domain'],
+		['src/common/editor/project-source-reference-remap.ts', 'editor-domain'],
+		['src/common/editor/assistance/session-snapshot-asset-inventory.ts', 'editor-domain'],
+		['src/soundscaper/editor-session-snapshot-rebind.ts', 'soundscaper-project-foundations'],
+	] as const) {
+		assert.equal(chunkGroupForModulePath(path), owner);
+		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner);
+	}
+});
+
+test('Auto-Tune MIDI control leaves stay with their shared domain and lazy parameter editor', () => {
+	for (const [path, owner] of [
+		['src/common/editor/first-party-effects/auto-tune/control-notes.ts', 'editor-domain'],
+		['src/common/editor/first-party-effects/auto-tune/project-control.ts', 'editor-domain'],
+		['src/common/editor/ui/inspector/AutoTuneControlTrack.tsx', 'editor-effect-parameter-surfaces'],
+	] as const) {
+		assert.equal(chunkGroupForModulePath(path), owner, path);
+		assert.equal(chunkGroupForModulePath(path.replaceAll('/', '\\')), owner, path);
+		assert.equal(chunkGroupForModulePath(`/checkout/${path}`), owner, path);
+	}
+	assert.notEqual(chunkGroupForModulePath('src/common/editor/first-party-effects/auto-tune/dsp.ts'), 'editor-domain');
+	assert.notEqual(chunkGroupForModulePath('src/common/editor/first-party-effects/auto-tune/selection.ts'), 'editor-domain');
+	for (const name of ['editor-domain', 'editor-effect-parameter-surfaces']) {
+		assert.equal(chunkGroups.find(group => group.name === name)?.includeDependenciesRecursively, false);
+	}
+});
+
 test('optional editor ownership is independent of path separator', () => {
 	for (const [path, owner] of [
 		['src/common/editor/controller/assistance/internal/local-assistance-runtime.ts', 'editor-optional-assistance'],

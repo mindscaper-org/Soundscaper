@@ -87,6 +87,7 @@ function workspaceHelpMenu(options: Readonly<{
 		projectBinEffectivelyOpen: false, uiFlags: {},
 		desktopHostRuntime: null,
 		fileService: { isDesktop: options.isDesktop },
+		controller: { actions: { macros: {} } },
 		openExternal: options.openExternal ?? (() => undefined),
 		parityRuntime: { actions: null },
 		run: (operation: () => unknown) => operation(),

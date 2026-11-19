@@ -19,7 +19,8 @@ import { LINKED_VIDEO_ORIGINAL_STORE_NAME } from './linked-video-original-schema
 import type {
 	LocalStoreClearAdmission,
 	LocalStoreClearOperation,
-} from './linked-video-original-lifecycle-coordinator.ts';
+	LocalStoreClearOptions,
+} from './linked-original-clear-admission.ts';
 import {
 	candidateEligibleAt,
 	isOpfsPcmStorage,
@@ -40,6 +41,8 @@ import type { SourceWriteMaintenance } from './source-write-lifecycle.ts';
 import type { TransientAnalysisCacheRepository } from './transient-analysis-cache-repository.ts';
 import type { AssistanceDerivativeRepositoryPort } from './deferred-assistance-derivative-repository.ts';
 import { SOURCE_ANALYSIS_CACHE_PREFIXES } from '../source-analysis-cache.ts';
+import { EditorStoreClearInUseError } from './status.ts';
+import { clearRetainedProjectLocalState } from './retained-project-local-state.ts';
 
 import { deleteIndexedDbRetentionCandidates } from './indexeddb-retention-prune.ts';
 import { CATALOG_ORIGINAL_ROOT_STORE_NAME } from './media-catalog-original-schema.ts';
@@ -139,7 +142,12 @@ export class RetentionRepository {
 		return this.admitClear().begin();
 	}
 
-	admitClear(): LocalStoreClearAdmission {
+	admitClear(options: LocalStoreClearOptions = {}): LocalStoreClearAdmission {
+		const clearOptions = {
+			preserveProjectData: options.preserveProjectData === true,
+			preserveSettings: [...new Set(options.preserveSettings)],
+			preserveSettingPrefixes: [...new Set(options.preserveSettingPrefixes)],
+		};
 		const maintenance = this.#options.media.beginAssetMaintenance();
 		let sourceWriteMaintenance: SourceWriteMaintenance;
 		try { sourceWriteMaintenance = this.#options.sources.beginWriteMaintenance(); }
@@ -156,7 +164,7 @@ export class RetentionRepository {
 			begin: () => {
 				if (!pending) throw new Error('The retention clear admission is no longer current.');
 				pending = false;
-				return this.#beginClear(maintenance, sourceWriteMaintenance, databasePromise);
+				return this.#beginClear(maintenance, sourceWriteMaintenance, databasePromise, clearOptions);
 			},
 			cancel: () => {
 				if (!pending) return;
@@ -171,11 +179,12 @@ export class RetentionRepository {
 		maintenance: ReturnType<MediaRepository['beginAssetMaintenance']>,
 		sourceWriteMaintenance: SourceWriteMaintenance,
 		databasePromise: Promise<IDBDatabase | null>,
+		options: Required<LocalStoreClearOptions>,
 	): LocalStoreClearOperation {
 		let committed = false;
 		let resolveLocalCommit!: (value: boolean) => void;
 		const localCommit = new Promise<boolean>((resolve) => { resolveLocalCommit = resolve; });
-		const completion = this.#clear(maintenance, sourceWriteMaintenance, databasePromise, () => {
+		const completion = this.#clear(maintenance, sourceWriteMaintenance, databasePromise, options, () => {
 			committed = true;
 			resolveLocalCommit(true);
 		});
@@ -190,17 +199,24 @@ export class RetentionRepository {
 		maintenance: ReturnType<MediaRepository['beginAssetMaintenance']>,
 		sourceWriteMaintenance: SourceWriteMaintenance,
 		databasePromise: Promise<IDBDatabase | null>,
+		options: Required<LocalStoreClearOptions>,
 		onLocalCommit: () => void,
 	): Promise<void> {
 		try {
 			await abortStoreWriters(maintenance, sourceWriteMaintenance);
 			await this.#options.sources.stopBackgroundWork();
+			const database = await databasePromise;
+			if (options.preserveProjectData) {
+				await clearRetainedProjectLocalState(database, this.#options.port.memory, this.#options.sessionGuard, options);
+				onLocalCommit();
+				return;
+			}
+			const { preserveSettings: preservedKeys } = options;
 			const opfsRecords: StorageRecord[] = [];
 			const stagedPaths = new Set<string>();
-			const database = await databasePromise;
 			if (!database) {
 				if (this.#options.sessionGuard?.hasOtherMemorySession()) {
-					throw new Error('Another editor session still owns local source history.');
+					throw new EditorStoreClearInUseError();
 				}
 				const invalidated = this.#options.media.invalidateAssetStagingMemory();
 				for (const path of invalidated.paths) stagedPaths.add(path);
@@ -209,9 +225,12 @@ export class RetentionRepository {
 					...[...this.#options.port.memory.mediaAssets.values()].map(asStorageRecord).filter(isOpfsRecord),
 					...[...this.#options.port.memory.videoDerivatives.values()].map(asStorageRecord).filter(isOpfsRecord),
 				);
+				const settings = this.#options.port.memory.settings;
+				const preserved = new Map(preservedKeys.filter(key => settings.has(key)).map(key => [key, settings.get(key)]));
 				for (const value of Object.values(this.#options.port.memory)) {
 					if (value !== this.#options.port.memory.mediaAssetStaging) value.clear();
 				}
+				for (const [key, record] of preserved) settings.set(key, record);
 			} else {
 				await this.#options.sessionGuard?.reclaimStoppedSessions(database);
 				await transact(database, [
@@ -234,8 +253,9 @@ export class RetentionRepository {
 					const retainedSessions = this.#options.sessionGuard
 						? await this.#options.sessionGuard.retainedSessionRecords(stores.settings) : [];
 					if (retainedSessions.length > 1) {
-						throw new Error('Another editor session still owns local source history.');
+						throw new EditorStoreClearInUseError();
 					}
+					const preserved = await Promise.all(preservedKeys.map(key => request(stores.settings.get(key))));
 					const storedSourcesRequest = request(stores.sources.getAll()) as Promise<StorageRecord[]>;
 					const storedMediaAssetsRequest = request(stores.mediaAssets.getAll()) as Promise<StorageRecord[]>;
 					const storedDerivativeEntriesRequest = request(
@@ -262,6 +282,7 @@ export class RetentionRepository {
 					}
 					for (const retainedSession of retainedSessions) stores.settings.put(retainedSession);
 					for (const binding of retainedBindings) await request(stores.settings.add(binding));
+					for (const record of preserved) if (record !== undefined) stores.settings.put(record);
 				});
 			}
 			onLocalCommit();

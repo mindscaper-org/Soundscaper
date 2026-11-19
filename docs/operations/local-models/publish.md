@@ -1,5 +1,35 @@
 # Publishing the additional local models
 
+## Basic Pitch identity mirror
+
+`config/basic-pitch-model-source.json` pins the upstream ONNX graph and complete
+notices. The licensing row remains blocked on publication, and the model stays
+out of Model Manager until the verified catalog update is committed.
+
+From `main`, dispatch **Update AI assets** with **Publish Basic Pitch** enabled.
+The separate model job uses the existing `R2_MODELS_*` secrets, uploads the exact
+upstream bytes, and requires public HEAD, byte-range, CORS and full SHA-256
+readback. It prepares an artifact named `basic-pitch-model-catalog-update`
+containing the catalog, licensing matrix, publication receipt, real-model case
+and generated handbook instructions. Review and commit those files together;
+the workflow does not write to the repository automatically.
+
+Local preparation is read-only outside ignored staging and does not publish or
+activate the model:
+
+```sh
+node scripts/models/basic-pitch-model-assets.mjs
+```
+
+The release job runs the same tool with `--publish --write-catalog`, then
+`node scripts/docs-local-models.mjs`. The packaged real-model case uses the
+original synthesized melody/chord fixture and requires the expected pitches,
+valid timing and velocities. Existing GPU evidence checks remain required on
+each maintained target; successful publication or a local CPU probe does not
+establish packaged GPU execution.
+
+## Existing conversion-backed models
+
 The eight additional models now have real conversion or native-worker evidence,
 required nightly execution cases, and machine-verified entries in the checked-in
 production catalog. Model Manager may install their SHA-256-pinned artifacts;

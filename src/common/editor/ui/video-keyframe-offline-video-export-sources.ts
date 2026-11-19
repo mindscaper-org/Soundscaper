@@ -12,6 +12,7 @@ import {
 	resolveVideoSourceDisplaySize,
 	resolveVideoSourcePresentation,
 } from '../video-source-presentation.ts';
+import { VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION } from '../video-source-characteristics.ts';
 import {
 	boundVideoSourceTimingViewInfo,
 	type BoundVideoSourceTimingView,
@@ -46,6 +47,7 @@ interface CanonicalVideoSource {
 	readonly displayHeight: number;
 	readonly presentedWidth: number;
 	readonly presentedHeight: number;
+	readonly postRotationAspectWidth?: number;
 }
 
 const MAXIMUM_SOURCE_COUNT = 4_096;
@@ -100,6 +102,7 @@ export function planVideoKeyframeOfflineVideoSources(requestValue: Readonly<{
 					displayHeight: expected.displayHeight,
 					presentedWidth: expected.presentedWidth,
 					presentedHeight: expected.presentedHeight,
+					...(expected.postRotationAspectWidth === undefined ? {} : { postRotationAspectWidth: expected.postRotationAspectWidth }),
 					presentationForEntry,
 				}));
 			}
@@ -145,6 +148,10 @@ function captureCanonicalSources(
 		const presentation = resolveVideoSourcePresentation(source);
 		const display = resolveVideoSourceDisplaySize(source);
 		if (!display) throw new RangeError(`Offline video source ${sourceId} has no display geometry.`);
+		const postRotationAspectWidth = presentation && display.width === presentation.decodedWidth
+			&& display.height === presentation.scaledHeight && presentation.scaledHeight !== presentation.decodedHeight
+			? Math.max(1, Math.round(presentation.decodedWidth * presentation.sampleAspect.num / presentation.sampleAspect.den))
+			: null;
 		result.set(sourceId, Object.freeze({
 			sourceId,
 			contentSha256: identity,
@@ -155,6 +162,8 @@ function captureCanonicalSources(
 			displayHeight: dimension(display.height, 'source display height'),
 			presentedWidth: persistedWidth,
 			presentedHeight: persistedHeight,
+			...(postRotationAspectWidth !== null && postRotationAspectWidth <= VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION
+				? { postRotationAspectWidth } : {}),
 		}));
 	}
 	return result;

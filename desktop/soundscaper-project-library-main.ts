@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { chmod, mkdir } from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { openLocalDesktopDatabase } from './desktop-database.ts';
+import { openProjectLibraryDirectoryLock } from './project-library-directory-lock.ts';
+import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 import { readSoundscaperDesktopProjectRecoveryCandidates, listSoundscaperDesktopProjectRecoverySummaries } from './soundscaper-project-recovery-reader.ts';
 
 import { admitLowerOnly } from '../src/common/editor/lower-only-seam.ts';
@@ -38,6 +41,7 @@ import {
 import {
 	SoundscaperDesktopProjectLibraryTransferService,
 } from './soundscaper-project-library-transfer-service.ts';
+import { reclaimUnjournaledSoundscaperDesktopPublicationStages } from './soundscaper-project-library-retention.ts';
 import {
 	acquireSoundscaperDesktopProjectLibraryLeaseWithWait,
 } from './soundscaper-project-library-lease-wait.ts';
@@ -106,6 +110,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 	#renewTimer: ReturnType<typeof setInterval> | null = null;
 	readonly #writer: Readonly<SoundscaperDesktopProjectLibraryMainWriter>;
 	readonly #leaseTtlMs: number;
+	readonly #releaseDirectory: () => void;
 
 	private constructor(
 		database: DatabaseSync,
@@ -118,10 +123,12 @@ export class SoundscaperDesktopProjectLibraryMain {
 		writer: Readonly<SoundscaperDesktopProjectLibraryMainWriter>,
 		renewIntervalMs: number,
 		leaseTtlMs: number,
+		releaseDirectory: () => void,
 	) {
 		this.#writer = writer;
 		this.#leaseTtlMs = leaseTtlMs;
 		this.#database = database;
+		this.#releaseDirectory = releaseDirectory;
 		this.#catalog = catalog;
 		this.#host = host;
 		this.#lifecycle = lifecycle;
@@ -144,10 +151,16 @@ export class SoundscaperDesktopProjectLibraryMain {
 
 	static async start(value: unknown): Promise<SoundscaperDesktopProjectLibraryMain> {
 		const options = validateStartOptions(value);
+		const releaseDirectory = openProjectLibraryDirectoryLock(options.appDataPath, 'Soundscaper', 'open');
+		try { return await this.#openLibrary(options, releaseDirectory); }
+		catch (error) { releaseDirectory(); throw error; }
+	}
+
+	static async #openLibrary(options: Readonly<StartOptions>, releaseDirectory: () => void): Promise<SoundscaperDesktopProjectLibraryMain> {
 		const leaseTtlMs = options.testControl?.leaseTtlMs ?? LEASE_TTL_MS;
 		const paths = createSoundscaperDesktopProjectLibraryPaths(options.appDataPath);
 		await createPrivateLibrary(paths);
-		const database = new DatabaseSync(paths.databasePath, {
+		const database = openLocalDesktopDatabase(paths.databasePath, {
 			allowExtension: false,
 			enableDoubleQuotedStringLiterals: false,
 			enableForeignKeyConstraints: true,
@@ -185,6 +198,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 				{ waitMs: leaseTtlMs + 1_000 },
 			);
 			const recovery = await recoverPending(database, catalog, host, lease);
+			await reclaimUnjournaledSoundscaperDesktopPublicationStages(database, paths, lease);
 			await host.reclaimStorage().catch(() => undefined);
 			// Reclaim opaque state only before a renderer can open a session. A live
 			// undo stack may still own a newly persisted body not present in a durable
@@ -213,6 +227,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 				}),
 				options.testControl?.renewIntervalMs ?? RENEW_INTERVAL_MS,
 				leaseTtlMs,
+				releaseDirectory,
 			);
 		} catch (error) {
 			if (catalog && lease) {
@@ -279,6 +294,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 			}
 		} catch (error) { failures.push(error); }
 		try { this.#database.close(); } catch (error) { failures.push(error); }
+		try { this.#releaseDirectory(); } catch (error) { failures.push(error); }
 		throwFailures(failures);
 	}
 
@@ -393,6 +409,7 @@ function lowerOnlyMilliseconds(value: unknown, ceiling: number, name: string): n
 async function createPrivateLibrary(
 	paths: Readonly<SoundscaperDesktopProjectLibraryPaths>,
 ): Promise<void> {
+	assertLocalDesktopStorage(paths.libraryRoot);
 	await mkdir(paths.projectsRoot, { recursive: true, mode: 0o700 });
 	await mkdir(paths.managedMediaRoot, { recursive: true, mode: 0o700 });
 	await Promise.all([

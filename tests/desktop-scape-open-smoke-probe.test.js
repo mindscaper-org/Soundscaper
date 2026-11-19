@@ -138,6 +138,17 @@ test('renderer waits for the temporary Project bin busy toast and still refuses 
 	);
 });
 
+test('renderer waits for import progress to close before accepting the opened project', async () => {
+	const opening = rendererDocumentFixture(PLAN, { ready: true, progressDialogPolls: 2 });
+	assert.deepEqual(await runScapeOpenRendererSmoke(opening.scope, PLAN), rendererResult());
+	assert.equal(opening.polls, 2, 'even a complete timeline must wait for import progress to close');
+
+	const unexpected = rendererDocumentFixture(PLAN, { progressDialogPolls: 2, dialogCount: 1 });
+	await assert.rejects(() => runScapeOpenRendererSmoke(unexpected.scope, PLAN), /alert or dialog/u);
+	const stalled = rendererDocumentFixture(PLAN, { ready: true, progressDialogPolls: Infinity });
+	await assert.rejects(() => runScapeOpenRendererSmoke(stalled.scope, PLAN), /timed out/u);
+});
+
 test('native range descriptor validation proves authority but returns only a pathless summary', () => {
 	const descriptor = projectDescriptor();
 	assert.deepEqual(validateScapeOpenProjectDescriptor(descriptor, PLAN), {
@@ -276,7 +287,7 @@ function smokeResult() {
 	};
 }
 
-function rendererDocumentFixture(plan, { alertCount = 0, busyAlertPolls = 0, dialogCount = 0, ready = false } = {}) {
+function rendererDocumentFixture(plan, { alertCount = 0, busyAlertPolls = 0, progressDialogPolls = 0, dialogCount = 0, ready = false } = {}) {
 	let currentReady = ready;
 	let polls = 0;
 	const attribute = (values, textContent = '') => ({
@@ -322,7 +333,10 @@ function rendererDocumentFixture(plan, { alertCount = 0, busyAlertPolls = 0, dia
 					};
 					return [...(polls < busyAlertPolls ? [busyAlert] : []), ...Array(alertCount).fill({})];
 				}
-				if (selector === '[role="dialog"], [role="alertdialog"]') return Array(dialogCount).fill({});
+				if (selector === '[role="dialog"], [role="alertdialog"]') {
+					const progress = { matches: (query) => query === '[role="dialog"][data-task-progress-dialog]' };
+					return [...(polls < progressDialogPolls ? [progress] : []), ...Array(dialogCount).fill({})];
+				}
 				return [];
 			},
 		},

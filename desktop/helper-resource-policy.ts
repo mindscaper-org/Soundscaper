@@ -64,7 +64,10 @@ export const HELPER_JOB_RESOURCE_HARD_LIMITS = Object.freeze({
 	'ofx-scan': ofxLimits('ofx-scan'),
 	'ofx-host': ofxLimits('ofx-host'),
 	'assistance-speech': Object.freeze({ ...legacyLimits('assistance-speech'),
-		maximumRssBytes: HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES }),
+		maximumRssBytes: HELPER_SPEECH_RECOGNITION_MAXIMUM_RSS_BYTES,
+		maximumOutputBytes: 4 * 1024 ** 3,
+		maximumScratchBytes: 8 * 1024 ** 3 + 2 * 1024 ** 2,
+		maximumDataPlaneBytes: 0, maximumInFlightChunks: 0 }),
 } as const satisfies Readonly<Record<HelperJobKind, Readonly<{
 	maximumInputBytes: number;
 	maximumJobDurationMs: number;
@@ -103,13 +106,13 @@ export function normalizeHelperResourcePolicy(
 	if (!('maximumOutputBytes' in hard)) return Object.freeze(base);
 	return Object.freeze({
 		...base,
-		maximumOutputBytes: lowerOnlyLimit(value?.maximumOutputBytes, hard.maximumOutputBytes, 'output bytes'),
-		maximumScratchBytes: lowerOnlyLimit(value?.maximumScratchBytes, hard.maximumScratchBytes, 'scratch bytes'),
+		maximumOutputBytes: lowerOnlyLimit(value?.maximumOutputBytes, hard.maximumOutputBytes, 'output bytes', 0),
+		maximumScratchBytes: lowerOnlyLimit(value?.maximumScratchBytes, hard.maximumScratchBytes, 'scratch bytes', 0),
 		maximumDataPlaneBytes: lowerOnlyLimit(
-			value?.maximumDataPlaneBytes, hard.maximumDataPlaneBytes, 'data-plane bytes',
+			value?.maximumDataPlaneBytes, hard.maximumDataPlaneBytes, 'data-plane bytes', 0,
 		),
 		maximumInFlightChunks: lowerOnlyLimit(
-			value?.maximumInFlightChunks, hard.maximumInFlightChunks, 'in-flight chunks',
+			value?.maximumInFlightChunks, hard.maximumInFlightChunks, 'in-flight chunks', 0,
 		),
 	});
 }
@@ -150,10 +153,10 @@ function ofxLimits(kind: HelperJobKind) {
 	return Object.freeze({ ...OFX_JOB_LIMITS, maximumJobDurationMs: HELPER_JOB_DURATION_HARD_LIMITS[kind] });
 }
 
-function lowerOnlyLimit(value: unknown, hardMaximum: number, label: string): number {
+function lowerOnlyLimit(value: unknown, hardMaximum: number, label: string, floor = 1): number {
 	return admitLowerOnly(value, {
 		ceiling: hardMaximum,
-		floor: 1,
+		floor,
 		absent: 'ceiling',
 		refuse: () => new RangeError(
 			`Helper ${label} must be a lower-only safe integer no greater than ${hardMaximum}.`,

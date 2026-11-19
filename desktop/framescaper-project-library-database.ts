@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 /** Add Framescaper 1.0 writer, publication, and recovery state. */
 export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 	database: DatabaseSync,
 ): void {
-	database.exec(`
-		PRAGMA journal_mode = WAL;
-		PRAGMA synchronous = FULL;
-		PRAGMA trusted_schema = OFF;
-		PRAGMA foreign_keys = ON;
+	configureDesktopDatabaseJournal(database);
+	try {
+		database.exec(`
 		BEGIN IMMEDIATE;
 		CREATE TABLE IF NOT EXISTS library_lease (
 			singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -45,6 +44,16 @@ export function initializeFramescaperDesktopProjectLibraryLifecycleDatabase(
 			storage_key TEXT NOT NULL,
 			PRIMARY KEY (publication_id, body_file)
 		) STRICT;
+		CREATE TABLE IF NOT EXISTS deleted_project_files (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			root TEXT NOT NULL CHECK (root IN ('document', 'body')),
+			file TEXT NOT NULL,
+			UNIQUE (root, file)
+		) STRICT;
 		COMMIT;
-	`);
+		`);
+	} catch (error) {
+		if (database.isTransaction) database.exec('ROLLBACK');
+		throw error;
+	}
 }

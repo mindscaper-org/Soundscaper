@@ -60,3 +60,24 @@ test('eviction releases empty namespace accounting and preserves identity bounda
 	assert.deepEqual(cache.forKey('source-v2').read(0), [[2]]);
 	assert.equal(cache.snapshot().namespaces, 1);
 });
+
+test('an equal-size replacement keeps its existing namespace and makes the column most recent', () => {
+	const cache = createSpectrogramColumnCache(480);
+	const first = cache.forKey('first');
+	const second = cache.forKey('second');
+	const original = [[1]];
+	first.write(0, original);
+	second.write(0, [[2]]);
+	const native = globalThis.Map;
+	let maps = 0;
+	globalThis.Map = new Proxy(native, { construct(target, args, receiver) {
+		maps++;
+		return Reflect.construct(target, args, receiver);
+	} });
+	try { first.write(0, [[9]]); } finally { globalThis.Map = native; }
+	assert.equal(maps, 0);
+	assert.deepEqual(original, [[1]]);
+	cache.forKey('third').write(0, [[3]]);
+	assert.deepEqual(first.read(0), [[9]]);
+	assert.equal(second.read(0), null);
+});

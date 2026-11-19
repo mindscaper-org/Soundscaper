@@ -47,6 +47,17 @@ test('ARA clip session uploads, binds, edits and publishes only verified rendere
 	assert.deepEqual(calls, ['start', 'write', 'bind', 'editor', 'render', 'apply', 'close', 'cancel'])
 })
 
+test('ARA finishes a committed edit even if the plug-in session fails while closing', async () => {
+	const { session, calls, bridge } = fixture()
+	bridge.close = async () => { calls.push('close'); throw new Error('The desktop plug-in has already exited.') }
+	await session.open('installation')
+	await session.apply()
+	assert.equal(session.getSnapshot().phase, 'applied')
+	await session.open('installation')
+	assert.equal(calls.filter(call => call === 'apply').length, 1)
+	assert.equal(calls.filter(call => call === 'start').length, 1)
+})
+
 test('ARA stale clip and malformed renders close native authority without publishing', async () => {
 	const stale = fixture()
 	await stale.session.open('installation')

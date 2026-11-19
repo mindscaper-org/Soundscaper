@@ -224,6 +224,27 @@ test('menu decoration uses pinned Audacity labels instead of divergent English c
 	assert.equal(Object.hasOwn(stateful, 'preserveLabel'), false);
 });
 
+test('one menu update shares selection and channel inventory across all commands', () => {
+	const tracks = Array.from({ length: 32 }, (_, index) => ({ id: `track-${index}`, type: 'audio', clipIds: [`clip-${index}`] }));
+	const clips = tracks.map(({ clipIds }, index) => ({ id: clipIds[0], sourceId: `source-${index}` }));
+	const sources = clips.map(({ sourceId }, index) => ({ id: sourceId, channelCount: index === 0 ? 1 : 2 }));
+	let inventoryReads = 0;
+	const project = { tracks, clips, get sources() { inventoryReads++; return sources; },
+		selection: { startFrame: 0, endFrame: 0, trackIds: ['track-0'], clipIds: [] } };
+	const context = { snapshot: { project, selectedTrackId: 'track-0' } };
+	const ids = ['track-resample', 'track-split-stereo-to-lr', 'track-make-stereo', 'duplicate-track', 'track-mute'];
+	const manifests = ids.map(id => ({ id, label: id, onClick() {} }));
+	const menu = [{ id: 'tracks', label: 'Tracks', items: manifests }];
+	const first = applyAudacityParityToMenus(menu, { actionContext: context })[0];
+	assert.equal(first.items.find(({ id }) => id === 'track-make-stereo').disabled, true);
+	assert.equal(inventoryReads, 2, 'one read for edit availability and one for channel widths');
+	// A new selection update must see changes since the previous menu pass.
+	sources[1].channelCount = 1;
+	const second = applyAudacityParityToMenus(menu, { actionContext: context })[0];
+	assert.equal(Boolean(second.items.find(({ id }) => id === 'track-make-stereo').disabled), false);
+	assert.equal(inventoryReads, 4);
+});
+
 test('shortcut command inventory consumes manifest actions while keeping disabled entries inert and exclusions absent', () => {
 	const commands = collectAudacityShortcutCommands([{
 		id: 'file',

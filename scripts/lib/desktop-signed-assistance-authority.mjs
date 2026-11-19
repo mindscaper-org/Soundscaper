@@ -9,6 +9,7 @@ export function signedAssistanceAuthority(manifest, signing, target) {
 		throw new Error('Invalid native signing receipt.');
 	}
 	const descriptor = manifest.targets[target].package;
+	if (!descriptor) throw new Error('Signed assistance requires a built native target.');
 	const prefix = `${manifest.runtimePrefix}/node_modules/${descriptor.name}/`;
 	const output = structuredClone(manifest);
 	const outputFiles = output.targets[target].package.files;

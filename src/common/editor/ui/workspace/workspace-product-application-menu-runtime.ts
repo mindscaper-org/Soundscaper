@@ -8,11 +8,7 @@ import {
 	FRAMESCAPER_PROJECT_SCHEMA_FAMILY,
 	isCurrentProjectSchemaIdentity,
 } from '../../project-schema-identity.ts';
-import {
-	composeFramescaperNativeProjectActionRuntimes,
-	createFramescaperNativeProjectActionSubsetRuntime,
-	framescaperNativeProjectActionRuntimeFor,
-} from '../framescaper-native-project-actions.ts';
+import { framescaperNativeProjectActionRuntimeFor } from '../framescaper-native-project-actions.ts';
 import {
 	framescaperCandidateAuthoringActionRuntimeFor,
 	type FramescaperCandidateAuthoringSurface,
@@ -60,22 +56,9 @@ export function createProductWorkspaceApplicationMenuRuntime({
 	run,
 	openSurface,
 }: ProductWorkspaceRuntimeInput): Readonly<Record<string, unknown>> {
-	const selectedNativeProjectActions = framescaperNativeProjectActionRuntimeFor(controller);
-	const proxyProjectActions = productId === 'framescaper'
+	const openVideoProxy = productId === 'framescaper'
 		&& framescaperVideoProxyActionRuntimeFor(controller) !== null
-		? createFramescaperNativeProjectActionSubsetRuntime([
-			'proxy-generate', 'proxy-attach', 'proxy-detach', 'proxy-relink',
-		], {
-			'proxy-generate': () => openSurface('video-proxy'),
-			'proxy-attach': () => openSurface('video-proxy'),
-			'proxy-detach': () => openSurface('video-proxy'),
-			'proxy-relink': () => openSurface('video-proxy'),
-		}) : null;
-	const projectActions = selectedNativeProjectActions === null ? proxyProjectActions
-		: proxyProjectActions === null ? selectedNativeProjectActions
-			: composeFramescaperNativeProjectActionRuntimes([
-				selectedNativeProjectActions, proxyProjectActions,
-			]);
+		? () => openSurface('video-proxy') : null;
 	const nativeServicesRuntime = resolveFramescaperNativeServicesWorkspaceRuntime({
 		productId,
 		copy, locale,
@@ -83,7 +66,8 @@ export function createProductWorkspaceApplicationMenuRuntime({
 		projectCapabilities,
 		editingBlocked,
 		readOnly,
-		projectActions,
+		projectActions: framescaperNativeProjectActionRuntimeFor(controller),
+		openVideoProxy,
 		openFxAuthoring: framescaperNativeOpenFxAuthoringRuntimeForNativeMedia(controller) as (
 			Parameters<typeof resolveFramescaperNativeServicesWorkspaceRuntime>[0]['openFxAuthoring']
 		),

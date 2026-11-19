@@ -6,14 +6,19 @@ import type { ReviewedImageFormat } from './image-format-signature.ts';
 export function encodedImageIsAnimated(bytes: Uint8Array, format: ReviewedImageFormat): boolean {
 	if (format === 'png') return animatedPng(bytes);
 	if (format === 'webp') return animatedWebP(bytes);
-	if (format === 'gif') return animatedGif(bytes);
+	if (format === 'gif') return gifAnimation(bytes) !== null;
 	return false;
 }
 
-/** The PNG animation count excludes a separate default poster image. */
+/** Encoded timing for a PNG animation or a verified single-frame GIF loop. */
 export function encodedImageAnimationInfo(bytes: Uint8Array, format: ReviewedImageFormat): Readonly<{
 	frameCount: number; firstFrameDurationMicroseconds: number | null;
 }> | null {
+	if (format === 'gif') {
+		const animation = gifAnimation(bytes);
+		return animation && !animation.multipleFrames
+			? { frameCount: 1, firstFrameDurationMicroseconds: animation.duration } : null;
+	}
 	if (format !== 'png') return null;
 	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 	let frameCount: number | null = null;
@@ -60,23 +65,35 @@ function animatedWebP(bytes: Uint8Array): boolean {
 	return false;
 }
 
-function animatedGif(bytes: Uint8Array): boolean {
-	if (bytes.byteLength < 13) return false;
+function gifAnimation(bytes: Uint8Array): { multipleFrames: true } | { multipleFrames: false; duration: number | null } | null {
+	if (bytes.byteLength < 13) return null;
 	let offset = 13 + tableBytes(bytes[10]!);
 	let frames = 0;
+	let looping = false;
+	let pendingDelay: number | null = null, firstDelay: number | null = null;
 	while (offset < bytes.byteLength) {
 		const block = bytes[offset]!;
-		if (block === 0x3b) return false;
+		if (block === 0x3b) return frames === 1 && looping ? { multipleFrames: false, duration: firstDelay } : null;
 		if (block === 0x21) {
+			const label = bytes[offset + 1], size = bytes[offset + 2];
+			if (label === 0xf9 && size === 4 && bytes[offset + 7] === 0) {
+				const hundredths = bytes[offset + 4]! | (bytes[offset + 5]! << 8);
+				pendingDelay = hundredths > 0 ? hundredths * 10_000 : null;
+			}
+			if (label === 0x01) pendingDelay = null; // A plain-text graphic consumes its control extension.
+			if (label === 0xff && size === 11 && bytes[offset + 14] === 3 && bytes[offset + 15] === 1
+				&& bytes[offset + 18] === 0 && (ascii(bytes, offset + 3, 'NETSCAPE2.0') || ascii(bytes, offset + 3, 'ANIMEXTS1.0'))) looping = true;
 			offset = skipSubBlocks(bytes, offset + 2);
 		} else if (block === 0x2c) {
-			if (offset + 10 > bytes.byteLength) return false;
+			if (offset + 10 > bytes.byteLength) return null;
 			frames += 1;
-			if (frames > 1) return true;
+			if (frames > 1) return { multipleFrames: true };
+			firstDelay = pendingDelay;
+			pendingDelay = null;
 			offset = skipSubBlocks(bytes, offset + 11 + tableBytes(bytes[offset + 9]!));
-		} else return false;
+		} else return null;
 	}
-	return false;
+	return null;
 }
 
 function tableBytes(packed: number): number {

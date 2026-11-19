@@ -43,6 +43,7 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 	// exists or hide one that was just saved.
 	const presets = controller.actions.export.presets.list('audio');
 	const targets = useMemo(() => deliveryBatchTargetOptions({
+		hasMaterial: Boolean(snapshot.project?.clips?.length || snapshot.audioRenderedFallback),
 		hasSelection: Boolean(resolveSelectionRange(snapshot.project)),
 		hasLoop: Boolean(snapshot.project?.loop?.enabled),
 		masteringSequences: snapshot.masteringSequences ?? null,
@@ -50,11 +51,12 @@ export function DeliveryQueueDialog({ isOpen, controller, snapshot, copy, onClos
 		entireProject: copy.entireProject,
 		currentSelection: copy.currentSelection,
 		loopRegion: copy.loopRegion,
+		noMaterial: copy.deliveryTargetNoMaterial,
 		noSelection: copy.deliveryTargetNoSelection,
 		noLoop: copy.deliveryTargetNoLoop,
 		undeliverableSequence: copy.deliveryTargetSequenceUndeliverable,
 		stemsUnsupported: copy.deliveryTargetStemsUnsupported,
-	}), [copy, snapshot.masteringSequences, snapshot.project]);
+	}), [copy, snapshot.audioRenderedFallback, snapshot.masteringSequences, snapshot.project]);
 
 	const [mode, setMode] = useState('mix');
 	const [targetKeys, setTargetKeys] = useState(['project']);

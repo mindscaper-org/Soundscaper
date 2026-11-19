@@ -2,6 +2,7 @@
 import { Button } from '@soundscaper/design-system/Button';
 import type { PropertyClip, PropertySource } from './clip-properties-upstream-model.ts';
 import ClipAudioFormatSection, { type ClipAudioFormatRequest } from './ClipAudioFormatSection.tsx';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export interface ClipMediaActions {
 	update(id: string, changes: Readonly<Record<string, unknown>>): unknown;
@@ -58,7 +59,7 @@ export function clipAudioPropertyControls({ clips, source, copy, actions, disabl
 			<input type="checkbox" checked={voice === true} aria-checked={voice} disabled={disabled}
 				ref={node => { if (node) node.indeterminate = voice === 'mixed'; }}
 				onChange={event => setTimePitch({ preserveFormants: event.currentTarget.checked })} />
-			<span>{copy.clipOptimizeVoice}</span>
+			<EditorControlLabel>{copy.clipOptimizeVoice}</EditorControlLabel>
 		</label>,
 		invert: <button type="button" className="clip-properties__field clip-properties__field--toggle"
 			data-clip-properties-field="invert" role={inverted === 'mixed' ? 'checkbox' : 'switch'} aria-checked={inverted} disabled={disabled}

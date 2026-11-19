@@ -24,6 +24,7 @@ import { imagingChunkGroups } from './build-chunk-imaging.mjs';
 import { productProfileChunkGroups } from './build-chunk-product-profiles.mjs';
 import { translationCatalogChunkGroups } from './build-chunk-translation-catalogs.mjs';
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
+import { deferredEditorFeatureChunks } from './build-deferred-editor-features.mjs';
 
 import {
 	EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
@@ -40,6 +41,7 @@ import {
 	EDITOR_FREQUENCY_WAVEFORM_CHUNK_TEST,
 	EDITOR_IMPORT_ADMISSION_CHUNK_TEST,
 	EDITOR_MACRO_DEFAULTS_CHUNK_TEST,
+	EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
 	EDITOR_OPTIONAL_ASSISTANCE_CHUNK_TEST,
 	EDITOR_OPTIONAL_CAPTURE_CHUNK_TEST,
 	EDITOR_OPTIONAL_EXECUTION_CHUNK_TEST,
@@ -66,7 +68,7 @@ import {
 	editorPath,
 } from './build-chunk-tests.mjs';
 import { withUiPreparationChunkTest } from './build-chunk-ui-preparation.mjs';
-import { editorUiChunkGroups } from './build-chunk-editor-ui.mjs';
+import { editorUiChunkGroups, HDR_MERGE_COPY_CHUNK_TEST } from './build-chunk-editor-ui.mjs';
 
 // The membership patterns keep their long-standing import site.
 export {
@@ -98,6 +100,13 @@ export {
 export const chunkGroups = [
 	...translationCatalogChunkGroups,
 	...productProfileChunkGroups,
+	...deferredEditorFeatureChunks,
+	{
+		// Transcript projection and inference are requested only by the optional panel.
+		name: 'editor-transcript-editing',
+		test: /src[\\/]common[\\/]editor[\\/](?:transcript-editing\.ts|controller[\\/](?:composition[\\/]internal[\\/]transcript-editing-actions|assistance[\\/]transcript-generation-session)\.ts|ui[\\/]workspace[\\/](?:Transcript(?:EditingPanel|Generation)\.tsx|TranscriptEditingPanel\.css|transcript-(?:dom-selection|editing-panel-types)\.ts))$/,
+		priority: 102, minSize: 0, maxSize: 400_000, includeDependenciesRecursively: false,
+	},
 	{ name: 'editor-assistance-model-preflight', test: EDITOR_ASSISTANCE_MODEL_PREFLIGHT_CHUNK_TEST,
 		priority: 100, minSize: 0, maxSize: 400_000,
 		includeDependenciesRecursively: false },
@@ -175,6 +184,21 @@ export const chunkGroups = [
 		test: EDITOR_COMMUNITY_TRANSLATIONS_CHUNK_TEST,
 		priority: 98,
 		minSize: 0,
+		maxSize: 400_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		// Import, export and interchange reach these codecs only on file use.
+		name: 'editor-midi-file-codecs',
+		test: EDITOR_MIDI_FILE_CODECS_CHUNK_TEST,
+		priority: 108,
+		maxSize: 120_000,
+		includeDependenciesRecursively: false,
+	},
+	{
+		name: 'vendor-midi-synth',
+		test: /node_modules[\\/](?:libadlmidi-js|js-synthesizer)[\\/]/,
+		priority: 101,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
@@ -425,7 +449,8 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-engine',
-		test: new RegExp(`${editorPath}(?:engine(?:\\.js|[\\\\/])|recording(?:\\.js|[\\\\/]|-listening-output\\.ts)|playback-meter\\.js)`),
+		// The library instrument entry points are imported on demand by the MIDI renderer.
+		test: new RegExp(String.raw`${editorPath}(?!engine[\\/](?:midi-adlmidi|midi-fluidsynth|midi-library-renderer|midi-soundfont-reference)\.ts$)(?:engine(?:\.js|[\\/])|recording(?:\.js|[\\/]|-listening-output\.ts)|playback-meter\.js)`),
 		priority: 90,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
@@ -449,6 +474,7 @@ export const chunkGroups = [
 		name: 'editor-controller-core',
 		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|delivery-queue-runner\\.ts$|ui[\\\\/]framescaper-(?:candidate-authoring-actions|native-project-actions)\\.ts$|facade\\.ts|index\\.js)`),
 		priority: 75,
+		minSize: 40_000,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
@@ -507,4 +533,15 @@ export function chunkGroupForModulePath(path) {
 		.sort((left, right) => right.priority - left.priority);
 	const name = candidates[0]?.name;
 	return typeof name === 'function' ? name(path) : name ?? null;
+}
+
+/** @param {string} productId */
+export function chunkGroupsForProduct(productId) {
+	if (productId !== 'framescaper') return chunkGroups;
+	// The timeline editor already starts its shared dialog foundations. Its
+	// HDR menu labels can use that owner without pulling in the editor catalog.
+	return chunkGroups.filter(({ name }) => name !== 'editor-hdr-merge-copy').map(group => {
+		if (group.name !== 'editor-dialog-foundations' || !(group.test instanceof RegExp)) return group;
+		return { ...group, test: new RegExp(`${group.test.source}|${HDR_MERGE_COPY_CHUNK_TEST.source}`) };
+	});
 }

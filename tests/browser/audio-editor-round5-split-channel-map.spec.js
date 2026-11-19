@@ -56,7 +56,7 @@ test('Split stereo retains both channels of an ordinary default send', async ({ 
 
 async function setup(page) {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [recording]);
 	const track = clipByName(editor, recording.name).locator('xpath=ancestor::*[@data-track-row][1]');
 	const trackId = await track.getAttribute('data-track-id');

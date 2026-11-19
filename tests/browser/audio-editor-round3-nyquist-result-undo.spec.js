@@ -7,7 +7,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 test('one Undo restores audio and labels returned by one Nyquist run', async ({ page }) => {
 	test.setTimeout(90_000);
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA, toneB]);
 	const before = await exportSamples(page, editor);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');

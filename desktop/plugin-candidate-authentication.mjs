@@ -94,7 +94,7 @@ async function hashRegularFile(path, expected) {
 	if (expected.byteLength > MAXIMUM_FILE_BYTES) throw new Error('A plug-in bundle file exceeds its byte budget.');
 	const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
 	try {
-		const opened = identityFrom(await handle.stat());
+		const opened = identityFrom(await handle.stat({ bigint: true }));
 		if (opened.kind !== 'file' || !sameEntry(expected, opened)) {
 			throw new Error('A plug-in bundle file changed while it was opened.');
 		}
@@ -108,7 +108,7 @@ async function hashRegularFile(path, expected) {
 			if (byteLength > expected.byteLength) throw new Error('A plug-in bundle file grew while it was read.');
 			hash.update(buffer.subarray(0, bytesRead));
 		}
-		const after = identityFrom(await handle.stat());
+		const after = identityFrom(await handle.stat({ bigint: true }));
 		if (byteLength !== expected.byteLength || !sameEntry(opened, after)) {
 			throw new Error('A plug-in bundle file changed while it was read.');
 		}
@@ -116,23 +116,27 @@ async function hashRegularFile(path, expected) {
 	} finally { await handle.close(); }
 }
 
-async function entryIdentity(path) { return identityFrom(await lstat(path)); }
+async function entryIdentity(path) { return identityFrom(await lstat(path, { bigint: true })); }
 function identityFrom(metadata) {
 	const kind = metadata.isSymbolicLink() ? 'symbolic'
 		: metadata.isFile() ? 'file' : metadata.isDirectory() ? 'directory' : 'special';
 	return Object.freeze({
 		kind,
-		dev: Number(metadata.dev), ino: Number(metadata.ino), byteLength: Number(metadata.size),
-		mtimeMs: metadata.mtimeMs, ctimeMs: metadata.ctimeMs,
+		dev: portableIdentity(metadata.dev), ino: portableIdentity(metadata.ino), byteLength: Number(metadata.size),
+		mtimeNs: String(metadata.mtimeNs), ctimeNs: String(metadata.ctimeNs),
 	});
+}
+function portableIdentity(value) {
+	const unsigned = BigInt.asUintN(64, value);
+	return unsigned <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(unsigned) : unsigned.toString(10);
 }
 function sameEntry(left, right) {
 	return left.kind === right.kind && left.dev === right.dev && left.ino === right.ino
-		&& left.byteLength === right.byteLength && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs;
+		&& left.byteLength === right.byteLength && left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs;
 }
 function inventory(entries) {
 	return JSON.stringify(entries.map(({ name, identity }) => [
-		name, identity.kind, identity.dev, identity.ino, identity.byteLength, identity.mtimeMs, identity.ctimeMs,
+		name, identity.kind, identity.dev, identity.ino, identity.byteLength, identity.mtimeNs, identity.ctimeNs,
 	]));
 }
 function portableSegment(value) {

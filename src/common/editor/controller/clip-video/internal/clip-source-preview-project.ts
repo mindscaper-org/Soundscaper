@@ -2,8 +2,9 @@
 
 import { clipSourceDisplayRange, clipSourcePreviewWarpMap, type ClipSourceTimingClip, type ClipSourceTimingProject, type ClipSourceTimingSource } from '../../../clip-source-timing.ts';
 import { createAudioPreviewProject } from '../../../engine/audio-preview-project.ts';
-import type { EngineProject } from '../../../engine/types.ts';
+import type { EngineProject, EngineTrack } from '../../../engine/types.ts';
 import { clipTimePitchPlaybackProjection } from '../../../clip-time-pitch-playback-projection.ts';
+import { withClipSourcePreviewControls } from './clip-source-preview-controls.ts';
 
 export interface ClipSourcePreviewClip extends ClipSourceTimingClip, Readonly<Record<string, unknown>> { readonly id: string; readonly sourceId: string }
 export interface ClipSourcePreviewSource extends ClipSourceTimingSource, Readonly<Record<string, unknown>> { readonly id: string }
@@ -11,6 +12,7 @@ export interface ClipSourcePreviewProject extends ClipSourceTimingProject {
 	readonly id: string;
 	readonly clips: readonly ClipSourcePreviewClip[];
 	readonly sources: readonly ClipSourcePreviewSource[];
+	readonly tracks?: readonly EngineTrack[];
 }
 
 export function sourcePreviewTarget(project: ClipSourcePreviewProject, clipId: string) {
@@ -37,11 +39,11 @@ export function createClipSourcePreviewProject(project: ClipSourcePreviewProject
 		...raw, id: `${clip.id}-source-after`, timelineStartFrame: range.endFrame, durationFrames: range.totalFrames - range.endFrame,
 		sourceStartFrame: clip.sourceStartFrame + clip.sourceDurationFrames, sourceDurationFrames: source.frameCount - clip.sourceStartFrame - clip.sourceDurationFrames,
 	});
-	return {
+	return withClipSourcePreviewControls(project, clipId, {
 		...createAudioPreviewProject({
 			title: 'Clip source preview', sampleRate: project.sampleRate, sources: [source], clips,
 			tracks: [{ id: 'clip-source-preview-track', type: 'audio', name: 'Clip source', clipIds: clips.map((value) => (value as { id: string }).id), armed: false }],
 		}),
 		tempoMap: project.tempoMap,
-	};
+	});
 }

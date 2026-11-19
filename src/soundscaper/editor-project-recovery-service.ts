@@ -6,6 +6,7 @@ import type { ProjectDocument } from '../common/editor/storage/project-repositor
 import type { ProjectRecoveryCandidate } from '../common/editor/storage/project-recovery-repository.ts';
 import { ProjectCommittedMaintenanceError } from '../common/editor/storage/project-committed-maintenance-error.ts';
 import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/project-duplication.ts';
+import { isCurrentProjectSchemaIdentity, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../common/editor/project-schema-identity.ts';
 import { SoundscaperDesktopProjectLibraryCommittedError, SoundscaperDesktopProjectLibraryIndeterminateError } from './desktop-project-library-renderer-catalog.ts';
 import { cloneSoundscaperProject, validateSoundscaperProject } from './editor-project.ts';
 import { repairSoundscaperProject, type SoundscaperProjectRepair } from './editor-project-recovery-repair.ts';
@@ -47,7 +48,7 @@ export async function inspectSoundscaperProjectRecovery(
 				status: repair.changes.length === 0 ? 'usable' as const : 'repairable' as const,
 				changes: repair.changes, error: row.diagnostic ?? null }));
 		} catch (error) {
-			if (isSoundscaperRecoveryBlockedFailure(error)) throw error;
+			if (isSoundscaperRecoveryBlockedFailure(error) || (error instanceof Error && error.name === 'TimeoutError')) throw error;
 			candidates.push(Object.freeze({ key: row.key, kind: row.kind, revision: row.revision,
 				status: 'unrecoverable' as const, changes: Object.freeze([]), error: message(error) }));
 		}
@@ -68,12 +69,14 @@ export async function createSoundscaperProjectRecoveryCopy(
 	if (!authority || authority.store !== store) throw new Error('A current recovery inspection is required.');
 	if (!Number.isSafeInteger(candidateIndex) || candidateIndex < 0) throw new Error('A recovery candidate is required.');
 	const row = authority.rows[candidateIndex];
-	if (!row || inspection.candidates[candidateIndex]?.status === 'unrecoverable') throw new Error('This recovery candidate cannot be restored.');
+	const candidate = inspection.candidates[candidateIndex];
+	if (!row || !candidate || candidate.status === 'unrecoverable') throw new Error('This recovery candidate cannot be restored.');
 	const pending = authority.publications.get(candidateIndex);
 	if (pending) return complete(inspection, await verifyPublication(store, pending.expected), pending.sourceRevision, pending.changes);
 	const current = (await store.readProjectRecoveryCandidates(inspection.projectId)).find(({ key }) => key === row.key);
 	if (!current || !sameProjectSnapshot(row, current)) throw new Error('The saved recovery candidate changed; inspect the project again.');
 	const repaired = await prepare(store, current);
+	if (!sameProjectSnapshot(repaired.changes, candidate.changes)) throw new Error('The saved recovery candidate changed; inspect the project again.');
 	const timestamp = new Date().toISOString();
 	const source = cloneSoundscaperProject(repaired.project) as unknown as Record<string, unknown>;
 	const copyProjectId = createProjectStoreId('project');
@@ -113,7 +116,7 @@ export async function createSoundscaperProjectRecoveryCopy(
 }
 
 async function verifyPublication(store: SoundscaperProjectRecoveryStore, expected: ProjectDocument): Promise<ProjectDocument> {
-	const latest = (await store.readProjectRecoveryCandidates(expected.id)).find(({ project }) => record(project)?.id === expected.id);
+	const latest = (await store.readProjectRecoveryCandidates(expected.id)).find(({ kind }) => kind === 'current');
 	if (!latest || latest.diagnostic || !sameProjectSnapshot(latest.project, expected)) {
 		throw new Error('The recovered copy publication cannot yet be verified; retry the same recovery.');
 	}
@@ -136,6 +139,9 @@ export function createSoundscaperProjectRecoveryActions(store: SoundscaperProjec
 }
 
 async function prepare(store: SoundscaperProjectRecoveryStore, row: ProjectRecoveryCandidate, availability = new Map<string, boolean>()): Promise<SoundscaperProjectRepair> {
+	if (!isCurrentProjectSchemaIdentity(row.project, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY)) {
+		throw new Error('Recovery supports only the current Soundscaper project schema.');
+	}
 	const available = await readSoundscaperRecoveryAvailableMediaSources(store, row.project, availability);
 	return repairSoundscaperProject(row.project, available);
 }

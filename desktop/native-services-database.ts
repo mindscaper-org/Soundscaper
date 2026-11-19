@@ -10,7 +10,7 @@
  *
  * Every table is STRICT and carries its invariants as CHECK constraints, so a
  * row that violates the queue contract cannot be written even by a code path
- * that forgot to validate. The journal is WAL with full synchronous commits,
+ * that forgot to validate. Rollback journaling uses full synchronous commits,
  * because a queue that loses its last few transactions on power loss is a queue
  * that silently re-runs or silently drops finished work.
  *
@@ -21,6 +21,7 @@
  */
 
 import { DatabaseSync } from 'node:sqlite';
+import { configureDesktopDatabaseJournal } from './desktop-database.ts';
 
 /** 'FSNS' — distinct from the project library's own application id. */
 export const FRAMESCAPER_NATIVE_SERVICES_APPLICATION_ID = 0x46534e53;
@@ -97,7 +98,7 @@ export function initializeFramescaperNativeServicesDatabase(database: DatabaseSy
 			'The Framescaper native services database was written by a newer build and is refused.',
 		);
 	}
-	database.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA trusted_schema = OFF; PRAGMA foreign_keys = ON;');
+	configureDesktopDatabaseJournal(database);
 	database.exec('BEGIN IMMEDIATE');
 	try {
 		for (const migration of MIGRATIONS) {

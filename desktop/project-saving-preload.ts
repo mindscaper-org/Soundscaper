@@ -9,11 +9,17 @@ const prefix = 'soundscaper:v1:project-saving:';
 export function createProjectSavingPreload(ipc: Ipc, helpers: Helpers) {
 	return Object.freeze({
 		respondToClose: (value: { requestId: string; allow: boolean }) => ipc.send('soundscaper:v1:close:respond', { requestId: text(value?.requestId, 64), allow: value?.allow === true }),
-		prepareOriginalOverwrite: (id: string) => ipc.invoke('soundscaper:v1:original-file:prepare-overwrite', helpers.opaqueId(id, 48)).then(helpers.original),
+		prepareOriginalOverwrite: (id: string, allowProjectSavePicker = false) => {
+			const opaqueId = helpers.opaqueId(id, 48);
+			const request = allowProjectSavePicker === true ? { id: opaqueId, allowProjectSavePicker } : opaqueId;
+			return ipc.invoke('soundscaper:v1:original-file:prepare-overwrite', request).then(
+				value => allowProjectSavePicker && value === null ? null : helpers.original(value),
+			);
+		},
 		releaseOriginalFile: (id: string) => ipc.invoke('soundscaper:v1:original-file:release', helpers.opaqueId(id, 48)).then(helpers.boolean),
 		releaseSaveTarget: (id: string) => ipc.invoke('soundscaper:v1:save:release-target', helpers.opaqueId(id, 48)).then(helpers.boolean),
-		rememberProjectFile: (value: { projectId: string; originalId: string; baseline: string }) => ipc.invoke(`${prefix}rememberProjectFile`, {
-			projectId: text(value?.projectId, 256), originalId: helpers.opaqueId(value?.originalId, 48), baseline: digest(value?.baseline),
+		rememberProjectFile: (value: { projectId: string; originalId: string | null; baseline: string }) => ipc.invoke(`${prefix}rememberProjectFile`, {
+			projectId: text(value?.projectId, 256), originalId: value?.originalId === null ? null : helpers.opaqueId(value?.originalId, 48), baseline: digest(value?.baseline),
 		}),
 		restoreProjectFile: (id: string) => ipc.invoke(`${prefix}restoreProjectFile`, text(id, 256)).then(value => {
 			if (value === null) return null;

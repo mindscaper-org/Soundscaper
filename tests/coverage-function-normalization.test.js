@@ -65,3 +65,36 @@ test('combines duplicate class field initializers without dropping their executi
 	assert.deepEqual(normalizeDuplicateFunctionCoverage(summary, detailed)[path].functions,
 		{ total: 1, covered: 1, pct: 100 });
 });
+
+test('CommonJS export getters mapped onto a comment do not count as source functions', () => {
+	const path = '/repo/src/releases.ts';
+	const source = '/* License */\nexport function called() { return 1; }\nexport function uncalled() { return 2; }\n';
+	const comment = { start: { line: 1, column: 0 }, end: { line: 1, column: 13 } };
+	const called = { start: { line: 2, column: 7 }, end: { line: 2, column: 38 } };
+	const uncalled = { start: { line: 3, column: 7 }, end: { line: 3, column: 40 } };
+	const summary = { [path]: { functions: { total: 4, covered: 2, pct: 50 } } };
+	const detailed = { [path]: {
+		fnMap: {
+			0: { name: 'called', loc: called },
+			1: { name: 'uncalled', loc: uncalled },
+			2: { name: 'called', loc: comment },
+			3: { name: 'uncalled', loc: comment },
+		},
+		// Reading an export getter must never stand in for executing its body.
+		f: { 0: 1, 1: 0, 2: 0, 3: 1 },
+	} };
+	assert.deepEqual(normalizeDuplicateFunctionCoverage(summary, detailed, () => source)[path].functions,
+		{ total: 2, covered: 1, pct: 50 });
+	assert.deepEqual(summary[path].functions, { total: 4, covered: 2, pct: 50 });
+});
+
+test('comment-mapped coverage without a matching exported source declaration stays in the gate', () => {
+	const path = '/repo/src/releases.ts';
+	const comment = { start: { line: 1, column: 0 }, end: { line: 1, column: 13 } };
+	const summary = { [path]: { functions: { total: 1, covered: 0, pct: 0 } } };
+	const detailed = { [path]: { fnMap: { 0: { name: 'missing', loc: comment } }, f: { 0: 0 } } };
+	for (const source of [undefined, '/* License */\nconst missing = 1;\n',
+		'/* License */\nexport function missing() {}\n', 'export function missing() {}\n']) {
+		assert.deepEqual(normalizeDuplicateFunctionCoverage(summary, detailed, () => source), summary);
+	}
+});

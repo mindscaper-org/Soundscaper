@@ -175,11 +175,11 @@ export async function captureBrowserFrame(entry: Data, signal: AbortSignal): Pro
 	canvas.height = height;
 	const context = canvas.getContext('2d', { alpha: true, willReadFrequently: true });
 	if (!context) throw new Error('Selected finishing source readback has no 2D context.');
-	context.clearRect(0, 0, width, height);
 	context.drawImage(drawable as CanvasImageSource, 0, 0, width, height);
 	const data = context.getImageData(0, 0, width, height).data;
 	throwIfAborted(signal);
-	return Object.freeze({ width, height, pixels: Uint8Array.from(data) as Uint8Array<ArrayBuffer> });
+	// Canvas readback owns a fresh buffer, so the byte view needs no copy.
+	return Object.freeze({ width, height, pixels: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) });
 }
 
 export function mediaPresentation(finishing: UnifiedExactRenderFinishingNode, clipId: string, sourceId: string) {

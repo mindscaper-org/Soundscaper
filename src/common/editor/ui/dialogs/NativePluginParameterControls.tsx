@@ -1,3 +1,4 @@
+import { subscribeNativePluginPresetRestores } from '../../controller/effects/native-plugin-preset-runtime.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
@@ -12,6 +13,7 @@ import {
 } from './native-plugin-parameter-runtime.ts';
 import { SOUNDSCAPER_NATIVE_SERVICES_COPY } from '../../../i18n/editor-soundscaper-native-services-copy.ts';
 import { trackNativePluginParameterWrites } from '../native-plugin-parameter-write-drain.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 const BOOLEAN_PARAMETER_FLAG = 1;
 
@@ -71,6 +73,8 @@ export default function NativePluginParameterControls({
 	copy: copyValue,
 }: NativePluginParameterControlsProps) {
 	const copy = { ...DEFAULT_COPY, ...copyValue };
+	const [presetGeneration, setPresetGeneration] = useState(0);
+	useEffect(() => subscribeNativePluginPresetRestores(instanceId, () => setPresetGeneration(value => value + 1)), [instanceId]);
 	const generation = useRef(0);
 	const writeSession = useRef<ParameterWriteSession | null>(null);
 	const disabledRef = useRef(disabled);
@@ -92,7 +96,7 @@ export default function NativePluginParameterControls({
 			(error: unknown) => { if (generation.current === current) setSnapshot(failedSnapshot(error)); },
 		);
 		return () => { if (generation.current === current) generation.current += 1; };
-	}, [instanceId, runtime, stateGeneration]);
+	}, [instanceId, runtime, stateGeneration, presetGeneration]);
 	useEffect(() => {
 		if (!disabled || !writeSession.current) return;
 		const session = writeSession.current;
@@ -158,7 +162,7 @@ const NativeParameterRow = memo(function NativeParameterRow({ parameter, value, 
 
 	const isBoolean = (parameter.flags & BOOLEAN_PARAMETER_FLAG) !== 0;
 	return <label key={parameter.id}>
-		<span>{parameter.name}</span>
+		<EditorControlLabel>{parameter.name}</EditorControlLabel>
 		{isBoolean ? <input
 			data-native-plugin-parameter={parameter.id}
 			type="checkbox"

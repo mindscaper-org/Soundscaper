@@ -60,11 +60,13 @@ const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
 const DEFERRED_WORKSPACE_PANELS = Object.freeze({
 	'clip-properties': lazyEditorModule(() => import('../inspector/ClipPropertiesPanel.tsx')),
 	metadata: lazyEditorModule(() => import('./ProjectMetadataPanel.tsx')),
+	'transcript-editing': lazyEditorModule(() => import('./TranscriptEditingPanel.tsx')),
 	...(FRAMESCAPER_BUILD ? {
 		'recording-setup': lazyEditorModule(() => import('./RecordingSetupPanel.tsx')),
 		'web-vcr': lazyEditorModule(() => import('./WebVcrPanel.tsx')),
 	} : {}),
 	...(SOUNDSCAPER_BUILD ? {
+		'macros-palette': lazyEditorModule(() => import('./MacrosPaletteWorkspacePanel.jsx')),
 		freesound: lazyEditorModule(() => import('./FreesoundPanelContainer.tsx')),
 		audiocom: lazyEditorModule(() => import('./AudiocomPanelContainer.tsx')),
 		'clip-spreadsheet': lazyEditorModule(() => import('../clip-spreadsheet/ClipSpreadsheetPanel.tsx')),
@@ -88,6 +90,7 @@ export default function WorkspacePanelContent({
 	copy,
 	locale,
 	fileService, confirmFileSizeWarning = /** @type {import('../../controller/shared/file-size-warning.ts').FileSizeWarningConfirmation | undefined} */ (undefined),
+	importRoutedFiles = /** @type {import('./import-workspace-routed-files.ts').ImportFilesToProjectBin | undefined} */ (undefined),
 	playbackMeterSettings,
 	recordingMeterSettings = /** @type {import('../meter-settings.ts').MeterSettings | undefined} */ (undefined),
 	onPlaybackMeterSettingsChange = /** @type {((update: import('./meter-panel-settings.ts').MeterSettingsUpdate) => void) | undefined} */ (undefined),
@@ -177,7 +180,7 @@ export default function WorkspacePanelContent({
 				snapshot={snapshot}
 				copy={copy}
 				locale={locale}
-				fileService={fileService} confirmFileSizeWarning={confirmFileSizeWarning}
+				fileService={fileService} confirmFileSizeWarning={confirmFileSizeWarning} importRoutedFiles={importRoutedFiles}
 				run={run}
 				blocked={blocked}
 			/>

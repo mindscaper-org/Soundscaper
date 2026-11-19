@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { earOutputChannelCount } from '../ear/layouts.ts';
 
 /** Pure desktop export-dialog model for exact main-process codec status. */
 
@@ -27,6 +28,7 @@ interface DesktopExportCodecSettings {
 	readonly channelMapping?: unknown;
 	readonly channelMatrix?: unknown;
 	readonly binaural?: unknown;
+	readonly earLayout?: unknown;
 	readonly sampleFormat?: unknown;
 	readonly compressionLevel?: unknown;
 	readonly quality?: unknown;
@@ -166,6 +168,11 @@ function selectedEncodeSettings(
 }
 
 function outputChannelCount(settings: DesktopExportCodecSettings, projectChannelCount: unknown): number {
+	if (settings.earLayout) {
+		const channels = earOutputChannelCount(settings.earLayout);
+		if (channels === null) throw new TypeError('The EBU EAR output layout is unsupported.');
+		return channels;
+	}
 	if (settings.binaural === true) return 2;
 	if (settings.channelMapping === 'mono') return 1;
 	if (settings.channelMapping === 'stereo') return 2;

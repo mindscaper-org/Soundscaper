@@ -33,3 +33,21 @@ test('opaque bilinear color interpolation remains unchanged', () => {
 		{ scale: 1, rotationRadians: 0, translateX: 0.5, translateY: 0, inlierCount: 1, meanError: 0 });
 	assert.deepEqual([...frame.pixels.subarray(4)], [128, 128, 0, 255]);
 });
+
+test('motion resampling reads each of the four alpha taps once for an RGBA output pixel', () => {
+	let alphaReads = 0;
+	const pixels = new Proxy(Uint8Array.of(
+		100, 50, 200, 255, 100, 50, 200, 128,
+		100, 50, 200, 64, 255, 0, 0, 0,
+	), {
+		get(target, key: string | symbol) {
+			if (key === '3' || key === '7' || key === '11' || key === '15') alphaReads += 1;
+			return Reflect.get(target, key, target) as unknown;
+		},
+	});
+	const result = warpApplied({ width: 2, height: 2, pixels }, {
+		scale: 1, rotationRadians: 0, translateX: 0.5, translateY: 0.5, inlierCount: 1, meanError: 0,
+	});
+	assert.deepEqual([...result.pixels], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 50, 200, 112]);
+	assert.equal(alphaReads, 4);
+});

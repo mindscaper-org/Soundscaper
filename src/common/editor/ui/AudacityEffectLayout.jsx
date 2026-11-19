@@ -6,6 +6,17 @@ import AudacityPortEffectLayout from './AudacityPortEffectLayout.jsx';
 import { isAudacityNyquistPort } from './audacity-port-layouts.ts';
 
 const EFFECT_LAYOUTS = Object.freeze({
+	'automatic-phase-correction': [
+		{ titleKey: 'effectNameAutomaticPhaseCorrection', names: ['reference', 'maximumShiftMs', 'minimumConfidence'], wide: true },
+	],
+	'hum-removal': [
+		{ titleKey: null, names: ['frequency', 'harmonics', 'bandwidth', 'reduction'], wide: true },
+	],
+	'auto-tune': [
+		{ titleKey: 'effectCardPitchShift', names: ['controlTrackId', 'key', 'scale'], wide: true,
+			helpKey: 'effectAutoTuneHint', helpSubjectKey: 'effectNameAutoTune' },
+		{ titleKey: 'effectCardResponse', names: ['amount', 'retune', 'mix'], knobs: true, wide: true },
+	],
 	deesser: [
 		{ titleKey: 'effectCardDeesser', names: ['frequency', 'threshold', 'reduction'], knobs: true, wide: true },
 		{ titleKey: 'effectCardTiming', names: ['attack', 'release'], knobs: true, wide: true },
@@ -364,7 +375,7 @@ export function AudacityEffectLayout({
 					].filter(Boolean).join(' ');
 					return (
 						<section className={className} key={`${group.titleKey}-${groupIndex}`}>
-							<h3 className="audio-editor-audacity-layout__heading">
+							{group.titleKey && <h3 className="audio-editor-audacity-layout__heading">
 								{localizedCardTitle(group.titleKey, copy)}
 								{group.helpKey && <EditorHelpTooltip
 									subject={canonicalCopyValue(group.helpSubjectKey, copy)}
@@ -372,7 +383,7 @@ export function AudacityEffectLayout({
 									helpLabel={copy?.helpMenu || 'Help'}
 									hook={`${effectType}-lookahead`}
 								/>}
-							</h3>
+							</h3>}
 							{group.names.length > 0 && (
 								<div className="audio-editor-audacity-layout__parameters">
 									{group.names.map((name) => (

@@ -12,6 +12,7 @@ import VideoColorWheelsControls from './VideoColorWheelsControls.tsx';
 import VideoEffectCubeLut from './VideoEffectCubeLut.tsx';
 import { createNativeInputPointerCancellation } from './native-input-pointer-cancellation.ts';
 import { useVideoEffectRemovalFocus } from './useVideoEffectRemovalFocus.ts';
+import EditorControlLabel from '../EditorControlLabel.tsx';
 
 export function VideoEffectRack({ clip, controller, copy, disabled, onError }) {
 	const effects = clip.videoEffects || [];
@@ -139,7 +140,7 @@ function VideoEffectSelect({ clipId, effectId, name, parameter, value, actions, 
 	const label = parameterLabel(parameter, copy);
 	return (
 		<div className="audio-editor-video-effect__param" data-video-effect-param={name} role="group" aria-label={label}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<select
 				value={value}
 				disabled={disabled}
@@ -177,7 +178,7 @@ function VideoEffectColor({ clipId, effectId, name, parameter, value, actions, c
 	};
 	return (
 		<div className="audio-editor-video-effect__param" data-video-effect-param={name} role="group" aria-label={label}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<div className="audio-editor-video-effect__color">
 				<input type="color" value={canonical} disabled={disabled} aria-label={label} onFocus={gesture.begin} onChange={(event) => previewText(event.currentTarget.value.toUpperCase())} onBlur={commit} />
 				<input type="text" value={draft} disabled={disabled} aria-label={`${copy.videoEffectExactValue}: ${label}`} inputMode="text" maxLength={7} onFocus={gesture.begin} onChange={(event) => previewText(event.currentTarget.value)} onBlur={commit} onKeyDown={(event) => {
@@ -225,7 +226,7 @@ function VideoEffectSlider({ clipId, effectId, name, parameter, value, actions, 
 	};
 	return (
 		<div className="audio-editor-video-effect__param" data-video-effect-param={name} role="group" aria-label={label}>
-			<span>{label}</span>
+			<EditorControlLabel>{label}</EditorControlLabel>
 			<div className="audio-editor-video-effect__value">
 				<VideoEffectNumberInput value={numericValue} minimum={parameter.min} maximum={parameter.max} step={parameter.step}
 					label={`${copy.videoEffectExactValue}: ${label}`} disabled={disabled} onBegin={gesture.begin}

@@ -15,7 +15,7 @@ test('Export includes the audible release of a Classic Filters rack insert', asy
 	const dialog = page.getByRole('dialog', { name: 'Classic Filters', exact: true });
 	await commitInput(dialog.getByRole('spinbutton', { name: 'Cutoff frequency (Hz)', exact: true }), '10');
 	await closeDialog(dialog);
-	const samples = await exportSamples(page, editor);
+	const samples = await exportSamples(page, editor, { includeTail: true });
 	expect(samples.length).toBeGreaterThan(48_128);
 	expect(Math.max(...samples.slice(48_000, 48_128).map(Math.abs))).toBeGreaterThan(.1);
 	expect(Math.max(...samples.slice(-128).map(Math.abs))).toBeLessThan(.0001);

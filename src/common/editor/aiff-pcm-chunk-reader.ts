@@ -3,7 +3,7 @@
 import { AUDIO_EDITOR_PCM_CHUNK_FRAMES } from './pcm-chunks.js';
 import { raceAbortableRead } from '../foundation/abort-race.ts';
 import { parseAiffMarkChunk } from './aiff-markers.ts';
-import { aiffIntegerSampleFormat, parseAiffCommLayout, validateAiffCommByteLength, type AiffCommLayout, type AiffPcmSampleFormat } from './aiff-comm-layout.ts';
+import { aiffIntegerSampleFormat, parseAiffCommLayout, resolveAifcPcmCompression, validateAiffCommByteLength, type AiffCommLayout, type AiffPcmSampleFormat } from './aiff-comm-layout.ts';
 export type { AiffPcmSampleFormat } from './aiff-comm-layout.ts';
 import { normalizeRiffMarkers, type RiffMarker } from './riff-markers.ts';
 
@@ -27,6 +27,7 @@ export interface AiffPcmDescriptor {
 	readonly container: 'aiff' | 'aifc';
 	readonly encoding: 'pcm-integer' | 'ieee-float';
 	readonly sampleFormat: AiffPcmSampleFormat;
+	readonly aifcCompression?: string;
 	readonly littleEndian?: boolean;
 	readonly sampleRate: number;
 	readonly channelCount: number;
@@ -195,8 +196,13 @@ export async function inspectAiffBlobPcm(
 	if (!comm) throw new Error('The AIFF file does not contain one COMM chunk.');
 	if (!sound) throw new Error('The AIFF file does not contain one SSND chunk.');
 	const expectedDataBytes = comm.frameCount * comm.blockAlign;
-	if (!Number.isSafeInteger(expectedDataBytes) || sound.dataByteLength < expectedDataBytes
-		|| sound.dataByteLength - expectedDataBytes >= Math.max(1, sound.blockSize)) {
+	const excess = sound.dataByteLength - expectedDataBytes;
+	const dataEnd = sound.dataOffset + expectedDataBytes;
+	// libsndfile includes the last alignment byte in the SSND chunk size.
+	const includesAlignmentByte = sound.blockSize === 0 && excess === 1 && dataEnd % 2 === 1;
+	if (!Number.isSafeInteger(expectedDataBytes) || excess < 0
+		|| (excess >= Math.max(1, sound.blockSize) && (!includesAlignmentByte
+			|| (await readSourceBytes(source, dataEnd, dataEnd + 1, signal))[0] !== 0))) {
 		throw new Error('The AIFF sound data does not match its declared PCM geometry.');
 	}
 	return descriptorFromFields({
@@ -352,6 +358,12 @@ function validateAiffPcmDescriptor(
 	if (candidate.littleEndian !== undefined && (candidate.littleEndian !== true || floatingPoint || candidate.container !== 'aifc')) {
 		throw new TypeError('AIFF PCM descriptor byte order is invalid.');
 	}
+	const compression = candidate.aifcCompression === undefined
+		? null : resolveAifcPcmCompression(candidate.aifcCompression, bitDepth);
+	if (candidate.aifcCompression !== undefined && (candidate.container !== 'aifc'
+		|| compression?.sampleFormat !== sampleFormat || compression.littleEndian !== candidate.littleEndian)) {
+		throw new TypeError('AIFF-C PCM descriptor compression is invalid.');
+	}
 	const markers = candidate.markers === undefined
 		? undefined
 		: normalizeRiffMarkers(candidate.markers as readonly RiffMarker[]);
@@ -369,6 +381,7 @@ function validateAiffPcmDescriptor(
 		formByteLength,
 		sourceByteLength,
 		...(markers ? { markers } : {}),
+		...(compression ? { aifcCompression: compression.aifcCompression } : {}),
 		...(candidate.littleEndian === true ? { littleEndian: true } : {}),
 	}, candidate.container === 'aifc');
 }
@@ -389,8 +402,7 @@ function closedDescriptor(value: unknown): Readonly<Record<string, unknown>> {
 		throw new TypeError('An AIFF PCM descriptor is required.');
 	}
 	const keys = Reflect.ownKeys(value);
-	// `markers` arrived after the closed field set, so descriptors without it stay valid.
-	const allowedFields: readonly string[] = [...DESCRIPTOR_FIELDS, 'markers', 'littleEndian'];
+	const allowedFields: readonly string[] = [...DESCRIPTOR_FIELDS, 'markers', 'littleEndian', 'aifcCompression'];
 	if (keys.some((key) => typeof key !== 'string' || !allowedFields.includes(key))
 		|| DESCRIPTOR_FIELDS.some((field) => !keys.includes(field))) {
 		throw new TypeError('AIFF PCM descriptor fields are invalid.');

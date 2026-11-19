@@ -3,12 +3,16 @@
 import { expect, test } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
+	chooseFileAction,
 	chooseNestedCommandAction,
 	collectClientErrors,
 	commitInput,
 	resolveBrowserProductTestUrl,
 	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
+import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
+import { SUBPROJECT_LIBRARY_SETTING } from '../../src/common/editor/subproject-library-setting.ts';
 
 test('uses the desktop project library for create, edit, reopen, duplicate, and delete', async ({ page }) => {
 	test.setTimeout(90_000);
@@ -51,6 +55,37 @@ test('uses the desktop project library for create, edit, reopen, duplicate, and 
 	expect(final.calls).toContain('duplicateProject');
 	expect(final.calls).toContain('deleteProject');
 	expect(errors).toEqual([]);
+});
+
+test('clearing local editor data preserves the desktop project library’s link identity', async ({ page }) => {
+	await page.addInitScript(installDesktopProjectLibrary);
+	const editor = await bootEditor(page, '/embed/en/');
+	const originalId = await editor.getAttribute('data-project-id');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	await chooseFileAction(page, editor, 'Subprojects');
+	const subprojects = page.getByRole('dialog', { name: 'Subprojects', exact: true });
+	const libraryIdentity = () => page.evaluate(({ databaseName, key }) => new Promise((resolve, reject) => {
+		const open = indexedDB.open(databaseName);
+		open.onerror = () => reject(open.error);
+		open.onsuccess = () => {
+			const database = open.result;
+			const get = database.transaction('settings', 'readonly').objectStore('settings').get(key);
+			get.onerror = () => { database.close(); reject(get.error); };
+			get.onsuccess = () => { database.close(); resolve(get.result?.value ?? null); };
+		};
+	}), { databaseName: SOUNDSCAPER_DATABASE_NAME, key: SUBPROJECT_LIBRARY_SETTING });
+	await expect.poll(libraryIdentity).toMatch(/^library-/u);
+	const before = await libraryIdentity();
+	await subprojects.getByRole('button', { name: 'Close', exact: true }).last().click();
+	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Clear all local editor data']);
+	const confirmation = page.getByRole('dialog', { name: 'Clear all local editor data', exact: true });
+	await confirmation.getByRole('button', { name: 'Clear all local editor data', exact: true }).click();
+	await expect(confirmation).toBeHidden();
+	await expect(editor).not.toHaveAttribute('data-project-id', originalId);
+	await waitForProjectActivation(editor);
+	await expect.poll(libraryIdentity).toBe(before);
+	const desktop = await desktopSnapshot(page);
+	expect(desktop.projects.some(project => project.id === originalId)).toBe(true);
 });
 
 async function desktopSnapshot(page) {

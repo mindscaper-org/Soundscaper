@@ -64,8 +64,10 @@ test('trusted audio stays in Node while real plug-ins execute only through the i
 	assert.match(api, /soundscaper_pro_plugin_open[\s\S]*stable_id/u);
 	assert.match(audio, /createAudioDeviceTypes/u);
 	assert.match(audio, /device->open/u);
+	assert.match(audio, /device->getAvailableSampleRates\(\)[\s\S]*?!rates\.contains\(request\.sample_rate\)[\s\S]*?device->open\(/u,
+		'ASIO checks the advertised rate before opening the device');
 	assert.match(audio, /audioDeviceIOCallbackWithContext/u);
-	assert.match(audio, /class PeriodRing/u);
+	assert.match(audio, /AudioFrameRing input;\s*AudioFrameRing output;/u);
 	assert.match(audio, /audioDeviceStopped\(\).*stopped\.store/u);
 	assert.match(audio, /audioDeviceError\(.*failed\.store/u);
 	assert.match(jucePlugin, /findAllTypesForFile/u);

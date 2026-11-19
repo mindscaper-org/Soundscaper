@@ -15,7 +15,7 @@ export function generatorChannelGroups(
 	focused: AudioGeneratorTrack | null,
 	channelCount: number,
 	requested: Readonly<{ trackId?: string | null; channelCount?: unknown }>,
-	trackChannelCount: (project: AudioGeneratorDocument, track: AudioGeneratorTrack | null, fallback: number) => number,
+	countChannels: (track: AudioGeneratorTrack | null, fallback: number) => number,
 ): readonly GeneratorChannelGroup[] {
 	if (!selection || focused?.type !== 'audio' || requested.trackId || requested.channelCount) {
 		return [{ channelCount, selection, track: focused }];
@@ -25,7 +25,7 @@ export function generatorChannelGroups(
 	if (!targets.length) return [{ channelCount, selection, track: focused }];
 	const tracksByWidth = new Map<number, AudioGeneratorTrack[]>();
 	for (const track of targets) {
-		const width = trackChannelCount(project, track, project.masterChannels || 2);
+		const width = countChannels(track, project.masterChannels || 2);
 		const tracks = tracksByWidth.get(width) ?? [];
 		tracks.push(track);
 		tracksByWidth.set(width, tracks);

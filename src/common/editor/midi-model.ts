@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { MidiFileEvent, MidiFileSignature, MidiFileTempo } from './midi-file-types.ts';
+import { normalizeMidiNativeInstrument, type MidiNativeInstrument } from './midi-native-instrument.ts';
+import { MIDI_COMPACT_SCORE_KEY, packMidiScore, unpackMidiScore } from './midi-compact-score.ts';
 
 export const MIDI_EXTENSION_KEY = 'soundscaper.midi';
-export const MIDI_INSTRUMENTS = ['sine', 'triangle', 'square', 'sawtooth'] as const;
+export const MIDI_INSTRUMENTS = ['sine', 'triangle', 'square', 'sawtooth', 'libadlmidi', 'fluidsynth'] as const;
 export const MIDI_MAXIMUM_NOTES = 200_000;
-export type MidiInstrument = typeof MIDI_INSTRUMENTS[number];
+export type MidiInstrument = typeof MIDI_INSTRUMENTS[number] | MidiNativeInstrument;
 
 /** Note coordinates are in the fallback source's sample-frame space. */
 export interface MidiNote {
@@ -38,6 +40,8 @@ export interface MidiClipData {
 	readonly interchange?: MidiClipInterchange;
 }
 
+export type MidiClipPayload = MidiClipData | string;
+
 export interface MidiTrackData {
 	readonly version: 1;
 	readonly instrument: MidiInstrument;
@@ -45,19 +49,27 @@ export interface MidiTrackData {
 	readonly program?: number;
 }
 
+export interface MidiPreviewTarget { readonly clipId: string; readonly noteId?: string }
+
 type Carrier = Readonly<Record<string, unknown>>;
 const ABSENT_MIDI_DATA = Symbol('absent-midi-data');
 
 /** Read editable MIDI data without changing the audio fallback or unrelated extensions. */
 export function readMidiClip(value: unknown): MidiClipData | null {
-	const data = carrierData(value);
+	const extensions = carrierExtensions(value);
+	const packed = extensions && Object.hasOwn(extensions, MIDI_COMPACT_SCORE_KEY);
+	const data = packed ? extensions[MIDI_COMPACT_SCORE_KEY] : legacyCarrierData(extensions);
 	if (data === ABSENT_MIDI_DATA) return null;
 	if (record(value, 'MIDI clip').kind !== 'audio') throw new TypeError('A MIDI clip requires an audio fallback.');
+	if (packed) {
+		if (typeof data !== 'string' || Object.hasOwn(extensions, MIDI_EXTENSION_KEY)) throw new TypeError('Invalid compact MIDI carrier.');
+		return normalizeMidiClipData(unpackMidiScore(data, MIDI_MAXIMUM_NOTES));
+	}
 	return normalizeMidiClipData(data);
 }
 
 export function readMidiTrack(value: unknown): MidiTrackData | null {
-	const data = carrierData(value);
+	const data = legacyCarrierData(carrierExtensions(value));
 	if (data === ABSENT_MIDI_DATA) return null;
 	if (record(value, 'MIDI track').type !== 'audio') throw new TypeError('A MIDI track requires an audio track fallback.');
 	return normalizeMidiTrackData(data);
@@ -71,20 +83,42 @@ export function isMidiTrack(value: unknown): boolean {
 	try { return readMidiTrack(value) !== null; } catch { return false; }
 }
 
-export function withMidiClipData<Value extends Carrier>(value: Value, data: MidiClipData): Value {
-	return withCarrierData(value, normalizeMidiClipData(data));
+export function withMidiClipData<Value extends Carrier>(value: Value, data: MidiClipPayload, compact = false): Value {
+	const payload = typeof data === 'string' ? data : serializeMidiClipData(data, compact || hasCompactMidiScore(value));
+	const extensions = value.opaqueExtensions === undefined ? {} : { ...record(value.opaqueExtensions, 'opaqueExtensions') };
+	delete extensions[MIDI_COMPACT_SCORE_KEY];
+	delete extensions[MIDI_EXTENSION_KEY];
+	extensions[typeof payload === 'string' ? MIDI_COMPACT_SCORE_KEY : MIDI_EXTENSION_KEY] = payload;
+	return { ...value, opaqueExtensions: extensions };
+}
+
+export function hasCompactMidiScore(value: unknown): boolean {
+	const extensions = carrierExtensions(value);
+	return extensions !== null && Object.hasOwn(extensions, MIDI_COMPACT_SCORE_KEY);
+}
+
+export function serializeMidiClipData(data: MidiClipData, compact = false): MidiClipPayload {
+	return packMidiScore(normalizeMidiClipData(data), compact);
 }
 
 export function withMidiTrackData<Value extends Carrier>(value: Value, data: MidiTrackData): Value {
-	return withCarrierData(value, normalizeMidiTrackData(data));
+	return withCarrierData(value, serializeMidiTrackData(data));
+}
+
+export function serializeMidiTrackData(data: MidiTrackData) {
+	const normalized = normalizeMidiTrackData(data);
+	// Older beta readers retain their understood waveform and the saved PCM.
+	return typeof normalized.instrument === 'string' ? normalized
+		: { ...normalized, instrument: 'triangle' as const, nativeInstrument: normalized.instrument };
 }
 
 /** A destructive audio edit makes its resulting waveform the authoritative content. */
 export function removeMidiClipData<Value extends Carrier>(value: Value): Value {
 	const extensions = value.opaqueExtensions === undefined ? {} : record(value.opaqueExtensions, 'opaqueExtensions');
-	if (!Object.hasOwn(extensions, MIDI_EXTENSION_KEY)) return value;
+	if (!Object.hasOwn(extensions, MIDI_EXTENSION_KEY) && !Object.hasOwn(extensions, MIDI_COMPACT_SCORE_KEY)) return value;
 	const retained = { ...extensions };
 	delete retained[MIDI_EXTENSION_KEY];
+	delete retained[MIDI_COMPACT_SCORE_KEY];
 	return { ...value, opaqueExtensions: retained };
 }
 
@@ -154,10 +188,13 @@ export function normalizeMidiClipData(value: unknown): MidiClipData {
 
 export function normalizeMidiTrackData(value: unknown): MidiTrackData {
 	const input = versionedData(value, 'MIDI track');
-	if (!MIDI_INSTRUMENTS.includes(input.instrument as MidiInstrument)) throw new RangeError('MIDI track.instrument is unsupported.');
+	const selected = input.nativeInstrument ?? input.instrument;
+	const instrument = typeof selected === 'object' ? normalizeMidiNativeInstrument(selected) : selected;
+	if (typeof instrument === 'string' && !MIDI_INSTRUMENTS.includes(instrument as typeof MIDI_INSTRUMENTS[number])) throw new RangeError('MIDI track.instrument is unsupported.');
+	if (!instrument || typeof instrument !== 'string' && typeof instrument !== 'object') throw new RangeError('MIDI track.instrument is unsupported.');
 	return {
 		version: 1,
-		instrument: input.instrument as MidiInstrument,
+		instrument: instrument as MidiInstrument,
 		...(input.program === undefined ? {} : { program: integer(input.program, 0, 127, 'MIDI track.program') }),
 	};
 }
@@ -209,26 +246,39 @@ export function validateProjectMidiCarriers(project: Readonly<{
 	sources?: readonly Readonly<Record<string, unknown>>[];
 }>): void {
 	for (const track of project.tracks) readMidiTrack(track);
+	const sources = project.sources;
+	let sourceIndex: Map<unknown, Readonly<Record<string, unknown>>> | undefined;
+	let nextSource = 0;
 	for (const clip of [...project.clips, ...project.binClips ?? []]) {
 		const midi = readMidiClip(clip);
-		if (!midi || !project.sources) continue;
-		const source = project.sources.find(source => source.id === record(clip, 'MIDI clip').sourceId);
+		if (!midi || !sources) continue;
+		sourceIndex ??= new Map();
+		const sourceId = record(clip, 'MIDI clip').sourceId;
+		while (!sourceIndex.has(sourceId) && nextSource < sources.length) {
+			const candidate = sources[nextSource++]!;
+			const id = candidate.id;
+			if (!Number.isNaN(id) && !sourceIndex.has(id)) sourceIndex.set(id, candidate);
+		}
+		const source = sourceIndex.get(sourceId);
 		if (!source || source.kind !== 'audio' || midi.notes.some(note => note.startFrame + note.durationFrames > Number(source.frameCount))) {
 			throw new RangeError('MIDI notes require a complete audio fallback source.');
 		}
 	}
 }
 
-function carrierData(value: unknown): unknown {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) return ABSENT_MIDI_DATA;
-	const extensions = (value as Carrier).opaqueExtensions;
-	if (!extensions || typeof extensions !== 'object' || Array.isArray(extensions)) return ABSENT_MIDI_DATA;
-	return Object.hasOwn(extensions, MIDI_EXTENSION_KEY)
-		? (extensions as Carrier)[MIDI_EXTENSION_KEY]
+function legacyCarrierData(extensions: Carrier | null): unknown {
+	return extensions && Object.hasOwn(extensions, MIDI_EXTENSION_KEY)
+		? extensions[MIDI_EXTENSION_KEY]
 		: ABSENT_MIDI_DATA;
 }
 
-function withCarrierData<Value extends Carrier>(value: Value, data: MidiClipData | MidiTrackData): Value {
+function carrierExtensions(value: unknown): Carrier | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const extensions = (value as Carrier).opaqueExtensions;
+	return extensions && typeof extensions === 'object' && !Array.isArray(extensions) ? extensions as Carrier : null;
+}
+
+function withCarrierData<Value extends Carrier>(value: Value, data: MidiTrackData): Value {
 	const extensions = value.opaqueExtensions === undefined ? {} : record(value.opaqueExtensions, 'opaqueExtensions');
 	return { ...value, opaqueExtensions: { ...extensions, [MIDI_EXTENSION_KEY]: data } };
 }

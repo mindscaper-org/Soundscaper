@@ -180,7 +180,7 @@ export async function authenticateAssistanceRuntimeFamilyDescriptorFilesV1(
 	return descriptor;
 }
 
-async function inspectFile(
+export async function inspectFile(
 	path: string,
 	options: Readonly<{
 		readonly minimumBytes: number;

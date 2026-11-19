@@ -1,0 +1,120 @@
+{
+	"schemaVersion": 1,
+	"engines": {
+		"libadlmidi": {
+			"wrapperVersion": "2.2.0",
+			"engineVersion": "1.6.2",
+			"engineRevision": "ad001c83551779934bacd642fce801c51a5b7b4c",
+			"emulator": "Nuked OPL3 Fast",
+			"profile": "nuked.slim",
+			"embeddedBanks": false,
+			"bank": "Soundscaper original FM reference patches",
+			"upstreamBuildToolchain": "Emscripten 5.0.0"
+		},
+		"fluidsynth": {
+			"wrapperVersion": "1.13.0",
+			"engineVersion": "2.4.6",
+			"sourceTag": "v2.4.6-em-2",
+			"engineRevision": "99bf7094cf517095b7a944ccf5f74072436bfa3f",
+			"libsndfile": false,
+			"bank": "Soundscaper original harmonic SoundFont reference bank",
+			"buildTransformation": "Extract embedded WASM unchanged and expose the upstream Module as an ES module; no eval or global loader."
+		}
+	},
+	"artifacts": [
+		{
+			"path": "node_modules/libadlmidi-js/dist/libadlmidi.nuked.slim.core.js",
+			"byteLength": 70474,
+			"sha256": "9e876eebc00a5600f795b687becb5bd4bb7cfd3b61216d81bbc698c64a04aa30"
+		},
+		{
+			"path": "node_modules/libadlmidi-js/dist/libadlmidi.nuked.slim.core.wasm",
+			"byteLength": 209564,
+			"sha256": "7719472cf9c56a8a5ca242b5882e1231e8a73c20cc275f43e19cdc1b4b651dca"
+		},
+		{
+			"path": "node_modules/js-synthesizer/externals/libfluidsynth-2.4.6.js",
+			"byteLength": 571798,
+			"sha256": "42ece3b53ef3289a3b30e0e1ebb4951e9da9987ae6ca975c57a0aabc91237f66"
+		}
+	],
+	"fluidSynthWasm": {
+		"byteLength": 330151,
+		"sha256": "e5eb958659293e3384d62131486ddde238fbf11751363f97412251a81fd1f9a1"
+	},
+	"licenseFiles": [
+		{
+			"path": "LICENSES/midi-synths/FluidSynth-LGPL-2.1.txt",
+			"byteLength": 26461,
+			"sha256": "9b872a8a070b8ad329c4bd380fb1bf0000f564c75023ec8e1e6803f15364b9e9"
+		},
+		{
+			"path": "LICENSES/midi-synths/Nuked-OPL3-LGPL-2.1.txt",
+			"byteLength": 27030,
+			"sha256": "7ffe1954587c77dfba1cf8eb9b2ea743671fa6e63f9e7a2f258119d42e14eefe"
+		},
+		{
+			"path": "LICENSES/midi-synths/js-synthesizer-BSD-3-Clause.txt",
+			"byteLength": 1488,
+			"sha256": "be14d3d561986d0fcda80cd9a3b9fb414f5e992ab2805ef9ae08628d89647918"
+		},
+		{
+			"path": "LICENSES/midi-synths/libADLMIDI-GPL-3.0.txt",
+			"byteLength": 35149,
+			"sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+		},
+		{
+			"path": "LICENSES/midi-synths/libadlmidi-js-LGPL-3.0.txt",
+			"byteLength": 7658,
+			"sha256": "3371458f1babc719cb481ab27f48a4b30c5c0a06fd365c4b2b7b8d31691d7367"
+		}
+	],
+	"sourceInputs": [
+		{
+			"byteLength": 2436265,
+			"sha256": "2fa5e25507795a028e011f10d8f8c163dfd0dc4815590da3f1047b659cd073d3",
+			"fileName": "libadlmidi-source.tar.gz",
+			"url": "https://codeload.github.com/Wohlstand/libADLMIDI/tar.gz/ad001c83551779934bacd642fce801c51a5b7b4c"
+		},
+		{
+			"byteLength": 186857,
+			"sha256": "40359325c21e5e059fc657bc55508779da5151d219916cdae1d236df416eba1f",
+			"fileName": "libadlmidi-js-source.tar.gz",
+			"url": "https://codeload.github.com/libadlmidi-js/libadlmidi-js/tar.gz/a8630e5cdc4ebc29807c5da886142abb4eadbf4c"
+		},
+		{
+			"byteLength": 1803039,
+			"sha256": "e1c6d8d159eb824473f68c4cb86c9d76ff9a80b5714595919bd25e3acf2d8500",
+			"fileName": "fluidsynth-source.tar.gz",
+			"url": "https://codeload.github.com/jet2jet/fluidsynth-emscripten/tar.gz/99bf7094cf517095b7a944ccf5f74072436bfa3f"
+		},
+		{
+			"byteLength": 2279502,
+			"sha256": "ac51982c2044908ea75ec622f307f92a96f9831f3d7dc4ae056a267cbb6c7a8d",
+			"fileName": "js-synthesizer-source.tar.gz",
+			"url": "https://codeload.github.com/jet2jet/js-synthesizer/tar.gz/37ca80b0840a353e5f381e53162f181828794f10"
+		}
+	],
+	"nativeLinuxExperiments": [
+		{
+			"id": "surge-xt",
+			"version": "1.3.4",
+			"url": "https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-x64-1.3.4.deb",
+			"fileName": "surge-xt-linux-x64-1.3.4.deb",
+			"byteLength": 223339140,
+			"sha256": "a6e55064487f624147d515b9ae5fc79a568b69746675b2083abde628ca7bb151",
+			"license": "GPL-3.0",
+			"distribution": "User-installed VST3; not bundled into Soundscaper installers."
+		},
+		{
+			"id": "dexed",
+			"version": "1.1.0",
+			"url": "https://github.com/asb2m10/dexed/releases/download/v1.1.0/dexed-source-fea2f0f.tar.gz",
+			"fileName": "dexed-source-fea2f0f.tar.gz",
+			"byteLength": 42889987,
+			"sha256": "894a83f89e68ef551d43581b9f0d211fa2f3f9f243d872138ac997c50ead6040",
+			"license": "GPL-3.0; Apache-2.0 msfa core",
+			"distribution": "Build from preferred source on the host platform; user-installed VST3. The upstream Linux binary requires GLIBC_2.43."
+		}
+	]
+}

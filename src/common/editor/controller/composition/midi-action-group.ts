@@ -5,11 +5,11 @@ import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { readMidiClip, readMidiTrack } from '../../midi-model.ts';
 import type { MidiTransferSelection, MidiTransferSnapshot } from '../track-audio/midi-service-types.ts';
 import type { MidiProject, MidiService } from '../track-audio/midi-service-types.ts';
-import type { MidiInstrument, MidiNote } from '../../midi-model.ts';
+import type { MidiInstrument, MidiNote, MidiPreviewTarget } from '../../midi-model.ts';
 import type { MidiClipResize, MidiNoteUpdate } from '../track-audio/midi-service-types.ts';
 import { createMidiImportFiles } from './internal/midi-import-files.ts';
 import { resolveMidiCopy } from '../../../i18n/editor-midi-copy.ts';
-import { EditorProjectChangedError } from '../shared/lifecycle.ts';
+import { EditorProjectChangedError, isCurrentAssertion } from '../shared/lifecycle.ts';
 import { raceAbortableRead } from '../../../foundation/abort-race.ts';
 
 /** Keep the beta synthesizer and file codecs outside the initial editor graph. */
@@ -26,9 +26,9 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		trackName: () => resolveMidiCopy(scope.copy).track,
 		clipName: () => resolveMidiCopy(scope.copy).clip,
 		store: scope.store,
-		previewNote: async (pitch, instrument, signal) => {
+		previewNote: async (pitch, instrument, signal, data) => {
 			const { previewMidiNote } = await import('../track-audio/midi-preview.ts');
-			await previewMidiNote(scope.engine, pitch, instrument, signal);
+			await previewMidiNote(scope.engine, pitch, instrument, signal, undefined, data);
 		},
 		saveFile: request => scope.fileService.saveFile(request),
 		publishDeliveryReport: report => {
@@ -49,6 +49,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		return operation;
 	}
 	const actions = Object.freeze({
+		importDocument: (...args: Parameters<MidiService['importDocument']>) => edit(service => service.importDocument(...args)),
 		addTrack: () => edit(service => service.addTrack()),
 		addNote: (clipId: string, note: MidiNote) => edit(service => service.addNote(clipId, note)),
 		updateNote: (clipId: string, id: string, changes: Partial<MidiNote>) => edit(service => service.updateNote(clipId, id, changes)),
@@ -56,16 +57,24 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		deleteNotes: (clipId: string, ids: readonly string[]) => edit(service => service.deleteNotes(clipId, ids)),
 		resizeClip: (clipId: string, changes: MidiClipResize) => edit(service => service.resizeClip(clipId, changes)),
 		setInstrument: (trackId: string, instrument: MidiInstrument) => edit(service => service.setInstrument(trackId, instrument)),
-		previewNote: async (pitch: number, instrument?: MidiInstrument) => {
+		previewNote: async (pitch: number, instrument?: MidiInstrument, target?: MidiPreviewTarget) => {
 			const task = scope.startMidiPreviewTask();
 			try {
 				const loaded = await raceAbortableRead(service, task.signal);
 				task.assertCurrent();
-				await loaded.previewNote(pitch, instrument, task.signal);
+				await loaded.previewNote(pitch, instrument, task.signal, target);
 			} catch (error) { if (!task.signal.aborted) throw error; }
 			finally { task.finish(); }
 		},
-		exportFile: async (format: 'midi' | 'allegro') => (await service()).exportFile(format),
+		exportFile: async (format: 'midi' | 'allegro') => {
+			const id = scope.getProject()?.id;
+			const token = id ? scope.captureProjectGeneration?.() : undefined;
+			const isOriginCurrent = () => scope.getProject()?.id === id
+				&& (!token || isCurrentAssertion(() => scope.assertProjectGeneration?.(token)));
+			const loaded = await service();
+			if (!isOriginCurrent()) throw new EditorProjectChangedError();
+			return loaded.exportFile(format, isOriginCurrent);
+		},
 	});
 	const commitTransfer = (command: AudioEditorCommand, preview: (command: AudioEditorCommand) => MidiTransferSnapshot,
 		selection?: MidiTransferSelection, options?: ProjectChangedOptions): unknown => {
@@ -89,7 +98,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 				const sourceId = beforeClips.get(id)?.sourceId;
 				if (!sourceId) continue;
 				const instruments = reusable.get(sourceId) ?? new Set<string>();
-				instruments.add(instrument); reusable.set(sourceId, instruments);
+				instruments.add(JSON.stringify(instrument)); reusable.set(sourceId, instruments);
 			}
 		}
 		const clips = new Map(after.clips.map(clip => [clip.id, clip]));
@@ -97,7 +106,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 			const instrument = readMidiTrack(track)?.instrument;
 			return instrument && track.clipIds?.some(id => {
 				const clip = clips.get(id);
-				return clip && readMidiClip(clip) && !reusable.get(clip.sourceId)?.has(instrument);
+				return clip && readMidiClip(clip) && !reusable.get(clip.sourceId)?.has(JSON.stringify(instrument));
 			});
 		});
 		if (!changedInstrument && !hasPendingEdits()) return scope.commit(command, selection, options);
@@ -110,7 +119,7 @@ export function createMidiActionGroup(scope: EditorActionRuntime) {
 		owner?.followSelection(before, after);
 		importer.followSelection(before, after);
 	}
-	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
+	return Object.freeze({ commitTransfer, hasPendingEdits, followSelection, importDocument: actions.importDocument, settled: async (expectedProject?: MidiProject, readiness?: PromiseLike<unknown>) => {
 		if (!expectedProject) {
 			await Promise.allSettled([...pendingCalls]);
 			if (loaded) await (await loaded).settled();

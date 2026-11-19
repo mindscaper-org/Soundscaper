@@ -36,7 +36,7 @@ test('closed JS cycles run natively while every transitive loader dependency ret
 	const paths = ['native.test.js', 'typed.test.js', 'component.test.js', 'dynamic.test.mjs', 'package.test.js', 'worker.test.js']
 		.map(name => join(root, 'tests', name));
 	assert.deepEqual(partitionNodeTestBootstrapBatches(root, paths), [
-		{ files: [paths[0]], useLoaders: false }, { files: paths.slice(1), useLoaders: true },
+		{ files: paths.slice(0, 2), useLoaders: false }, { files: paths.slice(2), useLoaders: true },
 	]);
 	const native = spawnSync(process.execPath, ['--test', paths[0]], { cwd: root, encoding: 'utf8' });
 	assert.equal(native.status, 0, native.stderr || native.stdout);
@@ -46,7 +46,7 @@ test('a later dependency edit reclassifies the whole JS cycle before the next in
 	const root = fixture(context, {
 		'tests/a.test.js': "import './helper.mjs';",
 		'tests/helper.mjs': "import './a.test.js';",
-		'tests/typed.ts': 'export const typed: number = 1;',
+		'tests/typed.ts': 'export enum Mode { Typed }',
 	});
 	const file = join(root, 'tests/a.test.js');
 	assert.deepEqual(partitionNodeTestBootstrapBatches(root, [file]), [{ files: [file], useLoaders: false }]);

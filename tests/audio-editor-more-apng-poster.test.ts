@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { openFramescaperBrowserNativeImageV1 as open } from '../src/common/editor/timeline-image-browser-native-port.ts';
+import { decodeFramescaperBrowserNativeImageV1 } from '../src/common/editor/timeline-image-native-decode-v1.ts';
 import { singleFramePosterApng, twoFramePosterApng } from './helpers/single-frame-poster-apng.ts';
 
 test('a static bitmap fallback cannot substitute the poster for a one-frame APNG animation', async context => {
@@ -41,4 +42,12 @@ for (const [frameCount, nativeFrameCount] of [[1, 1], [1, 2], [2, 3]] as const) 
 		assert.equal((await session.decodeFrame(0)).durationMicroseconds, 500_000);
 	}
 	finally { session.close(); }
+	const decoded = await decodeFramescaperBrowserNativeImageV1({
+		bytes: frameCount === 1 ? singleFramePosterApng() : twoFramePosterApng(),
+		fileName: 'half-second.png', mimeTypeHint: 'image/png', open,
+	});
+	assert.equal(decoded.publication.frameCount, frameCount);
+	assert.equal(decoded.publication.durationTicks, String(frameCount * 500_000));
+	assert.equal(decoded.publication.timingMode, 'embedded');
+	assert.deepEqual(decoded.notices, []);
 });

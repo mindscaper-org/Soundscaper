@@ -2,6 +2,9 @@
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -23,6 +26,26 @@ interface FakeExternalFfmpegChild extends ExternalFfmpegChildProcess {
 	readonly kills: string[];
 	emit(event: string, ...arguments_: unknown[]): boolean;
 }
+
+test('the real process runner supports Node coverage propagation without mutating its launch contract', async () => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-process-coverage-'));
+	const previous = process.env.NODE_V8_COVERAGE;
+	try {
+		process.env.NODE_V8_COVERAGE = join(directory, 'coverage');
+		const runner = createExternalFfmpegNodeRunner({ workingDirectory: directory });
+		const result = await runner.run({ executablePath: process.execPath, arguments: ['--version'],
+			shell: false, standardInput: 'ignore', maximumDurationMs: 5_000, maximumOutputBytes: 1024 });
+		assert.equal(result.status, 'exited');
+		if (result.status === 'exited') {
+			assert.equal(result.exitCode, 0);
+			assert.equal(result.stdout.trim(), process.version);
+		}
+	} finally {
+		if (previous === undefined) delete process.env.NODE_V8_COVERAGE;
+		else process.env.NODE_V8_COVERAGE = previous;
+		await rm(directory, { recursive: true, force: true });
+	}
+});
 
 test('the external FFmpeg target matrix has five rows and keeps mac x64 retired', () => {
 	assert.equal(resolveExternalFfmpegTarget('win32', 'x64'), 'win-x64');
@@ -47,22 +70,25 @@ test('manual selection derives only a sibling ffprobe executable', () => {
 	}
 });
 
-test('candidate discovery preserves manual, managed, package-manager, PATH priority', async () => {
+test('candidate discovery isolates manual choices and otherwise retains automatic tie order', async () => {
 	const executable = new Set([
 		'/manual/ffmpeg', '/manual/ffprobe',
 		'/managed/ffmpeg', '/managed/ffprobe',
 		'/home/linuxbrew/.linuxbrew/bin/ffmpeg', '/home/linuxbrew/.linuxbrew/bin/ffprobe',
 		'/usr/bin/ffmpeg', '/usr/bin/ffprobe',
 	]);
-	const locator = createExternalFfmpegCandidateLocator({
+	const options = {
 		platform: 'linux', arch: 'arm64',
-		selectedPath: '/manual/ffmpeg', managedPath: '/managed/ffmpeg',
+		managedPath: '/managed/ffmpeg',
 		environment: { PATH: '/relative:/usr/bin:/home/linuxbrew/.linuxbrew/bin' },
-		isExecutable: (path) => Promise.resolve(executable.has(path)),
-	});
-	const candidates = await locator.discover();
-	assert.deepEqual(candidates.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
+		isExecutable: (path: string) => Promise.resolve(executable.has(path)),
+	} as const;
+	const manual = await createExternalFfmpegCandidateLocator({ ...options, selectedPath: '/manual/ffmpeg' }).discover();
+	assert.deepEqual(manual.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
 		{ id: 'user-selected', source: 'user-selected', ffmpegPath: '/manual/ffmpeg' },
+	]);
+	const candidates = await createExternalFfmpegCandidateLocator(options).discover();
+	assert.deepEqual(candidates.map(({ id, source, ffmpegPath }) => ({ id, source, ffmpegPath })), [
 		{ id: 'managed-package', source: 'managed-package', ffmpegPath: '/managed/ffmpeg' },
 		{ id: 'package-manager-1', source: 'package-manager', ffmpegPath: '/home/linuxbrew/.linuxbrew/bin/ffmpeg' },
 		{ id: 'system-path-1', source: 'system-path', ffmpegPath: '/usr/bin/ffmpeg' },

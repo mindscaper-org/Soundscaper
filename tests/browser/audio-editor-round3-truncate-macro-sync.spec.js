@@ -6,7 +6,7 @@ import { exportSamples } from './helpers/round2-audio-export.js';
 
 test('an independent-track Truncate Silence macro preserves its stereo channel clock', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'stereo-dialogue.wav', frequency: 440, duration: 2 });
 	for (let channel = 0; channel < 2; channel++) {
 		const start = channel ? 33_600 : 14_400;
@@ -14,8 +14,8 @@ test('an independent-track Truncate Silence macro preserves its stereo channel c
 	}
 	await importFiles(editor, [recording]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
-	await chooseCommandAction(page, editor, 'Tools', 'Macros palette');
-	const manager = page.getByRole('dialog', { name: 'Macros palette', exact: true });
+	await chooseCommandAction(page, editor, 'Tools', 'Macro manager');
+	const manager = page.getByRole('dialog', { name: 'Macro manager', exact: true });
 	await manager.getByRole('button', { name: 'New macro', exact: true }).click();
 	await manager.getByRole('button', { name: 'Add effect', exact: true }).click();
 	await page.getByRole('menu', { name: 'Choose an effect', exact: true }).getByRole('menuitem', { name: 'Truncate Silence', exact: true }).click();

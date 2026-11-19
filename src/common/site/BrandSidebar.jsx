@@ -71,9 +71,13 @@ export default function BrandSidebar({ locale, productId = 'soundscaper' }) {
 		}));
 	};
 	const selectLocale = (event) => {
-		if (ROUTE_LOCALES.some(({ locale: routeLocale }) => routeLocale === event.target.value)) {
-			window.location.assign(productHref(productId, event.target.value));
-		}
+		const nextLocale = event.target.value;
+		if (!ROUTE_LOCALES.some(({ locale: routeLocale }) => routeLocale === nextLocale)) return;
+		const destination = productHref(productId, nextLocale);
+		const unhandled = window.dispatchEvent(new CustomEvent('scape:locale-navigation-request', {
+			cancelable: true, detail: { productId, locale: nextLocale, destination },
+		}));
+		if (unhandled) window.location.assign(destination);
 	};
 	const openPrivacyPolicy = (event) => {
 		if (event.button > 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -121,7 +125,7 @@ export default function BrandSidebar({ locale, productId = 'soundscaper' }) {
 						</select>
 					</label>
 					<div className="website-sidebar-actions">
-						<button className="website-theme-toggle" type="button" data-theme-toggle aria-label={copy.theme} aria-pressed={String(theme === 'dark')} onClick={toggleTheme}>
+						<button className="website-theme-toggle" type="button" data-theme-toggle aria-label={`${copy.theme}: ${theme === 'dark' ? copy.dark : copy.light}`} aria-pressed={String(theme === 'dark')} onClick={toggleTheme}>
 							<span className="website-theme-toggle-track" aria-hidden="true"><span className="website-theme-toggle-thumb"></span></span>
 							<span data-theme-label>{theme === 'dark' ? copy.dark : copy.light}</span>
 						</button>

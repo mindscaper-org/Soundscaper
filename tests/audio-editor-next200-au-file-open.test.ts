@@ -14,7 +14,7 @@ for (const [name, type] of [['Recording.au', ''], ['Recording.snd', 'application
 		await openWorkspaceProjectFile({ ready: Promise.resolve(), actions: { project: {
 			openAudacityProject() { assert.fail('not an Audacity project'); },
 			openDawproject() { assert.fail('not a DAWproject'); },
-			create(options) { calls.push(options); },
+			create(options) { calls.push(options); return 'new-project'; },
 			importFiles(files, options) { calls.push({ files, options }); },
 		} } }, file, () => { assert.fail('not a Scape project'); });
 		assert.deepEqual(calls, [{ title: 'Recording' }, { files: [file], options: { destination: 'timeline' } }]);

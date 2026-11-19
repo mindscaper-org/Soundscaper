@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { rebindSessionSnapshotSourceIdentities } from './editor-session-snapshot-rebind.ts';
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
@@ -160,6 +161,7 @@ export function rebindSoundscaperProjectSourceIdentities(
 	project: Record<string, unknown>,
 	sourceIdMap: ReadonlyMap<string, string>,
 ): void {
+	rebindSessionSnapshotSourceIdentities(project, sourceIdMap, rebindSoundscaperProjectSourceIdentities);
 	rebindSoundscaperFreezeSourceIdentities(project, sourceIdMap);
 	const assets = normalizeAssistanceAssetReferencesV1(project.assistanceAssets);
 	project.assistanceAssets = normalizeAssistanceAssetReferencesV1(assets.map((asset) => ({

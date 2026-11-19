@@ -9,6 +9,7 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 
 import { compactV8Coverage } from '../scripts/lib/v8-coverage-compaction.mjs';
+import { normalizeDuplicateFunctionCoverage } from '../scripts/lib/coverage-function-normalization.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const TYPESCRIPT = [
@@ -96,6 +97,48 @@ for (const variant of ['native first', 'tsx first', 'one process', 'separate sha
 				assert.ok(statements.length > 0);
 				assert.ok(statements.every(([id]) => file.s[id]! > 0), `both classify outcomes cover source line ${line}`);
 			}
+		} finally {
+			rmSync(workspace, { recursive: true, force: true });
+		}
+	});
+}
+
+for (const callEveryFunction of [false, true]) {
+	test(`CommonJS export getters preserve actual source execution (all called: ${String(callEveryFunction)})`, () => {
+		const workspace = mkdtempSync(join(tmpdir(), 'soundscaper-commonjs-coverage-'));
+		try {
+			writeFileSync(join(workspace, 'package.json'), '{"type":"module"}');
+			mkdirSync(join(workspace, 'src'));
+			const source = join(workspace, 'src/measured.ts');
+			writeFileSync(source, '/* SPDX-License-Identifier: AGPL-3.0-only */\n' + TYPESCRIPT
+				+ 'export function nativeOnly(): number { return 3; }\n');
+			const raw = join(workspace, 'raw');
+			const shards = join(workspace, 'shards');
+			mkdirSync(shards);
+			execFileSync(process.execPath, ['--input-type=module', '--eval',
+				`import { classify, nativeOnly, neverCalled } from ${JSON.stringify(pathToFileURL(source).href)}; `
+				+ `classify(1); nativeOnly(); ${callEveryFunction ? 'neverCalled(1);' : ''}`,
+			], { cwd: ROOT, env: { ...process.env, NODE_V8_COVERAGE: raw } });
+			execFileSync(process.execPath, ['--import', import.meta.resolve('tsx'), '--input-type=commonjs', '--eval',
+				// Read neverCalled's getter without calling its body; leave nativeOnly's
+				// getter unread while its real declaration runs in the native process.
+				`const { classify, neverCalled } = require(${JSON.stringify(source)}); classify(-1);`,
+			], { cwd: ROOT, env: { ...process.env, NODE_V8_COVERAGE: raw } });
+			writeFileSync(join(shards, 'merged.json'), JSON.stringify(compactV8Coverage(raw, workspace)));
+			const report = join(workspace, 'report');
+			execFileSync(resolve(ROOT, 'node_modules/.bin/c8'), ['report', '--exclude-after-remap',
+				`--temp-directory=${shards}`, `--reports-dir=${report}`,
+				'--reporter=json-summary', '--reporter=json', '--include=src/**/*.ts',
+			], { cwd: workspace });
+			const summary = JSON.parse(readFileSync(join(report, 'coverage-summary.json'), 'utf8')) as Record<
+				string, { functions: { total: number; covered: number; pct: number } }
+			>;
+			const detailed = JSON.parse(readFileSync(join(report, 'coverage-final.json'), 'utf8')) as Record<string, FileCoverage>;
+			const normalized = normalizeDuplicateFunctionCoverage(summary, detailed) as typeof summary;
+			const functions = normalized[source]!.functions;
+			assert.equal(functions.total - functions.covered, callEveryFunction ? 0 : 1,
+				'an unread generated getter is harmless, but an uncalled source function remains uncovered');
+			assert.equal(functions.pct >= 99, callEveryFunction, 'the existing function floor still rejects a real miss');
 		} finally {
 			rmSync(workspace, { recursive: true, force: true });
 		}

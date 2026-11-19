@@ -165,11 +165,13 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 	function apply(edits: readonly ClipSpreadsheetEdit[]): boolean {
 		if (blocked || !projectId || !snapshot.project) return false;
 		try {
-			const missing = findMissingClipSpreadsheetEditSources(snapshot.project, edits);
-			if (missing.length) {
-				setPendingPaste({ project: snapshot.project, plan: { edits, newRows: [], range: range ?? normalizeSpreadsheetRange(active, active) }, missing });
-				setError('');
-				return true;
+			if (edits.some(edit => edit.column === 'source')) {
+				const missing = findMissingClipSpreadsheetEditSources(snapshot.project, edits);
+				if (missing.length) {
+					setPendingPaste({ project: snapshot.project, plan: { edits, newRows: [], range: range ?? normalizeSpreadsheetRange(active, active) }, missing });
+					setError('');
+					return true;
+				}
 			}
 			controller.actions.clip.editSpreadsheet(projectId, edits);
 			setError('');
@@ -204,9 +206,9 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 	}
 	function copyText(): string {
 		if (!range) return '';
-		return serializeSpreadsheetTsv(rows.slice(range.top, range.bottom + 1).map(row => (
-			columns.slice(range.left, range.right + 1).map(column => row.cells[column.id])
-		)));
+		const selectedColumns = columns.slice(range.left, range.right + 1);
+		return serializeSpreadsheetTsv(Array.from({ length: range.bottom - range.top + 1 },
+			(_, index) => selectedColumns.map(column => rows[range.top + index]!.cells[column.id])));
 	}
 	async function pasteText(text: string, selected = range): Promise<void> {
 		if (blocked || !snapshot.project) return;
@@ -352,8 +354,9 @@ function ClipSpreadsheetSurface({ controller, snapshot, copy, fileService }: Cli
 						catch (cause) { setError(feedbackFailure(cause)); }
 					}}
 					onPaste={event => {
-						if (draft && (inputRef.current?.tagName === 'TEXTAREA' || !/[\t\r\n]/u.test(event.clipboardData.getData('text/plain')))) return;
-						event.preventDefault(); event.stopPropagation(); updateDraft(null); void pasteText(event.clipboardData.getData('text/plain'));
+						const text = event.clipboardData.getData('text/plain');
+						if (draft && (inputRef.current?.tagName === 'TEXTAREA' || !/[\t\r\n]/u.test(text))) return;
+						event.preventDefault(); event.stopPropagation(); updateDraft(null); void pasteText(text);
 					}}>
 					<thead><tr>
 						<th scope="col"><button type="button" tabIndex={-1} aria-label={labels.selectAll} onClick={selectAll}>#</button></th>

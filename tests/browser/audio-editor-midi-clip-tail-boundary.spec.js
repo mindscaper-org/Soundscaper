@@ -26,22 +26,15 @@ async function nativeGap(release) {
 	 return {name:'Pedal-gap.sscape',mimeType:'application/zip',buffer:Buffer.from(await archive.blob.arrayBuffer())};
 	} finally {await store.close();}
 }
-for (const release of [3000,12000]) test(`MIDI export keeps a real inter-clip silent gap with pedal release ${release}`,async({page})=>{
+// Real synthesis/store/archive and the refusal are covered by
+// audio-editor-midi-expression-archive-custody.test.ts. Keep native gap playback/export.
+for (const release of [3000]) test(`MIDI export keeps a real inter-clip silent gap with pedal release ${release}`,async({page})=>{
 	await disableNativeSavePicker(page);const editor=await bootEditor(page,'/embed/en/');
 	await editor.locator('[data-aup4-input]').setInputFiles(await nativeGap(release));
 	await expect(editor).toHaveAttribute('data-clip-count','2');
 	const before=await exportSamples(page,editor);
 	const beforePeak=before.slice(48000,54000).reduce((peak,value)=>Math.max(peak,Math.abs(value)),0);
 	expect(beforePeak).toBeLessThan(.0001);
-	if (release === 12000) {
-	 const downloads = [];
-	 page.on('download', download => downloads.push(download));
-	 await chooseNestedCommandAction(page, editor, 'File', ['Export other', 'Export MIDI (beta)']);
-	 await expect(page.locator('[data-editor-toast="workspace-error"]')).toContainText('sustained note cut by a clip boundary');
-	 expect(downloads).toHaveLength(0);
-	 await expect(editor).toHaveAttribute('data-clip-count', '2');
-	 return;
-	}
 	const downloading=page.waitForEvent('download');await chooseNestedCommandAction(page,editor,'File',['Export other','Export MIDI (beta)']);
 	const download=await downloading;const bytes=await downloadBytes(download);await download.delete();
 	const document=parseMidiFile(bytes,{sampleRate:8000});

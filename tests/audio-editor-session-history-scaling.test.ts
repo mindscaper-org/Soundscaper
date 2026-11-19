@@ -56,6 +56,39 @@ test('history sync avoids eagerly copying the undo graph while external views st
 	}
 });
 
+test('tab snapshots detach the clipboard only on read and capture its original generation', context => {
+	const origin = { ...project('origin', 'Origin', 'first'), sources: [{ id: 'first-source', storageKey: 'audio/first' }] };
+	const destination = project('destination', 'Destination', 'second');
+	const session = createAudioEditorSessionController({ projects: [origin, destination] });
+	session.setClipboard({ schemaVersion: 1, sampleRate: 48_000, durationFrames: 80, tracks: [{
+		sourceTrackId: 'source-track', sourceTrackName: 'Source', clips: [{ key: 'clip', sourceId: 'first-source',
+			offsetFrame: 0, sourceStartFrame: 12, durationFrames: 80 }],
+	}] }, { originProjectId: origin.id });
+	const cloning = context.mock.method(globalThis, 'structuredClone', structuredClone);
+	const unsubscriber = session.subscribe(({ tabs }: ReturnType<typeof session.getSnapshot>) => {
+		assert.equal(tabs.at(-1)?.title, 'Destination');
+	});
+	context.after(() => { unsubscriber(); });
+	session.updateProjectMetadata(destination.id, { trackChannelHeightRatios: { interview: 0.75 } });
+	const snapshot = session.getSnapshot();
+	const clipboardClones = () => cloning.mock.calls.filter(({ arguments: [value] }) =>
+		Boolean(value && typeof value === 'object' && 'originProjectId' in value)).length;
+	assert.equal(clipboardClones(), 0);
+	assert.equal(snapshot.sourceReferenceCounts['first-source'], 2);
+	const serialized = session.serialize();
+	assert.equal(serialized.clipboard?.originProjectId, origin.id);
+	assert.equal(clipboardClones(), 1);
+	session.clearClipboard();
+	const original = snapshot.clipboard;
+	assert.equal(original?.descriptor.tracks[0]?.clips[0]?.sourceStartFrame, 12);
+	assert.equal(snapshot.clipboard, original);
+	assert.equal(clipboardClones(), 2);
+	snapshot.clipboard = null;
+	assert.equal(snapshot.clipboard, null);
+	assert.equal(serialized.clipboard?.sources[0]?.storageKey, 'audio/first');
+	assert.equal(session.getSnapshot().clipboard, null);
+});
+
 test('session retention roots include history clips, project bin clips and assistance sources without exposing projects', () => {
 	const initial = project('first', 'Initial', 'first-clip');
 	const session = createAudioEditorSessionController({ projects: [initial] });

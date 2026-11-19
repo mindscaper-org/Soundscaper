@@ -10,6 +10,7 @@ import {
 } from './offline-render-admission.ts';
 import { resolveRenderFrameRange, resolveRenderTailSeconds, resolveRenderTimelineRanges } from './rendering-range.ts';
 import { scaleSampleFrame } from '../timeline-time.ts';
+import { projectUsesAiDenoise } from './ai-denoise-node.ts';
 import {
 	assertNativePluginOfflineRenderAdmission,
 	nativePluginOfflineInstanceIds,
@@ -35,7 +36,7 @@ export async function renderNativePluginRealtimePcmIfRequired(
 	options: EngineRealtimeRenderOptions,
 ): Promise<PlanarPcm | null> {
 	const project = host.project;
-	if (!nativePluginOfflineInstanceIds(project, options).length) return null;
+	if (!nativePluginOfflineInstanceIds(project, options).length && !projectUsesAiDenoise(project, options)) return null;
 	if (!project) throw new Error('Load an audio editor project before rendering.');
 	admitNativePluginRealtimeRender(project, options);
 	const { fromFrame, toFrame } = resolveRenderFrameRange(options.startFrame ?? 0, options.endFrame ?? host.durationFrames);

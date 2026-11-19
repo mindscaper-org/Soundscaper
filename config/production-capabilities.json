@@ -290,6 +290,7 @@
 				"audioRecording": true,
 				"audioGenerators": true,
 				"audioEffects": true,
+				"audioClipEffects": true,
 				"audioSpectralEditing": true,
 				"audioAnalysis": true,
 				"audioMacros": true,
@@ -329,8 +330,9 @@
 				"videoTransitionDissolve": false,
 				"videoTransitions": false,
 				"sourceCharacteristics": true,
-				"masteringSequences": true,
-				"immersiveAdm": true
+				"immersiveAdm": true,
+				"subprojects": true,
+				"masteringSequences": true
 			},
 			"projectSchemaIdentity": {
 				"schemaFamily": "soundscaper",
@@ -697,6 +699,7 @@
 				"audioRecording": false,
 				"audioGenerators": false,
 				"audioEffects": false,
+				"audioClipEffects": false,
 				"audioSpectralEditing": false,
 				"audioAnalysis": false,
 				"audioMacros": false,
@@ -736,8 +739,9 @@
 				"videoTransitionDissolve": true,
 				"videoTransitions": true,
 				"sourceCharacteristics": true,
-				"masteringSequences": false,
-				"immersiveAdm": false
+				"immersiveAdm": false,
+				"subprojects": false,
+				"masteringSequences": false
 			},
 			"projectSchemaIdentity": {
 				"schemaFamily": "framescaper",

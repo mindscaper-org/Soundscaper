@@ -85,9 +85,11 @@ for (const outcome of ['replacement', 'failure']) {
 			const panel = editor.locator('[data-workspace-panel="freesound"]');
 			const query = panel.getByRole('searchbox', { name: 'Search Freesound', exact: true });
 			await query.fill('rain');
+			await expect(query).toHaveValue('rain');
 			await panel.getByRole('button', { name: 'Search', exact: true }).click();
 			await expect(panel.getByRole('button', { name: `Play preview: ${SOUND.name}`, exact: true })).toBeVisible();
 			await query.fill('wind');
+			await expect(query).toHaveValue('wind');
 			await panel.getByRole('button', { name: 'Search', exact: true }).click();
 			await expect.poll(() => searches).toBe(2);
 			await panel.getByRole('button', { name: `Play preview: ${SOUND.name}`, exact: true }).click();
@@ -100,10 +102,18 @@ for (const outcome of ['replacement', 'failure']) {
 				await panel.getByRole('button', { name: 'Play preview: Wind in the garden', exact: true }).click();
 				await expect.poll(() => page.evaluate(() => globalThis.__more200SearchPreviewAudio[1]?.currentTime)).toBeGreaterThan(0.05);
 			} else {
-				await expect(panel.getByRole('alert')).toBeVisible();
+				const alert = panel.getByRole('alert');
+				const pause = panel.getByRole('button', { name: `Pause preview: ${SOUND.name}`, exact: true });
+				await expect(alert).toBeVisible();
+				const [errorBounds, previewBounds] = await Promise.all([alert.boundingBox(), pause.boundingBox()]);
+				expect(errorBounds).not.toBeNull();
+				expect(previewBounds).not.toBeNull();
+				expect(errorBounds.y + errorBounds.height).toBeLessThanOrEqual(previewBounds.y);
 				expect(await page.evaluate(() => globalThis.__more200SearchPreviewAudio[0]?.paused)).toBe(false);
-				await panel.getByRole('button', { name: `Pause preview: ${SOUND.name}`, exact: true }).click();
+				await pause.click();
 				await expect.poll(() => page.evaluate(() => globalThis.__more200SearchPreviewAudio[0]?.paused)).toBe(true);
+				await panel.getByRole('region', { name: 'Freesound search failed.', exact: true }).getByRole('button', { name: 'Close', exact: true }).click();
+				await expect(alert).toBeHidden();
 			}
 		} finally { releaseSearch(); }
 	});

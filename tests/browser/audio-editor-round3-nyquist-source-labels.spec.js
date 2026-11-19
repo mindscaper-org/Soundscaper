@@ -5,7 +5,7 @@ import { showClipTimingFields, bootEditor, chooseCommandAction, clipByName, clip
 import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('Nyquist labels from a source selection retain its clip placement', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const projectId = await editor.getAttribute('data-project-id');
 	await importFiles(editor, [toneA]);
 	const panel = await openClipProperties(page, editor, clipByName(editor, toneA.name));

@@ -7,7 +7,7 @@ import {
 
 test('a canceled queued delivery can be retried from its own row', async ({ page }) => {
 	await disableNativeSavePicker(page);
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	const exportDialog = await openExportDialog(page, editor);
 	await exportDialog.getByRole('button', { name: 'Save preset', exact: true }).click();

@@ -2,6 +2,7 @@
 
 /** Guided-workflow selection and honest aggregate-request execution, separate from operation-v1. */
 import { localAssistanceGuidedAcceptanceReview } from './local-assistance-guided-acceptance-review.ts';
+import { normalizePreparationOutcome } from './local-assistance-guided-preparation-outcome.ts';
 import {
 	ASSISTANCE_GUIDED_WORKFLOW_IDS,
 	normalizeAssistanceWorkflowId,
@@ -17,11 +18,7 @@ import {
 	type AssistanceWorkflowProgressV1,
 	type AssistanceWorkflowV1,
 } from '../assistance/workflow.ts';
-import {
-	validateAssistanceWorkflowReviewAuthorityV1,
-	type AssistanceWorkflowReviewMediaAssetV1,
-	type AssistanceWorkflowReviewAuthorityV1,
-} from '../assistance/workflow-review-authority-v1.ts';
+import type { AssistanceWorkflowReviewAuthorityV1 } from '../assistance/workflow-review-authority-v1.ts';
 import type {
 	LocalAssistanceBridge,
 } from '../assistance/local-assistance-bridge.ts';
@@ -43,10 +40,10 @@ import {
 	createLocalAssistanceGuidedReframeDraftV1,
 	setLocalAssistanceGuidedReframeCropV1,
 } from '../controller/assistance/local-assistance-guided-reframe-edits.ts';
-import { verifyLocalAssistanceGuidedReviewMediaAuthority as verifyReviewMediaAuthority } from
+import { localAssistanceGuidedAuditionAuthority, releaseLocalAssistanceGuidedReviewAudio,
+	verifyLocalAssistanceGuidedReviewMediaAuthority as verifyReviewMediaAuthority } from
 	'../controller/assistance/local-assistance-guided-review-media-verification.ts';
 import {
-	LOCAL_ASSISTANCE_GUIDED_PREPARATION_UNAVAILABLE_REASONS,
 	type LocalAssistanceGuidedPreparationUnavailableReason,
 	type LocalAssistanceSelectedMediaPreparationPort,
 } from '../assistance/local-assistance-preparation.ts';
@@ -148,6 +145,7 @@ export function createLocalAssistanceGuidedSessionStore(
 	let controller: AbortController | null = null;
 	let activeJobId: string | null = null;
 	let running: Promise<void> | null = null;
+	let accepting: Promise<void> | null = null;
 	let cancelRequested = false;
 	let disposed = false;
 	const retainedJobs = new Map<string, Readonly<{
@@ -156,9 +154,15 @@ export function createLocalAssistanceGuidedSessionStore(
 	}>>();
 	const workflow = options.bridge?.workflow ?? null;
 	const custodyReleases = workflow?.custody
-		? createLocalAssistanceGuidedCustodyReleaseTracker(
-			(jobId) => workflow.custody!.release(jobId),
-		) : null;
+		? createLocalAssistanceGuidedCustodyReleaseTracker(async jobId => {
+			const retained = retainedJobs.get(jobId);
+			retainedJobs.delete(jobId);
+			const [released] = await Promise.all([
+				workflow.custody!.release(jobId),
+				releaseLocalAssistanceGuidedReviewAudio(retained?.reviewAuthority),
+			]);
+			return released;
+		}) : null;
 
 	const emit = (): void => listeners.forEach((listener) => listener());
 	const update = (change: Partial<LocalAssistanceGuidedSnapshot>): void => {
@@ -166,9 +170,7 @@ export function createLocalAssistanceGuidedSessionStore(
 		emit();
 	};
 	const releaseRetainedJobs = (): void => {
-		const jobIds = [...retainedJobs.keys()];
-		retainedJobs.clear();
-		custodyReleases?.releaseLater(jobIds);
+		custodyReleases?.releaseLater([...retainedJobs.keys()]);
 	};
 	const selectSurface = (surface: LocalAssistanceDialogSurface): void => {
 		if (surface !== 'guided' && surface !== 'advanced') {
@@ -236,6 +238,7 @@ export function createLocalAssistanceGuidedSessionStore(
 		let outcome: LocalAssistanceWorkflowOutcome | null = null;
 		let failure: unknown = null;
 		let progressDisconnect: (() => void) | null = null;
+		let pendingReviewAuthority: AssistanceWorkflowReviewAuthorityV1 | undefined;
 		try {
 			if (custodyReleases && custodyReleases.pendingCount() > 0
 				&& !await custodyReleases.releaseAll()) {
@@ -257,6 +260,7 @@ export function createLocalAssistanceGuidedSessionStore(
 				activeJobId = null;
 				throw new GuidedPreparationUnavailableError(prepared.reason);
 			}
+			pendingReviewAuthority = prepared.reviewAuthority;
 			const request = validateAssistanceWorkflow(prepared.workflow);
 			if (request.jobId !== job.jobId || request.workflowId !== workflowId
 				|| request.recipeVersion !== 1 || request.settingsVersion !== settings.settingsVersion) {
@@ -273,10 +277,10 @@ export function createLocalAssistanceGuidedSessionStore(
 			});
 			update({ phase: 'running' });
 			outcome = await workflow.run(request);
-			if (outcome.outcome === 'completed') retainedJobs.set(job.jobId, Object.freeze({
-				workflow: request, reviewAuthority: prepared.reviewAuthority,
-			}));
-			else if (!await custodyReleases!.release(job.jobId)) {
+			if (outcome.outcome === 'completed' && !cancelRequested) {
+				retainedJobs.set(job.jobId, Object.freeze({ workflow: request, reviewAuthority: prepared.reviewAuthority }));
+				pendingReviewAuthority = undefined;
+			} else if (!await custodyReleases!.release(job.jobId)) {
 				throw new Error('Guided native custody could not be released.');
 			}
 			activeJobId = null;
@@ -285,6 +289,7 @@ export function createLocalAssistanceGuidedSessionStore(
 		} finally {
 			controller = null;
 			progressDisconnect?.();
+			await releaseLocalAssistanceGuidedReviewAudio(pendingReviewAuthority);
 			if (activeJobId) {
 				const failedJobId = activeJobId;
 				try { await workflow.cancel(failedJobId); } catch { /* Original failure remains authoritative. */ }
@@ -333,7 +338,7 @@ export function createLocalAssistanceGuidedSessionStore(
 			const reviewed = await reviewLocalAssistanceGuidedResult({ workflow: retained.workflow,
 				result: snapshot.result.result, authority: retained.reviewAuthority,
 				readOutput: (request) => workflow.readOutput!(request) });
-			const audition = auditionAuthority(retained.workflow, retained.reviewAuthority.media.audio);
+			const audition = localAssistanceGuidedAuditionAuthority(retained.workflow, retained.reviewAuthority.media.audio);
 			const highlightSourceTimeAuthority = retained.workflow.workflowId === 'make-highlights'
 				? await readLocalAssistanceGuidedHighlightSourceTimeAuthorityV1(retained.workflow,
 					retained.reviewAuthority.highlightVideoSignals?.body ?? new Blob()) : null;
@@ -347,7 +352,6 @@ export function createLocalAssistanceGuidedSessionStore(
 				highlightDraft: highlightResult(reviewed),
 				selectedChoiceIds: Object.freeze([]), error: null });
 		} catch (error) {
-			retainedJobs.delete(snapshot.result.jobId);
 			const released = await custodyReleases?.release(snapshot.result.jobId) ?? false;
 			if (!disposed) update({ phase: 'error', review: null, auditionAudio: null,
 				auditionSourceStartFrame: null, auditionSourceSampleRate: null,
@@ -395,7 +399,7 @@ export function createLocalAssistanceGuidedSessionStore(
 			draft, proposalId, sourceFrame, crop, snapshot.highlightSourceTimeAuthority,
 		) });
 	};
-	const accept = async (): Promise<void> => {
+	const executeAcceptance = async (): Promise<void> => {
 		if (!snapshot.canAccept || !snapshot.review || !workflow?.readOutput
 			|| !options.preparation?.acceptGuidedWorkflowResult) {
 			throw new Error('The Guided result has no selected publication ready for acceptance.');
@@ -420,7 +424,6 @@ export function createLocalAssistanceGuidedSessionStore(
 			if (!isAccepted(outcome, selectedChoiceIds)) {
 				throw new TypeError('Guided acceptance returned an invalid decision outcome.');
 			}
-			retainedJobs.delete(snapshot.review.jobId);
 			const released = await custodyReleases?.release(snapshot.review.jobId) ?? false;
 			if (!disposed) update({ phase: 'accepted', error: released ? null
 				: 'Accepted output custody did not release and will retry during disposal.' });
@@ -428,6 +431,11 @@ export function createLocalAssistanceGuidedSessionStore(
 			if (!disposed) update({ phase: 'review-ready',
 				error: error instanceof Error ? error.message : 'Guided result acceptance failed.' });
 		}
+	};
+	const accept = (): Promise<void> => {
+		if (accepting) return accepting;
+		accepting = executeAcceptance().finally(() => { accepting = null; });
+		return accepting;
 	};
 	const cancel = async (): Promise<void> => {
 		if (!running || !snapshot.canCancel || !workflow) return;
@@ -446,8 +454,8 @@ export function createLocalAssistanceGuidedSessionStore(
 			try { await workflow.cancel(activeJobId); } catch { /* Best-effort disposal. */ }
 		}
 		await running;
+		await accepting;
 		for (const jobId of retainedJobs.keys()) custodyReleases?.track(jobId);
-		retainedJobs.clear();
 		await custodyReleases?.releaseAll();
 		listeners.clear();
 	};
@@ -460,19 +468,6 @@ export function createLocalAssistanceGuidedSessionStore(
 		setHighlightTitle, setHighlightTrim, setHighlightCrop,
 		run, review, accept, cancel, dispose,
 	});
-}
-
-function auditionAuthority(
-	workflow: AssistanceWorkflowV1,
-	asset: AssistanceWorkflowReviewMediaAssetV1 | null,
-): Readonly<{ sourceStartFrame: number; sourceSampleRate: number }> | null {
-	if (asset === null) return null;
-	const ranges = workflow.fence.sourceRanges.filter(({ mediaKind }) => mediaKind === 'audio');
-	if (ranges.length !== 1 || ranges[0]!.sourceSampleRate === null) {
-		throw new TypeError('Guided audio audition lost its exact source-time authority.');
-	}
-	return Object.freeze({ sourceStartFrame: ranges[0]!.sourceStartFrame,
-		sourceSampleRate: ranges[0]!.sourceSampleRate });
 }
 
 function reframeResult(
@@ -565,28 +560,4 @@ class GuidedPreparationUnavailableError extends Error {
 	constructor(reason: LocalAssistanceGuidedPreparationUnavailableReason) {
 		super(`Guided preparation is unavailable: ${reason}`); this.reason = reason;
 	}
-}
-
-function normalizePreparationOutcome(value: unknown): Readonly<{
-	outcome: 'prepared'; workflow: unknown; reviewAuthority: AssistanceWorkflowReviewAuthorityV1;
-}> | Readonly<{
-	outcome: 'unavailable'; reason: LocalAssistanceGuidedPreparationUnavailableReason;
-}> {
-	if (!value || typeof value !== 'object' || Array.isArray(value) || ArrayBuffer.isView(value)) {
-		throw new TypeError('Guided preparation returned an invalid outcome.');
-	}
-	const row = value as Record<string, unknown>;
-	if (row.outcome === 'prepared' && Object.keys(row).length === 3 && Object.hasOwn(row, 'workflow')
-		&& Object.hasOwn(row, 'reviewAuthority')) {
-		return Object.freeze({ outcome: 'prepared', workflow: row.workflow,
-			reviewAuthority: validateAssistanceWorkflowReviewAuthorityV1(row.reviewAuthority) });
-	}
-	if (row.outcome === 'unavailable' && Object.keys(row).length === 2
-		&& LOCAL_ASSISTANCE_GUIDED_PREPARATION_UNAVAILABLE_REASONS.includes(
-			row.reason as LocalAssistanceGuidedPreparationUnavailableReason,
-		)) {
-		return Object.freeze({ outcome: 'unavailable',
-			reason: row.reason as LocalAssistanceGuidedPreparationUnavailableReason });
-	}
-	throw new TypeError('Guided preparation returned an invalid outcome.');
 }

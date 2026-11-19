@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { recordingTrackRoute } from '../../../recording-routing.js';
-import type { RecordingRoute, RecordingTrack, RoutedTrackRoute } from '../recording-transaction-types.ts';
+import type { RecordingProject, RecordingRoute, RecordingTrack, RoutedTrackRoute } from '../recording-transaction-types.ts';
 
 export interface RoutedRecordingSourcePlan {
 	readonly assigned: readonly RoutedTrackRoute[];
@@ -41,4 +41,24 @@ export function planRoutedRecordingSources(
 		skippedTrackIds: Object.freeze(skippedTrackIds),
 		groups: Object.freeze(ordered),
 	});
+}
+
+/** Explicit targets and retries do not depend on the current arm state. */
+export function routedRecordingTargetTracks(project: RecordingProject,
+	options: import('./recording-session-service.ts').RecordingStartOptions): readonly RecordingTrack[] {
+	if (options.trackId) {
+		const track = project.tracks.find(item => item.id === options.trackId && item.type === 'audio');
+		return track ? [track] : [];
+	}
+	return project.tracks.filter(track => track.type === 'audio'
+		&& (options.punch ? options.punch.trackIds.includes(track.id) : track.armed));
+}
+
+/** An absent preferred input cannot stand in for a default or unassigned take. */
+export function hasOnlyExplicitNativeRecordingRoutes(project: RecordingProject,
+	options: import('./recording-session-service.ts').RecordingStartOptions,
+	routes: Readonly<Record<string, RecordingRoute>>): boolean {
+	const assigned = routedRecordingTargetTracks(project, options)
+		.map(track => recordingTrackRoute(routes, track.id)).filter(route => route !== null);
+	return assigned.length > 0 && assigned.every(route => route.kind === 'device' && route.deviceId.startsWith('native:'));
 }

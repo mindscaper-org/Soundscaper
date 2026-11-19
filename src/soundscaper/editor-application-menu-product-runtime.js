@@ -4,7 +4,7 @@ import { createSoundscaperNativeServicesMenuItems } from '../common/editor/ui/so
 import { createSoundscaperWorkflowApplicationMenuItems } from '../common/editor/ui/soundscaper-workflow-application-menu.ts';
 import { appendParallelStackProcessingMenu } from '../common/editor/ui/parallel-stack-menu.ts';
 import { createAraApplicationMenuItems } from '../common/editor/ui/ara-application-menu.ts';
-import { resolveSelectionRange } from '../common/editor/selection-range.ts';
+import { resolveVampAnalysisSelection } from '../common/editor/vamp-analysis-selection.ts';
 
 const EMPTY_ITEMS = Object.freeze([]);
 
@@ -20,9 +20,10 @@ export function createFramescaperVideoFinishingMenuItems() {
 }
 
 export function createApplicationMenuProductItems({
-	productId, capabilities = {}, project, snapshot = {}, editBlocked, copy, actions,
+	productId, capabilities = {}, project, snapshot = {}, durationFrames = 0, editBlocked, copy, actions,
 }) {
 	const workflowRuntime = actions.soundscaperWorkflow || null;
+	const run = actions.run || ((operation) => operation());
 	const workflows = createSoundscaperWorkflowApplicationMenuItems({
 		productId,
 		capabilities: workflowRuntime ? capabilities : {},
@@ -35,7 +36,7 @@ export function createApplicationMenuProductItems({
 		copy,
 	}, {
 		openMasteringSequences: () => workflowRuntime?.openMasteringSequences?.(),
-		freeze: (operation, trackId) => workflowRuntime?.freeze(operation, trackId),
+		freeze: (operation, trackId) => run(() => workflowRuntime?.freeze(operation, trackId)),
 	});
 	const nativeRuntime = actions.soundscaperNativeServices || null;
 	const nativeServices = createSoundscaperNativeServicesMenuItems({
@@ -43,13 +44,12 @@ export function createApplicationMenuProductItems({
 		runtimeAvailable: nativeRuntime !== null,
 		snapshot: nativeRuntime?.snapshot ?? null,
 		analyzerRuntimeAvailable: nativeRuntime?.vampAnalyzerAvailable,
-		analyzerSelectionAvailable: Boolean(resolveSelectionRange(project, {
-			selectedClipId: snapshot.selectedClipId ?? null,
-		})),
+		effectTargetAvailable: Boolean(project?.tracks?.some(track => track.type === 'audio' && track.id === snapshot.selectedTrackId)),
+		analyzerSelectionAvailable: Boolean(resolveVampAnalysisSelection(project, snapshot.selectedClipId ?? null, durationFrames)),
 		editingBlocked: editBlocked,
 		readOnly: snapshot.readOnly === true,
 		copy,
-	}, { open: (surface) => nativeRuntime?.open(surface) });
+	}, { open: (surface, stablePluginId) => nativeRuntime?.open(surface, stablePluginId) });
 	const araItems = createAraApplicationMenuItems({ productId, project, available: Boolean(actions.araClipEditing),
 		selectedClipId: snapshot.selectedClipId, editingBlocked: editBlocked, readOnly: snapshot.readOnly === true, copy },
 		() => actions.araClipEditing?.open());

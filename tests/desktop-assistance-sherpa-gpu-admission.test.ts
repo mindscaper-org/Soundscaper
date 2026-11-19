@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -76,9 +76,18 @@ test('Sherpa GPU files are reauthenticated before capabilities cross into the in
 	const options = { manifest, targetId: 'linux-x64', outputRoot };
 	const verified = await verifyAssistanceNativeRuntimePayload(options);
 	assert.deepEqual(verified.executionProviders, ['webgpu', 'cpu']);
-	await writeFile(join(outputRoot, manifest.runtimePrefix, 'node_modules', entry.package.name,
-		'libonnxruntime_providers_webgpu.so'), Buffer.alloc(bytes.length));
-	await assert.rejects(verifyAssistanceNativeRuntimePayload(options), /digest/iu);
+	for (const failure of ['changed', 'extra', 'symbol']) {
+		await stageAssistanceNativeRuntimePayload({ manifest, targetId: 'linux-x64', nodeModulesRoot: modules, outputRoot });
+		const native = join(outputRoot, manifest.runtimePrefix, 'node_modules', entry.package.name);
+		const plugin = join(native, 'libonnxruntime_providers_webgpu.so');
+		if (failure === 'changed') await writeFile(plugin, Buffer.alloc(bytes.length));
+		if (failure === 'extra') await writeFile(join(native, 'extra.dll'), 'extra');
+		if (failure === 'symbol') {
+			await rm(plugin);
+			await symlink(join(native, 'sherpa-onnx.node'), plugin);
+		}
+		await assert.rejects(verifyAssistanceNativeRuntimePayload(options), /digest|inventory|symbolic|regular/iu, failure);
+	}
 });
 
 test('speech packaging builds and authenticates a GPU-capable Sherpa closure for every target', async (context) => {

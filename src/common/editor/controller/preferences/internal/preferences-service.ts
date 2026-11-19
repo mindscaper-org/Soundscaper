@@ -122,8 +122,8 @@ export function createEditorPreferencesService<Preferences extends EditorPrefere
 		return preferences;
 	}
 
-	function persist(nextPreferences: Preferences): Promise<Preferences> {
-		if (dependencies.getReadOnly()) throw createLocalizedError(Error, { preferencesNewerSchema: dependencies.newerSchemaMessage }, 'preferencesNewerSchema');
+	function persist(nextPreferences: Preferences, factoryReset = false): Promise<Preferences> {
+		if (dependencies.getReadOnly() && !factoryReset) throw createLocalizedError(Error, { preferencesNewerSchema: dependencies.newerSchemaMessage }, 'preferencesNewerSchema');
 		durablePreferences ??= dependencies.getPreferences();
 		dependencies.setPreferences(nextPreferences);
 		dependencies.publish();
@@ -177,9 +177,11 @@ export function createEditorPreferencesService<Preferences extends EditorPrefere
 		return persist(dependencies.updatePreferences(dependencies.getPreferences(), patch));
 	}
 
-	function revertFactorySettings(): Promise<Preferences> {
+	async function revertFactorySettings(): Promise<Preferences> {
+		const preferences = await persist(dependencies.createPreferences(dependencies.defaultWorkspace), true);
 		dependencies.setReadOnly(false);
-		return persist(dependencies.createPreferences(dependencies.defaultWorkspace));
+		dependencies.publish();
+		return preferences;
 	}
 
 	function setWorkspace(workspaceId: string): Promise<Preferences> {

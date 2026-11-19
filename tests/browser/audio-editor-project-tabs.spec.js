@@ -1,15 +1,23 @@
-import { AxeBuilder, expect, test, toneA } from './audio-editor-test-fixtures.js';
+import { rm } from 'node:fs/promises';
+import { AxeBuilder, expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
+import { encodeWav } from '../../src/common/editor/wav.js';
 import {
 	bootEditor,
+	chooseCommandAction,
+	chooseExportProjectFileAction,
+	chooseFileAction,
 	chooseNestedCommandAction,
 	clipByName,
 	collectClientErrors,
 	commitInput,
+	disableNativeSavePicker,
 	getMenuItem,
 	importFiles,
 	openNestedCommandMenu,
 	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
+import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 async function renameProject(page, editor, title) {
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
@@ -153,4 +161,394 @@ test.describe('project tab close controls', () => {
 		await expect(editor).toHaveAttribute('data-clip-count', '0');
 		expect(errors).toEqual([]);
 	});
+
+	test('a refused keyboard close returns focus to the surviving close button', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await renameProject(page, editor, 'Unavailable neighbor');
+		const neighborId = await editor.getAttribute('data-project-id');
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Remains open');
+		await page.evaluate(id => {
+			const read = IDBObjectStore.prototype.get;
+			IDBObjectStore.prototype.get = function (key) {
+				if (this.name === 'projects' && key === id) {
+					IDBObjectStore.prototype.get = read;
+					throw new DOMException('The next tab could not be read.', 'UnknownError');
+				}
+				return read.call(this, key);
+			};
+		}, neighborId);
+		const close = editor.getByRole('button', { name: 'Close project: Remains open', exact: true });
+		await close.focus();
+		await page.keyboard.press('Enter');
+		await expect(editor.getByRole('alert')).toContainText('The next tab could not be read.');
+		await expect(editor.getByRole('tab', { name: 'Remains open', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(close).toBeEnabled();
+		await expect(close).toBeFocused();
+	});
+});
+
+test('reopened projects keep track visualization scoped to their tabs and history', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Archived waveform');
+	await importFiles(editor, [toneA]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await chooseFileAction(page, editor, 'New');
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Other waveform');
+		await importFiles(editor, [toneB]);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Archived waveform', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const archivedTrack = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
+		const otherTrack = clipByName(editor, toneB.name).locator('xpath=ancestor::div[@data-track-row]');
+		const spectrogram = editor.getByRole('button', { name: 'Spectrogram', exact: true });
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await spectrogram.click();
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+
+		await chooseNestedCommandAction(page, editor, 'Window', ['Other waveform']);
+		await waitForProjectActivation(editor);
+		await expect.soft(otherTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await chooseNestedCommandAction(page, editor, 'Window', ['Archived waveform']);
+		await waitForProjectActivation(editor);
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect.soft(archivedTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await expect.soft(spectrogram).toHaveAttribute('aria-pressed', 'false');
+		await chooseCommandAction(page, editor, 'Edit', 'Redo');
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+		await expect(spectrogram).toHaveAttribute('aria-pressed', 'true');
+	} finally {
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+test('Split into new track uses the clip highlighted after Undo in a reopened project', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Before edit');
+	await importFiles(editor, [toneA, toneB]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await editor.getByRole('button', { name: 'Close project: Before edit', exact: true }).click();
+		await expect(editor.getByRole('tab', { name: 'Before edit', exact: true })).toHaveCount(0);
+		await waitForProjectActivation(editor);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Before edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const first = clipByName(editor, toneA.name);
+		const second = clipByName(editor, toneB.name);
+		await first.locator('.clip-header').click();
+		await editor.getByRole('slider', { name: 'Playhead', exact: true }).press('ArrowRight');
+		await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+		await renameProject(page, editor, 'After edit');
+		await second.locator('.clip-header').click();
+		await expect(second.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(first.locator('.clip-display')).toHaveAttribute('data-selected', 'true');
+		await expect.soft(second.locator('.clip-display')).not.toHaveAttribute('data-selected', 'true');
+
+		await chooseNestedCommandAction(page, editor, 'Edit', ['Audio clips', 'Split into new track']);
+		await expect(editor).toHaveAttribute('data-clip-count', '3');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const saved = await persistedProject(page, await editor.getAttribute('data-project-id'));
+		const firstSource = saved.sources.find(source => source.name === toneA.name);
+		const secondSource = saved.sources.find(source => source.name === toneB.name);
+		expect([firstSource, secondSource].map(source => saved.clips.filter(clip => clip.sourceId === source.id).length)).toEqual([2, 1]);
+	} finally {
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+test('the clip menu splits at the playhead when a loop also selects the whole clip', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Interview edit');
+	await importFiles(editor, [toneA, toneB]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await download.delete();
+		await editor.getByRole('button', { name: 'Close project: Interview edit', exact: true }).click();
+		await expect(editor.getByRole('tab', { name: 'Interview edit', exact: true })).toHaveCount(0);
+		await waitForProjectActivation(editor);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Interview edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const clip = clipByName(editor, toneA.name);
+		await clip.locator('.clip-header').click();
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Creating a loop also selects audio']);
+		await chooseNestedCommandAction(page, editor, 'Select', ['Loop region', 'Set loop to selection']);
+		await expect(editor.getByRole('group', { name: 'Selection end', exact: true }).locator('.timecode__display')).toHaveText('00h00m00.800s');
+		const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+		await playhead.press('ArrowRight');
+		await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+		const splitFrame = Number(await playhead.getAttribute('aria-valuenow'));
+		expect(splitFrame).toBeLessThan(38_400);
+		await clip.getByRole('button', { name: 'Clip menu', exact: true }).click();
+		await page.getByRole('menuitem', { name: /^Split at playhead(?:\s|$)/u }).click();
+		await expect(editor).toHaveAttribute('data-clip-count', '3', { timeout: 3_000 });
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		const saved = await persistedProject(page, await editor.getAttribute('data-project-id'));
+		const first = saved.sources.find(source => source.name === toneA.name);
+		const second = saved.sources.find(source => source.name === toneB.name);
+		const starts = source => saved.clips.filter(item => item.sourceId === source.id).map(item => item.timelineStartFrame).sort((a, b) => a - b);
+		expect(starts(first)).toEqual([0, splitFrame]);
+		expect(starts(second)).toEqual([0]);
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+	} finally {
+		await rm(archivePath, { force: true });
+	}
+});
+
+test('a project deletion refused by another editor preserves the active tab and live Undo', async ({ page, context }, result) => {
+	test.setTimeout(45_000);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Archived recording');
+	await importFiles(editor, [toneA]);
+	const projectId = await editor.getAttribute('data-project-id');
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	let other;
+	try {
+		await download.saveAs(archivePath);
+		await editor.getByRole('button', { name: 'Close project: Archived recording', exact: true }).click();
+		await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		other = await context.newPage();
+		const otherEditor = await bootEditor(other, '/embed/en/', { showProjectBin: false });
+		await chooseFileAction(other, otherEditor, 'New');
+		await waitForProjectActivation(otherEditor);
+		await renameProject(other, otherEditor, 'Other editing session');
+		await page.bringToFront();
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Edited recording');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+
+		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+		const confirm = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
+		await confirm.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+		await expect(page.getByRole('alert').filter({ hasText: 'Another editor session still owns local project history.' }).last()).toBeVisible();
+		await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+		expect((await persistedProject(page, projectId)).title).toBe('Edited recording');
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(clipByName(editor, toneA.name)).toBeVisible();
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(editor.getByRole('tab', { name: 'Archived recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await chooseCommandAction(page, editor, 'Edit', 'Redo');
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await other.close();
+		other = undefined;
+		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+		await confirm.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+		await expect(confirm).toBeHidden();
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveCount(0);
+		expect(await persistedProject(page, projectId)).toBeNull();
+	} finally {
+		await other?.close();
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+test('Spectral Delete from a reopened project cannot edit a different tab after module loading', async ({ page }, result) => {
+	test.setTimeout(45_000);
+	let entered = false;
+	let release;
+	const held = new Promise(resolve => { release = resolve; });
+	await page.route(/\/spectral-edit-admission-[^/]+\.js$/u, async route => {
+		entered = true;
+		await held;
+		await route.continue();
+	});
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Source recording');
+	await importFiles(editor, [toneA]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await chooseFileAction(page, editor, 'New');
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Destination recording');
+		await importFiles(editor, [toneB]);
+		await selectSpectralBand(page, editor, '500', '800');
+		const original = rms(await exportSamples(page, editor));
+		expect(original).toBeGreaterThan(0.1);
+
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Source recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+		await selectSpectralBand(page, editor, '250', '400');
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral delete']);
+		await expect.poll(() => entered).toBe(true);
+		const effectProgress = page.getByRole('progressbar', { name: 'Processing spectral selection locally' });
+		await expect(effectProgress).toBeVisible();
+		await chooseNestedCommandAction(page, editor, 'Window', ['Destination recording']);
+		await waitForProjectActivation(editor);
+		await expect(editor.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true })).toBeVisible();
+		release();
+		await expect(effectProgress).toBeHidden({ timeout: 20_000 });
+		const current = rms(await exportSamples(page, editor));
+		expect(current).toBeCloseTo(original, 6);
+	} finally {
+		release();
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+function rms(samples) {
+	return Math.sqrt(samples.reduce((sum, sample) => sum + sample ** 2, 0) / samples.length);
+}
+
+async function selectSpectralBand(page, editor, lower, upper) {
+	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral box select']);
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill(lower);
+	await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill(upper);
+	await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
+	await expect(dialog).toBeHidden();
+}
+
+test('switching projects restores the playhead and zoom of each tab', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	await renameProject(page, editor, 'First edit');
+	await importFiles(editor, [toneA]);
+	const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+	const firstClip = clipByName(editor, toneA.name);
+	const originalWidth = (await firstClip.boundingBox()).width;
+	await editor.getByRole('button', { name: 'Zoom in', exact: true }).click();
+	await expect.poll(async () => (await firstClip.boundingBox()).width).toBeGreaterThan(originalWidth);
+	const firstWidth = (await firstClip.boundingBox()).width;
+	await playhead.press('ArrowRight');
+	await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(0);
+	const firstFrame = await playhead.getAttribute('aria-valuenow');
+
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await renameProject(page, editor, 'Second edit');
+	await expect(playhead).toHaveAttribute('aria-valuenow', '0');
+	await importFiles(editor, [toneA]);
+	await expect.poll(async () => (await clipByName(editor, toneA.name).boundingBox()).width).toBeCloseTo(originalWidth, 0);
+
+	await editor.getByRole('tab', { name: 'First edit', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect(playhead).toHaveAttribute('aria-valuenow', firstFrame);
+	await expect.poll(async () => (await firstClip.boundingBox()).width).toBeCloseTo(firstWidth, 0);
+});
+
+test('keyboard navigation brings a clipped destination project tab into view', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 800 });
+	const editor = await bootEditor(page, '/embed/en/');
+	const titles = ['First', 'Second', 'Third', 'Fourth'].map(ordinal => `${ordinal} recording project with a long title`);
+	await renameProject(page, editor, titles[0]);
+	for (const title of titles.slice(1)) {
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, title);
+	}
+	const tabs = editor.getByRole('navigation', { name: 'Project tabs' });
+	const first = tabs.getByRole('tab', { name: titles[0], exact: true });
+	const last = tabs.getByRole('tab', { name: titles.at(-1), exact: true });
+	await first.click();
+	await waitForProjectActivation(editor);
+	await expect(last).not.toBeInViewport();
+	await page.keyboard.press('End');
+	await expect(last).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(last).toBeFocused();
+	await expect(last).toBeInViewport({ ratio: 0.75 });
+});
+
+test('switching to a clipped project from the Window menu scrolls its tab into view', async ({ page }) => {
+	await page.setViewportSize({ width: 1024, height: 800 });
+	const editor = await bootEditor(page, '/embed/en/');
+	const titles = ['First', 'Second', 'Third', 'Fourth'].map(ordinal => `${ordinal} recording project with a long title`);
+	await renameProject(page, editor, titles[0]);
+	for (const title of titles.slice(1)) {
+		await editor.getByRole('button', { name: 'New project', exact: true }).click();
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, title);
+	}
+	const first = editor.getByRole('tab', { name: titles[0], exact: true });
+	const last = editor.getByRole('tab', { name: titles.at(-1), exact: true });
+	await first.click();
+	await waitForProjectActivation(editor);
+	await expect(last).not.toBeInViewport();
+	await chooseNestedCommandAction(page, editor, 'Window', [titles.at(-1)]);
+	await expect(last).toHaveAttribute('aria-selected', 'true');
+	await waitForProjectActivation(editor);
+	await expect(last).toBeInViewport({ ratio: 0.75 });
+});
+
+test('each open tab retains its own timeline scroll position', async ({ page }) => {
+	const editor = await bootEditor(page, '/embed/en/');
+	const recording = { name: 'Long session.wav', mimeType: 'audio/wav',
+		buffer: Buffer.from(encodeWav([new Float32Array(48_000 * 20)], { sampleRate: 48_000, bitDepth: 16 })) };
+	const timeline = editor.locator('[data-timeline]');
+	const position = () => timeline.evaluate(element => element.scrollLeft);
+	const scroll = async (left) => {
+		await timeline.evaluate((element, requested) => { element.scrollLeft = requested; }, left);
+		await expect.poll(position).toBe(left);
+	};
+	await renameProject(page, editor, 'First timeline');
+	await importFiles(editor, [recording]);
+	await expect(clipByName(editor, recording.name)).toHaveCount(1);
+	await scroll(420);
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await renameProject(page, editor, 'Second timeline');
+	await importFiles(editor, [recording]);
+	await expect(clipByName(editor, recording.name)).toHaveCount(1);
+	await expect.poll(position).toBe(0);
+	await scroll(170);
+	await editor.getByRole('tab', { name: 'First timeline', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect.poll(position).toBe(420);
+	await editor.getByRole('tab', { name: 'Second timeline', exact: true }).click();
+	await waitForProjectActivation(editor);
+	await expect.poll(position).toBe(170);
 });

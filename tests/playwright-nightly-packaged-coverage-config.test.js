@@ -35,6 +35,7 @@ test('packaged coverage has a dedicated deterministic Playwright workload', asyn
 			'packaged-coverage-soundscaper-audio-devices',
 			'packaged-coverage-soundscaper-soak',
 			'packaged-coverage-framescaper',
+			'packaged-coverage-framescaper-web-vcr',
 			'packaged-coverage-soundscaper-display-audio',
 		]);
 		assert.deepEqual(projects['packaged-coverage-soundscaper'].metadata, {
@@ -42,6 +43,7 @@ test('packaged coverage has a dedicated deterministic Playwright workload', asyn
 		});
 		assert.deepEqual(projects['packaged-coverage-soundscaper'].testMatch, [
 			'desktop-packaged-runtime-smoke.spec.js',
+			'desktop-packaged-delivery-restart.spec.ts',
 		]);
 		const displayAudio = projects['packaged-coverage-soundscaper-display-audio'];
 		assert.deepEqual(displayAudio.metadata, { productId: 'soundscaper' });
@@ -49,6 +51,7 @@ test('packaged coverage has a dedicated deterministic Playwright workload', asyn
 		assert.deepEqual(displayAudio.dependencies, [
 			'packaged-coverage-soundscaper', 'packaged-coverage-soundscaper-audio-devices',
 			'packaged-coverage-soundscaper-soak', 'packaged-coverage-framescaper',
+			'packaged-coverage-framescaper-web-vcr',
 		], 'loopback capture requires OS window focus after every competing app has closed');
 		assert.deepEqual(
 			projects['packaged-coverage-soundscaper-audio-devices'].metadata,

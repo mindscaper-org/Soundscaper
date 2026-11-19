@@ -51,8 +51,10 @@ async function fixture(context: TestContext, surface: 'panel' | 'lane') {
 	if (surface === 'panel') Reflect.defineProperty(dom.one('input'), 'select', { value() {} });
 	return { controller, dom, render, replace: async () => {
 		const saved = await store.loadProject('first'); assert.ok(saved);
-		const archive = await exportScapeProject(saved, store); assert.ok(archive.blob instanceof Blob);
-		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), () => 'replace');
+		const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, store); assert.ok(archive.blob instanceof Blob);
+		const decisions: string[] = [];
+		await controller.actions.project.openScapeFile(new File([archive.blob], 'Replacement.sscape'), request => { decisions.push(request.kind); return 'replace'; });
+		assert.deepEqual(decisions, ['collision']);
 	}, annotation: () => controller.project?.timelineAnnotations.find(value => value.id === 'marker') };
 }
 

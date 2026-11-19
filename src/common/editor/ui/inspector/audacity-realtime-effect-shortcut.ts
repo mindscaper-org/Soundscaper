@@ -22,12 +22,12 @@ interface RealtimeEffectShortcutEvent {
 
 interface RealtimeEffectSection {
 	readonly effects: readonly Readonly<{ id: string }>[];
-	readonly scope: 'group' | 'send' | 'track';
+	readonly scope: 'clip' | 'group' | 'send' | 'track';
 	readonly targetId: string | null;
 }
 
 type ReorderRealtimeEffect = (
-	scope: 'group' | 'master' | 'send' | 'track',
+	scope: 'clip' | 'group' | 'master' | 'send' | 'track',
 	targetId: string | null,
 	effectId: string,
 	toIndex: number,

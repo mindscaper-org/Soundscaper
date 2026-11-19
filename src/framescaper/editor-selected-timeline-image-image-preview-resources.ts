@@ -8,7 +8,7 @@ import {
 	FRAMESCAPER_IMAGE_FRAME_PACK_MAXIMUM_RECEIPT_BYTES,
 } from '../common/editor/timeline-image-frame-pack-v1.ts';
 import { normalizeFramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
-import type { FramescaperCurrentImageSourceTimelineImage } from './editor-selected-timeline-image-image-frame-source.ts';
+import { FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE, type FramescaperCurrentImageSourceTimelineImage } from './editor-selected-timeline-image-image-frame-source.ts';
 import { framescaperEditableImageWorkingBytes } from './timeline-image-current-frame-source.ts';
 import { FRAMESCAPER_RAW_IMAGE_WORKING_BYTES_CURRENT_V1 } from './internal/timeline-image-raw-working-plan-current-v1.ts';
 
@@ -16,6 +16,7 @@ import { FRAMESCAPER_RAW_IMAGE_WORKING_BYTES_CURRENT_V1 } from './internal/timel
 export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_WORKING_BYTES_TIMELINE_IMAGE = 512 * 1024 * 1024;
 export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_SOURCES_TIMELINE_IMAGE = 512;
 export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE = 4_096;
+export const FRAMESCAPER_IMAGE_PREVIEW_CACHE_FRAMES_PER_SOURCE_TIMELINE_IMAGE = 2;
 
 export interface FramescaperImagePreviewResourceContextTimelineImage {
 	readonly source: FramescaperCurrentImageSourceTimelineImage;
@@ -39,9 +40,8 @@ export interface FramescaperImagePreviewResourceBudgetTimelineImage {
 }
 
 /**
- * Admit the eager image-preview representation required by the synchronous
- * preview-session resolve contract. Every canonical frame is retained at its
- * fitted size, while each clip owns an independently backed drawable.
+ * Reserve the fitted frame cache and one in-flight decode across all sources.
+ * Each clip owns an independently backed drawable.
  */
 export function admitFramescaperImageTimelinePreviewResourcesTimelineImage(
 	contexts: readonly FramescaperImagePreviewResourceContextTimelineImage[],
@@ -49,8 +49,9 @@ export function admitFramescaperImageTimelinePreviewResourcesTimelineImage(
 	const admitted = contextsAndSources(contexts, 'timeline preview');
 	let retainedFrameBytes = 0n;
 	for (const context of admitted.sources.values()) {
-		retainedFrameBytes += scaledFrameBytes(context)
-			* BigInt(context.source.canonical.frameCount);
+		retainedFrameBytes += scaledFrameBytes(context) * BigInt(Math.min(
+			context.source.canonical.frameCount, FRAMESCAPER_IMAGE_PREVIEW_CACHE_FRAMES_PER_SOURCE_TIMELINE_IMAGE,
+		));
 	}
 	let drawableBackingBytes = 0n;
 	for (const context of admitted.contexts) drawableBackingBytes += scaledFrameBytes(context);
@@ -214,7 +215,11 @@ function rawFrameBytes(source: FramescaperCurrentImageSourceTimelineImage): bigi
 }
 
 function scaledFrameBytes(context: FramescaperImagePreviewResourceContextTimelineImage): bigint {
-	return BigInt(context.width) * BigInt(context.height) * 4n;
+	const pixels = context.width * context.height;
+	if (pixels > FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE) {
+		throw new RangeError('A timelineImage image preview frame may contain at most 33554432 pixels.');
+	}
+	return BigInt(pixels) * 4n;
 }
 
 function dimension(value: unknown, name: string): number {

@@ -96,8 +96,7 @@ export async function refreshPlayingProject(engine: EngineRuntimeHost, project: 
 			}
 			candidate.positionFrame = fromFrame;
 			if (candidate.playbackMode === 'audio-warp-exact') {
-				await abortable(prepareExactAudioWarpPlayback(candidate, fromFrame,
-					isPlaybackLoopEnabled(candidate) ? candidate.loop.endFrame : candidate.durationFrames, signal), signal);
+				await abortable(prepareExactAudioWarpPlayback(candidate, fromFrame, signal), signal);
 				current();
 			}
 			const onReady = async (requested: number): Promise<number> => {

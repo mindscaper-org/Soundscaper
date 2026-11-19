@@ -48,6 +48,10 @@ import { NYQUIST_ARCHIVE_COPY_BY_LOCALE } from './editor-nyquist-archive-copy.ts
 import { TEXT_TO_SPEECH_COPY_BY_LOCALE } from './editor-text-to-speech-copy.ts';
 import { PARALLEL_STACK_COPY_BY_LOCALE } from './editor-parallel-stack-copy.ts';
 import { CLIP_SPREADSHEET_COPY_BY_LOCALE } from './editor-clip-spreadsheet-copy.ts';
+import { TRANSCRIPT_EDITING_COPY_BY_LOCALE } from './editor-transcript-editing-copy.ts';
+import { SUBPROJECT_COPY_BY_LOCALE } from './editor-subproject-copy.ts';
+import { SESSION_SNAPSHOT_COPY_BY_LOCALE } from './editor-session-snapshot-copy.ts';
+import { TRACK_PLAYLIST_COPY_BY_LOCALE } from './editor-track-playlist-copy.ts';
 import { ABOUT_DIALOG_COPY_BY_LOCALE } from './editor-about-dialog-copy.ts';
 import { ORIGINAL_FILE_OVERWRITE_COPY_BY_LOCALE } from './editor-original-file-overwrite-copy.ts';
 import { BLENDER_COPY_BY_LOCALE } from './editor-blender-copy.ts';
@@ -56,6 +60,9 @@ import { KEYBOARD_MAP_COPY_BY_LOCALE } from './editor-keyboard-map-copy.ts';
 import { ID3_METADATA_COPY_BY_LOCALE } from './editor-id3-metadata-copy.ts';
 import { TRACK_HEIGHT_COPY_BY_LOCALE } from './editor-track-height-copy.ts';
 import { MIDI_COPY_BY_LOCALE } from './editor-midi-copy.ts';
+import { TIMECODE_SYNC_COPY_BY_LOCALE } from './editor-timecode-sync-copy.ts';
+import { INTERCHANGE_COPY_BY_LOCALE } from './editor-interchange-copy.ts';
+import { MENU_TOOLTIP_COPY } from './editor-menu-tooltip-copy.ts';
 
 export interface EditorCopyOwner {
 	readonly owner: string;
@@ -131,6 +138,10 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'soundscaperNative', en: SOUNDSCAPER_NATIVE_SERVICES_COPY, aliases: processingAliases },
 	{ owner: 'parallelStacks', ...PARALLEL_STACK_COPY_BY_LOCALE },
 	{ owner: 'clipSpreadsheet', ...CLIP_SPREADSHEET_COPY_BY_LOCALE },
+	{ owner: 'transcriptEditing', ...TRANSCRIPT_EDITING_COPY_BY_LOCALE },
+	{ owner: 'sessionSnapshots', ...SESSION_SNAPSHOT_COPY_BY_LOCALE },
+	{ owner: 'subprojects', ...SUBPROJECT_COPY_BY_LOCALE },
+	{ owner: 'trackPlaylists', ...TRACK_PLAYLIST_COPY_BY_LOCALE },
 	{ owner: 'framescaperNative', en: FRAMESCAPER_NATIVE_SERVICES_COPY, aliases: processingAliases },
 	{ owner: 'framescaperInputs', en: FRAMESCAPER_INPUTS_COPY },
 	{ owner: 'mastering', en: SOUNDSCAPER_MASTERING_SEQUENCE_COPY },
@@ -171,7 +182,10 @@ const inventory = buildEditorCopyInventory(ENGLISH_COPY, [
 	{ owner: 'clipInteractions', ...CLIP_INTERACTIONS_COPY_BY_LOCALE },
 	{ owner: 'trackHeight', ...TRACK_HEIGHT_COPY_BY_LOCALE },
 	{ owner: 'midi', ...MIDI_COPY_BY_LOCALE },
+	{ owner: 'timecodeSync', ...TIMECODE_SYNC_COPY_BY_LOCALE },
+	{ owner: 'interchange', ...INTERCHANGE_COPY_BY_LOCALE },
 	{ owner: 'keyboardMap', ...KEYBOARD_MAP_COPY_BY_LOCALE },
+	{ owner: 'menuTooltips', en: MENU_TOOLTIP_COPY },
 	{ owner: 'id3Metadata', ...ID3_METADATA_COPY_BY_LOCALE },
 	{ owner: 'designSystem', ...DESIGN_SYSTEM_COPY },
 	{ owner: 'indexedSearch', en: INDEXED_SEARCH_COPY },

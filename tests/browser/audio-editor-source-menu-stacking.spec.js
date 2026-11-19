@@ -4,7 +4,7 @@ import { bootEditor, clipByName, importFiles, openSourceMonitor } from './audio-
 
 for (const anchor of ['top', 'center']) test(`Source ruler ${anchor} popup stays above the Selection toolbar`, async ({ page }) => {
 	await page.setViewportSize({ width: 1280, height: 720 });
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const file = createWavFixture({ name: 'Source popup.wav', sampleRate: 48000, frequency: 3000, duration: 1, channelCount: 1 });
 	await importFiles(editor, [file]);
 	const panel = await openSourceMonitor(page, editor, clipByName(editor, file.name));

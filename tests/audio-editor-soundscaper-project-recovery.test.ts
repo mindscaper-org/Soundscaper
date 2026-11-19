@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { createSoundscaperProject, validateSoundscaperProject } from '../src/soundscaper/editor-project.ts';
@@ -10,6 +11,9 @@ import { inspectSoundscaperProjectRecovery, createSoundscaperProjectRecoveryCopy
 import { repairSoundscaperProject } from '../src/soundscaper/editor-project-recovery-repair.ts';
 import { ProjectCommittedMaintenanceError } from '../src/common/editor/storage/project-committed-maintenance-error.ts';
 import { SoundscaperDesktopProjectLibraryCommittedError } from '../src/soundscaper/desktop-project-library-renderer-catalog.ts';
+import { createAssistanceTtsScriptBodyPublicationV1 } from '../src/common/editor/assistance/tts-script-body-publication-v1.ts';
+import { encodeWav } from '../src/common/editor/wav.js';
+import { readSoundscaperRecoveryAvailableMediaSources } from '../src/soundscaper/editor-project-recovery-media.ts';
 
 const NOW = '2026-10-08T12:00:00.000Z';
 
@@ -19,6 +23,59 @@ function fixture(id: string) {
 	const track = createAudioTrack({ id: `${id}-track`, clipIds: [clip.id] });
 	return createSoundscaperProject({ id, now: NOW, sampleRate: 48_000, sources: [source], clips: [clip], tracks: [track] });
 }
+
+test('recovery keeps legacy model WAV identities only when stored PCM reconstructs exact reviewed audio', async context => {
+	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
+	context.after(async () => { await store.close(); });
+	const enhancement = Array.from({ length: 6 }, (_, channel) => Float32Array.of(0.5 - channel / 16, -0, -0.25, 0));
+	const speech = [Float32Array.of(32767 / 32768, -1, 0, 0.5)];
+	const waveIdentity = (channels: Float32Array[], sampleRate: number, float: boolean) => {
+		const wav = encodeWav(channels, { sampleRate, float, bitDepth: float ? 32 : 16, dither: false });
+		return { byteLength: wav.length, contentSha256: createHash('sha256').update(wav).digest('hex') };
+	};
+	const effectIdentity = waveIdentity(enhancement, 48_000, true);
+	const effect = createAudioSource({ id: 'legacy-enhanced', frameCount: 4, sampleRate: 48_000,
+		originalSampleRate: 48_000, channelCount: 6, chunkFrames: 2, mimeType: 'audio/wav',
+		...effectIdentity, opaqueExtensions: { 'org.soundscaper.local-assistance-audio-v1': {
+			version: 1, operation: 'speech-enhancement', slotId: 'enhanced-audio',
+			outputClaim: { claimVersion: 1, claimId: '1'.repeat(40), jobId: '2'.repeat(40),
+				role: 'enhanced-audio', mediaType: 'audio/wav', byteLength: effectIdentity.byteLength,
+				sha256: effectIdentity.contentSha256 },
+		} } });
+	const generated = createAudioSource({ id: 'legacy-generated', frameCount: 4, sampleRate: 24_000,
+		originalSampleRate: 24_000, channelCount: 1, chunkFrames: 2, mimeType: 'audio/wav',
+		...waveIdentity(speech, 24_000, false) });
+	const script = createAssistanceTtsScriptBodyPublicationV1({ assetId: 'legacy-speech-script',
+		text: 'Saved speech', language: 'a', voiceId: 'af_heart', speed: 1,
+		source: { sourceId: generated.id, sourceSha256: generated.contentSha256,
+			sourceStartFrame: 0, sourceEndFrame: generated.frameCount },
+		model: { modelId: 'kokoro-82m-v1.0', modelVersion: '1.0.0', artifactSha256s: ['a'.repeat(64)] },
+		recipe: { id: 'kokoro-text-to-speech', version: 1 },
+	});
+	for (const [source, channels] of [[effect, enhancement], [generated, speech]] as const) {
+		const writer = await store.beginSourceWrite(source.id, source);
+		await writer.write(channels.map(channel => channel.subarray(0, 2)));
+		await writer.write(channels.map(channel => channel.subarray(2)));
+		await writer.commit({ sampleRate: source.sampleRate, channelCount: source.channelCount, chunkFrames: 2 });
+	}
+	const document = { id: 'recover-reviewed-waves', sources: [effect, generated], assistanceAssets: [script.reference] };
+	const available = new Map<string, boolean>();
+	assert.deepEqual(await readSoundscaperRecoveryAvailableMediaSources(store, document, available),
+		new Set([effect.id, generated.id]));
+	assert.deepEqual(await readSoundscaperRecoveryAvailableMediaSources(store, { ...document,
+		sources: [{ ...effect, opaqueExtensions: {} }, generated], assistanceAssets: [],
+	}, available), new Set(), 'an adjacent revision cannot reuse a WAV match without its own provenance');
+
+	const read = store.readSourceChunks.bind(store);
+	store.readSourceChunks = async function* (id, options) {
+		for await (const chunk of read(id, options)) {
+			const first = chunk.channels[0]!.slice();
+			first[0] = id === generated.id ? first[0]! + 2 ** -22 : first[0]! + 0.01;
+			yield { ...chunk, channels: [first, ...chunk.channels.slice(1)] };
+		}
+	};
+	assert.deepEqual(await readSoundscaperRecoveryAvailableMediaSources(store, document), new Set());
+});
 
 test('repair retains valid audio and drops missing clips, broken effects and dangling state', () => {
 	const original = fixture('repair');

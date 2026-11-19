@@ -5,7 +5,7 @@ import { bootEditor, chooseCommandAction, clipByName, importFiles } from './audi
 import { chooseTrackMenuAction } from './helpers/track-menu.js';
 
 test('locked timeline labels preserve selection and restore writing after unlock', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await clipByName(editor, toneA.name).locator('.clip-header').click();
 	await page.keyboard.press('Control+b');

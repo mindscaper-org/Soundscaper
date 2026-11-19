@@ -4,7 +4,7 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
 
 test('Risset Drum retains a decimal amplitude typed through its ordinary numeric field', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await chooseNestedCommandAction(page, editor, 'Generate', ['Nyquist', 'Risset Drum']);
 	const dialog = page.getByRole('dialog', { name: 'Risset Drum', exact: true });
 	const amplitude = dialog.getByRole('spinbutton', { name: 'Amplitude (0 - 1)', exact: true });
@@ -15,7 +15,7 @@ test('Risset Drum retains a decimal amplitude typed through its ordinary numeric
 });
 
 test('Adjustable Fade retains a typed negative fractional curve', async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseNestedCommandAction(page, editor, 'Effect', ['Nyquist', 'Adjustable Fade']);

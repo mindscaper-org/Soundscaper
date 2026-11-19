@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deferred } from './helpers/async-test-control.ts';
 
 import { createExportFormatAvailability } from '../src/common/editor/controller/export/export-format-availability.ts';
 
@@ -105,4 +106,73 @@ test('closing the export cancels pending selection custody', async () => {
 	assert.equal(availability.getSnapshot().problem, null);
 	assert.equal(availability.getSnapshot().owner, null);
 	availability.dispose();
+});
+
+test('untrusted FFmpeg status and status-read failures never fabricate an installation path', async () => {
+	for (const status of [null, [], false, 'ready', {}, { state: 'unconfigured', canInstall: 1 },
+		{ state: 'unconfigured', canInstall: true, location: '/usr/bin/ffmpeg' }]) {
+		let installations = 0;
+		const availability = createExportFormatAvailability({
+			readFfmpegStatus: () => status,
+			installFfmpeg: () => { installations += 1; return { state: 'ready' }; },
+		});
+		try {
+			await availability.check({}, async () => missing);
+			assert.equal(availability.getSnapshot().problem?.canInstall, false);
+			await availability.install(); assert.equal(installations, 0);
+		} finally { availability.dispose(); }
+	}
+	const availability = createExportFormatAvailability({ readFfmpegStatus: () => { throw new Error('status read refused'); } });
+	try {
+		await availability.check({}, async () => missing);
+		assert.equal(availability.getSnapshot().problem?.kind, 'unavailable');
+		assert.equal(availability.getSnapshot().problem?.failure.cause, 'status read refused');
+	} finally { availability.dispose(); }
+});
+
+test('a pending FFmpeg status response cannot publish into a newer selected format', async () => {
+	const status = deferred<unknown>();
+	const availability = createExportFormatAvailability({ readFfmpegStatus: () => status.promise });
+	try {
+		const firstOwner = {}, secondOwner = {};
+		const pending = availability.check(firstOwner, async () => missing);
+		await Promise.resolve();
+		await availability.check(secondOwner, async () => ({ available: true }));
+		status.resolve({ state: 'unconfigured', canInstall: true });
+		await pending;
+		assert.equal(availability.getSnapshot().owner, secondOwner);
+		assert.equal(availability.getSnapshot().available, true);
+		assert.equal(availability.getSnapshot().problem, null);
+	} finally { status.resolve(null); availability.dispose(); }
+});
+
+test('repeat Install cannot duplicate a pending installation and stale rejection cannot replace a new format', async () => {
+	const installation = deferred<unknown>(); let installations = 0;
+	const availability = createExportFormatAvailability({
+		readFfmpegStatus: () => ({ state: 'unconfigured', canInstall: true }),
+		installFfmpeg: () => { installations += 1; return installation.promise; },
+	});
+	try {
+		await availability.check({}, async () => missing);
+		const first = availability.install();
+		await availability.install(); assert.equal(installations, 1);
+		const secondOwner = {};
+		await availability.check(secondOwner, async () => ({ available: true }));
+		installation.reject('installation was refused'); await first;
+		assert.equal(availability.getSnapshot().owner, secondOwner);
+		assert.equal(availability.getSnapshot().available, true);
+		assert.equal(availability.getSnapshot().problem, null);
+	} finally { installation.resolve(null); availability.dispose(); }
+});
+
+test('capability errors retain a bounded exact cause for Error and non-Error bridge failures', async () => {
+	for (const cause of [new Error('x'.repeat(4096)), 'x'.repeat(4096)]) {
+		const availability = createExportFormatAvailability({});
+		try {
+			await availability.check({}, () => { throw cause; });
+			assert.equal(availability.getSnapshot().problem?.failure.reasonCode, 'probe-failed');
+			assert.equal(availability.getSnapshot().problem?.failure.cause, 'x'.repeat(2048));
+			assert.equal(availability.getSnapshot().problem?.kind, 'unavailable');
+		} finally { availability.dispose(); }
+	}
 });

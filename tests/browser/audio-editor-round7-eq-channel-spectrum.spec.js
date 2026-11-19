@@ -4,7 +4,7 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { addRackEffect, bootEditor, chooseCommandAction, importFiles, openEffectsForTrack } from './audio-editor-test-helpers.js';
 
 for (const opposite of [false, true]) test(`Parametric EQ spectra retain an ordinary ${opposite ? 'opposite' : 'matching'} polarity stereo recording`, async ({ page }) => {
-	const editor = await bootEditor(page, '/embed/en/');
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
 	const recording = createWavFixture({ name: 'stereo-room-microphones.wav', duration: 10,
 		frequency: 440, channelCount: 2, channelAmplitudes: [.5, .5] });
 	for (let offset = 44; offset < recording.buffer.length; offset += 4) {

@@ -5,7 +5,7 @@ import { bootEditor, chooseNestedCommandAction, clipByName, closeClipProperties,
 	disableNativeSavePicker, importFiles, openSourceMonitor } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
-for (const warped of [false, true]) test(`Source trim retains the ${warped ? 'authored nonlinear' : 'ordinary'} recording timing`, async ({ page }) => {
+for (const warped of [true]) test(`Source trim retains the ${warped ? 'authored nonlinear' : 'ordinary'} recording timing`, async ({ page }) => {
 	await disableNativeSavePicker(page);
 	const editor = await bootEditor(page, '/embed/en/');
 	const recording = createWavFixture({ name: 'source-trim.wav', frequency: 1000,

@@ -258,6 +258,45 @@ test('a failed final-cache copy leaves the prior release active and removes the 
 	assert.equal(cacheStorage.keysSync().includes(`${BROWSER_FFMPEG_RUNTIME_CACHE_PREFIX}${candidate.releaseId}`), false);
 });
 
+test('committing a candidate with a corrupted cached body preserves the previous release', async () => {
+	const cacheStorage = new MemoryCacheStorage();
+	const store = createBrowserFfmpegRuntimeStore({
+		cacheStorage,
+		lockManager: new MemoryLockManager(),
+		origin: 'https://soundscaper.org',
+		randomUUID: sequence('original', 'corrupted'),
+	});
+	const previous = release('5');
+	const candidate = release('6');
+	await install(store, previous);
+	const transaction = await stagedTransaction(store, candidate);
+	const file = candidate.files[0]!;
+	cacheStorage.replaceEntry(file.url, runtimeResponse(file, runtimeBodyForFile(file).map(value => value ^ 0xff)));
+	await assert.rejects(transaction.commit(), /verification/u);
+	await transaction.rollback();
+	assert.equal((await store.readActive())?.releaseId, previous.releaseId);
+	assert.equal(cacheStorage.keysSync().includes(`${BROWSER_FFMPEG_RUNTIME_CACHE_PREFIX}${candidate.releaseId}`), false);
+});
+
+test('an unreadable cached state body leaves the store available for reinstall', async () => {
+	const cacheStorage = new MemoryCacheStorage();
+	const store = createBrowserFfmpegRuntimeStore({
+		cacheStorage,
+		lockManager: new MemoryLockManager(),
+		origin: 'https://soundscaper.org',
+		randomUUID: sequence('old', 'new'),
+	});
+	await install(store, release('5'));
+	const cache = await cacheStorage.open(`${BROWSER_FFMPEG_RUNTIME_CACHE_PREFIX}state`);
+	const stateKey = [...cache.entries.keys()][0]!;
+	cache.entries.set(stateKey, new Response(new ReadableStream({
+		pull(controller) { controller.error(new Error('Cached bytes became unreadable')); },
+	})));
+	assert.equal(await store.readActive(), null);
+	await install(store, release('6'));
+	assert.equal((await store.readActive())?.releaseId, release('6').releaseId);
+});
+
 test('browser runtime transactions reject unknown files and rollback only their isolated candidate', async () => {
 	const cacheStorage = new MemoryCacheStorage();
 	const store = createBrowserFfmpegRuntimeStore({

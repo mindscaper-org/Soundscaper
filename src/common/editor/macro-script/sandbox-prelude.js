@@ -228,6 +228,7 @@ function installDeterminism() {
 function createApi() {
 	const api = {
 		env: environment,
+		input: { audio: (key) => call('input.audio', key) },
 		log: {
 			info: (...values) => log('info', values),
 			warn: (...values) => log('warn', values),
@@ -239,6 +240,15 @@ function createApi() {
 			clips: (trackId) => call('project.clips', trackId ?? null),
 			selection: () => call('project.selection'),
 		},
+		view: {
+			snapshot: () => call('view.snapshot'),
+			set: mutating('view.set'),
+			zoom: mutating('view.zoom'),
+		},
+		self: {
+			source: () => call('self.source'),
+			replaceSource: mutating('self.replaceSource'),
+		},
 		select: {
 			time: (start, end, options) => mutating('select.time')(start, end, options ?? null),
 			frames: (startFrame, endFrame, options) => mutating('select.frames')(startFrame, endFrame, options ?? null),
@@ -248,6 +258,8 @@ function createApi() {
 			none: () => mutating('select.none')(),
 		},
 		effect: mutating('effect.apply'),
+		analyze: { repeatedSound: (options) => mutating('analyze.repeatedSound')(options ?? null) },
+		edit: { deleteAndCloseGap: mutating('edit.deleteAndCloseGap') },
 		effects: mutating('effect.chain'),
 		runSaved: mutating('macro.runSaved'),
 		command: mutating('command.run'),

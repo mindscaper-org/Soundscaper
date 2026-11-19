@@ -3,6 +3,7 @@
 /** Closed build-result contract shared by assembly and package staging. */
 
 import { createHash } from 'node:crypto';
+import { validateBundledPluginResources } from '../../desktop/bundled-plugin-resources.ts';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
@@ -12,9 +13,7 @@ import {
 import {
 	validateSoundscaperProfessionalNativeMacCodeSealResult,
 } from './soundscaper-professional-native-macos-code-seal.mjs';
-import {
-	validateSoundscaperNativeBinaryArchitectureReceipt,
-} from './soundscaper-native-binary-architecture.mjs';
+import { WINDOWS_VST2_X86_ARTIFACT, validateProfessionalArtifactArchitecture } from './windows-vst2-x86-artifact.mjs';
 import {
 	soundscaperProfessionalNativeToolchainIdentity,
 	validateSoundscaperProfessionalNativeToolchainReceipt,
@@ -30,7 +29,7 @@ const MAXIMUM_FILE_BYTES = 512 * 1024 * 1024;
 const SHA256 = /^[a-f\d]{64}$/u;
 const REVISION = /^(?:[a-f\d]{40}|[a-f\d]{64})$/u;
 const BASE_SOURCE_IDS = Object.freeze([
-	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 ]);
 const COMMON_SELF_TEST_IDS = Object.freeze([
 	'addon-exact-backend-format-inventory',
@@ -65,6 +64,7 @@ export function requiredSoundscaperProfessionalNativeSelfTestIds(targetValue) {
 	return Object.freeze([
 		...COMMON_SELF_TEST_IDS,
 		...(target === 'mac-arm64' ? ['isolation-rss-ceiling'] : []),
+		...(target === 'win-x64' ? ['windows-x86-vst2-bridge'] : []),
 		...(['mac-arm64', 'win-x64', 'win-arm64'].includes(target)
 			? ['os-audio-codec-ctest'] : []),
 	].sort());
@@ -127,7 +127,7 @@ export function validateBuildResultReceipt(value) {
 	artifactDescriptor(value.pluginPeer, paths.pluginPeer);
 	artifactDescriptor(value.deliveryFilesystem, paths.deliveryFilesystem);
 	closedRecord(value.isolation, [
-		'launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure',
+		'launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure', 'pluginResources',
 	], 'build-result isolation');
 	artifactDescriptor(value.isolation.launcher, paths.launcher);
 	artifactDescriptor(value.isolation.sandboxProfile, 'payload/native-isolation-profile-v1.json');
@@ -138,10 +138,14 @@ export function validateBuildResultReceipt(value) {
 		throw new TypeError('The build-result isolation entrypoint or runtime closure is invalid.');
 	}
 	for (const entry of value.isolation.runtimeClosure) artifactDescriptor(entry);
+	validateBundledPluginResources(value.isolation.pluginResources, 'payload/runtime/');
 	const runtimePaths = value.isolation.runtimeClosure.map(({ path }) => path);
 	if (runtimePaths.some((path) => !path.startsWith('payload/runtime/'))
 		|| new Set(runtimePaths).size !== runtimePaths.length) {
 		throw new TypeError('The build-result runtime closure paths are invalid.');
+	}
+	if (value.target === 'win-x64' && !runtimePaths.includes(WINDOWS_VST2_X86_ARTIFACT)) {
+		throw new TypeError('The Windows x64 build result omitted its x86 VST2 bridge.');
 	}
 	validateVerificationChecks(value);
 	return value;
@@ -236,7 +240,7 @@ function validateVerificationChecks(candidate) {
 	for (const inspection of closure.inspections) {
 		closedRecord(inspection, ['architecture', 'artifactPath', 'imports', 'rpaths'],
 			'dependency inspection');
-		validateSoundscaperNativeBinaryArchitectureReceipt(inspection.architecture, candidate.target);
+		validateProfessionalArtifactArchitecture(inspection.architecture, candidate.target, inspection.artifactPath);
 		if (!Array.isArray(inspection.imports) || !Array.isArray(inspection.rpaths)
 			|| inspection.imports.some((entry) => typeof entry !== 'string' || entry === '')
 			|| inspection.rpaths.some((entry) => typeof entry !== 'string' || entry === '')) {
@@ -297,7 +301,7 @@ export function buildResultDescriptors(receipt) {
 	return [receipt.payload, ...(receipt.osAudioCodec === null ? [] : [receipt.osAudioCodec]),
 		receipt.pluginPeer, receipt.deliveryFilesystem, receipt.isolation.launcher,
 		receipt.isolation.sandboxProfile, receipt.isolation.brokerPolicy,
-		...receipt.isolation.runtimeClosure];
+		...receipt.isolation.runtimeClosure, ...receipt.isolation.pluginResources];
 }
 
 export function buildResultExecutableDescriptors(receipt) {

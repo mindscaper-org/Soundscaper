@@ -2,13 +2,16 @@
 
 import type { MidiClipData, MidiNote } from './midi-model.ts';
 import { createMidiExpressionIndex, midiNoteSoundEnd } from './engine/midi-expression.ts';
+import { createMidiSostenutoProjectionAdmission } from './midi-sostenuto-projection-admission.ts';
 
 /** A trimmed window can begin after key release while its damper-held voice still sounds. */
 export function createMidiClipNoteProjection(data: MidiClipData) {
 	const expression = createMidiExpressionIndex(data.interchange?.events ?? []);
+	const assertSostenuto = createMidiSostenutoProjectionAdmission(data);
 	const notes = data.notes.map(note => ({ note, soundEnd: midiNoteSoundEnd(note, expression.forNote(note)) }));
 	return function* project(start: number, frames: number, global: (frame: number) => number): Generator<MidiNote> {
 		const reversed = global(start + frames) < global(start);
+		assertSostenuto(start, frames, reversed);
 		for (const { note, soundEnd } of notes) {
 			const keyEnd = note.onsetStop?.kind === 'all-notes-off' ? note.startFrame : note.startFrame + note.durationFrames;
 			if (reversed && Math.min(start + frames, soundEnd) > Math.max(start, keyEnd)) {

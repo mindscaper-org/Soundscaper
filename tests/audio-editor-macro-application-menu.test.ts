@@ -42,6 +42,19 @@ test('Tools > Macros mirrors the Macro Manager library without disabled placehol
 	}
 });
 
+test('Apply to files is a desktop-only command reachable through the macro palette menu', () => {
+	const opened: string[] = [];
+	const desktop = controller(async () => true);
+	Object.assign(desktop.actions.macros, { applyToFiles: async () => [] });
+	const menus = createWorkspaceApplicationMenus(workspaceInput({ controller: desktop, fileService: { isDesktop: true }, desktopHostRuntime: { snapshot: {} },
+		openSurface: (surface: string) => { opened.push(surface); },
+	})) as readonly MenuItem[];
+	menuItem(menus, 'macro-apply-files').onClick?.();
+	assert.deepEqual(opened, ['macro-files']);
+	const web = createWorkspaceApplicationMenus(workspaceInput({ controller: desktop })) as readonly MenuItem[];
+	assert.equal(findMenuItem(web, 'macro-apply-files'), null);
+});
+
 test('a saved macro menu item runs the same library record exposed by Macro Manager', async () => {
 	const runs: unknown[] = [];
 	const menus = createWorkspaceApplicationMenus(workspaceInput({

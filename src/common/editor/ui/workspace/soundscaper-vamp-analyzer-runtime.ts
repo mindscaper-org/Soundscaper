@@ -3,7 +3,7 @@
 /** Project-fenced renderer adapter for the menu-opened Vamp analyzer. */
 
 import { createStableId } from '../../stable-id.js';
-import { resolveSelectionRange } from '../../selection-range.ts';
+import { resolveVampAnalysisSelection } from '../../vamp-analysis-selection.ts';
 import {
 	normalizeVampAnalysisRequest,
 	normalizeVampAnalysisResult,
@@ -14,6 +14,7 @@ import {
 	type VampAnalyzerDescriptor,
 } from '../../vamp-analysis.ts';
 import { planVampFeatureLabelTrack } from '../../vamp-analysis-labels.ts';
+import type { MidiService } from '../../controller/track-audio/midi-service-types.ts';
 
 export interface SoundscaperVampAnalysisInput {
 	readonly projectId: string;
@@ -48,6 +49,7 @@ export interface SoundscaperVampAnalyzerController {
 	readonly actions: Readonly<{
 		readonly edit: Readonly<{ commit(command: unknown): unknown }>;
 		readonly analysis?: Readonly<{ readonly vamp?: SoundscaperVampAnalyzerPort }>;
+		readonly midi?: Readonly<Pick<MidiService, 'importDocument'>>;
 	}>;
 }
 
@@ -63,6 +65,8 @@ export interface SoundscaperVampAnalyzerSession {
 	loadCatalog(): Promise<readonly Readonly<VampAnalyzerDescriptor>[]>;
 	analyze(request: Readonly<VampAnalysisRequest>, signal: AbortSignal): Promise<Readonly<VampAnalysisResult>>;
 	publishLabels(result: Readonly<VampAnalysisResult>, trackName: string): Promise<void>;
+	readonly midiAvailable: boolean;
+	publishMidi(result: Readonly<VampAnalysisResult>, trackName: string, signal?: AbortSignal): Promise<void>;
 }
 
 export interface SoundscaperVampAnalyzerSessionOptions {
@@ -81,9 +85,8 @@ export function createSoundscaperVampAnalyzerSession(
 	const project = admitProject(options.controller?.project);
 	const port = options.port ?? options.controller?.actions?.analysis?.vamp ?? null;
 	if (project === null || port === null) return null;
-	const durationFrames = positiveSafeInteger(options.durationFrames, 'Vamp project duration');
-	const range = resolveSelectionRange(project, { selectedClipId: options.selectedClipId ?? null });
-	if (!range || range.endFrame > durationFrames) return null;
+	const range = resolveVampAnalysisSelection(project, options.selectedClipId ?? null, options.durationFrames);
+	if (!range) return null;
 	const selectedTrackId = selectedAudioTrackId(project, options.selectedTrackId ?? null);
 	const scope: VampAnalysisScope = selectedTrackId === null ? 'master' : 'track';
 	const projectId = project.id;
@@ -113,6 +116,7 @@ export function createSoundscaperVampAnalyzerSession(
 	};
 	return Object.freeze({
 		projectId, projectRevision, selectedTrackId, analyzerPort: port,
+		midiAvailable: typeof options.controller.actions.midi?.importDocument === 'function',
 		scope, startFrame: range.startFrame, endFrame: range.endFrame,
 		sampleRate: project.sampleRate,
 		loadCatalog,
@@ -153,6 +157,28 @@ export function createSoundscaperVampAnalyzerSession(
 			assertCurrent();
 			await options.controller.actions.edit.commit(plan.command);
 		},
+		async publishMidi(resultValue: Readonly<VampAnalysisResult>, trackName: string, signal?: AbortSignal): Promise<void> {
+			signal?.throwIfAborted();
+			assertCurrent();
+			const { midiDocumentFromVampNotes } = await import('../../vamp-analysis-midi.ts');
+			signal?.throwIfAborted();
+			assertCurrent();
+			const result = normalizeVampAnalysisResult(resultValue);
+			admitSessionRequest(result.request);
+			const catalog = await loadCatalog();
+			signal?.throwIfAborted();
+			assertCurrent();
+			const analyzer = catalog.find(({ analyzerId, stableId, binarySha256 }) => (
+				analyzerId === result.request.analyzerId && stableId === result.request.stableId
+				&& binarySha256 === result.request.binarySha256
+			));
+			const output = analyzer?.outputs.find(({ id }) => id === result.request.outputId);
+			if (!output) throw new Error('The analyzed Vamp output is no longer available.');
+			const midi = options.controller.actions.midi;
+			if (!midi) throw new Error('MIDI editing is unavailable.');
+			const document = midiDocumentFromVampNotes(result, output, trackName);
+			await midi.importDocument(document, { timelineStartFrame: range.startFrame, signal });
+		},
 	});
 }
 
@@ -170,11 +196,4 @@ function selectedAudioTrackId(project: VampWorkspaceProject, selectedTrackId: st
 	if (typeof selectedTrackId !== 'string' || selectedTrackId.length === 0) return null;
 	return project.tracks.some((track) => track.id === selectedTrackId && track.type === 'audio')
 		? selectedTrackId : null;
-}
-
-function positiveSafeInteger(value: unknown, name: string): number {
-	if (!Number.isSafeInteger(value) || Number(value) <= 0) {
-		throw new RangeError(`${name} must be a positive safe integer.`);
-	}
-	return Number(value);
 }
