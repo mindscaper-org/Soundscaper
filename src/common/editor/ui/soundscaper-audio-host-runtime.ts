@@ -388,7 +388,8 @@ function routeRequests(host: string, inventory: NativeAudioInventoryReport, sett
 		mode: host === 'asio' ? 'exclusive' : 'shared', sampleRate, periodFrames, channelCount,
 	});
 	const outputChannels = Math.min(2, output?.channelCount || 2);
-	if (input && output && input.handle === output.handle && inputChannels === outputChannels) return [request(input, 'duplex', inputChannels)];
+	// ALSA opens a shared PCM name independently for capture and playback.
+	if (host !== 'alsa' && input && output && input.handle === output.handle && inputChannels === outputChannels) return [request(input, 'duplex', inputChannels)];
 	return [input ? request(input, 'input', inputChannels) : null, output ? request(output, 'output', outputChannels) : null]
 		.filter((value): value is NativeAudioSessionOpenRequestV1 => value !== null);
 }
