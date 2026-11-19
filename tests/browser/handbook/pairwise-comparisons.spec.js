@@ -10,9 +10,13 @@ test('readers can choose an editor or Web and compare it with Desktop using the 
 	await page.goto(`${BASE}start/how-soundscaper-compares/`);
 	await page.getByRole('link', { name: 'compare Soundscaper Desktop with one editor', exact: true }).click();
 	await expect(page.getByRole('heading', { level: 1, name: 'Soundscaper comparisons', exact: true })).toBeVisible();
-	await expect(page.getByRole('main').getByRole('link', { name: /^Soundscaper vs /u })).toHaveCount(13);
-	await page.getByRole('main').getByRole('link', { name: 'Soundscaper vs Audition', exact: true }).click();
-	await expect(page.getByRole('heading', { level: 1, name: 'Soundscaper vs Audition', exact: true })).toBeVisible();
+	const comparisonIndex = page.getByRole('main');
+	await expect(comparisonIndex.getByRole('link', { name: /^Soundscaper vs /u })).toHaveCount(13);
+	for (const product of ['Ableton Live 13 Suite (beta 26)', 'Pro Tools Studio 2026.11.1', 'SoundCraft 0.20.1']) {
+		await expect(comparisonIndex.getByRole('link', { name: `Soundscaper vs ${product}`, exact: true })).toBeVisible();
+	}
+	await comparisonIndex.getByRole('link', { name: 'Soundscaper vs Audition 27.0', exact: true }).click();
+	await expect(page.getByRole('heading', { level: 1, name: 'Soundscaper vs Audition 27.0', exact: true })).toBeVisible();
 	const platform = page.getByRole('region', { name: 'Platform and terms', exact: true });
 	const linux = platform.getByRole('row', { name: /^Runs on Linux /u });
 	await expect(linux.getByRole('cell')).toHaveCount(2);
@@ -20,7 +24,7 @@ test('readers can choose an editor or Web and compare it with Desktop using the 
 	await expect(linux.getByRole('cell').nth(1).getByRole('img', { name: 'Unavailable', exact: true })).toBeVisible();
 	await expect(page.getByRole('heading', { level: 2, name: 'Machine assistance', exact: true })).toBeVisible();
 	await expect(page.getByRole('figure', { name: 'Soundscaper Desktop', exact: true })).toBeAttached();
-	await expect(page.getByRole('figure', { name: 'Audition', exact: true })).toBeAttached();
+	await expect(page.getByRole('figure', { name: 'Audition 27.0', exact: true })).toBeAttached();
 
 	await page.getByRole('link', { name: 'Choose another comparison', exact: true }).click();
 	await page.getByRole('main').getByRole('link', { name: 'Soundscaper vs REAPER 7.86', exact: true }).click();
@@ -36,7 +40,7 @@ test('readers can choose an editor or Web and compare it with Desktop using the 
 	await expect(reaperProject.getByRole('cell').nth(1).getByRole('img', { name: 'Supported', exact: true })).toBeVisible();
 	await expect(page.getByRole('figure', { name: 'REAPER 7.86', exact: true })).toBeAttached();
 
-	for (const [product, project] of [['Apple Logic Pro 13.0 for Mac', 'Logic Pro (.logicx)'], ['Cubase Pro 16.0.0', 'Cubase (.cpr)']]) {
+	for (const [product, project] of [['Apple Logic Pro 13.0 for Mac', 'Logic Pro (.logicx)'], ['Cubase Pro 16.0.5', 'Cubase (.cpr)']]) {
 		await page.getByRole('link', { name: 'Choose another comparison', exact: true }).click();
 		await page.getByRole('main').getByRole('link', { name: `Soundscaper vs ${product}`, exact: true }).click();
 		await expect(page.getByRole('heading', { level: 1, name: `Soundscaper vs ${product}`, exact: true })).toBeVisible();

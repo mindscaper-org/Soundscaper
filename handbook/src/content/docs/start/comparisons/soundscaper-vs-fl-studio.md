@@ -417,7 +417,7 @@ Storage, downloads, and licence checks do not affect this rating.
 | --- | --- | --- |
 | Speech enhancement | + — Local model | + — :: Edison vocal denoise |
 | Transcription and diarisation | + — Local models | / |
-| Source separation into stems | + — Local model | + — Local AI |
+| Source separation into stems | + — Local model | + — Local AI :: The stable release separates four stems. The 2026.2 Beta 3 preview adds guitar and piano in All Plugins Edition. |
 | Text to speech | + — Kokoro :: Kokoro voices with optional model, engine, and offline pronunciation helper | ~ — Windows :: Included Speech Synthesizer is Windows-only. |
 | Automatic ducking | + | + — :: Maximus / sidechain |
 | Music remix to target duration | / | / |
