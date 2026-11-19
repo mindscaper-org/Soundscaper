@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
+import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
+import { bootEditor, chooseCommandAction, importFiles } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
@@ -71,6 +71,8 @@ test('first-time ASIO selects a connected driver and honors a later explicit sel
 		};
 	});
 	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'ASIO separate playback.wav', sampleRate: 48_000,
+		frequency: 440, duration: 20, channelCount: 1 })]);
 	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
 	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
 	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('asio');
@@ -82,11 +84,27 @@ test('first-time ASIO selects a connected driver and honors a later explicit sel
 	await expect(setup.getByRole('alert')).toHaveCount(0);
 	const first = await page.evaluate(() => [...window.__asioOpenHandles]);
 	expect(first).toEqual(['Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO', 'Focusrite USB ASIO']);
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	await expect.poll(() => page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms))).toBeGreaterThan(.05);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const before = await page.evaluate(() => window.__nativeOutput.fence());
 	await microphone.selectOption('native:asio:in:Focusrite Thunderbolt ASIO');
 	await expect(setup.getByRole('alert')).toContainText('The selected audio device could not be opened');
 	await expect(microphone).toHaveValue('native:asio:in:Focusrite Thunderbolt ASIO');
 	await expect(speakers).toHaveValue('native:asio:out:Focusrite USB ASIO');
 	expect(await page.evaluate(() => [...window.__asioOpenHandles])).toEqual([...first, 'Focusrite Thunderbolt ASIO']);
+	await expect.poll(() => page.evaluate(async ({ packet, sessionId }) => {
+		const after = await window.__nativeOutput.fence();
+		return after.sessionId === sessionId && after.packet.startFrame > packet.endFrame && Math.max(...after.packet.peaks) > .05;
+	}, before)).toBe(true);
+	await microphone.selectOption('native:asio:in:Focusrite USB ASIO');
+	await expect(microphone).toBeEnabled();
+	await expect(setup.getByRole('alert')).toHaveCount(0);
+	await expect.poll(() => page.evaluate(() => [...window.__asioOpenHandles])).toEqual([...first, 'Focusrite Thunderbolt ASIO', 'Focusrite USB ASIO']);
+	expect(await page.evaluate(() => window.__nativeOutput.sessionId)).toBe(before.sessionId);
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 });
 
 for (const [channel, stereo] of [['0', false], ['1', false], ['1', true], ['2', false]]) {

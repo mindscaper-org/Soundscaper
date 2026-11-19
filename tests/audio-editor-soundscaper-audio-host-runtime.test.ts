@@ -133,18 +133,30 @@ test('scheduled recording protects the current native sessions from host changes
 	}
 });
 
-test('choosing another input reopens the native input while retaining the selected output device', async () => {
+for (const refused of [false, true]) test(`choosing another input retains the open output when the microphone ${refused ? 'refuses' : 'opens'}`, async () => {
 	const fixture = hostFixture('wasapi', false, [
 		{ handle: 'first', label: 'First', direction: 'input', channelCount: 2, isDefault: true },
 		{ handle: 'second', label: 'Second', direction: 'input', channelCount: 2 },
 		{ handle: 'speakers', label: 'Speakers', direction: 'output', channelCount: 2 },
-	]);
-	await fixture.runtime.refresh();
-	fixture.change({ preferredInputDeviceId: 'native:wasapi:in:second', preferredOutputDeviceId: 'native:wasapi:out:speakers' });
-	await fixture.runtime.settle();
-	assert.equal(fixture.opened[2]?.candidates[0]?.deviceHandle, 'second');
-	assert.equal(fixture.opened[3]?.candidates[0]?.deviceHandle, 'speakers');
-	await fixture.runtime.dispose();
+	], { refuseOpen: request => refused && request.candidates[0]?.deviceHandle === 'second' });
+	try {
+		await fixture.runtime.refresh();
+		fixture.change({ preferredInputDeviceId: 'native:wasapi:in:second', preferredOutputDeviceId: 'native:wasapi:out:speakers' });
+		await fixture.runtime.settle();
+		assert.deepEqual(fixture.opened.map(request => request.candidates[0]?.deviceHandle), ['first', 'speakers', 'second']);
+		assert.deepEqual(fixture.closed, ['session-1']);
+		assert.deepEqual(fixture.bound, refused ? ['session-1', 'session-2'] : ['session-1', 'session-2', 'session-3']);
+		assert.equal(fixture.settings().preferredInputDeviceId, 'native:wasapi:in:second');
+		assert.equal(fixture.runtime.getSnapshot().failureCode, refused ? 'session-open' : null);
+		if (refused) {
+			fixture.change({ preferredInputDeviceId: '', preferredOutputDeviceId: '' });
+			await fixture.runtime.settle();
+			assert.equal(fixture.opened.at(-1)?.candidates[0]?.deviceHandle, 'first');
+			assert.deepEqual(fixture.bound, ['session-1', 'session-2', 'session-3']);
+			assert.deepEqual(fixture.closed, ['session-1']);
+			assert.equal(fixture.runtime.getSnapshot().error, '');
+		}
+	} finally { await fixture.runtime.dispose(); }
 });
 
 test('asymmetric devices use separate exact channel requests instead of an invalid duplex format', async () => {
@@ -302,10 +314,10 @@ test('an authored second native input reconnects the session instead of leaving 
 		assert.equal(fixture.opened[2]?.channelCount, 2, 'Mono2 requires both physical input planes even while global Mono remains selected');
 		assert.equal(fixture.settings().preferredInputChannelCount, 1);
 		assert.equal(fixture.opened[2]?.candidates[0]?.deviceHandle, 'input-wasapi');
-		assert.equal(fixture.opened[3]?.channelCount, 2, 'the selected speaker format is unchanged');
+		assert.deepEqual(fixture.closed, ['session-1'], 'the selected speaker session remains attached');
 		fixture.changeRoutes({ track: { kind: 'device', deviceId: 'native:wasapi:in:input-wasapi', channelStart: 0, channelCount: 1 } });
 		await fixture.runtime.settle();
-		assert.equal(fixture.opened[4]?.channelCount, 1);
+		assert.equal(fixture.opened[3]?.channelCount, 1);
 	} finally { await fixture.runtime.dispose(); }
 });
 
@@ -344,7 +356,7 @@ test('native route demand preserves the actual hardware capacity and existing gl
 test('returning to the prior native channel demand during a pending rebind still attaches the latest pin', async () => {
 	const entered = deferred<void>(), release = deferred<void>();
 	const fixture = hostFixture('wasapi', false, undefined, { bind: async id => {
-		if (id === 'session-6') { entered.resolve(); await release.promise; }
+		if (id === 'session-4') { entered.resolve(); await release.promise; }
 	} });
 	const pin = (channelStart: number) => ({ track: { kind: 'device' as const, deviceId: 'native:wasapi:in:input-wasapi', channelStart, channelCount: 1 } });
 	try {

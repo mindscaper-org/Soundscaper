@@ -50,6 +50,11 @@ const HOST_LABELS: Readonly<Record<string, string>> = Object.freeze({
 const ELECTRON_HOST = Object.freeze({ id: 'electron', label: 'Electron' });
 const RUNTIMES = new WeakMap<object, SoundscaperAudioHostRuntime>();
 
+interface OpenAudioRoute {
+	readonly request: NativeAudioSessionOpenRequestV1;
+	state: 'open' | 'bound' | 'lost';
+}
+
 /** Shared by Preferences and Audio setup, with its lifetime owned by the workspace. */
 export function soundscaperAudioHostRuntimeFor(controller: object | null | undefined): SoundscaperAudioHostRuntime | null {
 	return controller ? RUNTIMES.get(controller) ?? null : null;
@@ -70,7 +75,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 }>): SoundscaperAudioHostRuntime {
 	const { controller, bridge } = options;
 	const listeners = new Set<() => void>();
-	const sessions = new Set<string>();
+	const sessions = new Map<string, OpenAudioRoute>();
 	let snapshot: SoundscaperAudioHostSnapshot = Object.freeze({
 		host: preferences().host || 'electron', hosts: Object.freeze([ELECTRON_HOST]), pending: false, error: '', failureCode: null,
 	});
@@ -110,7 +115,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			await activate(host, true);
 		}),
 		reportDeviceLoss: (sessionId: string, reason: string) => {
-			if (!sessions.has(sessionId) || disposed) return;
+			const session = sessions.get(sessionId);
+			if (!session || disposed) return;
+			session.state = 'lost';
 			connectedKey = '';
 			requestedKey = preferenceKey();
 			publish({ error: `The selected audio device disconnected (${reason}). Refresh audio devices or choose another host.`, failureCode: 'device-loss' });
@@ -122,7 +129,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			unsubscribe();
 			if (RUNTIMES.get(controller) === runtime) RUNTIMES.delete(controller);
 			const retired = settleInputReplacement('disposed');
-			const pending = Promise.all([queue, retired]).then(closeSessions).finally(() => { listeners.clear(); });
+			const pending = Promise.all([queue, retired]).then(() => closeSessions()).finally(() => { listeners.clear(); });
 			disposal = pending;
 			void pending.catch(() => { if (disposal === pending) disposal = null; });
 			return pending;
@@ -197,8 +204,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			: [];
 		publish({ hosts: Object.freeze([ELECTRON_HOST, ...nativeHosts]) });
 	}
-	async function closeSessions(): Promise<void> {
-		const results = await Promise.allSettled([...sessions].map(async (sessionId) => {
+	async function closeSessions(retained?: ReadonlySet<string>): Promise<void> {
+		const ids = [...sessions.keys()].filter(id => !retained?.has(id));
+		const results = await Promise.allSettled(ids.map(async (sessionId) => {
 			if (!await audioHostOperation('session-close', () => bridge.closeNativeAudioSession({ sessionId }))) throw new AudioHostError('session-close', 'The previous audio device did not close. Try refreshing audio devices.');
 			sessions.delete(sessionId);
 		}));
@@ -230,13 +238,30 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			}
 		}
 		assertCanReplaceDevices();
-		inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
-		if (nextInventory) {
-			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate: preferences().recordingSampleRate }));
-			assertCanReplaceDevices();
-			if (context.sampleRate !== preferences().recordingSampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
+		const settings = preferences();
+		const routeKey = preferenceKey();
+		const requests = nextInventory && nextInventory === inventory && !enumerate
+			&& !automaticAsioDefaults(host, nextInventory, settings).length
+			? routeRequests(host, nextInventory, settings, inputChannelCount(settings)) : null;
+		const retained = new Map([...sessions].filter(([, session]) => session.state === 'bound'
+			&& requests?.some(request => sameRoute(session.request, request))));
+		const keepsInput = () => [...retained.values()].some(({ request }) => request.direction !== 'output');
+		const inputWasRetained = keepsInput();
+		if (!inputWasRetained) {
+			inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
 		}
-		await closeSessions();
+		if (nextInventory) {
+			const sampleRate = settings.recordingSampleRate;
+			const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate }));
+			assertCanReplaceDevices();
+			if (requests && routeKey !== preferenceKey()) return;
+			if (context.sampleRate !== sampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
+		}
+		for (const [id, session] of retained) if (session.state !== 'bound') retained.delete(id);
+		if (inputWasRetained && !keepsInput()) inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
+		const retainedIds = new Set(retained.keys());
+		if (retainedIds.size < sessions.size) connectedKey = '';
+		await closeSessions(retainedIds);
 		assertActive();
 		if (!nextInventory) {
 			await audioHostOperation('startup', () => bridge.setNativeAudioHelperEnabled(false));
@@ -248,23 +273,29 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			return;
 		}
 		try {
-			const alternatives = automaticAsioDefaults(host, nextInventory, preferences());
-			if (alternatives.length) {
-				await connectAutomaticAsio(nextInventory, alternatives);
-				return;
+			let plan = requests, key = routeKey;
+			if (!plan) {
+				const alternatives = automaticAsioDefaults(host, nextInventory, preferences());
+				if (alternatives.length) {
+					await connectAutomaticAsio(nextInventory, alternatives);
+					return;
+				}
+				await setInventory(host, nextInventory);
+				const current = preferences();
+				key = preferenceKey();
+				plan = routeRequests(host, nextInventory, current, inputChannelCount(current));
 			}
-			await setInventory(host, nextInventory);
-			const settings = preferences(), routeKey = preferenceKey();
-			const refused = await openRequests(routeRequests(host, nextInventory, settings, inputChannelCount(settings)), true);
+			const pending = plan.filter(request => ![...retained.values()].some(session => sameRoute(session.request, request)));
+			const refused = await openRequests(pending, true);
 			if (refused) throw new AudioHostError('session-open', refused.message);
-			connectedKey = routeKey;
-		} catch (error) { await closeSessions(); throw error; }
+			connectedKey = key;
+		} catch (error) { await closeSessions(retainedIds); throw error; }
 	}
 	async function openRequests(requests: readonly NativeAudioSessionOpenRequestV1[], bindImmediately: boolean) {
 		for (const request of requests) {
 			const opened = await audioHostOperation('session-open', () => bridge.openNativeAudioSession(request));
 			if (opened.status !== 'opened') return opened;
-			sessions.add(opened.sessionId);
+			sessions.set(opened.sessionId, { request, state: 'open' });
 			assertActive();
 			if (bindImmediately) await bindSession(opened.sessionId);
 		}
@@ -273,6 +304,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	async function bindSession(sessionId: string): Promise<void> {
 		await audioHostOperation('session-open', () => bridge.bindNativeAudioSession({ sessionId, queueCapacity: 8 }));
 		assertActive();
+		const session = sessions.get(sessionId);
+		if (session?.state === 'open') session.state = 'bound';
 	}
 	async function connectAutomaticAsio(report: NativeAudioInventoryReport, alternatives: readonly NativeAudioDeviceDefaults[]): Promise<void> {
 		const settings = preferences(), originalKey = preferenceKey();
@@ -293,7 +326,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 					throw new AudioHostError('session-open', 'The audio device choice changed while opening ASIO.');
 				}
 				const routeKey = preferenceKey();
-				for (const sessionId of sessions) await bindSession(sessionId);
+				for (const sessionId of sessions.keys()) await bindSession(sessionId);
 				connectedKey = routeKey;
 				return;
 			}
@@ -316,6 +349,12 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		inventory = value;
 		publish({ host });
 	}
+}
+
+function sameRoute(left: NativeAudioSessionOpenRequestV1, right: NativeAudioSessionOpenRequestV1): boolean {
+	return left.direction === right.direction && left.mode === right.mode && left.sampleRate === right.sampleRate
+		&& left.periodFrames === right.periodFrames && left.channelCount === right.channelCount
+		&& left.candidates[0]?.backend === right.candidates[0]?.backend && left.candidates[0]?.deviceHandle === right.candidates[0]?.deviceHandle;
 }
 
 /** ASIO's inventory includes registered drivers even when their hardware is disconnected. */
