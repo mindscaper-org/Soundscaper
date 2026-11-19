@@ -271,7 +271,9 @@ export function createProjectAdminService<
 		};
 		let deleteAttempted = false;
 		let deleteResolved = false;
-		let revisionRefused = false;
+		let exactDeleteAttempted = false;
+		let retainSession = false;
+		let restoredSession = false;
 		let saveSuspended = false;
 		try {
 			const clipboard = sessionController.clipboardForProject?.(id);
@@ -313,20 +315,28 @@ export function createProjectAdminService<
 				deleteAttempted = true;
 				const expected = projectSaveService.getPersistedSnapshot?.(id);
 				if (expected && store.deleteProjectSnapshot) {
+					exactDeleteAttempted = true;
 					if (!await store.deleteProjectSnapshot(expected)) {
-						revisionRefused = true;
+						retainSession = true;
 						throw createLocalizedError(Error, copy, 'projectReadOnly');
 					}
 				} else await store.deleteProject(id);
 				deleteResolved = true;
 			} catch (error) {
 				failures.push(error);
+				if (exactDeleteAttempted && !retainSession) {
+					// A rejected deletion may have rolled back or failed after commit.
+					await attempt(async () => { retainSession = (await store.listProjects()).some(entry => entry.id === id); });
+				}
 			} finally {
 				await attempt(() => releaseProjectLock());
 			}
-			if (revisionRefused) {
+			if (retainSession) {
 				activation.release();
-				await attempt(() => switchProject(project, { skipFlush: true }));
+				await attempt(async () => {
+					await switchProject(project, { skipFlush: true });
+					restoredSession = true;
+				});
 				throwProjectDeletionFailures(failures);
 				return;
 			}
@@ -374,7 +384,7 @@ export function createProjectAdminService<
 		} finally {
 			activation.release();
 			if (saveSuspended) projectSaveService.resume();
-			if (revisionRefused && getProject() === project && !state.readOnly && sessionTab(id)?.dirty) projectSaveService.scheduleAutosave?.();
+			if (restoredSession && getProject()?.id === id && !state.readOnly && sessionTab(id)?.dirty) projectSaveService.scheduleAutosave?.();
 		}
 		throwProjectDeletionFailures(failures);
 	}

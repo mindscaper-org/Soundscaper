@@ -17,6 +17,7 @@ import {
 	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 async function renameProject(page, editor, title) {
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
@@ -229,6 +230,64 @@ test('reopened projects keep track visualization scoped to their tabs and histor
 		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
 		await expect(spectrogram).toHaveAttribute('aria-pressed', 'true');
 	} finally {
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+test('a project deletion refused by another editor preserves the active tab and live Undo', async ({ page, context }, result) => {
+	test.setTimeout(45_000);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Archived recording');
+	await importFiles(editor, [toneA]);
+	const projectId = await editor.getAttribute('data-project-id');
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	let other;
+	try {
+		await download.saveAs(archivePath);
+		await editor.getByRole('button', { name: 'Close project: Archived recording', exact: true }).click();
+		await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		other = await context.newPage();
+		const otherEditor = await bootEditor(other, '/embed/en/', { showProjectBin: false });
+		await chooseFileAction(other, otherEditor, 'New');
+		await waitForProjectActivation(otherEditor);
+		await renameProject(other, otherEditor, 'Other editing session');
+		await page.bringToFront();
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor).toHaveAttribute('data-project-id', projectId);
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Edited recording');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+
+		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+		const confirm = page.getByRole('dialog', { name: 'Delete this project?', exact: true });
+		await confirm.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+		await expect(page.getByRole('alert').filter({ hasText: 'Another editor session still owns local project history.' }).last()).toBeVisible();
+		await confirm.getByRole('button', { name: 'Cancel', exact: true }).click();
+
+		expect((await persistedProject(page, projectId)).title).toBe('Edited recording');
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(clipByName(editor, toneA.name)).toBeVisible();
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect(editor.getByRole('tab', { name: 'Archived recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await chooseCommandAction(page, editor, 'Edit', 'Redo');
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await other.close();
+		other = undefined;
+		await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Delete project']);
+		await confirm.getByRole('button', { name: 'Delete permanently', exact: true }).click();
+		await expect(confirm).toBeHidden();
+		await expect(editor.getByRole('tab', { name: 'Edited recording', exact: true })).toHaveCount(0);
+		expect(await persistedProject(page, projectId)).toBeNull();
+	} finally {
+		await other?.close();
 		await rm(archivePath, { force: true });
 		await download.delete();
 	}

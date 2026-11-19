@@ -138,6 +138,39 @@ test('a storage revision refusal restores the live project tab with its unsaved 
 	assert.equal(fixture.saveSuspended(), false);
 });
 
+for (const stillExists of [true, false]) test(`an exact deletion failure ${stillExists ? 'restores the durable project' : 'retires an already deleted project'}`, async () => {
+	const fixture = createFixture();
+	const project = fixture.project()!;
+	const persisted = { ...project, revision: project.revision - 1 };
+	const history = { present: project, past: [persisted] };
+	fixture.state.history = history;
+	fixture.tabs.set(project.id, { projectId: project.id, history, dirty: true, readOnly: false });
+	const failure = new Error('Exact deletion failed.');
+	const runtime = {
+		...fixture.runtime,
+		projectSaveService: { ...fixture.runtime.projectSaveService, getPersistedSnapshot: () => persisted },
+		store: {
+			...fixture.runtime.store,
+			deleteProjectSnapshot: async () => { throw failure; },
+			async listProjects() {
+				fixture.calls.push('confirm-durable-project');
+				return stillExists ? [persisted] : [];
+			},
+		},
+		switchProject(value: typeof project) {
+			fixture.setProject(value);
+			fixture.state.history = fixture.tabs.get(value.id)!.history;
+		},
+	} satisfies ProjectAdminServiceRuntime;
+
+	await assert.rejects(createProjectAdminService(runtime).deleteProject(), error => error === failure);
+	assert.equal(fixture.project(), stillExists ? project : null);
+	assert.equal(fixture.state.history, stillExists ? history : null);
+	assert.equal(fixture.calls.includes('close:project-a'), !stillExists);
+	assert.equal(fixture.calls.includes('autosave-admitted'), stillExists);
+	assert.ok(fixture.calls.indexOf('confirm-durable-project') < fixture.calls.indexOf('release'));
+});
+
 test('project deletion failures still retire the torn-down session without a zombie tab', async () => {
 	for (const committed of [false, true]) {
 		const fixture = createFixture();
