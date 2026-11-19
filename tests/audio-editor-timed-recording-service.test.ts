@@ -166,6 +166,46 @@ for (const deadline of ['before activation', 'during activation']) {
 	});
 }
 
+for (const naturalStop of [false, true]) {
+	test(`active timed recording owns its wall deadline until finalization (natural stop=${String(naturalStop)})`, async () => {
+		let cleanups = 0, finalizations = 0;
+		const state = createState({ recordingCleanup: () => { cleanups += 1; } });
+		const recorder = createRecorder();
+		const timers: Array<{ callback: () => unknown; delay: number }> = [];
+		const cleared: number[] = [];
+		let now = 1_000;
+		const finalizeRecording = async () => {
+			finalizations += 1;
+			state.recordingCleanup?.();
+			state.recorder = null;
+			state.activeTimedRecording = null;
+		};
+		const service = createTimedRecordingService({
+			state, getProjectId: () => 'project-1', normalizeStartTime: Number, currentTimeMs: () => now,
+			prepareInputs: async () => ({ inputKeys: [] }), prepareContext: async () => {},
+			startRecording: async () => { state.recorder = recorder; }, cancelRecordingStart: () => false,
+			finalizeRecording, activatePreparedRecording: async () => {},
+			scheduleTimer: (callback, delay) => timers.push({ callback, delay }),
+			clearTimer: (id) => { cleared.push(id); }, messages: messages(),
+		});
+		await service.scheduleTimedRecording(5_000, { endTimeMs: 8_000 });
+		now = 5_000;
+		await timers[0]!.callback();
+		assert.equal(timers.length, 2);
+		assert.equal(state.activeTimedRecording?.startTimeMs, 5_000);
+		assert.ok(timers[1]!.delay > 3_000, 'the worklet has first claim on the sample-aligned stop');
+		if (naturalStop) await finalizeRecording();
+		now = 9_000;
+		await timers[1]!.callback();
+		assert.equal(recorder.stopCalls, naturalStop ? 0 : 1);
+		assert.equal(finalizations, 1);
+		assert.equal(cleanups, 1);
+		assert.equal(state.recordingDiscardRequested, false);
+		assert.equal(state.activeTimedRecording, null);
+		assert.deepEqual(cleared, naturalStop ? [2] : []);
+	});
+}
+
 test('cancelling preparation invalidates late results and releases unretained inputs', async () => {
 	const state = createState();
 	const inputGate = deferred<Readonly<{ inputKeys: readonly string[] }>>();
@@ -403,6 +443,7 @@ function createState(
 		recorder: null,
 		recordingStarting: false,
 		recordingStartPromise: null,
+		recordingCleanup: null,
 		recordingDiscardRequested: false,
 		recordingReleaseAfterStop: false,
 		timedRecording: null,

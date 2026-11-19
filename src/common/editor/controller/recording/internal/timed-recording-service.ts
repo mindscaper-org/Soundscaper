@@ -6,6 +6,7 @@ import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 } from './recording-session-service.ts';
 
 type MaybePromise<T> = T | PromiseLike<T>;
+const FRAME_STOP_GRACE_MS = 150;
 
 function invokeAsPromise<T>(operation: () => MaybePromise<T>): Promise<T> {
 	try {
@@ -57,6 +58,7 @@ export interface TimedRecordingMutableState<TimerHandle = unknown> {
 	recordingStarting: boolean;
 	recordingAdmissionPending?: boolean;
 	recordingStartPromise: Promise<void> | null;
+	recordingCleanup: (() => void) | null;
 	recordingDiscardRequested: boolean;
 	recordingReleaseAfterStop: boolean;
 	timedRecording: TimedRecordingDescriptor | null;
@@ -137,6 +139,7 @@ export function createTimedRecordingService<TimerHandle>(
 		readonly recorder: RecordingControllerLike;
 		readonly scheduled: TimedRecordingDescriptor;
 	}> | null = null;
+	let clearActiveDeadline: (() => void) | null = null;
 
 	function isAbortError(error: unknown): boolean {
 		return Boolean(error && typeof error === 'object' && 'name' in error && error.name === 'AbortError');
@@ -172,6 +175,34 @@ export function createTimedRecordingService<TimerHandle>(
 		}, delay);
 	}
 
+	function armActiveRecordingDeadline(scheduled: TimedRecordingDescriptor, recorder: RecordingControllerLike): void {
+		const { endTimeMs } = scheduled.options;
+		if (endTimeMs === undefined) return;
+		// Prefer the sample-aligned stop. If the audio clock stalls, the wall
+		// clock still has to stop and drain the current take.
+		const deadline = endTimeMs + FRAME_STOP_GRACE_MS;
+		let timer: TimerHandle | null = null;
+		const previousCleanup = state.recordingCleanup;
+		const clear = () => {
+			if (timer !== null) runtime.clearTimer(timer);
+			timer = null;
+			if (clearActiveDeadline === clear) clearActiveDeadline = null;
+		};
+		clearActiveDeadline = clear;
+		state.recordingCleanup = () => { clear(); previousCleanup?.(); };
+		const arm = () => {
+			const delay = Math.max(0, Math.min(maximumTimerDelayMs, deadline - runtime.currentTimeMs()));
+			timer = runtime.scheduleTimer(() => {
+				timer = null;
+				if (clearActiveDeadline !== clear || state.activeTimedRecording !== scheduled
+					|| state.recorder !== recorder || state.disposed || scheduled.projectId !== runtime.getProjectId()) return;
+				if (runtime.currentTimeMs() < deadline) return arm();
+				return settleTimedRecorder(recorder);
+			}, delay);
+		};
+		arm();
+	}
+
 	async function beginTimedRecording(scheduled: TimedRecordingDescriptor): Promise<true | null> {
 		if (state.timedRecording !== scheduled
 			|| scheduled.projectId !== runtime.getProjectId()
@@ -201,6 +232,7 @@ export function createTimedRecordingService<TimerHandle>(
 			scope.assertCurrent();
 			await runtime.activatePreparedRecording(scheduled, scope);
 			scope.assertCurrent();
+			armActiveRecordingDeadline(scheduled, activation.recorder);
 			return true;
 		} catch (error) {
 			if (activating === activation) {
@@ -209,13 +241,13 @@ export function createTimedRecordingService<TimerHandle>(
 				state.timedRecordingCancelling = true;
 				if (expired) {
 					// The capture clock may already have collected part of the window.
-					await settlePreparedTimedRecording(activation.recorder);
+					await settleTimedRecorder(activation.recorder);
 					if (scheduled.generation === state.timedRecordingGeneration
 						&& scheduled.projectId === runtime.getProjectId() && !state.disposed) handleError(error);
 				} else {
 					state.recordingDiscardRequested = true;
 					handleError(error);
-					void settlePreparedTimedRecording(activation.recorder);
+					void settleTimedRecorder(activation.recorder);
 				}
 			}
 			return null;
@@ -224,7 +256,7 @@ export function createTimedRecordingService<TimerHandle>(
 		}
 	}
 
-	async function settlePreparedTimedRecording(
+	async function settleTimedRecorder(
 		recorder: RecordingControllerLike | null = state.recorder,
 	): Promise<void> {
 		try {
@@ -257,6 +289,7 @@ export function createTimedRecordingService<TimerHandle>(
 		const hadPreparedRecorder = Boolean(hadTimer && state.recorder);
 		const preparedRecorder = hadPreparedRecorder ? state.recorder : null;
 		state.timedRecordingGeneration += 1;
+		clearActiveDeadline?.();
 		if (state.timedRecordingTimer !== null) runtime.clearTimer(state.timedRecordingTimer);
 		state.timedRecordingTimer = null;
 		state.timedRecording = null;
@@ -266,7 +299,7 @@ export function createTimedRecordingService<TimerHandle>(
 		state.timedRecordingCancelling = hadPreparedRecorder;
 		if (hadPreparedRecorder) state.recordingDiscardRequested = true;
 		if (state.recordingStarting || state.recordingAdmissionPending) runtime.cancelRecordingStart();
-		if (hadPreparedRecorder) void settlePreparedTimedRecording(preparedRecorder);
+		if (hadPreparedRecorder) void settleTimedRecorder(preparedRecorder);
 		if (hadTimer && options.releaseInputs !== false) {
 			releaseInputs({ force: true });
 			state.recordingReleaseAfterStop = false;
