@@ -73,18 +73,21 @@ test('an edit list this cannot express exactly is refused rather than guessed at
 test('import rejects a leading picture delay before a backend can normalize it away', async () => {
 	const importing = createFixture();
 	let probes = 0;
-	importing.runtime.helperTimingProbe = {
-		id: 'native-helper',
-		async probe() {
-			probes++;
-			return { timescale: MEDIA_TIMESCALE, presentationTicks: codedTicks(),
-				finalFrameDurationTicks: BigInt(SAMPLE_TICKS), nominalRate: { num: 10, den: 1 } };
+	const importVideo = createImportVideoFile({
+		...importing.runtime,
+		helperTimingProbe: {
+			id: 'native-helper',
+			async probe() {
+				probes++;
+				return { timescale: MEDIA_TIMESCALE, presentationTicks: codedTicks(),
+					finalFrameDurationTicks: BigInt(SAMPLE_TICKS), nominalRate: { num: 10, den: 1 } };
+			},
 		},
-	};
+	});
 	const delayed = new File([fixture(1000, [
 		{ movieTicks: 100, mediaTicks: -1 }, { movieTicks: 1000, mediaTicks: 0 },
 	])], 'delayed.mp4', { type: 'video/mp4' });
-	await assert.rejects(createImportVideoFile(importing.runtime)(delayed), /picture delay.*render/iu);
+	await assert.rejects(importVideo(delayed), /picture delay.*render/iu);
 	assert.equal(probes, 0);
 	assert.deepEqual(importing.commits, []);
 	assert.deepEqual(importing.addedSources, []);
