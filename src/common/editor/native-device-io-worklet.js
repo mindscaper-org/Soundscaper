@@ -54,8 +54,12 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 	process(inputs, outputs) {
 		const output = outputs[0] || [];
 		if (this.direction !== 'input') this.#write(inputs[0] || [], output[0]?.length || 0);
-		if (this.direction !== 'output') this.#read(output);
-		else for (const channel of output) channel.fill(0);
+		if (this.direction === 'output') for (const channel of output) channel.fill(0);
+		else {
+			this.#read(output);
+			const ended = outputs[1]?.[0];
+			if (ended) ended[0] = this.generation > 0 && !this.portPeer ? 1 : 0;
+		}
 		return true;
 	}
 

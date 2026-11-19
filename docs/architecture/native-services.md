@@ -166,7 +166,9 @@ callbacks consume complete blocks already in JUCE's capture reservoir before
 waiting for another device event.
 
 Input loss during recording commits only the already captured prefix through
-the normal recording publication path. It never invents recorded silence.
+the normal recording publication path. The capture worklet signals terminal
+input loss through a dedicated output in the same render quantum, so the
+recorder can flush the prefix before renderer-side teardown.
 Output loss stops monitoring; playback may use an explicitly compatible Web
 fallback, with the backend change reported and the project unchanged.
 

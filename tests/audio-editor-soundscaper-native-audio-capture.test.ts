@@ -106,12 +106,16 @@ test('bound native input is pulled silently and records exact channels through t
 		onError: (error: unknown) => { losses.push(error); },
 	} as never);
 	controller.start();
+	assert.deepEqual(events.filter(value => Array.isArray(value) && value[2] === 'recorder'), [
+		['connect', 'device', 'recorder'], ['connect', 'device', 'recorder', 1, 1],
+	]);
 	recorder.port.onmessage?.({ data: {
 		type: 'audio-chunk', frameStart: 0, frames: 2,
 		channels: [new Float32Array([0.25, 0.5]), new Float32Array([-0.25, -0.5])],
 	} });
 	callbacks.reportDeviceLoss?.();
 	await Promise.resolve();
+	recorder.port.onmessage?.({ data: { type: 'input-lost' } });
 	const stopped = controller.stop();
 	assert.equal(recorder.posted.some((value) => value.type === 'stop'), true);
 	recorder.port.onmessage?.({ data: { type: 'stopped', frame: 2 } });
@@ -310,7 +314,7 @@ function audioNode(name: string, events: unknown[]) {
 		channelCount: 1,
 		channelCountMode: 'max',
 		channelInterpretation: 'speakers',
-		connect(destination: { name?: string }) { events.push(['connect', name, destination.name]); },
+		connect(destination: { name?: string }, ...indices: number[]) { events.push(['connect', name, destination.name, ...indices]); },
 		disconnect(destination?: { name?: string }) { events.push(['disconnect', name, destination?.name]); },
 	};
 }

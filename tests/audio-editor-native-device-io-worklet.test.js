@@ -159,6 +159,31 @@ test('capture silence before attachment does not report phantom frame loss', asy
 	assert.deepEqual(processor.port.posted, []);
 });
 
+test('native capture marks its graph output only after terminal device loss', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const processor = new NativeDeviceIoProcessor({ processorOptions: {
+		direction: 'input', channelCount: 1, periodFrames: 128, queueCapacity: 2,
+	} });
+	const peer = messagePort();
+	const pcm = new Float32Array(128), ended = new Float32Array(128);
+	const render = () => processor.process([], [[pcm], [ended]]);
+	render();
+	assert.equal(ended[0], 0);
+	processor.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	render();
+	assert.equal(ended[0], 0, 'waiting for an input packet is separate from terminal loss');
+	const credit = peer.posted[0];
+	credit.channels[0].fill(.25);
+	peer.onmessage({ data: { ...credit, kind: 'audio', status: 'ok', framesTransferred: 128 } });
+	render();
+	assert.equal(pcm[0], .25);
+	assert.equal(ended[0], 0);
+	peer.onclose();
+	render();
+	assert.equal(pcm[0], 0);
+	assert.equal(ended[0], 1);
+});
+
 test('native playback keeps contiguous packets across a disconnected programme input', async () => {
 	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
 	const processor = new NativeDeviceIoProcessor({ processorOptions: {

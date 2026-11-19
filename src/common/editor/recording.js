@@ -65,7 +65,7 @@ export async function createRecordingController({
 	});
 	const source = nativeSource || context.createMediaStreamSource(stream);
 	const nodeOptions = {
-		numberOfInputs: 1,
+		numberOfInputs: nativeSource ? 2 : 1,
 		numberOfOutputs: 1,
 		outputChannelCount: [normalizedChannelCount],
 		processorOptions: { channelCount: normalizedChannelCount, chunkFrames, monitor, fixedStopFrame, inputGain: currentInputGain, maxPendingChunks },
@@ -77,6 +77,7 @@ export async function createRecordingController({
 	});
 	const node = createNode(context, processorName, nodeOptions);
 	source.connect(node);
+	if (nativeSource) source.connect(node, 1, 1);
 	node.connect(monitorDestination ?? context.destination);
 
 	let state = 'ready';
@@ -377,6 +378,7 @@ export async function createRecordingController({
 		if (disposed) return;
 		if (resumeConfirmation.handle(message)) return;
 		if (handleRecordingInputEvent(message, error => {
+			if (nativeSource && writeError) return; // The graph and the device port can report the same loss.
 			writeError ||= error;
 			try { onError?.(error); } catch { /* Observers cannot prevent draining accepted PCM. */ }
 		})) return;

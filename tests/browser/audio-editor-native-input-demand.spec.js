@@ -5,6 +5,51 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
+test('a busy renderer still saves only captured audio when the native microphone disconnects', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page);
+	await page.addInitScript(() => {
+		const capture = window.__nativeCaptureTail = { frames: 0, silentFrames: 0 };
+		window.AudioWorkletNode = new Proxy(AudioWorkletNode, {
+			construct(target, argumentsList, newTarget) {
+				const node = Reflect.construct(target, argumentsList, newTarget);
+				if (argumentsList[1] === 'kw-audio-recorder') {
+					node.port.addEventListener('message', ({ data }) => {
+						if (data.type !== 'audio-chunk') return;
+						capture.frames += data.frames;
+						for (const sample of data.channels[0]) capture.silentFrames = sample === 0 ? capture.silentFrames + 1 : 0;
+					});
+				}
+				return node;
+			},
+		});
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('alsa');
+	await expect(setup.getByRole('combobox', { name: 'Recording sample rate', exact: true })).toBeEnabled();
+	await page.keyboard.press('Escape');
+	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	await record.click();
+	await expect(record).toHaveAttribute('aria-pressed', 'true');
+	const playhead = editor.getByRole('slider', { name: 'Playhead', exact: true });
+	await expect.poll(async () => Number(await playhead.getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+	await page.evaluate(() => {
+		const input = window.__nativeInputPeer.requests.findLast(request => request.direction === 'input');
+		window.__nativeInputPeer.loseDevice(input.sessionId);
+		// Keep the renderer busy while the helper and worklets process the loss.
+		const until = performance.now() + 120;
+		while (performance.now() < until) { /* renderer work */ }
+	});
+	await expect(record).toHaveAttribute('aria-pressed', 'false');
+	await expect(editor.locator('[data-clip-id^="recording-preview-"]')).toHaveCount(0);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	const captured = await page.evaluate(() => window.__nativeCaptureTail);
+	expect(captured.frames).toBeGreaterThan(8_000);
+	expect(captured.silentFrames).toBeLessThan(128);
+});
+
 test('first-time ASIO selects a connected driver and honors a later explicit selection', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page);

@@ -55,6 +55,15 @@ export class StreamingRecorderProcessor extends ProcessorBase {
 		const globalFrame = Number.isFinite(globalThis.currentFrame) ? globalThis.currentFrame : this.nextFrame;
 		this.nextFrame = globalFrame + blockLength;
 
+		if (inputs[1]?.[0]?.[0] === 1) {
+			for (const channel of output) channel.fill(0);
+			if (this.recording) {
+				this.port.postMessage({ type: 'input-lost' });
+				this.#finish();
+			}
+			return true;
+		}
+
 		for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {
 			const outputChannel = output[channelIndex];
 			const inputChannel = input[Math.min(channelIndex, Math.max(0, input.length - 1))];
