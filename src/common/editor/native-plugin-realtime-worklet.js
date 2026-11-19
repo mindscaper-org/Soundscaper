@@ -15,7 +15,7 @@ const ProcessorBase = globalThis.AudioWorkletProcessor || class {
 	constructor() { this.port = { postMessage() {}, onmessage: null, start() {} }; }
 };
 
-/** Fixed-pool, direct MessagePort processor. Live playback may dry bypass; renders fail closed. */
+/** Credit-bounded direct MessagePort processor. Live playback may dry bypass; renders fail closed. */
 export class NativePluginRealtimeProcessor extends ProcessorBase {
 	constructor(options = {}) {
 		super();
@@ -134,7 +134,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		this.#send({
 			protocolVersion: 1, kind: 'process', requestId, frameCount: frames,
 			input: slot.input, output: slot.output,
-		}, [...slot.input, ...slot.output].map(({ buffer }) => buffer));
+		});
 		return true;
 	}
 
@@ -231,13 +231,11 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			return this.#post({ type: NATIVE_PLUGIN_CONTROL.fault, reason: 'control-rpc-unavailable', requestId });
 		}
 		const request = { protocolVersion: 1, kind, requestId };
-		const transfer = [];
 		if (kind === 'load-state') {
 			if (!(message.bytes instanceof Uint8Array) || message.bytes.byteLength > 16 * 1_024 * 1_024) {
 				return this.#post({ type: NATIVE_PLUGIN_CONTROL.fault, reason: 'invalid-state', requestId });
 			}
 			request.bytes = message.bytes;
-			transfer.push(message.bytes.buffer);
 		}
 		if (kind === 'open-vendor-ui' || kind === 'close-vendor-ui') {
 			const windowHandleId = requestIdValue(message.windowHandleId);
@@ -259,7 +257,7 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 			}
 		}
 		this.controlRequests.set(requestId, Object.freeze({ kind, index: request.index ?? null }));
-		this.#send(request, transfer);
+		this.#send(request);
 	}
 
 	#stateReply(message) {
@@ -329,8 +327,9 @@ export class NativePluginRealtimeProcessor extends ProcessorBase {
 		});
 	}
 
-	#send(message, transfer = []) {
-		try { this.peer?.postMessage(message, transfer); } catch {
+	#send(message) {
+		// The utility's MessagePortMain receives cloned PCM and state typed arrays.
+		try { this.peer?.postMessage(message); } catch {
 			if (this.strictRender) this.#failRender('peer-loss');
 			else this.#close('peer-loss');
 		}

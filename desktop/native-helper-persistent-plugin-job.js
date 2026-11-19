@@ -124,7 +124,7 @@ export function createNativePersistentPluginJobRunner({
 						input,
 						output,
 						reportedLatencyFrames,
-					}, [...input, ...output].map(({ buffer }) => buffer));
+					});
 					return;
 				}
 				if (message.kind === 'topology') {
@@ -147,7 +147,7 @@ export function createNativePersistentPluginJobRunner({
 						requestId: requestIdValue,
 						bytes,
 						authentication: Object.freeze({ requestId: requestIdValue, byteLength: bytes.byteLength, sha256, mac }),
-					}, [bytes.buffer]);
+					});
 					return;
 				}
 				if (message.kind === 'load-state') {
@@ -393,6 +393,6 @@ function listen(port, listener) {
 	else port.onmessage = (event) => listener(event?.data);
 }
 
-function post(port, message, transfer = []) {
-	port.postMessage(message, transfer);
+function post(port, message) {
+	port.postMessage(message);
 }
