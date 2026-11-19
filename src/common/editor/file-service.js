@@ -271,6 +271,7 @@ export function createAudioEditorFileService(options = {}) {
 		if (target === undefined) {
 			try {
 				target = await chooseSaveTarget({ ...request, suggestedName: fileName });
+				if (target && request.signal?.aborted) await bridge?.releaseSaveTarget?.(target.id);
 				throwIfAborted(request.signal);
 			} catch (error) {
 				throwIfAborted(request.signal);
@@ -281,7 +282,16 @@ export function createAudioEditorFileService(options = {}) {
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
 		if (bridge) {
 			const persistent = bindSoundscaperPersistentDeliverySave(target, fileName);
-			return withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
+			const prepared = withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
+			if (persistent || typeof bridge.releaseSaveTarget !== 'function') return prepared;
+			return Object.freeze({
+				...prepared,
+				/** @param {unknown} [reason] */
+				async abort(reason) {
+					try { await prepared.abort(reason); }
+					finally { await bridge.releaseSaveTarget(target.id); }
+				},
+			});
 		}
 		if (typeof target.createWritable === 'function') {
 			return withProjectFileTarget(createFileSystemPreparedSave({ target, fileName, signal: request.signal }), target);

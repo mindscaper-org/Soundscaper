@@ -26,6 +26,7 @@ import {
 	persistNativeProjectSource,
 } from './internal/native-project/native-project-source-persistence.ts';
 import {
+	abortNativeScapeSave,
 	beginNativeScapeSave,
 	type NativeRetainedScapeArchive,
 	publishNativeScape,
@@ -44,6 +45,7 @@ import type {
 	NativeAup4Client,
 	NativeCompatibilityReport,
 	NativeProgress,
+	NativePreparedSave,
 	NativeProjectAudioSource,
 	NativeProjectDocument, NativeProjectFile, NativeScapeProjectFile,
 	NativeProjectServiceRuntime,
@@ -259,17 +261,20 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 		}
 		if (runtime.hasMissingTimelineSources(projectAtStart)) throw createLocalizedError(Error, runtime.copy, 'missingSourcesPreventSave');
 		const operation = beginProjectTask('native-project-save', projectAtStart.id, PROJECT_SCOPED_TASK);
+		let unpublished: NativePreparedSave | null = null;
 		try {
 			const { fileName, prepared } = await beginNativeScapeSave(runtime, {
 				fallbackFileName: projectAtStart.title, options, signal: operation.task.signal,
 			});
 			if (prepared.mode === 'cancelled') return { cancelled: true };
+			unpublished = prepared;
 			assertOwnership(operation.task, operation.projectToken);
 			await runtime.flushProject({ prepareCurrentSnapshot: true, preparationPurpose: 'scape-save', allowFileSizeWarning: true });
 			assertOwnership(operation.task, operation.projectToken);
 			const snapshot = requireOwnedProject(projectAtStart.id);
 			const finalState = options.saveCopy && runtime.state.readOnly && runtime.state.saveState === 'dirty' ? 'dirty' : 'saved';
 			beginSave(operation.task, operation.projectToken);
+			unpublished = null;
 			const { exported, saved } = await publishNativeScape(runtime, {
 				assertReadyToCommit: () => assertOwnership(operation.task, operation.projectToken),
 				fileName, prepared, project: snapshot, signal: operation.task.signal,
@@ -280,6 +285,7 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 			return { ...saved, manifest: exported.manifest };
 		} catch (error) {
 			failSave(operation.task, operation.projectToken);
+			if (unpublished) return await abortNativeScapeSave(unpublished, error);
 			throw error;
 		} finally {
 			operation.task.finish();

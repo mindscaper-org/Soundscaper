@@ -62,6 +62,17 @@ export async function beginNativeScapeSave(
 	return { fileName, prepared };
 }
 
+/** Abandon a destination when a save can no longer proceed. */
+export async function abortNativeScapeSave(prepared: NativePreparedSave, error: unknown): Promise<never> {
+	if (prepared.mode === 'stream') {
+		try { await prepared.abort(error); }
+		catch (cleanupError) {
+			throw new AggregateError([error, cleanupError], 'The Scape save and destination cleanup both failed.');
+		}
+	}
+	throw error;
+}
+
 export async function publishNativeScape(
 	runtime: Pick<
 		NativeProjectServiceRuntime,
@@ -135,8 +146,10 @@ export async function saveNativeScapeArchiveCopy(
 		fallbackFileName: request.fallbackFileName, options: request.options, signal: request.signal,
 	});
 	if (prepared.mode === 'cancelled') return { cancelled: true };
-	request.assertReady();
-	request.beginWriting();
+	try {
+		request.assertReady();
+		request.beginWriting();
+	} catch (error) { return abortNativeScapeSave(prepared, error); }
 	const { saved } = await publishNativeScapeArchiveCopy(runtime, {
 		archive: request.retained.archive,
 		copySource: request.retained.copySource,
@@ -262,15 +275,7 @@ async function publishDirectScape(
 		const saved = await request.prepared.commit();
 		publication = { exported, saved };
 	} catch (error) {
-		try {
-			await request.prepared.abort(error);
-		} catch (cleanupError) {
-			throw new AggregateError(
-				[error, cleanupError],
-				'The Scape save and destination cleanup both failed.',
-			);
-		}
-		throw error;
+		return abortNativeScapeSave(request.prepared, error);
 	}
 	await recordScapeArchiveManifest(runtime, {
 		archive: null,
