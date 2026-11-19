@@ -127,10 +127,10 @@ export function videoSourceTimingView(
 	if (timingMode !== 'exact' || source.timingAsset == null) {
 		throw new RangeError(`VFR timing view ${sourceId} disagrees with the persisted timing decision.`);
 	}
+	// The verified index and its canonical presentation ticks are frozen by the timing codec.
 	if (!isVideoTimingIndexVerifiedForReference(view.index, view.reference)) {
 		throw new TypeError(`VFR timing view ${sourceId} was not produced by verified timing-asset bytes.`);
 	}
-	validateVfrIndex(view.index, sourceId);
 	if (view.index.frameCount !== sourceFrameCount) {
 		throw new RangeError(`VFR timing view ${sourceId} disagrees with the source frame count.`);
 	}
@@ -362,30 +362,6 @@ function videoBoundaryMidpoint(
 		left.numerator * right.denominator + right.numerator * left.denominator,
 		2n * left.denominator * right.denominator,
 	);
-}
-
-function validateVfrIndex(indexValue: unknown, sourceId: string): void {
-	if (!indexValue || typeof indexValue !== 'object' || Array.isArray(indexValue)) {
-		throw new TypeError(`VFR timing view ${sourceId} requires an index.`);
-	}
-	const index = indexValue as Readonly<Record<string, unknown>>;
-	const timescale = positiveSafeInteger(index.timescale, `timing view ${sourceId}.timescale`);
-	const frameCount = positiveSafeInteger(index.frameCount, `timing view ${sourceId}.frameCount`);
-	if (!Array.isArray(index.presentationTicks) || index.presentationTicks.length !== frameCount) {
-		throw new RangeError(`VFR timing view ${sourceId} PTS must match its frame count.`);
-	}
-	let prior: bigint | null = null;
-	for (const tick of index.presentationTicks) {
-		if (typeof tick !== 'bigint' || tick < 0n || (prior !== null && tick <= prior)) {
-			throw new RangeError(`VFR timing view ${sourceId} PTS must be monotonic non-negative ticks.`);
-		}
-		prior = tick;
-	}
-	if (index.presentationTicks[0] !== 0n || typeof index.finalFrameDurationTicks !== 'bigint'
-		|| index.finalFrameDurationTicks <= 0n || typeof index.endTicks !== 'bigint'
-		|| index.endTicks !== prior! + index.finalFrameDurationTicks || timescale < 1) {
-		throw new RangeError(`VFR timing view ${sourceId} has invalid endpoints.`);
-	}
 }
 
 function fraction(numerator: bigint, denominator: bigint): ExactSourceTime {
