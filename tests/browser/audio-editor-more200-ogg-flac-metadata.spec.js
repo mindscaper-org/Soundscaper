@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
+import { writeFile } from 'node:fs/promises';
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes, sourcePeakChannels, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker, downloadBytes, sourcePeakChannels, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { libflacOggPipeFixture } from '../helpers/libflac-ogg-pipe-fixture.ts';
 import { ordinaryOggFlacFixture } from '../helpers/ogg-multiplexed-tail-fixture.ts';
 
 test('native Ogg-FLAC generic/plain admission and programme metadata retain PCM through Save', async ({ page }) => {
@@ -52,4 +54,38 @@ test('native Ogg-FLAC generic/plain admission and programme metadata retain PCM 
 		expect(contribution.metadata.raw.LICENCE).toBe('CC BY 4.0');
 		expect(contribution.attachments).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'coverFront', description: 'Original cover', byteLength: 68 })]));
 	}, { timeout: caseTimeout });
+});
+
+test('File Import saves the complete write-only Ogg-FLAC at its original rate', async ({ page }, testInfo) => {
+	const { file, frameCount, sampleRate, channelCount, samples } = libflacOggPipeFixture();
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	const decoded = await page.evaluate(async ({ bytes, sampleRate }) => {
+		const buffer = await new OfflineAudioContext(2, 1, sampleRate).decodeAudioData(Uint8Array.from(bytes).buffer);
+		return [0, 1].map(channel => [...buffer.getChannelData(channel)]);
+	}, { bytes: [...bytes], sampleRate });
+	for (const [channel, authored] of samples.entries()) {
+		expect(decoded[channel]).toHaveLength(frameCount);
+		let error = 0;
+		for (const [frame, sample] of authored.entries()) error = Math.max(error, Math.abs(sample - decoded[channel][frame]));
+		expect(error).toBeLessThan(1 / 32768);
+	}
+	const path = testInfo.outputPath(file.name);
+	await writeFile(path, bytes);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const picking = page.waitForEvent('filechooser');
+	await chooseFileAction(page, editor, 'Import');
+	await (await picking).setFiles(path);
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await downloading));
+	const document = JSON.parse(strFromU8(entries['project.json']));
+	const [source] = document.sources;
+	expect(source).toMatchObject({ sampleRate, frameCount, channelCount });
+	const expected = Buffer.alloc(frameCount * channelCount * 4);
+	for (const [channel, data] of decoded.entries()) for (const [frame, value] of data.entries()) {
+		expected.writeFloatLE(value, (channel * frameCount + frame) * 4);
+	}
+	expect(Buffer.from(entries[`audio/${source.id}.f32c`]).subarray(4)).toEqual(expected);
 });
