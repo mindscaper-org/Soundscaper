@@ -9,9 +9,37 @@ import {
 import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.js';
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
+import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
+	test('WebM audio retains the last authored Opus programme samples', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await importFiles(editor, [{ name: 'Audio through the last picture.mp4', mimeType: 'video/mp4', buffer: nativeVideoAudioTailFixture(2) }]);
+		await expect(editor).toHaveAttribute('data-clip-count', '2');
+		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		await expect(link).toBeVisible({ timeout: 25_000 });
+		const bytes = await readDownloadBytes(page, link);
+		const input = new Input({ source: new BufferSource(bytes), formats: [WEBM] });
+		try {
+			const track = await input.getPrimaryAudioTrack();
+			expect(await track.getCodec()).toBe('opus');
+			const { description } = await track.getDecoderConfig();
+			const header = Buffer.from(description);
+			const preSkip = header.readUInt16LE(10);
+			let samples = -preSkip;
+			for await (const packet of new EncodedPacketSink(track).packets()) {
+				expect(packet.duration).toBeCloseTo(.02, 3);
+				samples += 960;
+			}
+			expect(samples).toBeGreaterThanOrEqual(96_000);
+			expect(samples).toBeLessThan(96_960);
+		} finally { input.dispose(); }
+	});
 	for (const [index, variant] of ['classic', 'fragmented', 'hybrid'].entries()) {
 		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page }) => {
 			await disableNativeSavePicker(page);

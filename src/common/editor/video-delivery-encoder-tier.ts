@@ -24,7 +24,7 @@ import {
 	resolveVideoWebCodecsSupport,
 	type VideoWebCodecsCanvas,
 } from './video-webcodecs-capability.ts';
-import { browserWebCodecsAudioConfiguration } from './browser-webcodecs-audio-profile.ts';
+import { BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE, browserWebCodecsAudioConfiguration } from './browser-webcodecs-audio-profile.ts';
 
 export interface VideoDeliveryEncoderDecision {
 	readonly tier: 'webcodecs' | 'ffmpeg';
@@ -145,7 +145,7 @@ async function assertAudioEncoderSupport(
 	try {
 		supported = (await encoder.isConfigSupported(browserWebCodecsAudioConfiguration(
 			format === 'mp4' ? 'aac' : 'opus',
-			{ sampleRate, channelCount: numberOfChannels, bitrate },
+			{ sampleRate: format === 'webm' ? BROWSER_OPUS_WEB_CODECS_SAMPLE_RATE : sampleRate, channelCount: numberOfChannels, bitrate },
 		))).supported === true;
 	} catch {
 		throw unavailable(`the WebCodecs ${label} audio capability probe was refused.`);
