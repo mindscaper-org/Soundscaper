@@ -144,7 +144,10 @@ export function trimClipLoopPeriod(clip: LoopAudioClip, sourceFrameCount: number
 	const change = Math.max(1 - loop.periodFrames, Math.min(Math.floor(extension / ratio), Math.round(requested)));
 	const periodFrames = loop.periodFrames + change;
 	const sourceDurationFrames = Math.max(1, Math.min(clip.sourceDurationFrames + extension, Math.round(periodFrames * ratio)));
-	return { periodFrames, offsetFrames: 0, sourceDurationFrames,
+	// Preserve an existing partial repeat's first sample while it remains in the period.
+	const retainedOffset = edge === 'left' && loop.offsetFrames > 0 ? loop.offsetFrames + change : loop.offsetFrames;
+	const offsetFrames = retainedOffset >= 0 && retainedOffset < periodFrames ? retainedOffset : 0;
+	return { periodFrames, offsetFrames, sourceDurationFrames,
 		sourceStartFrame: clip.sourceStartFrame + (trimsSourceStart ? clip.sourceDurationFrames - sourceDurationFrames : 0) };
 }
 
