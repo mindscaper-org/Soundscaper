@@ -44,6 +44,7 @@ interface RenderedAudioFormatSettings extends Readonly<Record<string, unknown>> 
 }
 
 export interface RenderedAudioEncodingPlan {
+	readonly aifcCompression?: string;
 	readonly bext?: Readonly<Record<string, unknown>>;
 	readonly binaural?: BinauralDeliveryPlan | null;
 	readonly ear?: EarDeliveryPlan | null;
@@ -224,6 +225,7 @@ export async function encodeRenderedAudio(
 			: plan.bext;
 		const nativeOptions = {
 			container: plan.container,
+			aifcCompression: plan.aifcCompression,
 			sampleRate: plan.sampleRate,
 			bitDepth,
 			float: plan.encoding.floatingPoint,

@@ -29,6 +29,7 @@ interface DirectAiffEncoding {
 }
 
 interface DirectAiffPlan {
+	readonly aifcCompression?: string;
 	readonly channelCount?: number;
 	readonly encoding?: DirectAiffEncoding;
 	readonly format?: unknown;
@@ -139,10 +140,11 @@ function hasExactAiffLayout(plan: DirectAiffPlan, sampleFormat: DirectAiffSample
 			bitDepth,
 			float: floatingPoint,
 			sampleFormat,
+			aifcCompression: plan.aifcCompression,
 			metadata: plan.metadata,
 			markers: plan.markers as never,
 		});
-		return layout.container === (floatingPoint ? 'aifc' : 'aiff')
+		return layout.container === (floatingPoint || plan.aifcCompression ? 'aifc' : 'aiff')
 			&& layout.byteLength === plan.outputFileBytesPerRender
 			&& layout.byteLength <= DIRECT_AIFF_MAXIMUM_FILE_BYTES;
 	} catch {

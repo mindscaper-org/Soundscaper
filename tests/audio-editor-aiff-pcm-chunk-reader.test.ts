@@ -176,6 +176,7 @@ test('AIFF-C admission and chunk reads decode first-party big-endian float32 PCM
 		container: 'aifc',
 		encoding: 'ieee-float',
 		sampleFormat: 'float32',
+		aifcCompression: 'fl32',
 		sampleRate: 48_000,
 		channelCount: 2,
 		frameCount: 4,

@@ -87,6 +87,7 @@ export const FAST_RENDER_THRESHOLDS = Object.freeze({
  * @property {AudioExportPlanOutput[]} outputs
  * @property {import('./controller/export/stem-archive.ts').StemArchivePlan|null} archive
  * @property {import('./broadcast-wave.ts').BextMetadata} [bext]
+ * @property {string} [aifcCompression]
  * @property {'bw64'} [container]
  * @property {{ mode: 'authored'|'passthrough', metadata: import('./adm-project-metadata.ts').AdmProjectMetadata, channelCount: number, channelOrder: readonly string[], preDataChunks: Uint8Array|readonly Uint8Array[]|undefined, trailingChunks: Uint8Array|readonly Uint8Array[]|undefined }} [adm]
  * @property {Uint8Array|readonly Uint8Array[]} [preDataChunks]
@@ -177,6 +178,7 @@ export function createExportPlan(project, options = {}) {
 		throw new RangeError('Export mode must be mix, stems, chapters, or clips.');
 	}
 	const format = canonicalMediaExportFormat(options.format || 'wav');
+	const aifcCompression = format === 'aiff' ? options.aifcCompression : undefined;
 	assertEmbeddedChapterRequest(format, options);
 	if (format === 'bw64' && mode !== 'mix') throw new RangeError('BW64 / ADM export is mix-only.');
 	const bw64Adm = format === 'bw64' ? resolveBw64Adm(runtimeProject, options) : null;
@@ -296,7 +298,7 @@ export function createExportPlan(project, options = {}) {
 	const layoutForFrames = (totalFrames, outputMarkers = markers, outputIxml = ixml, outputMetadata = encoding.metadata) => (format === 'aiff'
 		? inspectAiffLayout({
 			sampleRate, channelCount: encoding.channelCount, totalFrames,
-			sampleFormat: encoding.sampleFormat, metadata: outputMetadata, markers: outputMarkers,
+			sampleFormat: encoding.sampleFormat, aifcCompression, metadata: outputMetadata, markers: outputMarkers,
 		})
 		: format === 'wav' || format === 'bwf' || format === 'bw64'
 			? inspectWavLayout({
@@ -462,6 +464,7 @@ export function createExportPlan(project, options = {}) {
 		ixmlFileUidOmitted: ixmlDelivery.omittedFileUid,
 		cart,
 		...(bext ? { bext } : {}),
+		...(aifcCompression ? { aifcCompression } : {}),
 		...(adm ? {
 			container: 'bw64',
 			adm,

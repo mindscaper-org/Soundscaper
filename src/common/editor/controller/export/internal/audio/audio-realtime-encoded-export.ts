@@ -101,6 +101,7 @@ export function createRealtimeEncodedAudioExport(runtime: RealtimeEncodedExportR
 		const stagingFloat = !nativePcm && plan.format !== 'flac';
 		const encoderOptions = {
 			container: nativeWav ? plan.container : undefined,
+			aifcCompression: nativeAiff ? plan.aifcCompression : undefined,
 			sampleRate: plan.sampleRate,
 			channelCount: plan.channelCount,
 			totalFrames: plan.outputFrames,

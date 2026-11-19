@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
 	AIFF_MAXIMUM_FILE_BYTES,
 	createAiffStreamEncoder,
+	encodeAiff,
 	inspectAiffLayout,
 } from '../src/common/editor/aiff.js';
 import {
@@ -34,6 +35,7 @@ interface AiffEncoding extends Readonly<Record<string, unknown>> {
 }
 
 interface AiffPlan extends Record<string, unknown> {
+	aifcCompression?: string;
 	channelCount: number;
 	encoding: AiffEncoding;
 	format: string;
@@ -86,6 +88,7 @@ function aiffLayout(plan: AiffPlan): ReturnType<typeof inspectAiffLayout> {
 		channelCount: plan.channelCount,
 		totalFrames: plan.outputFrames,
 		sampleFormat: plan.encoding.sampleFormat,
+		aifcCompression: plan.aifcCompression,
 		metadata: plan.metadata,
 	});
 }
@@ -301,6 +304,46 @@ test('exact realtime AIFF uses the shared bounded PCM route without Blob fallbac
 		method: 'file-system-access',
 	});
 	assert.equal(fixture.state.outputUrl, null);
+});
+
+test('AIFF-C aliases carry exact headers and sample bytes in buffered and streamed output', () => {
+	for (const [sampleFormat, aifcCompression, bytes] of [
+		['int16', 'NONE', [0xc0, 0]], ['int16', 'twos', [0xc0, 0]], ['int16', 'sowt', [0, 0xc0]],
+		['int24', 'in24', [0xc0, 0, 0]], ['int24', '42n1', [0, 0, 0xc0]],
+		['int32', 'in32', [0xc0, 0, 0, 0]], ['int32', '23ni', [0, 0, 0, 0xc0]],
+		['float32', 'FL32', [0xbf, 0, 0, 0]],
+	] as const) {
+		const options = { sampleFormat, aifcCompression, channelCount: 1, totalFrames: 1, dither: 'none' } as const;
+		const layout = inspectAiffLayout(options);
+		const channels = [Float32Array.of(-0.5)];
+		const result = encodeAiff(channels, options);
+		assert.equal(layout.container, 'aifc');
+		assert.equal(result.byteLength, layout.byteLength);
+		assert.equal(Buffer.from(result).toString('ascii', 50, 54), aifcCompression);
+		assert.deepEqual([...result.subarray(layout.headerByteLength, layout.headerByteLength + bytes.length)], [...bytes]);
+		const chunks: Uint8Array[] = [];
+		const stream = createAiffStreamEncoder({ ...options, onChunk: (chunk: Uint8Array) => { chunks.push(chunk); } });
+		stream.write(channels);
+		stream.finalize();
+		assert.deepEqual(Buffer.concat(chunks), Buffer.from(result));
+	}
+	assert.throws(() => inspectAiffLayout({ sampleFormat: 'int16', aifcCompression: '42n1' }), /compression.*sample format/iu);
+	assert.throws(() => inspectAiffLayout({ sampleFormat: 'int32', aifcCompression: 'FL32' }), /compression.*sample format/iu);
+});
+
+test('exact realtime AIFF-C passes its original variant and size into the stream encoder', async () => {
+	const plan = directAiffFixturePlan({ aifcCompression: '42n1' });
+	const fixture = createDirectPcmExportFixture(plan);
+	const destination = createPreparedStream({ publishedFileName: 'direct.aiff', publishedMimeType: 'audio/aiff' });
+	fixture.setPrepared(destination.prepared);
+	const runtime = { ...fixture.runtime, createAiffStreamEncoder };
+	await createEditorExportService(runtime).handleExportAction('export');
+	assert.deepEqual(destination.admissions, [[plan.outputFileBytesPerRender, 'exact']]);
+	assert.equal(destination.commitCalls(), 1);
+	const published = Buffer.concat(destination.chunks);
+	assert.equal(published.byteLength, plan.outputFileBytesPerRender);
+	assert.equal(published.toString('ascii', 8, 12), 'AIFC');
+	assert.equal(published.toString('ascii', 50, 54), '42n1');
 });
 
 test('direct AIFF picker and mid-stream cancellation publish nothing', async () => {

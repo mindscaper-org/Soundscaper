@@ -203,6 +203,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			const plan = createExportPlan(exportProject, {
 				...settings,
 				preserveIxmlFileIdentity,
+				aifcCompression: preserveIxmlFileIdentity ? requestedSettings.aifcCompression : undefined,
 				inputChannelCount: exportProject.masterChannels,
 				mobile: state.mobile,
 				livePcmBytes: undefined,
