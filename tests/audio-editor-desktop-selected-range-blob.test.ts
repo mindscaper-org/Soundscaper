@@ -14,7 +14,7 @@ const descriptor = Object.freeze({
 	url: `soundscaper-app://bundle/_desktop/read/selected-range-v1/${id}/large.aup4`,
 });
 
-test('a 7 GiB native selection reads only requested ranges and retires with its scope', async () => {
+test('a 7 GiB native selection reads bounded slices directly and retires with its scope', async context => {
 	const calls: string[] = [];
 	const blob = createDesktopSelectedRangeBlob(descriptor, { fetch: async (_url, init) => {
 		const range = new Headers(init.headers).get('Range')!;
@@ -28,7 +28,9 @@ test('a 7 GiB native selection reads only requested ranges and retires with its 
 	} });
 	assert.equal(blob.size, size);
 	assert.equal((blob as Blob & { name: string }).name, 'large.aup4');
-	assert.equal(new TextDecoder().decode(await blob.slice(size - 3, size).arrayBuffer()), 'AAA');
+	const slice = blob.slice(size - 3, size);
+	context.mock.method(slice, 'stream', () => assert.fail('a bounded slice can return the owned range directly'));
+	assert.equal(new TextDecoder().decode(await slice.arrayBuffer()), 'AAA');
 	assert.deepEqual(calls, [`bytes=${size - 3}-${size - 1}`]);
 	retireDesktopSelectedRangeBlob(blob);
 	await assert.rejects(blob.slice(0, 1).arrayBuffer(), /released/u);

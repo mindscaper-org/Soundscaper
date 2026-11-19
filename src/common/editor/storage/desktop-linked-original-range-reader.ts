@@ -24,13 +24,13 @@ export interface DesktopLinkedOriginalRangeRequest {
 
 export type DesktopLinkedOriginalRangeKind = 'audio' | 'video' | 'selected';
 
-/** Read one exact response without retaining more than the fixed range ceiling. */
+/** Read one exact response into a buffer owned by its caller, within the fixed range ceiling. */
 export async function readDesktopLinkedOriginalRange(
 	descriptor: DesktopLinkedOriginalRangeDescriptor,
 	request: DesktopLinkedOriginalRangeRequest,
 	fetchRange: DesktopReadFetch,
 	kind: DesktopLinkedOriginalRangeKind,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
 	return readSourceWithRecovery((signal, progress) => readDesktopRangeAttempt(descriptor, { ...request, signal }, fetchRange, kind, progress), {
 		signal: request.signal,
 	});
@@ -42,7 +42,7 @@ async function readDesktopRangeAttempt(
 	fetchRange: DesktopReadFetch,
 	kind: DesktopLinkedOriginalRangeKind,
 	progress?: () => void,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
 	const label = `linked-${kind}`;
 	assertDescriptor(descriptor, label);
 	assertRequest(request, descriptor.size, label);
