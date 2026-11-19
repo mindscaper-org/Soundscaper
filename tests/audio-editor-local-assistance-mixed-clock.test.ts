@@ -100,7 +100,7 @@ for (const [format, projectRate, sourceRate, sourceFrames, timelineFrames, sourc
 									channelCount: 1, frameCount: frames, sampleFormat: 'float32' } }],
 						});
 						const published = clipboardProject(controller.project);
-						const derived = published.clips.find(value => value.sourceId !== source.id);
+						const derived: (typeof published.clips)[number] | undefined = published.clips.find(value => value.sourceId !== source.id);
 						assert.ok(derived?.kind === 'audio');
 						assert.deepEqual([derived.timelineStartFrame, derived.durationFrames, derived.sourceDurationFrames],
 							[15_000, 21_000, 21_000]);
