@@ -23,6 +23,12 @@ export interface ReviewedAssistanceVisualFramePackSetV1 {
 	readonly packs: readonly ReviewedAssistanceVisualFramePack[];
 }
 
+export interface ReviewedAssistanceVisualFramePackMember {
+	readonly pack: ReviewedAssistanceVisualFramePack;
+	readonly byteOffset: number;
+	readonly byteLength: number;
+}
+
 /**
  * Wrap complete v1/v2 frame packs without merging their headers or weakening their
  * individual byte bounds. The resulting chunks can be streamed directly to custody.
@@ -73,7 +79,12 @@ export function createAssistanceVisualFramePackSetV1(
 export function reviewAssistanceVisualFramePackSetV1(
 	value: ArrayBuffer | ArrayBufferView,
 ): ReviewedAssistanceVisualFramePackSetV1 {
-	const bytes = binary(value);
+	const { members, frameCount } = reviewAssistanceVisualFramePackSetMembers(binary(value));
+	return Object.freeze({ schemaVersion: ASSISTANCE_VISUAL_FRAME_PACK_SET_SCHEMA_VERSION,
+		frameCount, packs: Object.freeze(members.map(({ pack }) => pack)) });
+}
+
+function reviewAssistanceVisualFramePackSetMembers(bytes: Uint8Array) {
 	if (bytes.byteLength < HEADER_BYTES || !startsWith(bytes, MAGIC)) {
 		throw new TypeError('The visual frame-pack set magic is unsupported.');
 	}
@@ -90,7 +101,7 @@ export function reviewAssistanceVisualFramePackSetV1(
 		throw new RangeError('The visual frame-pack set header exceeds its exact bounds.');
 	}
 	let offset = HEADER_BYTES;
-	const packs: ReviewedAssistanceVisualFramePack[] = [];
+	const members: ReviewedAssistanceVisualFramePackMember[] = [];
 	for (let index = 0; index < packCount; index += 1) {
 		if (offset + PACK_HEADER_BYTES > bytes.byteLength) {
 			throw new RangeError('The visual frame-pack set is truncated.');
@@ -101,28 +112,35 @@ export function reviewAssistanceVisualFramePackSetV1(
 			|| offset + byteLength > bytes.byteLength) {
 			throw new RangeError(`Visual frame-pack set member ${String(index)} is truncated or oversized.`);
 		}
-		packs.push(reviewAssistanceVisualFramePack(bytes.subarray(offset, offset + byteLength)));
+		members.push(Object.freeze({ byteOffset: offset, byteLength,
+			pack: reviewAssistanceVisualFramePack(bytes.subarray(offset, offset + byteLength)) }));
 		offset += byteLength;
 	}
 	if (offset !== bytes.byteLength) {
 		throw new RangeError('The visual frame-pack set contains trailing data.');
 	}
-	const result = validateReviewedPacks(packs);
+	const result = validateReviewedPacks(members.map(({ pack }) => pack));
 	if (result.frameCount !== expectedFrameCount) {
 		throw new RangeError('The visual frame-pack set frame count disagrees with its members.');
 	}
-	return Object.freeze({ schemaVersion: ASSISTANCE_VISUAL_FRAME_PACK_SET_SCHEMA_VERSION,
-		frameCount: result.frameCount, packs: Object.freeze(packs) });
+	return { frameCount: result.frameCount, members: Object.freeze(members) };
 }
 
 /** Admit either one legacy strict pack or one ordered strict pack set. */
 export function reviewAssistanceVisualFramePackInventory(
 	value: ArrayBuffer | ArrayBufferView,
 ): readonly ReviewedAssistanceVisualFramePack[] {
+	return Object.freeze(reviewAssistanceVisualFramePackMembers(value).map(({ pack }) => pack));
+}
+
+/** Preserve the exact byte ranges for a worker that loads bounded members on demand. */
+export function reviewAssistanceVisualFramePackMembers(
+	value: ArrayBuffer | ArrayBufferView,
+): readonly ReviewedAssistanceVisualFramePackMember[] {
 	const bytes = binary(value);
-	return Object.freeze(startsWith(bytes, MAGIC)
-		? [...reviewAssistanceVisualFramePackSetV1(bytes).packs]
-		: [reviewAssistanceVisualFramePack(bytes)]);
+	if (startsWith(bytes, MAGIC)) return reviewAssistanceVisualFramePackSetMembers(bytes).members;
+	return Object.freeze([Object.freeze({ byteOffset: 0, byteLength: bytes.byteLength,
+		pack: reviewAssistanceVisualFramePack(bytes) })]);
 }
 
 function validateReviewedPacks(
