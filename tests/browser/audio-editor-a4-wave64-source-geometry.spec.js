@@ -1,10 +1,47 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { strFromU8, unzipSync } from 'fflate';
+import { libsndfileWave64Fixture } from '../helpers/libsndfile-wave64-fixture.ts';
 import { nativeWave64Fixture } from '../helpers/native-wave64-fixture.ts';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
+import { bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
+
+test('libsndfile Wave64 imports its exact 44.1 kHz source through Save Project', async ({ page }) => {
+	test.setTimeout(60_000);
+	await page.addInitScript(() => {
+		const Native = globalThis.AudioContext;
+		globalThis.AudioContext = class extends Native { constructor(options) { super({ ...options, sampleRate: options?.sampleRate ?? 48_000 }); } };
+	});
+	const { file, frameCount, sampleRate, sampleAt } = libsndfileWave64Fixture();
+	const bytes = Buffer.from(await file.arrayBuffer());
+	const native = await page.evaluate(async bytes => {
+		try {
+			const buffer = await new OfflineAudioContext(2, 1, 44_100).decodeAudioData(Uint8Array.from(bytes).buffer);
+			return { frames: buffer.length, channels: buffer.numberOfChannels };
+		} catch { return null; }
+	}, [...bytes]);
+	test.skip(native === null, 'This native browser does not decode Wave64.');
+	expect(native?.channels).toBe(2);
+	expect(native?.frames).toBeGreaterThanOrEqual(frameCount);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const selecting = page.waitForEvent('filechooser');
+	await chooseCommandAction(page, editor, 'File', 'Import');
+	await (await selecting).setFiles({ name: file.name, mimeType: file.type, buffer: bytes });
+	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 20_000 });
+	const saving = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await saving));
+	const project = JSON.parse(strFromU8(entries['project.json']));
+	expect(project.sources[0]).toMatchObject({ sampleRate, frameCount, channelCount: 2 });
+	const pcm = Buffer.from(entries[`audio/${project.sources[0].id}.f32c`]);
+	const expected = Buffer.alloc(frameCount * 2 * 4);
+	for (let channel = 0; channel < 2; channel++) for (let frame = 0; frame < frameCount; frame++) {
+		expected.writeFloatLE(sampleAt(frame, channel), (channel * frameCount + frame) * 4);
+	}
+	expect(pcm.subarray(4)).toEqual(expected);
+});
 
 // Shared PCM controls run in audio-editor-pcm-source-clock-render.test.ts and
 // audio-editor-pcm-source-clock.spec.js; retain each codec and native fallback.
