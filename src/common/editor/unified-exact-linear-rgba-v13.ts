@@ -359,12 +359,28 @@ function placeAxisAligned(
 			const presentationOpacity = opacity * (mask === undefined ? 1 : mask[pixel]! / 255);
 			const topLeft = top + left, topRight = top + right;
 			const bottomLeft = bottom + left, bottomRight = bottom + right;
-			const alpha = sampleChannel(pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, 3, scale)
-				/ scale * presentationOpacity;
+			const alphaTopLeft = pixels[topLeft + 3]!, alphaTopRight = pixels[topRight + 3]!;
+			const alphaBottomLeft = pixels[bottomLeft + 3]!, alphaBottomRight = pixels[bottomRight + 3]!;
 			const offset = pixel * 4;
+			if (alphaTopLeft === scale && alphaTopRight === scale && alphaBottomLeft === scale && alphaBottomRight === scale) {
+				for (let channel = 0; channel < 3; channel += 1) {
+					target.pixels[offset + channel] = bilinearChannel(
+						pixels[topLeft + channel]!, pixels[topRight + channel]!,
+						pixels[bottomLeft + channel]!, pixels[bottomRight + channel]!, mixX, mixY,
+					) / scale * presentationOpacity;
+				}
+				target.pixels[offset + 3] = presentationOpacity;
+				continue;
+			}
+			const alpha = bilinearChannel(alphaTopLeft, alphaTopRight, alphaBottomLeft, alphaBottomRight, mixX, mixY)
+				/ scale * presentationOpacity;
+			const weightTopLeft = alphaTopLeft / scale, weightTopRight = alphaTopRight / scale;
+			const weightBottomLeft = alphaBottomLeft / scale, weightBottomRight = alphaBottomRight / scale;
 			for (let channel = 0; channel < 3; channel += 1) {
-				target.pixels[offset + channel] = sampleChannel(
-					pixels, topLeft, topRight, bottomLeft, bottomRight, mixX, mixY, channel, scale, true,
+				target.pixels[offset + channel] = bilinearChannel(
+					pixels[topLeft + channel]! * weightTopLeft, pixels[topRight + channel]! * weightTopRight,
+					pixels[bottomLeft + channel]! * weightBottomLeft, pixels[bottomRight + channel]! * weightBottomRight,
+					mixX, mixY,
 				) / scale * presentationOpacity;
 			}
 			target.pixels[offset + 3] = alpha;
@@ -390,6 +406,10 @@ function sampleChannel(
 		a *= pixels[topLeft + 3]! / scale; b *= pixels[topRight + 3]! / scale;
 		c *= pixels[bottomLeft + 3]! / scale; d *= pixels[bottomRight + 3]! / scale;
 	}
+	return bilinearChannel(a, b, c, d, mixX, mixY);
+}
+
+function bilinearChannel(a: number, b: number, c: number, d: number, mixX: number, mixY: number): number {
 	const top = a + (b - a) * mixX;
 	const bottom = c + (d - c) * mixX;
 	return top + (bottom - top) * mixY;
