@@ -43,6 +43,8 @@ export const AUP4_OWNED_FEATURE_CARRIAGE: Readonly<Record<OwnedFeatureKey, Aup4F
 	}),
 	// The Audacity binary XML codec has no native JSON reserved key to escape.
 	literalJsonKeys: Object.freeze({ carriage: 'carried', code: 'LITERAL_JSON_KEYS_PRESERVED' }),
+	midiScore: Object.freeze({ carriage: 'reported', code: 'MIDI_AUTHORING_CONVERTED',
+		message: 'Editable MIDI notes were omitted from the Audacity copy.' }),
 	audioEffects: Object.freeze({ carriage: 'carried', code: 'MISSING_REALTIME_EFFECT' }),
 	audioClipEffects: Object.freeze({ carriage: 'omitted', code: 'CLIP_EFFECTS_OMITTED',
 		message: 'Per-clip audio effect racks are not represented in the Audacity project and were omitted.' }),

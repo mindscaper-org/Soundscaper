@@ -20,6 +20,7 @@ export interface MidiClipOptions extends MediaFactoryInput {
 	readonly durationFrames: number;
 	readonly notes?: readonly MidiNote[];
 	readonly interchange?: MidiClipInterchange;
+	readonly compactScore?: boolean;
 }
 
 /** MIDI tracks share the existing mixer, history and PCM fallback contracts. */
@@ -34,10 +35,10 @@ export function createMidiTrack(options: MidiTrackOptions = {}, projectSampleRat
 
 /** The caller must store the rendered fallback source before publishing the clip. */
 export function createMidiClip(options: MidiClipOptions): AudioClipLeaf {
-	const { notes = [], interchange, ...audioOptions } = options;
+	const { notes = [], interchange, compactScore, ...audioOptions } = options;
 	return withMidiClipData(createAudioClip(audioOptions), {
 		version: 1,
 		notes,
 		...(interchange === undefined ? {} : { interchange }),
-	});
+	}, compactScore);
 }

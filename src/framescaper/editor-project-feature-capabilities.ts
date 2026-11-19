@@ -2,6 +2,7 @@
 
 import { createEditorProjectFeatureCapabilityProfile } from
 	'../common/editor/project-feature-capability-profile.ts';
+import { MIDI_COMPACT_SCORE_FEATURE_ID } from '../common/editor/midi-compact-score.ts';
 
 const FEATURE_PREFIX = 'org.soundscaper.capability.';
 
@@ -29,6 +30,7 @@ export const FRAMESCAPER_PROJECT_FEATURE_CAPABILITY_PROFILE =
 			capability('immersiveAdm', 'immersive-adm', false),
 			capability('literalJsonKeys', 'literal-json-keys', true),
 			capability('masteringSequences', 'mastering-sequences', false),
+			{ key: 'midiScore', featureId: MIDI_COMPACT_SCORE_FEATURE_ID, available: true },
 			capability('multicamera', 'multicamera', true),
 			capability('musicalTimeline', 'musical-timeline', false),
 			capability('nestedSequences', 'nested-sequences', true),

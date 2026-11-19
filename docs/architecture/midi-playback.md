@@ -6,6 +6,14 @@ Storage schema v2 admits this record type without changing the v1 stores or
 discarding existing projects, history, or PCM. Archives materialize ordinary PCM
 alongside the editable carrier so the archive retains its audio fallback.
 
+Dense scores use a bounded, versioned text carrier containing note tuples and
+the original interchange events. The project and command graphs count that
+carrier as one value. The MIDI reader separately bounds the encoded size and
+structure, then validates decoded notes and events through the existing model.
+Small inline scores and existing projects retain their original reader. A
+runtime capability keeps documents holding compact scores read-only in older
+builds, including scores held in alternate playlists or session snapshots.
+
 The menu-opened Vamp analyzer can publish explicit duration-bearing note outputs
 through the same MIDI import action. pYIN `notes` carries Hz; Chordino
 `chordnotes` carries MIDI units. `vamp-analysis-midi.ts` validates these semantics

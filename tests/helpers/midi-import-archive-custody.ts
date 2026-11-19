@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import type { TestContext } from 'node:test';
 import { createAudioEditorFileService } from '../../src/common/editor/file-service.js';
 import { createSoundscaperProjectRuntimeSelection } from '../../src/soundscaper/editor-project-runtime-selection.ts';
+import { createSoundscaperPlaybackProjectService } from '../../src/soundscaper/editor-project-playback.ts';
 import { createSoundscaperProjectStore } from '../../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperScapeNativeRuntime } from '../../src/soundscaper/editor-scape-native.ts';
 import { validateSoundscaperProject } from '../../src/soundscaper/editor-project-validation.ts';
@@ -89,6 +90,7 @@ export async function midiImportArchiveCustody(context: TestContext, options: Cu
 		}) } : {}) };
 		const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, store,
 			projectRuntime: runtime, sessionController: runtime.createSessionController(),
+			playbackProjectService: createSoundscaperPlaybackProjectService(),
 			scapeProjectRuntime: createSoundscaperScapeNativeRuntime(),
 			...(options.legacyAuImport || options.audacityProjectAdapter ? { adaptAudacityProject: importSoundscaperAudacityProject } : {}),
 			engine: (options.legacyAuImport ? { ...engine, decodeAudioData: async () => {

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { readMidiClip, readMidiTrack } from '../../../midi-model.ts';
+import { hasCompactMidiScore, readMidiClip, readMidiTrack, serializeMidiClipData } from '../../../midi-model.ts';
 import { createAddSourceCommand } from '../../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../../commands/protocol.ts';
 import type { AudioSourceLeaf } from '../../../project-media-types.ts';
@@ -35,7 +35,7 @@ export async function prepareMidiTransferPublication(
 			Number(source.sampleRate), retainedMidiSourceFrames(source, 1), assertCurrent);
 		retained.push(replacement);
 		commands.push(createAddSourceCommand({ ...replacement }), { type: 'midi/clip-set', clipId: clip.id,
-			data, sourceId: replacement.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });
+			data: serializeMidiClipData(data, hasCompactMidiScore(clip)), sourceId: replacement.id, sourceDurationFrames: Number(clip.sourceDurationFrames) });
 	}
 	return commands;
 }
