@@ -4,6 +4,7 @@ import test from 'node:test';
 import { assertPcmSamplesEqual } from './helpers/assert-pcm-samples.ts';
 import { normalizeNativeContainerAudio, isNativeContainerAudioView } from '../src/common/editor/controller/import/internal/native-container-audio-admission.ts';
 import { nativeMsAdpcmFixture } from './helpers/native-ms-adpcm-fixture.ts';
+import { ffmpegMsAdpcmWavFixture } from './helpers/ffmpeg-ms-adpcm-wav-fixture.ts';
 
 function nativeBuffer(channels: readonly Float32Array[], rate = 48_000): AudioBuffer {
 	const planes = channels.map(channel => channel.slice()), length = planes[0]!.length;
@@ -21,6 +22,17 @@ test('ordinary MS ADPCM retains its authored fact extent instead of the padded f
 	assert.equal(normalized.length, 4800); assert.equal(normalized.duration, .1);
 	assert.equal(isNativeContainerAudioView(normalized), true);
 	for (let channel = 0; channel < 2; channel++) assertPcmSamplesEqual(normalized.getChannelData(channel), channels[channel]!.subarray(0, 4800));
+});
+
+test('MS ADPCM from FFmpeg uses its fact count with the encoder average byte rate', async () => {
+	const { file, channels, frameCount, sampleRate, decodedFrames } = ffmpegMsAdpcmWavFixture();
+	assert.equal(decodedFrames, 7084);
+	const original = nativeBuffer(channels, sampleRate);
+	const normalized = normalizeNativeContainerAudio(original, null, await file.arrayBuffer());
+	assert.equal(normalized.length, frameCount);
+	for (const [channel, pcm] of channels.entries()) {
+		assertPcmSamplesEqual(normalized.getChannelData(channel), pcm.subarray(0, frameCount));
+	}
 });
 
 test('standard MS ADPCM fact authority authenticates complete bytes, block capacity and profile', async () => {
