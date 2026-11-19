@@ -17,6 +17,10 @@ import { framescaperOpenFxInteractEffectStateSha256V1 } from '../src/common/edit
 test('the isolated Interact helper authenticates one zero-port offscreen request', async (context) => {
 	const fixture = await createFixture(context);
 	const invocations: OpenFxHostProcessInvocation[] = [];
+	const project = { schemaFamily: 'framescaper' as const, schemaVersion: 1 as const,
+		id: 'project-v28', revision: 7 };
+	const expectedNativeProject = { id: project.id, revision: project.revision };
+	let nativeProject: object = expectedNativeProject;
 	const runner = createOpenFxHelperJobRunner({
 		descriptor: fixture.descriptor,
 		mode: 'runtime',
@@ -43,13 +47,11 @@ test('the isolated Interact helper authenticates one zero-port offscreen request
 			assert.equal(authority.writeOnly.length, 0);
 			assert.equal(authority.readOnly.length, 1);
 			const nativeGrant = JSON.parse(readFileSync(invocation.arguments[1]!, 'utf8')) as Record<string, unknown>;
-			assert.deepEqual(nativeGrant.project, { schemaFamily: 'framescaper', schemaVersion: 1,
-				id: 'project-v28', revision: 7 });
+			assert.deepEqual(nativeGrant.project, expectedNativeProject);
 			assert.deepEqual(nativeGrant.parameters, effect(fixture.plugin.sha256).parameters);
 			return handle({ exitCode: 0, stderr: '', stdout: JSON.stringify({
 				accepted: true, protocolVersion: 1, width: 64, height: 64, rowBytes: 256,
-				project: { schemaFamily: 'framescaper', schemaVersion: 1,
-					id: 'project-v28', revision: 7 }, instanceId: 'effect-1',
+				project: nativeProject, instanceId: 'effect-1',
 				effectStateSha256: framescaperOpenFxInteractEffectStateSha256V1(effect(fixture.plugin.sha256)),
 				target: 'custom-parameter', parameterName: 'parameter15', acceptedSequences: [4],
 				redrawRequested: true, surfaceDisposition: 'drawn', parameterMutations: [{
@@ -59,7 +61,7 @@ test('the isolated Interact helper authenticates one zero-port offscreen request
 			}) });
 		},
 	});
-	const job = runner.run({
+	const request: Parameters<typeof runner.run>[0] = {
 		kind: 'ofx-host',
 		grant: {
 			executable: executable('ofx-host', fixture.descriptor.runtimeHost),
@@ -67,8 +69,7 @@ test('the isolated Interact helper authenticates one zero-port offscreen request
 			pluginFingerprint: `net.example.Interact@${fixture.plugin.sha256}`,
 			pluginId: 'net.example.Interact',
 			interact: {
-				protocolVersion: 1, project: { schemaFamily: 'framescaper', schemaVersion: 1,
-					id: 'project-v28', revision: 7 },
+				protocolVersion: 1, project,
 				pluginHandle: 'ab'.repeat(20), effect: effect(fixture.plugin.sha256),
 				effectStateSha256: framescaperOpenFxInteractEffectStateSha256V1(
 					effect(fixture.plugin.sha256),
@@ -79,9 +80,10 @@ test('the isolated Interact helper authenticates one zero-port offscreen request
 			scratch: fixture.scratch,
 		},
 		ports: [],
-	});
-	const result = await job.completion as HelperOfxInteractJobResultV1;
+	};
+	const result = await runner.run(request).completion as HelperOfxInteractJobResultV1;
 	assert.equal(result.interact.rgba.byteLength, 16_384);
+	assert.deepEqual(result.interact.project, project);
 	assert.deepEqual(result.interact.acceptedSequences, [4]);
 	assert.equal(result.interact.parameterMutations[0]?.parameter.value, 'updated');
 	assert.equal(invocations.length, 2);
@@ -89,6 +91,10 @@ test('the isolated Interact helper authenticates one zero-port offscreen request
 	await assert.rejects(async () => readFile(join(
 		fixture.scratch.rootPath, fixture.scratch.reservationId, 'interact-v1-grant.json',
 	)), /ENOENT/u);
+	for (const mismatch of [{ ...expectedNativeProject, revision: 8 }, project]) {
+		nativeProject = mismatch;
+		await assert.rejects(runner.run(request).completion, /project identity/iu);
+	}
 });
 
 async function createFixture(context: test.TestContext) {
