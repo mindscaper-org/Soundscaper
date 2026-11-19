@@ -38,8 +38,9 @@ test('desktop Overwrite Original retains the AIFF-C profile and mono programme l
 		const desktop = createAudioEditorFileService({ bridge, fetch: native.fetch });
 		const browser = createAudioEditorFileService({ bridge: null });
 		const fileService = { ...desktop, createDownload: browser.createDownload,
-			prepareSave: (request: Parameters<typeof desktop.prepareSave>[0]) => (request?.target === undefined
-				? browser.prepareSave(request) : desktop.prepareSave(request)) };
+			prepareSave: (request: Parameters<typeof desktop.prepareSave>[0]) => (
+				request && 'target' in request && request.target !== undefined
+					? desktop.prepareSave(request) : browser.prepareSave(request)) };
 		const { createEngine } = createNodeWebAudioEngineFactory(subtest);
 		const { controller } = await controllerSession(subtest, { fileService, engine: createEngine(), engineFactory: createEngine });
 		await controller.actions.project.create({ title: 'Keep original AIFF carrier', sampleRate });
