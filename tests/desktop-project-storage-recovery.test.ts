@@ -12,6 +12,7 @@ import { exactOriginalFileIdentity } from '../desktop/original-file-identity.ts'
 import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
 import { openProjectLibraryDirectoryLock, projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 test('failed association persistence does not poison restoration of committed entries', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-association-recovery-'));
@@ -238,7 +239,7 @@ test('startup registers a private stage before copying a temporary library into 
 	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
 
 	const location = projectLibraryLocationDirectory(selected, 'Soundscaper');
-	const stageObserved = Promise.withResolvers<boolean>();
+	const stageObserved = deferred<boolean>();
 	const watcher = watch(location, (_event, name) => {
 		if (name && /^relocation-[a-f0-9]{32}$/u.test(name)) stageObserved.resolve(true);
 	});

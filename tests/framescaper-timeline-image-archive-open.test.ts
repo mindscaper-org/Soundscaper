@@ -24,7 +24,9 @@ test('File Open restores an archived Framescaper timeline image in a fresh libra
 			await controller.ready;
 			assert.equal(await recipient.store.loadProject(project.id), null);
 			const reopened = await controller.actions.project.openScapeFile(input, () => assert.fail('A fresh library should open without a collision decision.'));
-			assert.equal(reopened?.project.id, project.id);
+			assert.ok(reopened && typeof reopened === 'object' && 'project' in reopened);
+			assert.ok(reopened.project && typeof reopened.project === 'object' && 'id' in reopened.project);
+			assert.equal(reopened.project.id, project.id);
 			assert.deepEqual(controller.project?.clips, project.clips);
 			assert.deepEqual((await recipient.store.loadProject(project.id))?.clips, project.clips);
 			const metadata = await recipient.store.getMediaAssetMetadata(source.storageKey);

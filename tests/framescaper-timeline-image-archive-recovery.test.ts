@@ -27,7 +27,8 @@ test('File Open offers an intact Scape copy when the working timeline image is d
 		try {
 			await controller.ready;
 			const healthy = await controller.actions.project.openScapeFile(input, () => assert.fail('A healthy project should reopen directly.'));
-			assert.equal(healthy?.collision, 'reuse');
+			assert.ok(healthy && typeof healthy === 'object' && 'collision' in healthy);
+			assert.equal(healthy.collision, 'reuse');
 			const { databaseName } = editorProjectStorageProfileNames(FRAMESCAPER_PROJECT_STORAGE_PROFILE);
 			const row = db.records(databaseName, MEDIA_ASSET_CHUNK_STORE_NAME).find(record => record.sourceId === source.storageKey);
 			assert.ok(row && typeof row.key === 'string');
@@ -40,9 +41,11 @@ test('File Open offers an intact Scape copy when the working timeline image is d
 			const offered: string[] = [];
 			const reopened = await controller.actions.project.openScapeFile(input, decision => { offered.push(decision.kind); return 'copy'; });
 			assert.deepEqual(offered, ['collision']);
-			assert.equal(reopened?.collision, 'copy');
+			assert.ok(reopened && typeof reopened === 'object' && 'collision' in reopened && 'project' in reopened);
+			assert.equal(reopened.collision, 'copy');
+			assert.ok(reopened.project && typeof reopened.project === 'object' && 'id' in reopened.project);
 			assert.notEqual(controller.project?.id, project.id);
-			assert.equal(controller.project?.id, reopened?.project.id);
+			assert.equal(controller.project?.id, reopened.project.id);
 			const restored = normalizeFramescaperImageSourceV1(controller.project?.sources[0]);
 			assert.notEqual(restored.storageKey, source.storageKey);
 			const body = await library.store.loadMediaAsset(restored.storageKey);
