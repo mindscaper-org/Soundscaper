@@ -25,6 +25,8 @@ import {
 	assertFramescaperEditorProjectEnvironment,
 	type FramescaperEditorProjectEnvironment,
 } from './editor-project-environment.ts';
+import { framescaperProjectStoreAuthority } from './editor-project-store.ts';
+import { bindFramescaperProxyDetachSession } from './editor-session-video-proxy-detach.ts';
 import { createFramescaperMulticameraActionsSequence } from './editor-project-sequence-multicam-actions.ts';
 import { createFramescaperSequenceActionsSequence } from './editor-project-sequence-sequence-actions.ts';
 import { createFramescaperVideoRetimeActionsRetime } from './editor-project-retime-retime-actions.ts';
@@ -190,6 +192,12 @@ export function createFramescaperAudioEditorController(
 		createAttachExistingScheduler: (candidate) => createFramescaperExistingVideoProxyScheduler(
 			environment, sessionController, selectedProxyComposition, candidate,
 		),
+		...(!environment.desktopProjectLibrary ? {
+			stageDetach: bindFramescaperProxyDetachSession(
+				framescaperProjectStoreAuthority(environment.runtime.profile, environment.store).port,
+				sessionController,
+			),
+		} : {}),
 		createDetachCommand: createFramescaperVideoProxyDetachCommandFinishing,
 		previewTrust: (sourceId, attachment) => {
 			const entry = proxyTrust.get(sourceId);

@@ -28,6 +28,7 @@ import {
 	snapshotFramescaperVideoProxyPressureRetime as snapshotPressure,
 } from './editor-video-proxy-pressure-retime.ts';
 import { createNativeProResProxyPreviewUnavailableError } from './editor-video-proxy-preview-media-retime.ts';
+import type { FramescaperProxyDetachPermit } from './editor-session-video-proxy-detach.ts';
 
 type SchedulerFactory = () => FramescaperCapturedVideoProxyScheduler;
 type ExistingSchedulerFactory = (candidate: Blob) => FramescaperCapturedVideoProxyScheduler;
@@ -75,6 +76,9 @@ export interface FramescaperVideoProxyActionsRetimeOptions {
 }
 
 export interface FramescaperVideoProxyActionsOptions extends FramescaperVideoProxyActionsRetimeOptions {
+	readonly stageDetach?: (
+		projectId: string, sourceId: string, attachment: Readonly<VideoProxyAttachmentV18>,
+	) => FramescaperProxyDetachPermit;
 	readonly createDetachCommand?: (
 		sourceId: string,
 		expectedAttachment: unknown,
@@ -239,16 +243,21 @@ export function createFramescaperVideoProxyActions(
 
 	async function detachPointer(sourceIdValue: string): Promise<void> {
 		const sourceId = identifier(sourceIdValue);
-		const source = videoSource(exactProject(options.owner.project), sourceId);
+		const project = exactProject(options.owner.project);
+		const source = videoSource(project, sourceId);
 		if (source.proxyAttachment === null) return;
 		const expectedAttachment = normalizeVideoProxyAttachmentV18(source.proxyAttachment);
-		await options.owner.actions.edit.commit(options.createDetachCommand
+		const command = options.createDetachCommand
 			? options.createDetachCommand(sourceId, expectedAttachment)
-			: {
-				type: 'framescaper/video-proxy-detach',
-				sourceId,
-				expectedAttachment,
-			});
+			: { type: 'framescaper/video-proxy-detach', sourceId, expectedAttachment };
+		const permit = options.stageDetach?.(identifier(project.id), sourceId, expectedAttachment);
+		try {
+			await options.owner.actions.edit.commit(command);
+			permit?.complete();
+		} catch (error) {
+			permit?.rollback();
+			throw error;
+		}
 		await refresh(sourceId);
 	}
 

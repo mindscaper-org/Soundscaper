@@ -15,6 +15,7 @@ import {
 	reconcileFramescaperProjectFeatureRequirements,
 } from '../src/framescaper/editor-project-feature-requirements.ts';
 import { FramescaperProjectRepository } from '../src/framescaper/editor-project-repository.ts';
+import { bindFramescaperProxyDetachSession } from '../src/framescaper/editor-session-video-proxy-detach.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from
 	'../src/framescaper/editor-project-runtime-profile.ts';
 import {
@@ -84,6 +85,68 @@ test('ordinary metadata save compares against the exact stored revision', async 
 	assert.equal(delegate.compareAndSwaps[0]?.expected.revision, base.revision);
 	assert.equal(delegate.compareAndSwaps[0]?.project.revision, Number(base.revision) + 1);
 	assert.equal(maintained, 1);
+});
+
+test('a fenced Detach and its undo and redo only change the authorized proxy pointer', async () => {
+	const attached = withProxyAttachment(project());
+	const source = attached.sources.find(({ id }) => id === 'video-source')!;
+	assert.equal(source.kind, 'video');
+	const attachment = source.proxyAttachment;
+	assert.ok(attachment);
+	const command = { type: 'framescaper/video-proxy-detach', sourceId: source.id, expectedAttachment: attachment };
+	const detached = applyFramescaperProjectCommand(
+		PROFILE, attached, command, { now: '2026-09-27T10:00:02.000Z' },
+	);
+	const port = {};
+	const delegate = new FakeProjectRepository([attached]);
+	const repository = new FramescaperProjectRepository(PROFILE, delegate, port);
+	type Listener = Parameters<Parameters<typeof bindFramescaperProxyDetachSession>[1]['subscribe']>[0];
+	const listeners = new Set<Listener>();
+	const stage = bindFramescaperProxyDetachSession(port, {
+		subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+	});
+	const detach = (candidate = repository) => candidate.saveIfCurrentAndFenced(attached, detached, 'write-fence');
+	const guard = /ordinary Framescaper save cannot introduce or change a proxy attachment/iu;
+
+	await assert.rejects(detach, guard);
+	const unrelatedSource = stage(attached.id, 'another-source', attachment);
+	const unrelatedProject = stage('another-project', source.id, attachment);
+	await assert.rejects(detach, guard);
+	unrelatedSource.rollback();
+	unrelatedProject.rollback();
+	const abandoned = stage(attached.id, source.id, attachment);
+	abandoned.rollback();
+	await assert.rejects(detach, guard);
+	assert.equal(listeners.size, 0);
+
+	const permit = stage(attached.id, source.id, attachment);
+	const duplicate = stage(attached.id, source.id, attachment);
+	duplicate.rollback();
+	await assert.rejects(detach(new FramescaperProjectRepository(PROFILE, delegate, {})), guard);
+	await assert.rejects(repository.save(detached), guard);
+	await assert.rejects(repository.saveIfCurrent(attached, detached), guard);
+	const replacement = withProxyAttachment(attached, 'b3');
+	await assert.rejects(repository.saveIfCurrentAndFenced(attached, replacement, 'write-fence'), guard);
+	await assert.rejects(repository.saveIfCurrentAndFenced(detached, replacement, 'write-fence'), guard);
+	assert.deepEqual(await detach(), detached);
+	permit.complete();
+
+	const restored = cloneFramescaperProject(PROFILE, {
+		...attached, revision: detached.revision + 1, updatedAt: '2026-09-27T10:00:03.000Z',
+	});
+	const redone = applyFramescaperProjectCommand(
+		PROFILE, restored, command, { now: '2026-09-27T10:00:04.000Z' },
+	);
+	await assert.rejects(repository.saveIfCurrentAndFenced(detached, restored, 'stale-fence'), /stale fence/u);
+	for (const notify of listeners) notify({ tabs: [{ projectId: attached.id }, { projectId: 'another-project' }] });
+	assert.deepEqual(await repository.saveIfCurrentAndFenced(detached, restored, 'write-fence'), restored);
+	assert.deepEqual(await repository.saveIfCurrentAndFenced(restored, redone, 'write-fence'), redone);
+	for (const notify of listeners) notify({ tabs: [{ projectId: 'another-project' }] });
+	assert.equal(listeners.size, 0);
+	const staleRestore = cloneFramescaperProject(PROFILE, {
+		...restored, revision: redone.revision + 1, updatedAt: '2026-09-27T10:00:05.000Z',
+	});
+	await assert.rejects(repository.saveIfCurrentAndFenced(redone, staleRestore, 'write-fence'), guard);
 });
 
 test('read and restore custody preserves foreign and future records without conversion', async () => {
@@ -194,11 +257,12 @@ class FakeProjectRepository implements ProjectRepositoryPort {
 	}
 
 	saveIfCurrentAndFenced(
-		_expected: ProjectDocument,
+		expected: ProjectDocument,
 		project: ProjectDocument,
-		_writeFence: string,
+		writeFence: string,
 	): Promise<ProjectDocument | null> {
-		return Promise.resolve(project);
+		if (writeFence !== 'write-fence') return Promise.reject(new Error('stale fence'));
+		return this.saveIfCurrent(expected, project);
 	}
 
 	load(projectId: string, _options?: ProjectLoadOptions): Promise<ProjectDocument | null> {
@@ -242,12 +306,12 @@ function project(id = 'framescaper-baseline'): FramescaperProject {
 	} as never);
 }
 
-function withProxyAttachment(base: FramescaperProject): FramescaperProject {
+function withProxyAttachment(base: FramescaperProject, proxyByte = '34'): FramescaperProject {
 	const draft = structuredClone(base) as unknown as Record<string, unknown>;
 	const source = (draft.sources as Array<Record<string, unknown>>)
 		.find(({ id }) => id === 'video-source');
 	if (!source) throw new Error('The repository contract fixture requires a video source.');
-	const proxySha256 = '34'.repeat(32);
+	const proxySha256 = proxyByte.repeat(32);
 	const timingSha256 = '56'.repeat(32);
 	source.proxyAttachment = {
 		kind: 'video-proxy-attachment',
