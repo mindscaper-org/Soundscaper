@@ -123,6 +123,18 @@ test('capture reuses the current frame interval and seeks adjacent millisecond f
 	} finally { fixture.extractor.dispose(); }
 });
 
+test('the initial poster seeks inside the first admitted source frame', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.004,
+		timing: { timescale: 1_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		const poster = await fixture.extractor.capture(0, { maximumWidth: 64, maximumHeight: 36 });
+		assert.equal(poster.timestampSeconds, 0);
+		assert.deepEqual(fixture.seeks, [0.0005]);
+	} finally { fixture.extractor.dispose(); }
+});
+
 test('video preview capture fences cancellation before seek and after encoding', async () => {
 	const preAborted = await videoExtractorFixture();
 	const earlyController = new AbortController();

@@ -5,6 +5,10 @@ import type { VideoTimingProbeResult } from './video-timing-probe.ts';
 
 type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTicks' | 'finalFrameDurationTicks'>;
 type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
+interface VideoFrameCaptureTiming {
+	readonly matches: FrameMatcher;
+	readonly firstFrameEndSeconds: number | null;
+}
 interface CaptureTimingOptions {
 	readonly signal?: AbortSignal;
 	readonly timing?: CaptureTiming;
@@ -13,10 +17,10 @@ interface CaptureTimingOptions {
 const ROUNDING_SECONDS = 0.000001;
 
 /** Match compositor PTS to the container frame owning an interior capture seek. */
-export async function createVideoFrameCaptureTimingMatcher(
+export async function createVideoFrameCaptureTiming(
 	file: Blob,
 	options: CaptureTimingOptions = {},
-): Promise<FrameMatcher> {
+): Promise<Readonly<VideoFrameCaptureTiming>> {
 	options.signal?.throwIfAborted();
 	let timing: CaptureTiming;
 	try {
@@ -25,12 +29,12 @@ export async function createVideoFrameCaptureTimingMatcher(
 	} catch {
 		options.signal?.throwIfAborted();
 		// A native decoder may support a container the timing reader does not.
-		return exactTimestamp;
+		return Object.freeze({ matches: exactTimestamp, firstFrameEndSeconds: null });
 	}
 	options.signal?.throwIfAborted();
 	const starts = timing.presentationTicks.map(ticks => Number(ticks) / timing.timescale);
 	const end = Number(timing.presentationTicks.at(-1)! + timing.finalFrameDurationTicks) / timing.timescale;
-	return (timestamp, mediaTime) => {
+	const matches: FrameMatcher = (timestamp, mediaTime) => {
 		if (!Number.isFinite(timestamp) || !Number.isFinite(mediaTime)) return false;
 		if (!starts.length || timestamp < starts[0]! || timestamp >= end) return exactTimestamp(timestamp, mediaTime);
 		let low = 0, high = starts.length;
@@ -43,6 +47,7 @@ export async function createVideoFrameCaptureTimingMatcher(
 		return mediaTime >= starts[low]! - ROUNDING_SECONDS
 			&& mediaTime < (starts[low + 1] ?? end);
 	};
+	return Object.freeze({ matches, firstFrameEndSeconds: starts[0] === 0 ? starts[1] ?? end : null });
 }
 
 function exactTimestamp(timestamp: number, mediaTime: number): boolean {

@@ -58,7 +58,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		});
 	const objectUrl = selectedRange?.url || urlApi.createObjectURL(decoderFile);
 	let disposed = false;
-	let durationSeconds, width, height, matchesCaptureFrame;
+	let durationSeconds, width, height, captureTiming;
 	const captureLifetime = new AbortController();
 	try {
 		throwIfCaptureAborted(options.signal);
@@ -78,8 +78,8 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 			: nonNegativeFinite(video.duration, 'Video duration');
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
-		matchesCaptureFrame = await (await import('./video-frame-capture-timing.ts'))
-			.createVideoFrameCaptureTimingMatcher(file, { signal: options.signal, timing: options.timing });
+		captureTiming = await (await import('./video-frame-capture-timing.ts'))
+			.createVideoFrameCaptureTiming(file, { signal: options.signal, timing: options.timing });
 	} catch (error) {
 		releaseVideoFrameCaptureElement(video, () => {
 			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
@@ -168,15 +168,17 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		// frame. Seeking to a nearby time forces the browser to populate the
 		// video frame before canvas capture, including for the timestamp-zero
 		// poster.
+		const { matches, firstFrameEndSeconds } = captureTiming;
 		const seekTimestamp = timestamp === 0 && !hasPresentedFrame
-			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
+			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001),
+				firstFrameEndSeconds === null ? Infinity : firstFrameEndSeconds / 2)
 			: timestamp;
 		const currentTime = Number(video.currentTime);
-		if (hasPresentedFrame ? !matchesCaptureFrame(seekTimestamp, currentTime) : currentTime !== seekTimestamp) {
+		if (hasPresentedFrame ? !matches(seekTimestamp, currentTime) : currentTime !== seekTimestamp) {
 			await seekVideoFrameForCapture(video, seekTimestamp, {
 				signal,
 				timeoutMs,
-				isRequestedFrame: mediaTime => matchesCaptureFrame(seekTimestamp, mediaTime),
+				isRequestedFrame: mediaTime => matches(seekTimestamp, mediaTime),
 			});
 		}
 		throwIfCaptureAborted(signal);

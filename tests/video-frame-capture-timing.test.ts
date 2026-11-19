@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createVideoFrameCaptureTimingMatcher } from '../src/common/editor/video-frame-capture-timing.ts';
+import { createVideoFrameCaptureTiming } from '../src/common/editor/video-frame-capture-timing.ts';
 
 const file = new Blob(['native video']);
 const readTiming = () => Promise.resolve({
@@ -10,7 +10,7 @@ const readTiming = () => Promise.resolve({
 });
 
 test('capture reuses admitted import timing without scanning the container again', async () => {
-	const matches = await createVideoFrameCaptureTimingMatcher(file, {
+	const { matches } = await createVideoFrameCaptureTiming(file, {
 		timing: await readTiming(), readTiming: () => { throw new Error('Duplicate timing scan.'); },
 	});
 	assert.equal(matches(.1, .067), true);
@@ -18,7 +18,8 @@ test('capture reuses admitted import timing without scanning the container again
 });
 
 test('capture matches frame PTS and interior times across variable source intervals', async () => {
-	const matches = await createVideoFrameCaptureTimingMatcher(file, { readTiming });
+	const { matches, firstFrameEndSeconds } = await createVideoFrameCaptureTiming(file, { readTiming });
+	assert.equal(firstFrameEndSeconds, .067);
 	assert.equal(matches(.0335, 0), true);
 	assert.equal(matches(.0335, .0335), true);
 	assert.equal(matches(.0335, .067), false);
@@ -33,13 +34,14 @@ test('capture matches frame PTS and interior times across variable source interv
 });
 
 test('unknown containers retain exact-time matching and cancellation is never swallowed', async () => {
-	const matches = await createVideoFrameCaptureTimingMatcher(file, {
+	const { matches, firstFrameEndSeconds } = await createVideoFrameCaptureTiming(file, {
 		readTiming: () => Promise.reject(new Error('Unsupported timing.')),
 	});
+	assert.equal(firstFrameEndSeconds, null);
 	assert.equal(matches(.1, .1), true);
 	assert.equal(matches(.1, 0), false);
 	const controller = new AbortController();
-	await assert.rejects(createVideoFrameCaptureTimingMatcher(file, { signal: controller.signal,
+	await assert.rejects(createVideoFrameCaptureTiming(file, { signal: controller.signal,
 		readTiming: () => { controller.abort(); return Promise.reject(controller.signal.reason); },
 	}), { name: 'AbortError' });
 });
