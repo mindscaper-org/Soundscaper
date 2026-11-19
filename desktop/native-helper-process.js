@@ -241,11 +241,12 @@ function describeBackendInventory(addon, backend) {
 		// name that would never reopen it.
 		if (handle === '' || wireTextBytes(handle) > NATIVE_AUDIO_INVENTORY_BOUNDS.textBytes) continue;
 		const label = typeof device.label === 'string' && device.label !== '' ? device.label : handle;
+		const isDefault = backend === 'alsa' && handle === 'default' ? true : device.isDefault;
 		const described = {
 			handle,
 			label: clampWireText(label, NATIVE_AUDIO_INVENTORY_BOUNDS.textBytes),
 			direction: device.direction,
-			...(typeof device.isDefault === 'boolean' ? { isDefault: device.isDefault } : {}),
+			...(typeof isDefault === 'boolean' ? { isDefault } : {}),
 		};
 		devices.push(Number.isSafeInteger(device.channelCount) && device.channelCount > 0
 			? { ...described, channelCount: device.channelCount }

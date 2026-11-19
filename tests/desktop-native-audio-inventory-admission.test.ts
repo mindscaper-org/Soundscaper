@@ -61,6 +61,22 @@ test('backend defaults and directional channel counts survive inventory admissio
 	assert.deepEqual(validateHelperAudioDeviceInventoryResult(answer).devices, devices);
 });
 
+test('ALSA publishes its configured default PCM in both directions', async () => {
+	const devices = [
+		{ handle: 'auxiliary', label: 'Auxiliary monitor', direction: 'duplex' },
+		{ handle: 'default', label: 'Configured recording and playback device', direction: 'duplex' },
+	];
+	const runner = createNativeDeviceJobRunner({
+		addonPath: '/unused', addonSha256: 'f'.repeat(64), hash: () => createHash('sha256'),
+		loadAddon: async () => ({ enumerateAudioBackends: () => [{ backend: 'alsa', status: 'ok', detail: '', devices }] }),
+	});
+	const answer = validateHelperAudioDeviceInventoryResult(await runner({
+		grant: { backend: 'alsa', direction: 'duplex', mode: 'shared', deviceHandle: NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE },
+		onProgress: () => {},
+	}).completion);
+	assert.deepEqual(answer.devices, [devices[0], { ...devices[1], isDefault: true }]);
+});
+
 test('an inventory result that contradicts itself or repeats a handle in the same direction is refused', () => {
 	assert.throws(() => validateHelperAudioDeviceInventoryResult({
 		backend: 'alsa',
