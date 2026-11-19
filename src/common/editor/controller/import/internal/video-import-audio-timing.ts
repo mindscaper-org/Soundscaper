@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { throwIfAborted } from '../../../video-timing-demux-reader.ts';
+import { isQuickTimeS16Pcm } from '../../../browser-container-audio-decode.ts';
 import { secondsToSampleFrame } from '../../../timeline-time.ts';
 import type { ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
 
@@ -47,16 +48,20 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 		// (for example negative AAC priming); those must not be removed twice.
 		const offsetSeconds = Math.max(0, audioStart) - Math.max(0, videoStart);
 		let programmeEndSeconds: number | null = null;
+		let preferTimestampedPcm = false;
 		if (includeProgrammeEnd) {
 			try {
 				const format = await input.getFormat();
+				const codec = await audio.getCodec();
 				// Matroska's last-packet timestamp can exclude packet duration or
 				// include codec padding, so it cannot establish this source extent.
-				if ((format === MP4 || format === QTFF) && await audio.getCodec() === 'aac'
+				if ((format === MP4 || format === QTFF) && codec === 'aac'
 					&& await audio.getCodecParameterString() === 'mp4a.40.2') {
 					const end = await audio.computeDuration();
 					if (Number.isFinite(end) && end >= audioStart) programmeEndSeconds = Math.max(0, end - Math.max(0, videoStart));
 				}
+				preferTimestampedPcm = format === QTFF && isQuickTimeS16Pcm(codec) && audioTrackCount === 1
+					&& (await input.getVideoTracks()).length === 1 && await audio.getNumberOfChannels() <= 2;
 			} catch { throwIfAborted(signal); }
 		}
 		let nativeTimingShared = audioTrackCount <= 1;
@@ -77,7 +82,7 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 		}
 		throwIfAborted(signal);
 		const config = await audio.getDecoderConfig();
-		const packetDecodePreferred = config !== null
+		const packetDecodePreferred = preferTimestampedPcm || config !== null
 			&& (await import('../../../browser-container-opus-decoder.ts')).hasReviewedContainerOpusPreSkip(config);
 		throwIfAborted(signal);
 		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared,

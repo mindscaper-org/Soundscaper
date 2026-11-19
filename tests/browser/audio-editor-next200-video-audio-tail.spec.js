@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
+import { nativeVideoAudioTailFixture, quickTimePcmTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
+import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, collectClientErrors, disableNativeSavePicker, importFiles, chooseExportProjectFileAction, downloadBytes, chooseNestedCommandAction, chooseCommandAction, openClipProperties, showClipTimingFields, clipField, closeClipProperties, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
+import { bootEditor, collectClientErrors, disableNativeSavePicker, importFiles, chooseExportProjectFileAction, chooseFileAction, downloadBytes, chooseNestedCommandAction, chooseCommandAction, chooseDropdown, openClipProperties, showClipTimingFields, clipField, closeClipProperties, openExportDialog, readDownloadBytes, waitForEditor, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
 
 for (const picture of [1, 2]) test(`video import retains its longer audio programme: ${picture}s picture, 2s audio`, async ({ page }, testInfo) => {
@@ -44,4 +45,62 @@ for (const picture of [1, 2]) test(`video import retains its longer audio progra
 	await waitForEditor(page); await waitForProjectActivation(editor); await expect(editor).toHaveAttribute('data-clip-count', '2');
 	expect((await exportSamples(page, editor)).length).toBe(96_000);
 	expect(errors).toEqual([]);
+});
+
+test('a saved QuickTime PCM tail remains editable after reopening the Framescaper archive', async ({ page, browser, browserName }) => {
+	test.skip(browserName !== 'chromium', 'The QuickTime picture fixture follows its Chromium import qualification.');
+	test.setTimeout(75_000);
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const original = quickTimePcmTailFixture();
+	await editor.locator('[data-project-bin-input]').setInputFiles({
+		name: 'Camera.mov', mimeType: 'video/quicktime', buffer: original,
+	});
+	await editor.locator('[data-project-bin-item]').first().getByRole('button', { name: /Add to timeline:/u }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+
+	const saving = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const archive = Buffer.from(await downloadBytes(await saving));
+	const entries = unzipSync(archive);
+	const project = JSON.parse(strFromU8(entries['project.json']));
+	const picture = project.sources.find(source => source.kind === 'video');
+	const audio = project.sources.find(source => source.kind === 'audio');
+	const linked = project.clips.find(clip => clip.kind === 'audio');
+	expect(picture.sourceFrameCount).toBe(20);
+	expect(Buffer.from(entries[`media/${picture.id}/original`])).toEqual(original);
+	expect(audio.frameCount).toBe(57_600);
+	expect(linked.durationFrames).toBe(38_400);
+	expect(linked.avLinkId).toBeTruthy();
+
+	const fresh = await browser.newPage();
+	try {
+		await disableNativeSavePicker(fresh);
+		const reopened = await bootEditor(fresh, '/framescaper/embed/en/');
+		const choosing = fresh.waitForEvent('filechooser');
+		await chooseFileAction(fresh, reopened, 'Open');
+		await (await choosing).setFiles({ name: 'Camera.fscape', mimeType: 'application/zip', buffer: archive });
+		await expect(reopened).toHaveAttribute('data-clip-count', '2');
+		await waitForProjectActivation(reopened);
+		const clip = reopened.getByRole('group', { name: /^Camera Audio clip,/u });
+		await clip.press('Enter');
+		await chooseNestedCommandAction(fresh, reopened, 'Edit', ['Audio clips', 'Unlink audio']);
+		const properties = await openClipProperties(fresh, reopened, clip);
+		await showClipTimingFields(properties);
+		const duration = clipField(properties, 'durationFrame');
+		await duration.fill('57600');
+		await duration.press('Tab');
+		await closeClipProperties(properties);
+		const delivery = await openExportDialog(fresh, reopened, { label: 'Export video' });
+		await chooseDropdown(fresh, delivery.locator('[data-export-field="format"]'), 'WAV');
+		await delivery.getByRole('button', { name: 'Export', exact: true }).click();
+		const { sampleRate, channels: [rendered] } = readWavePcm(
+			await readDownloadBytes(fresh, delivery.locator('[data-export-download]')),
+		);
+		expect(sampleRate).toBe(48_000);
+		expect(rendered).toHaveLength(57_600);
+		const tail = rendered.slice(48_000, 55_000);
+		expect(Math.sqrt(tail.reduce((sum, sample) => sum + sample ** 2, 0) / tail.length)).toBeGreaterThan(.15);
+	} finally { await fresh.close(); }
 });

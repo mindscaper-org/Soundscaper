@@ -44,7 +44,7 @@ export interface BrowserContainerAudioDecodeOptions {
 	readonly durationSeconds: number;
 	readonly maximumOutputBytes?: number;
 	/** Preserve the reviewed programme only when its source and project-rate PCM both fit. */
-	readonly matroskaOpusProgrammeSampleRate?: number;
+	readonly programmeSampleRate?: number;
 	readonly openSession?: (
 		blob: Blob,
 		signal?: AbortSignal,
@@ -69,7 +69,7 @@ export async function decodeBrowserContainerAudio(
 	throwIfAborted(options.signal);
 	const session = options.openSession
 		? await options.openSession(blob, options.signal)
-		: await openMediabunnySession(blob, options.signal, options.matroskaOpusProgrammeSampleRate !== undefined);
+		: await openMediabunnySession(blob, options.signal, options.programmeSampleRate !== undefined);
 	const onAbort = (): void => session.dispose();
 	options.signal?.addEventListener('abort', onAbort, { once: true });
 	try {
@@ -81,7 +81,7 @@ export async function decodeBrowserContainerAudio(
 		const durationSeconds = positiveDuration(options.durationSeconds);
 		const pictureFrameCount = Math.ceil(durationSeconds * session.sampleRate);
 		const programmeCapacity = Math.ceil((session.programmeCapacitySeconds ?? 0) * session.sampleRate);
-		const projectRate = options.matroskaOpusProgrammeSampleRate;
+		const projectRate = options.programmeSampleRate;
 		const retainProgramme = projectRate !== undefined
 			&& Number.isSafeInteger(programmeCapacity) && programmeCapacity > pictureFrameCount
 			&& Math.ceil(programmeCapacity * Math.max(projectRate, session.sampleRate) / session.sampleRate)
@@ -199,7 +199,7 @@ function validateSample(sample: BrowserContainerAudioSample, sampleRate: number,
 async function openMediabunnySession(
 	blob: Blob,
 	signal?: AbortSignal,
-	retainMatroskaOpusProgramme?: boolean,
+	retainProgramme?: boolean,
 ): Promise<BrowserContainerAudioDecodeSession> {
 	throwIfAborted(signal);
 	const { AudioSampleSink, BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
@@ -214,9 +214,9 @@ async function openMediabunnySession(
 		]);
 		throwIfAborted(signal);
 		const codec = await track?.getCodec();
+		const format = codec === 'opus' || retainProgramme ? await input.getFormat() : null;
 		let reviewedMatroskaOpus = false;
 		if (track && codec === 'opus') {
-			const format = await input.getFormat();
 			const reviewed = await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
 				source: blob, opusTimestampsIncludePreSkip: format === MP4 || format === QTFF,
 			});
@@ -234,13 +234,24 @@ async function openMediabunnySession(
 		const endPaddingFrames = sampleRate === 48_000 && codec === 'opus'
 			? await (await import('./matroska-opus-end-padding.ts')).readMatroskaOpusEndPadding(blob, track.id, signal) : 0;
 		let programmeCapacitySeconds: number | undefined;
-		if (retainMatroskaOpusProgramme && reviewedMatroskaOpus) {
+		if (retainProgramme && reviewedMatroskaOpus) {
 			try {
 				const [end, resolution] = await Promise.all([track.computeDuration(), track.getTimeResolution()]);
 				// A final Matroska packet can declare duration zero. Use the estimate
 				// only to reserve space, with room for the last packet and timestamp rounding.
 				if (Number.isFinite(end) && Number.isFinite(resolution) && resolution > 0) {
 					programmeCapacitySeconds = Math.max(0, end - timelineOrigin) + MAXIMUM_OPUS_PACKET_SECONDS + 1 / resolution;
+				}
+			} catch { throwIfAborted(signal); }
+		} else if (retainProgramme && format === QTFF && isQuickTimeS16Pcm(codec) && channelCount <= 2) {
+			try {
+				const { readIsoAudioPresentationEnd } = await import('./iso-audio-presentation-edit.ts');
+				const [audioTracks, videoTracks, end, editEnd] = await Promise.all([
+					input.getAudioTracks(), input.getVideoTracks(), track.computeDuration(),
+					readIsoAudioPresentationEnd(blob, track.id, signal),
+				]);
+				if (audioTracks.length === 1 && videoTracks.length === 1 && Number.isFinite(end)) {
+					programmeCapacitySeconds = Math.max(0, Math.min(end, editEnd ?? end) - timelineOrigin);
 				}
 			} catch { throwIfAborted(signal); }
 		}
@@ -258,6 +269,10 @@ async function openMediabunnySession(
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 	}
+}
+
+export function isQuickTimeS16Pcm(codec: unknown): boolean {
+	return codec === 'pcm-s16' || codec === 'pcm-s16be';
 }
 
 function validateSession(session: BrowserContainerAudioDecodeSession): void {

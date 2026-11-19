@@ -140,7 +140,7 @@ export async function decodeImportedVideoAudio(
 			try {
 				const decodedAudio = await (options.decodeContainerAudio ?? decodeBrowserContainerAudio)(options.file, {
 					signal: options.signal, durationSeconds,
-					...(packetDecodePreferred ? { matroskaOpusProgrammeSampleRate: options.projectSampleRate } : {}),
+					...(packetDecodePreferred ? { programmeSampleRate: options.projectSampleRate } : {}),
 				});
 				throwIfAborted(options.signal);
 				assertDecodedVideoAudioWorkload(decodedAudio, budgetDurationSeconds, options.projectSampleRate);

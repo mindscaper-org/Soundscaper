@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { decodeImportedVideoAudio } from '../src/common/editor/controller/import/internal/video-import-audio-decode.ts';
 import { videoRetimePreviewMedia } from './browser/fixtures/video-retime-preview-media.js';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
+import { quickTimePcmTailFixture, quickTimePcmTailS16Sha256 } from './helpers/native-video-audio-tail-fixture.ts';
 
 function fixture(hasAudio?: boolean) {
 	const calls: string[] = [];
@@ -24,6 +26,24 @@ test('a confirmed silent video bypasses every audio decoder', async () => {
 	const result = await decodeImportedVideoAudio(options);
 	assert.deepEqual(calls, []);
 	assert.deepEqual(result, { decodedAudio: { channels: [], sampleRate: 44100 }, declaredAudioSampleRate: null });
+});
+
+test('a QuickTime signed-16 PCM programme retains its full decoded audio beyond picture', async () => {
+	const file = new File([quickTimePcmTailFixture()], 'Camera.mov', { type: 'video/quicktime' });
+	const { decodedAudio, programmeFrameCount } = await decodeImportedVideoAudio({
+		file, projectSampleRate: 48_000, durationSeconds: .8, hasAudio: true,
+		inspectEncodedSampleRate: () => 48_000,
+		decodeNative: async () => { throw new Error('Use the timestamped container decoder.'); },
+		decodeFfmpeg: async () => { throw new Error('The PCM fixture does not require a codec fallback.'); },
+	});
+	assert.equal(programmeFrameCount, 57_600);
+	assert.equal(decodedAudio.sampleRate, 48_000);
+	assert.equal(decodedAudio.channels?.length, 1);
+	const plane = decodedAudio.channels[0]!;
+	assert.equal(plane.length, 57_600);
+	const signed = Buffer.alloc(plane.length * 2);
+	for (const [frame, value] of plane.entries()) signed.writeInt16LE(Math.round(value * 32768), frame * 2);
+	assert.equal(createHash('sha256').update(signed).digest('hex'), quickTimePcmTailS16Sha256);
 });
 
 for (const hasAudio of [true, undefined]) {

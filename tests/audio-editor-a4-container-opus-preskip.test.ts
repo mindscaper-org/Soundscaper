@@ -34,7 +34,7 @@ test('bounded extraction retains reviewed Opus beyond the picture and removes it
 	globalThis.fetch = async (url) => { assert.ok(url instanceof URL); return new Response(Uint8Array.from(await readFile(url))); };
 	try {
 		const file = opusPaddingAvFixture();
-		const decoded = await decodeBrowserContainerAudio(file, { durationSeconds: .04, matroskaOpusProgrammeSampleRate: 48_000 });
+		const decoded = await decodeBrowserContainerAudio(file, { durationSeconds: .04, programmeSampleRate: 48_000 });
 		assert.equal(decoded.frameCount, 4464);
 		assert.equal(decoded.programmeFrameCount, 4464);
 		const pcm = decoded.channels[0]!;
@@ -43,7 +43,7 @@ test('bounded extraction retains reviewed Opus beyond the picture and removes it
 		assert.ok(pcm.subarray(3200).some(value => Math.abs(value) > .1));
 
 		const picture = await decodeBrowserContainerAudio(file, {
-			durationSeconds: .04, maximumOutputBytes: 48_000, matroskaOpusProgrammeSampleRate: 96_000,
+			durationSeconds: .04, maximumOutputBytes: 48_000, programmeSampleRate: 96_000,
 		});
 		assert.equal(picture.programmeFrameCount, undefined);
 		assert.deepEqual(picture.channels[0], pcm.slice(0, 1920));

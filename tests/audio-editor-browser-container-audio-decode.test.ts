@@ -119,7 +119,7 @@ test('a decoder error after the complete picture window keeps the usable PCM pre
 	const prefix = sample(0, [[1, 2, 3, 4]]);
 	let disposed = false;
 	const decoded = await decodeBrowserContainerAudio(new Blob(['webm']), {
-		durationSeconds: .5, matroskaOpusProgrammeSampleRate: 4,
+		durationSeconds: .5, programmeSampleRate: 4,
 		openSession: async () => ({
 			timelineOrigin: 0, sampleRate: 4, channelCount: 1, programmeCapacitySeconds: 2,
 			async *samples() { yield prefix; throw new Error('Damaged tail packet'); },

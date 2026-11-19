@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { inflateSync } from 'node:zlib';
+import { gunzipSync, inflateSync } from 'node:zlib';
 
 // Untouched pinned @ffmpeg/core FFmpeg5.1.4 output: RGB24 blue64x32 at25fps for1s/2s,
 // libx264 ultrafast/baseline/yuv420p plus lavfi sine1000Hz/48k/2s, AAC128k, MP4 faststart.
@@ -349,4 +349,42 @@ export function nativeVideoAudioTailFixture(pictureSeconds: 1 | 2): Buffer {
 	const bytes = inflateSync(Buffer.from(ENCODED[pictureSeconds], 'base64'), { dictionary });
 	assert.equal(createHash('sha256').update(bytes).digest('hex'), SHA256[pictureSeconds]);
 	return bytes;
+}
+
+// FFmpeg 6.1.1, H.264 64x48 at 25 fps for 0.8s and 1.2s mono PCM S16LE at 48 kHz.
+// Audio is silent through the picture and has a 1 kHz tone in the final 0.4s.
+export const quickTimePcmTailS16Sha256 = 'ca80e0cb7890d0eb0523abb9251a3e56b1cc222821f6f742fc5777308a5ffc93';
+
+export function quickTimePcmTailFixture(): Buffer<ArrayBuffer> {
+	const compressed = [
+		'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',
+	].join('');
+	const body = gunzipSync(Buffer.from(compressed, 'base64'));
+	assert.equal(createHash('sha256').update(body).digest('hex'), 'e470e00cac20f9031a32633597c5119ca793746d63a8aaf95b9c8a0c40a94eac');
+	return body;
 }
