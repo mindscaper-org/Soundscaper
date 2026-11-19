@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { soundscaperProfessionalNativeSourceIdsForTarget } from './lib/soundscaper-professional-native-build-result-contract.mjs';
 import { resolve } from 'node:path';
 
 import {
@@ -17,10 +18,7 @@ const repositoryRoot = resolve(argumentsByName.root || process.cwd());
 const sourcesRoot = resolve(argumentsByName.sources || 'native-sources');
 const target = argumentsByName.target || `${process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'win' : 'linux'}-${process.arch}`;
 const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
-const sourceIds = [
-	'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
-	'asio-sdk', 'ladspa-sdk', 'lv2',
-];
+const sourceIds = soundscaperProfessionalNativeSourceIdsForTarget(target);
 const snapshotRoot = createSoundscaperProfessionalNativeSnapshotRoot(
 	argumentsByName.snapshots || `.native-build/soundscaper-${target}-source-snapshots`,
 );

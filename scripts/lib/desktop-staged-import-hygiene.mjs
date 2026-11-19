@@ -34,7 +34,7 @@ function isPackagedRuntimeSpecifier(specifier) {
 }
 
 /** Refuses a staged tree whose own members import something staging never produced. */
-export async function assertStagedDesktopImportsResolve(applicationRoot) {
+export async function assertStagedDesktopImportsResolve(applicationRoot, runtimePackageImports = {}) {
 	const root = resolve(applicationRoot);
 	const staged = await listStagedFiles(root);
 	const present = new Set(staged);
@@ -47,6 +47,12 @@ export async function assertStagedDesktopImportsResolve(applicationRoot) {
 				throw new Error(
 					`Staged desktop source ${name} retained unpackaged dependency ${specifier}`,
 				);
+			}
+			if (specifier.startsWith('#desktop-runtime/')) {
+				const target = runtimePackageImports[specifier];
+				if (!target?.startsWith('./desktop/') || !present.has(target.slice('./desktop/'.length))) {
+					throw new Error(`Staged desktop source ${name} imports ${specifier}, which desktop staging never produced`);
+				}
 			}
 			if (!specifier.startsWith('.')) continue;
 			// Bundler-only specifiers carry a `?worker&url`-style query the file

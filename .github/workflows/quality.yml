@@ -776,6 +776,8 @@ jobs:
     env:
       SCAPE_MODULE_PLAN: .wrangler/module-plan.json
       SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
+      SCAPE_FIREFOX_HEADED: '1'
+      LIBGL_ALWAYS_SOFTWARE: '1'
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -817,15 +819,15 @@ jobs:
         with:
           scope: ubuntu-24.04
 
-      - name: Install PulseAudio
+      - name: Install PulseAudio and the Firefox WebGL display
         timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh pulseaudio pulseaudio-utils
+        run: bash scripts/ci-apt-install.sh pulseaudio pulseaudio-utils xvfb xauth libgl1-mesa-dri libglx-mesa0
 
       - name: Configure the Firefox PulseAudio null sink and source
         run: bash scripts/ci-firefox-pulseaudio.sh
 
-      - name: Require a live Firefox AudioContext clock
-        run: node scripts/ci-firefox-audio-clock.mjs
+      - name: Require a live Firefox AudioContext clock and WebGL2
+        run: xvfb-run --auto-servernum node scripts/ci-firefox-audio-clock.mjs
 
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
@@ -880,7 +882,7 @@ jobs:
 
       - name: Run Firefox workflows against the existing build
         timeout-minutes: 240
-        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/3 --workers=2
+        run: xvfb-run --auto-servernum npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/3 --workers=2
 
       - name: Upload Firefox diagnostics
         if: always()

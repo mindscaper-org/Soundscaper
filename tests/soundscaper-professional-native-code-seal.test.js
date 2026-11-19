@@ -31,6 +31,7 @@ test('mac ad-hoc sealing covers runtime dependencies before every consumer and v
 		assert.match(artifact.signingPath, /\.vst3$/u);
 	}
 	assert.deepEqual(plan.artifacts.map(({ candidatePath }) => candidatePath), [
+		'payload/runtime/effects/OrbitAmp.vst3/Contents/MacOS/OrbitAmp',
 		'payload/runtime/effects/soundscaper_juce_effects.clap',
 		'payload/runtime/instruments/Dexed.vst3/Contents/MacOS/Dexed',
 		'payload/runtime/instruments/Surge XT.vst3/Contents/MacOS/Surge XT',
@@ -171,6 +172,7 @@ async function codeSealFixture(context) {
 		join(osAudioCodecInstallRoot, 'soundscaper_os_audio_codec.node'),
 		join(professionalInstallRoot, 'soundscaper_professional_peer'),
 		join(professionalInstallRoot, 'soundscaper_delivery_fs'),
+		join(professionalInstallRoot, 'runtime/effects/OrbitAmp.vst3/Contents/MacOS/OrbitAmp'),
 		join(professionalInstallRoot, 'runtime/effects/soundscaper_juce_effects.clap'),
 		join(professionalInstallRoot, 'runtime/instruments/Dexed.vst3/Contents/MacOS/Dexed'),
 		join(professionalInstallRoot, 'runtime/instruments/Surge XT.vst3/Contents/MacOS/Surge XT'),

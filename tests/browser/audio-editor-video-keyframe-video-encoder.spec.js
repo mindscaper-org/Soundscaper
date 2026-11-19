@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer';
 import { avc64SrgbColors, observeAvc64Colors } from './helpers/video-file-color.ts';
 import { test } from './audio-editor-test-fixtures.js';
 import { readFile } from 'node:fs/promises';
-import { transpileSourceModuleRoutes } from './helpers/source-module-routes.ts';
+import { bundleSourceModuleRoutes } from './helpers/source-module-routes.ts';
 test.use({ browserCoverage: false });
 const ROOT = '/__video-keyframe-video-encoder__';
 const ENTRY_MODULES = [
@@ -15,7 +15,6 @@ const ENTRY_MODULES = [
 	'video-keyframe-video-encoder.ts',
 	'video-delivery-encoder-tier.ts',
 ];
-const NOBLE_HASH_FILES = ['sha2.js', '_md.js', '_u64.js', 'utils.js'];
 
 test('encodes and muxes a complete MP4 without FFmpeg, a lease, or shared memory', async ({
 	browserName,
@@ -33,12 +32,12 @@ test('encodes and muxes a complete MP4 without FFmpeg, a lease, or shared memory
 		}
 		const [projection, frameSourceModule, rendererModule, encoderModule, tierModule, media] =
 			await Promise.all([
-				import(`${root}/src/common/editor/runtime-clip-projection.ts`),
-				import(`${root}/src/common/editor/video-keyframe-export-frame-source.ts`),
-				import(`${root}/src/common/editor/ui/video-keyframe-offline-rgba-renderer.ts`),
-				import(`${root}/src/common/editor/video-keyframe-video-encoder.ts`),
-				import(`${root}/src/common/editor/video-delivery-encoder-tier.ts`),
-				import('mediabunny'),
+				import(`${root}/src/common/editor/runtime-clip-projection.js`),
+				import(`${root}/src/common/editor/video-keyframe-export-frame-source.js`),
+				import(`${root}/src/common/editor/ui/video-keyframe-offline-rgba-renderer.js`),
+				import(`${root}/src/common/editor/video-keyframe-video-encoder.js`),
+				import(`${root}/src/common/editor/video-delivery-encoder-tier.js`),
+				import(`${root}/mediabunny.mjs`),
 			]);
 		const project = projection.resolveRuntimeProjectProjection(createProject());
 		const frameSource = frameSourceModule.createVideoKeyframeExportFrameSource({
@@ -344,15 +343,8 @@ function isFfmpegRuntimeRequest(value) {
 
 async function installRoutes(page) {
 	const sourceRoot = new URL('../../src/common/', import.meta.url);
-	const routes = await transpileSourceModuleRoutes(sourceRoot, `${ROOT}/src/common`,
+	const routes = await bundleSourceModuleRoutes(sourceRoot, `${ROOT}/src/common`,
 		ENTRY_MODULES.map(name => new URL(`editor/${name}`, sourceRoot)));
-	const nobleRoot = new URL('../../node_modules/@noble/hashes/', import.meta.url);
-	for (const name of NOBLE_HASH_FILES) {
-		routes.set(`${ROOT}/noble/${name}`, {
-			body: await readFile(new URL(name, nobleRoot)),
-			contentType: 'text/javascript',
-		});
-	}
 	routes.set(`${ROOT}/mediabunny.mjs`, {
 		body: await readFile(new URL(
 			'../../node_modules/mediabunny/dist/bundles/mediabunny.min.mjs', import.meta.url,
@@ -366,7 +358,6 @@ async function installRoutes(page) {
 				status: 200,
 				contentType: 'text/html',
 				body: `<!doctype html><meta charset="utf-8">
-					<script type="importmap">{"imports":{"mediabunny":"${ROOT}/mediabunny.mjs","@noble/hashes/sha2.js":"${ROOT}/noble/sha2.js"}}</script>
 					<title>browser-native video keyframe encoder</title>`,
 			});
 			return;

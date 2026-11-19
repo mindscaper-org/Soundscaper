@@ -19,6 +19,7 @@ test('professional native self-test authorities retain Git blob bytes on Windows
 		'/scripts/lib/soundscaper-professional-packaged-app-authority.mjs',
 		'/scripts/lib/soundscaper-native-test-runtime.mjs',
 		'/scripts/lib/soundscaper-professional-native-containment-probes.mjs',
+		'/scripts/lib/windows-vst2-x86-canary.mjs',
 		'/desktop/soundscaper-professional-linux-system-libraries.ts',
 		'/desktop/soundscaper-professional-linux-system-runtime.ts',
 	]) {

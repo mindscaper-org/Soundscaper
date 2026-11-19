@@ -958,3 +958,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      placement stays synchronous, and closing cancels pending position work.
      Covered by `tests/vendored-design-system-flyout-observer.test.tsx` and the
      production transcript-editing and macro workflows. Upstream-PR candidate.
+
+128. `NoteGrid` commits the latest mouse position from the active note placement
+     gesture. The final move and release can arrive before React paints the
+     preview. Covered by the batched mouse events in
+     `tests/audio-editor-midi-held-viewport-gestures.test.tsx` and the browser
+     workflow that pans during note placement. Upstream-PR candidate.

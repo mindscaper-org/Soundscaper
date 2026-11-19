@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ORBITAMP_SOURCE_IDS } from '../desktop/bundled-native-plugins.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -24,6 +25,36 @@ import { collectExtractedSourceTree } from '../native/framescaper-media-host/bui
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const EXPECTED_PINS = {
+	'orbit-amp': ['0.10.1', '950abb97a3e80e2ccb71a9578f6ccd490eea92cb', 100652664,
+		'e7fe94b8fe85264c338be7ba6cb4734729a001da1e6cfc050e7b58616af23adb'],
+	'orbit-juce': ['8.0.17-security', 'dabd5ad13cd869cba41046947fffc8e5ce5cd662', 22909946,
+		'302949ee39f8fce798ee2bbd30445f8f31a4ecf4643463c68c54882020e16c13'],
+	'orbit-core': ['0.62.0', '8b6a7a9f6c22ff526bbd97aaf6abfb9ce1c2616d', 1979807,
+		'c0c7301c6e66a0fb48de5749892d7028ec64a9734ce71947e98a688132115b0a'],
+	'orbit-guitar': ['0.8.0', '4024077e79e917c8b31e5c7529af37165394228b', 662368,
+		'cae81da6fae2fdf2fd4cd842ad24498682cca154c780b64932dc95546490828c'],
+	'orbit-appkit': ['0.23.0', '6c9e22b0ec544166ca629b38283642d22bd07234', 1868915,
+		'b2a38b6d237496a6e6d0cd091ffde62d522ff9ff30b860d4296214cfdcfe94c2'],
+	'orbit-cab-ir': ['0.4.0', '8bb3fe88d87b2b6abc8df63ed3e736a43c76caa2', 17050427,
+		'01b3bfc98ef76f847999b8de4ceaf9707afc9d541cd5f12d8a788b7d758adcc0'],
+	'orbit-nam-core': ['0.5.4', '1f42f88535884450104b8711d7595019afa0495b', 794185,
+		'ac10cdabb0a7408e660d5cc403d1260c966bc839b5b5bb71511b663ca6e4a0cf'],
+	'orbit-eigen': ['5.0.1', 'bc3b39870ecb690a623a3f49149a358b95c5781d', 2969440,
+		'5f6557d1aca6e959a4b955c55f2935261fd30de59c0c79e35bc6d5cbe1de22d1'],
+	'orbit-namz': ['5.0.0', '717ca2dc34cc712075abc77c613c507ee8bc8727', 254528,
+		'3962e07c672f1bddc77fb587a8842fb921fcc6544068372297c0213471e82bc1'],
+	'orbit-toml': ['0.3.0', '6a80df63e3df2950c8d7150f7d525badbdf39e25', 969868,
+		'ae3cebcfc231de8075b06a9a7c915e3d71f1d326172785776b57aaa541f6b8eb'],
+	'orbit-webp': ['1.6.0', '4fa21912338357f89e4fd51cf2368325b59e9bd9', 3834766,
+		'923f3382a47a2af185c3240c954cf004428b237bd7317413a95146d01eb4b94b'],
+	'orbit-json': ['3.11.3', '9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03', 8054631,
+		'0dbc5e40a01ff142e7e68c03e85247a4dcede2f592d12d3677dee3664d17975a'],
+	'orbit-clap-extensions': ['6bde108329ff', '6bde108329ff9fc24404b79b8b397261a75cf6a8', 72162,
+		'23e4594ecb5f76b1b121d2746c0e68e9e484134e495d8e0a894f8f5a0a9c54ae'],
+	'orbit-clap': ['29ffcc273be7', '29ffcc273be7c7c651f6c9953b99e69700e2387a', 2354035,
+		'f8c9aaf318b00e989111630b4cf1118b235bec2059904c3cd1806e71b8e37ff0'],
+	'orbit-clap-helpers': ['a61bcdf0ecc2', 'a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc', 43714,
+		'48d24c9ad5e22b36040c500198a979aa25d2d7005d76f98a9edbbee0b86a102d'],
 	'surge-xt': ['1.3.4', 'f7b97c682ade0b87da85ca5968b63d5c7c98e68d', 319327963,
 		'd4b8f595a0595205ddd63eacadd23a0be33df46affc83afe9eafff7018990d55'],
 	dexed: ['1.1.0', 'fea2f0f0f2c397799f59b27eb11c038cd34b22c5', 42889987,
@@ -64,6 +95,21 @@ const EXPECTED_PINS = {
 		'9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23'],
 };
 const EXPECTED_LICENSE_SELECTIONS = {
+	'orbit-amp': 'AGPL-3.0-only',
+	'orbit-juce': 'AGPL-3.0-only',
+	'orbit-core': 'AGPL-3.0-or-later',
+	'orbit-guitar': 'AGPL-3.0-or-later',
+	'orbit-appkit': 'AGPL-3.0-or-later',
+	'orbit-cab-ir': 'AGPL-3.0-or-later',
+	'orbit-nam-core': 'MIT',
+	'orbit-eigen': 'MPL-2.0',
+	'orbit-namz': 'MIT',
+	'orbit-toml': 'MIT',
+	'orbit-webp': 'BSD-3-Clause',
+	'orbit-json': 'MIT',
+	'orbit-clap-extensions': 'MIT',
+	'orbit-clap': 'MIT',
+	'orbit-clap-helpers': 'MIT',
 	'surge-xt': 'GPL-3.0-or-later', dexed: 'GPL-3.0-or-later',
 	'electron-node-api-headers': 'MIT',
 	juce: 'AGPL-3.0-only',
@@ -149,7 +195,7 @@ test('Soundscaper source audit excludes every deferred Framescaper native input'
 		null,
 	);
 	assert.deepEqual(audit.sources.map(({ id }) => id), [
-		'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+		'surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		'asio-sdk', 'ladspa-sdk', 'lv2',
 	]);
 	assert.deepEqual(audit.delegatedSources, []);

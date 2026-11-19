@@ -124,8 +124,12 @@ const TOKEN = /^[A-Za-z0-9][A-Za-z0-9+._:/-]{0,127}$/u;
 
 export function createDesktopCodecCoordinator(options: Readonly<{
 	readonly providers: readonly DesktopCodecProvider[];
+	readonly preferOperatingSystem?: boolean;
 }>): DesktopCodecCoordinator {
-	const providers = validateProviders(options?.providers);
+	const ordered = validateProviders(options?.providers);
+	const providers = options.preferOperatingSystem
+		? [...ordered.filter(provider => provider.kind === 'operating-system'),
+			...ordered.filter(provider => provider.kind !== 'operating-system')] : ordered;
 	return Object.freeze({
 		async execute<Value>(operationValue: DesktopCodecOperation, executionOptions: Readonly<{
 			readonly inputDigests: readonly string[];

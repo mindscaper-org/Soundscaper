@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { bundledNativePlugins } from '../desktop/bundled-native-plugins.ts';
+import { BUNDLED_ORBITAMP_FACTORY_PATH, bundledNativePlugins } from '../desktop/bundled-native-plugins.ts';
 import { createBundledPluginStartup } from '../desktop/bundled-plugin-startup.ts';
 import { verifyBundledPluginCandidates } from '../desktop/bundled-plugin-verification.ts';
 import { authenticatePluginCandidate } from '../desktop/plugin-candidate-authentication.mjs';
@@ -21,11 +21,17 @@ async function fixture(context: { after(fn: () => Promise<void>): void }) {
 		await mkdir(dirname(path), { recursive: true }); await writeFile(path, bytes);
 		artifacts.push({ path, byteLength: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 	}
-	return { root, descriptor: { target: 'linux-x64', pluginPeer: { path: join(root, 'peer'), byteLength: 1, sha256: 'a'.repeat(64) },
-		isolation: { runtimeClosure: artifacts, pluginResources: [] } } };
+	const factoryPath = join(root, 'runtime', BUNDLED_ORBITAMP_FACTORY_PATH, 'Friedman.orbitrig.zip');
+	const factoryBytes = Buffer.from('factory capture');
+	await mkdir(dirname(factoryPath), { recursive: true });
+	await writeFile(factoryPath, factoryBytes);
+	const factory = { path: factoryPath, byteLength: factoryBytes.length,
+		sha256: createHash('sha256').update(factoryBytes).digest('hex') };
+	return { root, factoryPath, descriptor: { target: 'linux-x64', pluginPeer: { path: join(root, 'peer'), byteLength: 1, sha256: 'a'.repeat(64) },
+		isolation: { runtimeClosure: artifacts, pluginResources: [factory] } } };
 }
 
-test('fresh installs discover and allow only authenticated app-owned synths without external folder consent', async context => {
+test('fresh installs discover and allow only authenticated app-owned plug-ins without external folder consent', async context => {
 	const { root, descriptor } = await fixture(context);
 	const verified = await verifyBundledPluginCandidates(descriptor, authenticatePluginCandidate);
 	const registry = new DesktopPluginRegistry({ isQuarantined: () => false });
@@ -52,13 +58,13 @@ test('fresh installs discover and allow only authenticated app-owned synths with
 	});
 	await startup.ready();
 	assert.deepEqual(registry.describe().entries.map(entry => [entry.name, entry.installations[0]!.allowed]),
-		[['Soundscaper JUCE effects', true], ['Surge XT', true], ['Dexed', true]]);
-	assert.equal(roots.length, 2);
+		[['Soundscaper JUCE effects', true], ['OrbitAmp', true], ['Surge XT', true], ['Dexed', true]]);
+	assert.equal(roots.length, 3);
 	assert.ok(roots.every(path => path.startsWith(join(root, 'runtime'))));
 	const synth = registry.describe().entries.find(entry => entry.name === 'Surge XT')!.installations[0]!;
 	await startup.setAllowed(synth.installationId, false);
 	assert.deepEqual(JSON.parse(writes[0]!), { schemaVersion: 1, disabled: ['surge-xt:surge-xt'] });
-	await startup.ready(); assert.equal(roots.length, 2);
+	await startup.ready(); assert.equal(roots.length, 3);
 	startup.dispose();
 });
 
@@ -72,4 +78,10 @@ test('an unlisted effect cannot be executed through the private bundled scan roo
 	const { root, descriptor } = await fixture(context);
 	await writeFile(join(root, 'runtime/effects/extra.clap'), 'unexpected');
 	await assert.rejects(verifyBundledPluginCandidates(descriptor, authenticatePluginCandidate), /does not match its authenticated inventory/u);
+});
+
+test('changing an OrbitAmp factory capture invalidates its bundled plug-in fingerprint', async context => {
+	const { factoryPath, descriptor } = await fixture(context);
+	await writeFile(factoryPath, 'unauthenticated factory capture');
+	await assert.rejects(verifyBundledPluginCandidates(descriptor, authenticatePluginCandidate), /OrbitAmp bytes differ/u);
 });

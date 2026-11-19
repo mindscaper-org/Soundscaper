@@ -2,6 +2,7 @@
 
 /** Closed notice authority shared by Stable package staging and release assembly. */
 
+import { SOUNDSCAPER_MILESTONE_5_SOURCE_IDS } from './milestone-5-product-scope.mjs';
 import { constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, open, readdir, realpath, writeFile } from 'node:fs/promises';
@@ -17,10 +18,7 @@ import {
 
 export const SOUNDSCAPER_PROFESSIONAL_NATIVE_NOTICE_PREFIX = 'licenses/professional-native/';
 
-const ALL_SOURCE_IDS = Object.freeze([
-	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
-	'asio-sdk', 'ladspa-sdk', 'lv2',
-]);
+const ALL_SOURCE_IDS = SOUNDSCAPER_MILESTONE_5_SOURCE_IDS;
 const FORBIDDEN_SOURCE_IDS = new Set(['x264', 'x265', 'libvpx', 'svt-av1', 'libopus', 'zlib']);
 const SHA256 = /^[a-f\d]{64}$/u;
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/u;

@@ -350,6 +350,12 @@ controls verify only the enumerated tuples on a package whose target-native
 build has passed; they do not establish general OS availability, patent
 clearance, or non-infringement.
 
+Desktop packages also include the standalone FDK AAC 2.0.3 executable for
+AAC-LC file import and export. The codec is distributed under the Fraunhofer
+FDK AAC software license with the complete pinned source, frontend, decoder
+modification, and notices in `licenses/fdk-aac`. The application and the
+command-line program exchange ordinary ADTS and PCM files.
+
 Stable bundled and separately shipped operating-system video providers remain
 disabled. The stable Soundscaper package contains no libwebm, libvpx, dav1d,
 SVT-AV1, or libaom provider payload and has no direct Media Foundation or

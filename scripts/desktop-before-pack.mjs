@@ -17,6 +17,7 @@ import {
 	assertDesktopCodecPolicy,
 	auditDesktopFfmpegAbsence,
 } from './lib/desktop-codec-policy.mjs';
+import { assertDesktopFdkAacFiles } from './lib/desktop-fdk-aac-staging.mjs';
 import { verifyDesktopOsAudioCodecNativePackageTree } from './lib/desktop-os-audio-codec-native-package-verification.mjs';
 import { verifyStagedYabridge } from './lib/yabridge-staging.mjs';
 import {
@@ -196,6 +197,11 @@ export async function verifyStagedAssistanceNativeRuntime({
 export async function auditStagedDesktopCodecPolicy({ repositoryRoot, stageManifestPath }) {
 	const stage = JSON.parse(await readFile(stageManifestPath, 'utf8'));
 	assertDesktopCodecPolicy(stage?.desktopCodecPolicy, 'The desktop stage codec policy');
+	const build = resolve(repositoryRoot, '.desktop-build');
+	await assertDesktopFdkAacFiles({
+		receipt: stage.fdkAac, runtimeRoot: resolve(build, 'runtime'), licenseRoot: resolve(build, 'licenses'),
+		manifestBytes: stage.fdkAac && await readFile(resolve(build, 'app/desktop/fdk-aac-manifest.json')),
+	});
 	return auditDesktopFfmpegAbsence({
 		root: resolve(repositoryRoot, '.desktop-build'),
 		label: 'Staged desktop resources',

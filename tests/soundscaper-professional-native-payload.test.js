@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { ORBITAMP_SOURCE_IDS } from '../desktop/bundled-native-plugins.ts';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -243,7 +244,9 @@ async function builtFixture(context) {
 		await writeFile(join(root, path), artifactBytes);
 	}
 	for (const [kind, path, body] of [
+		['runtimeClosure', 'effects/OrbitAmp.vst3/Contents/x86_64-linux/OrbitAmp.so', 'fixture amp'],
 		['runtimeClosure', 'instruments/Surge XT.vst3/Contents/x86_64-linux/Surge XT.so', 'fixture instrument'],
+		['pluginResources', 'effects/OrbitAmp.vst3/Contents/Resources/Factory/Fixture.orbitrig.zip', 'fixture amp capture'],
 		['pluginResources', 'instrument-data/surge-xt/wavetables/basic.wt', 'fixture wavetable'],
 	]) {
 		const bytes = Buffer.from(body), artifactPath = `${targetRoot}/runtime/${path}`;
@@ -366,7 +369,7 @@ function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); 
 function sourceAuthentication(target) {
 	const sourceRegister = JSON.parse(readFileSync(join(ROOT,
 		'config/milestone-5-native-source-acquisitions.json'), 'utf8'));
-	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return {

@@ -651,6 +651,368 @@
 			]
 		},
 		{
+			"id": "orbit-amp",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-amp-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 34523,
+					"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+				},
+				{
+					"name": "orbit-amp-CONTENT-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "resources/CONTENT-LICENSE.md",
+					"byteLength": 881,
+					"sha256": "bca4c7067ed55e45411faf4915be1f30513fed6f77a7ebb4782e50dcfdf65f45"
+				},
+				{
+					"name": "orbit-amp-THIRD-PARTY-NOTICE.md",
+					"origin": "authenticated-source",
+					"path": "docs/THIRD-PARTY-NOTICE.md",
+					"byteLength": 2002,
+					"sha256": "82d7fabac174d6c4b87cf5133ab2d50aec631c1c76b01de10db005306d394ddd"
+				}
+			]
+		},
+		{
+			"id": "orbit-juce",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-juce-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "LICENSE.md",
+					"byteLength": 4971,
+					"sha256": "2633539bb26d244f0966fbc4df59400ea99bdf575fa96291851c1c3ff3456146"
+				}
+			]
+		},
+		{
+			"id": "orbit-core",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-core-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 34523,
+					"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+				},
+				{
+					"name": "orbit-core-THIRD_PARTY_NOTICES.md",
+					"origin": "authenticated-source",
+					"path": "THIRD_PARTY_NOTICES.md",
+					"byteLength": 3841,
+					"sha256": "00d4479fa345d8fa17d9d025e6267bc7f3aa1a4816d59afca85abf715863e55c"
+				}
+			]
+		},
+		{
+			"id": "orbit-guitar",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-guitar-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 34523,
+					"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+				},
+				{
+					"name": "orbit-guitar-THIRD_PARTY_NOTICES.md",
+					"origin": "authenticated-source",
+					"path": "THIRD_PARTY_NOTICES.md",
+					"byteLength": 1436,
+					"sha256": "510fbe738979777abee65e3958571ff9fac2758c16ce1a5e75abc45c0337b5bf"
+				}
+			]
+		},
+		{
+			"id": "orbit-appkit",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-appkit-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 34523,
+					"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+				},
+				{
+					"name": "orbit-appkit-THIRD_PARTY_NOTICES.md",
+					"origin": "authenticated-source",
+					"path": "THIRD_PARTY_NOTICES.md",
+					"byteLength": 4737,
+					"sha256": "a7b4fc6013be8a3cc28516b50f25d6f174322fa005d34b609d24510703da9d49"
+				}
+			]
+		},
+		{
+			"id": "orbit-cab-ir",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-cab-ir-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 34523,
+					"sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+				}
+			]
+		},
+		{
+			"id": "orbit-nam-core",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-nam-core-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 1072,
+					"sha256": "ba9624e2138bc70749ccf6742b14ec9fac26b2197ca8de85c4d0bd4eeafa0a21"
+				}
+			]
+		},
+		{
+			"id": "orbit-eigen",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-eigen-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 16725,
+					"sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+				},
+				{
+					"name": "orbit-eigen-COPYING.MPL2",
+					"origin": "authenticated-source",
+					"path": "COPYING.MPL2",
+					"byteLength": 16727,
+					"sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172"
+				},
+				{
+					"name": "orbit-eigen-COPYING.APACHE",
+					"origin": "authenticated-source",
+					"path": "COPYING.APACHE",
+					"byteLength": 11362,
+					"sha256": "03379001a7b12a2ec997a25554247d985270b353c10d5bafee9ac8d6519820b7"
+				},
+				{
+					"name": "orbit-eigen-COPYING.BSD",
+					"origin": "authenticated-source",
+					"path": "COPYING.BSD",
+					"byteLength": 1517,
+					"sha256": "51928dce36213c5333ba3172e847d735d4c6e9b7ff2722a326c49067155b82eb"
+				},
+				{
+					"name": "orbit-eigen-COPYING.MINPACK",
+					"origin": "authenticated-source",
+					"path": "COPYING.MINPACK",
+					"byteLength": 2193,
+					"sha256": "c87b7f8ee88f6195e91743820c00354833583aef091b72e2d4a49c8e28e798a0"
+				},
+				{
+					"name": "orbit-eigen-COPYING.README",
+					"origin": "authenticated-source",
+					"path": "COPYING.README",
+					"byteLength": 264,
+					"sha256": "db640ff2bd90c6abd6a4d3fbb351e0ee4d555417cf840492054d1cbb2ea85644"
+				}
+			]
+		},
+		{
+			"id": "orbit-namz",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-namz-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 1147,
+					"sha256": "b796e7dd9e08a1c8e78bc311efeb6fd1cb91c70e096f6ff6db0fb48912e09e2f"
+				}
+			]
+		},
+		{
+			"id": "orbit-toml",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-toml-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 1085,
+					"sha256": "5340b7eb7b1fd19b4b00d0b90e695f64bd5238cb6b0623efb2352deb912fd32c"
+				}
+			]
+		},
+		{
+			"id": "orbit-webp",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-webp-COPYING",
+					"origin": "authenticated-source",
+					"path": "COPYING",
+					"byteLength": 1496,
+					"sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+				},
+				{
+					"name": "orbit-webp-PATENTS",
+					"origin": "authenticated-source",
+					"path": "PATENTS",
+					"byteLength": 1436,
+					"sha256": "cc3273e0694ea5896145e0677699b53471b03ea43021ddc50e7923fbb9f5023c"
+				}
+			]
+		},
+		{
+			"id": "orbit-json",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-json-LICENSE.MIT",
+					"origin": "authenticated-source",
+					"path": "LICENSE.MIT",
+					"byteLength": 1076,
+					"sha256": "86b998c792894ccb911a1cb7994f7a9652894e7a094c0b5e45be2f553f45cf14"
+				}
+			]
+		},
+		{
+			"id": "orbit-clap-extensions",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-clap-extensions-LICENSE.md",
+					"origin": "authenticated-source",
+					"path": "LICENSE.md",
+					"byteLength": 1059,
+					"sha256": "ee3bd73591efbb9272e28d066fc430790a1e9eeb75b6658864f4377fe79dc558"
+				}
+			]
+		},
+		{
+			"id": "orbit-clap",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-clap-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				}
+			]
+		},
+		{
+			"id": "orbit-clap-helpers",
+			"targets": [
+				"linux-x64",
+				"linux-arm64",
+				"mac-arm64",
+				"win-x64",
+				"win-arm64"
+			],
+			"notices": [
+				{
+					"name": "orbit-clap-helpers-LICENSE",
+					"origin": "authenticated-source",
+					"path": "LICENSE",
+					"byteLength": 1072,
+					"sha256": "ced49f9ef950277afdb56199369ea6e8165ebfdbfbb37ebfe1827e0de892088d"
+				}
+			]
+		},
+		{
 			"id": "electron-node-api-headers",
 			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
 			"notices": [

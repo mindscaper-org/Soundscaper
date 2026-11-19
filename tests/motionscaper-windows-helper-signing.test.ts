@@ -73,13 +73,15 @@ test('installed extra-resource copier leaves the admitted Motion helper intact a
 	assert.deepEqual(signed, [join(output, 'another-helper.exe')]);
 });
 
-test('Motion exclusion preserves Windows signing configuration and leaves Soundscaper and Framescaper unchanged', () => {
+test('Windows signing preserves the authenticated helper for each desktop product', () => {
 	const motion = configuration('motionscaper').win;
 	assert.deepEqual(motion.signExts, [`!${helperName}`]);
 	for (const product of ['soundscaper', 'framescaper'] as const) {
 		const baseline = configuration(product).win;
-		assert.equal(baseline.signExts, undefined);
+		assert.deepEqual(baseline.signExts, ['!fdk-aac-tool.exe']);
 		assert.deepEqual({ ...motion, signExts: undefined }, { ...baseline, signExts: undefined });
-		assert.equal(installedOwner(baseline, []).shouldSignFile(`runtime/${helperName}`, true), true);
+		const owner = installedOwner(baseline, []);
+		assert.equal(owner.shouldSignFile(`runtime/${helperName}`, true), true);
+		assert.equal(owner.shouldSignFile('runtime/fdk-aac/fdk-aac-tool.exe', true), false);
 	}
 });

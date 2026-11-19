@@ -73,7 +73,16 @@ test('Project Bin finishes importing a recorded WebM and restores its native blu
 
 const ROOT = '/__framescaper-webm-preview-stall__';
 const syntheticRouteTest = test.extend({ browserCoverage: false });
-for (const kind of ['recorded WebM', 'finite WebM', 'ordinal MP4']) {
+// The extractor can seek anywhere inside the authored picture interval.
+const captureCases = [
+	{ kind: 'recorded WebM', targets: [0, .4, .4, .7, 0],
+		intervals: [[0, .038], [.372, .405], [.372, .405], [.672, .705], [0, .038]] },
+	{ kind: 'finite WebM', targets: [0, .4, .4, .7, 0],
+		intervals: [[0, .065], [.391, .456], [.391, .456], [.652, .717], [0, .065]] },
+	{ kind: 'ordinal MP4', targets: [0, .06, .235, .02],
+		intervals: [[0, .04], [.04, .13], [.2, .27], [0, .04]] },
+];
+for (const { kind, targets, intervals } of captureCases) {
 	syntheticRouteTest(`native extractor presents first and later timestamp pixels for ${kind}`, async ({ page }) => {
 		const file = kind === 'recorded WebM'
 			? { mimeType: 'video/webm', buffer: Buffer.from(RECORDED_WEBM, 'base64') }
@@ -88,9 +97,6 @@ for (const kind of ['recorded WebM', 'finite WebM', 'ordinal MP4']) {
 				body: script ? bundle.outputFiles[0].text : '<!doctype html><title>Native video poster capture</title>' });
 		});
 		await page.goto(`${ROOT}/index.html`);
-		// Keep the MP4 control inside its green interval, away from the .085s
-		// equidistant seek where native decoders choose different adjacent frames.
-		const targets = kind === 'ordinal MP4' ? [0, .06, .235, .02] : [0, .4, .4, .7, 0];
 		const result = await page.evaluate(async ({ root, bytes, mimeType, targets }) => {
 			const { createAudioEditorVideoFrameExtractor } = await import(`${root}/extractor.js`);
 			let nativeVideo;
@@ -127,7 +133,9 @@ for (const kind of ['recorded WebM', 'finite WebM', 'ordinal MP4']) {
 		expect(result.mounted).toBe(false);
 		for (const [index, sample] of result.samples.entries()) {
 			expect(sample.timestamp).toBe(targets[index]);
-			if (targets[index] > 0) expect(sample.nativeTime).toBeCloseTo(targets[index], 5);
+			const [start, end] = intervals[index];
+			expect(sample.nativeTime).toBeGreaterThanOrEqual(start);
+			expect(sample.nativeTime).toBeLessThan(end);
 			expect(sample.pixel[3]).toBe(255);
 			expect(Math.max(...sample.pixel.slice(0, 3))).toBeGreaterThan(150);
 		}

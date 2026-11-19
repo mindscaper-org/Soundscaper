@@ -34,9 +34,11 @@ async function moveReverbToWindowEdge(page) {
 	await page.mouse.down();
 	await page.mouse.move(1, 1, { steps: 5 });
 	await page.mouse.up();
-	const after = await header.boundingBox();
-	expect(after.y).toBeGreaterThanOrEqual(0);
-	expect(after.x + after.width).toBeGreaterThanOrEqual(48);
+	await expect.poll(async () => (await header.boundingBox())?.y ?? -1).toBeGreaterThanOrEqual(0);
+	await expect.poll(async () => {
+		const after = await header.boundingBox();
+		return after ? after.x + after.width : 0;
+	}).toBeGreaterThanOrEqual(48);
 	return { dialog, header };
 }
 

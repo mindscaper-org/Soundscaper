@@ -9,7 +9,7 @@ import {
 	normalizeDesktopAudioCodecRequest, normalizeDesktopAudioCodecResult,
 	type DesktopAudioCodecFormat, type DesktopAudioCodecRequest, type DesktopAudioCodecResult,
 } from '../../../desktop/desktop-audio-codec-operation-contract.ts';
-import { desktopAudioDecodeFormat, inspectDesktopCompandedWaveFormat, type DesktopAudioDecodeFormat } from '../../../desktop/desktop-audio-decode-formats.ts';
+import { desktopAudioDecodeFormat, hasAdtsAudioSync, inspectDesktopCompandedWaveFormat, type DesktopAudioDecodeFormat } from '../../../desktop/desktop-audio-decode-formats.ts';
 import {
 	normalizeDesktopAudioCodecCapabilityQuery, normalizeDesktopAudioCodecCapabilityResult, type DesktopAudioCodecCapabilityQuery,
 	type DesktopAudioCodecCapabilityResult, type DesktopAudioCodecCapabilityTuple,
@@ -118,12 +118,12 @@ const DECODE_SETTING_FIELDS = new Set<string>([
 const MIME_FORMATS: Readonly<Record<string, DesktopAudioDecodeFormat>> = Object.freeze({
 	'audio/flac': 'flac', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg-vorbis',
 	'audio/opus': 'opus', 'audio/wavpack': 'wavpack', 'audio/x-wavpack': 'wavpack',
-	'audio/mp4': 'aac-m4a',
+	'audio/mp4': 'aac-m4a', 'audio/aac': 'aac-m4a',
 	'audio/x-ms-wma': 'wma', 'audio/x-matroska': 'matroska-mp3',
 });
 const EXTENSION_FORMATS: Readonly<Record<string, DesktopAudioDecodeFormat>> = Object.freeze({
 	flac: 'flac', mp3: 'mp3', ogg: 'ogg-vorbis', oga: 'ogg-vorbis', opus: 'opus',
-	wv: 'wavpack', wavpack: 'wavpack', mp2: 'mp2', m4a: 'aac-m4a', mp4: 'aac-m4a',
+	wv: 'wavpack', wavpack: 'wavpack', mp2: 'mp2', aac: 'aac-m4a', m4a: 'aac-m4a', mp4: 'aac-m4a',
 	mka: 'matroska-mp3', wma: 'wma',
 });
 const DEFAULT_CAPABILITY_QUERY = createDesktopAudioCodecCapabilityQuery({ sampleRate: 48_000, channelCount: 2 });
@@ -426,7 +426,7 @@ function signatureFormat(bytes: Uint8Array): DesktopAudioDecodeFormat | null {
 		if (layer === 2) return 'mp2';
 		if (layer === 1) return 'mp3';
 	}
-	if (ascii(bytes, 4, 4) === 'ftyp') return 'aac-m4a';
+	if (ascii(bytes, 4, 4) === 'ftyp' || hasAdtsAudioSync(bytes)) return 'aac-m4a';
 	return null;
 }
 

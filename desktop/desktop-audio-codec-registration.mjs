@@ -52,6 +52,13 @@ export async function registerDesktopAudioCodecs(options) {
 		),
 	});
 	const receipts = createDesktopAudioCodecReceiptJournal();
+	let fdkLoad;
+	const fdk = () => {
+		fdkLoad ??= modules.loadFdkAacRuntime?.({
+			target, scratchRoot, runtimeRoot: options.runtimeRoot, desktopRoot: options.desktopRoot,
+		}) ?? Promise.resolve(null);
+		return fdkLoad;
+	};
 	const lazy = modules.createLazyDesktopAudioCodecService(async () => {
 		const bundledRuntime = await modules.loadIsolatedBundledAudioCodecRuntime({
 			target, scratchRoot, verifyPayload: verifyBundledPayload, spawn: spawnBundled,
@@ -66,8 +73,10 @@ export async function registerDesktopAudioCodecs(options) {
 		const operatingSystemRuntime = await modules.loadOperatingSystemAudioCodecRuntime({
 			target, osVersion: options.operatingSystemVersion, scratchRoot, verifyAddon, spawn,
 		});
+		const aac = await fdk();
 		return modules.createDesktopAudioCodecRuntimeComposition({
 			target, scratchRoot, externalFfmpegPreferences: options.externalFfmpegPreferences,
+			...(aac === null ? {} : { bundledAacRuntime: aac.runtime }),
 			...(bundledRuntime === null ? {} : { createBundledRuntime: () => bundledRuntime }),
 			...(operatingSystemRuntime === null
 				? {} : { createOperatingSystemRuntime: () => operatingSystemRuntime }),
@@ -85,9 +94,19 @@ export async function registerDesktopAudioCodecs(options) {
 		ownerFor: options.ownerFor, service,
 	});
 	validateIpcRegistration(ipc);
+	const runBundledStream = modules.createDesktopAudioStreamJobRunner({ verifyPayload: verifyBundledPayload, spawn: spawnBundled });
 	const stream = modules.createDesktopAudioStreamService({
 		scratchRoot, capabilities: (query) => service.capabilities(query),
-		execute: modules.createDesktopAudioStreamJobRunner({ verifyPayload: verifyBundledPayload, spawn: spawnBundled }),
+		async authorizeAac(tuple) {
+			const aac = await fdk();
+			return aac?.supportsEncode(tuple.sampleRate, tuple.channelCount) === true;
+		},
+		async execute(job, signal, onProgress) {
+			if (job.plan.tuple.format !== 'aac-m4a') return runBundledStream(job, signal, onProgress);
+			const aac = await fdk();
+			if (!aac) throw new Error('The bundled AAC encoder is unavailable.');
+			return aac.encodeStream(job, signal);
+		},
 	});
 	options.handle(options.channels.desktopAudioCodecStream, (event, command) => stream.command(options.ownerFor(event), command));
 	let disposal = null;
@@ -116,7 +135,7 @@ async function completeAudioCodecTeardown(steps) {
 }
 
 async function loadRuntimeModules() {
-	const [lazy, bundled, bundledPayload, bundledSpawn, composition, ipc, operatingSystem, electronSpawn, nativePayload, stream, streamRunner]
+	const [lazy, bundled, bundledPayload, bundledSpawn, composition, ipc, operatingSystem, electronSpawn, nativePayload, stream, streamRunner, fdk]
 		= await Promise.all([
 		import('./project-library-runtime/desktop/desktop-audio-codec-lazy-service.js'),
 		import('./project-library-runtime/desktop/bundled-audio-codec-isolated-runtime.js'),
@@ -129,6 +148,7 @@ async function loadRuntimeModules() {
 		import('./os-audio-codec-native-payload.mjs'),
 		import('./project-library-runtime/desktop/desktop-audio-stream-service.js'),
 		import('./project-library-runtime/desktop/desktop-audio-stream-job-runner.js'),
+		import('./project-library-runtime/desktop/fdk-aac-runtime.js'),
 	]);
 	return Object.freeze({
 		createLazyDesktopAudioCodecService: lazy.createLazyDesktopAudioCodecService,
@@ -142,6 +162,7 @@ async function loadRuntimeModules() {
 		registerDesktopAudioCodecMainIpc: ipc.registerDesktopAudioCodecMainIpc,
 		createDesktopAudioStreamService: stream.createDesktopAudioStreamService,
 		createDesktopAudioStreamJobRunner: streamRunner.createDesktopAudioStreamJobRunner,
+		loadFdkAacRuntime: fdk.loadFdkAacRuntime,
 	});
 }
 

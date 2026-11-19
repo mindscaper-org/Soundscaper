@@ -270,8 +270,7 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		const [sampleRate, channelCount, timelineOrigin, endTimestamp] = await Promise.all([
 			track.getSampleRate(), track.getNumberOfChannels(), track.getFirstTimestamp(), track.computeDuration(),
 		]);
-		const desktopAac = !reviewedFallback && desktopCodec && codec === 'aac' && await input.getFormat() === MP4
-			&& await track.getCodecParameterString() === 'mp4a.40.2'
+		const desktopAac = !reviewedFallback && desktopCodec && codec === 'aac' && [MP4, QTFF, ADTS].includes(await input.getFormat())
 			? await import('./desktop-aac-import.ts') : null;
 		const streamedLayerII = layerII && !reviewedFallback
 			&& (file.size > 32 * 1024 * 1024 || (endTimestamp - timelineOrigin) * sampleRate * channelCount * 4 > 128 * 1024 * 1024);
@@ -303,9 +302,9 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 			(await import('./browser-vorbis-decoder.ts')).assertVorbisPacketDecoder(channelCount);
 		}
 		const nativeCanDecode = !(layerII && !reviewedFallback && !streamedLayerII) && await track.canDecode();
-		const utilityAac = !nativeCanDecode && desktopAac?.canUseDesktopAacImport(file, { sampleRate, channelCount,
+		const utilityAac = desktopAac?.canUseDesktopAacImport(file, { sampleRate, channelCount,
 			durationSeconds: endTimestamp - Math.max(0, timelineOrigin) }) === true
-			&& await hasContinuousAudioPacketTimeline(new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true }), sampleRate, signal, 1024);
+			&& await hasContinuousAudioPacketTimeline(new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true }), sampleRate, signal, 2048);
 		if (!utilityAac && !(layerII && !reviewedFallback && !streamedLayerII) && !nativeCanDecode) {
 			if (!reviewedFallback && !streamedLayerII) throw new Error('This desktop browser cannot incrementally decode the compressed audio track.');
 			const { enableReviewedAudioImportDecoder } = await import('./browser-reviewed-streamed-audio-decoders.ts');
@@ -343,9 +342,10 @@ async function openBrowserAudioImportSession(file: Blob, signal?: AbortSignal, r
 		}
 		if (presentationEnd !== null) durationSeconds = Math.min(durationSeconds, presentationEnd - origin);
 		if (utilityAac && desktopAac && desktopCodec) {
+			const config = aacMetadata === null ? await track.getDecoderConfig() : null;
 			input.dispose();
-			return desktopAac.openDesktopAacImportSession(file, { sampleRate, channelCount, timelineOrigin: origin,
-				durationSeconds }, desktopCodec, signal, aacLeadingFrames);
+			return await desktopAac.openDesktopAacImport(file, { sampleRate, channelCount, timelineOrigin: origin,
+				durationSeconds }, desktopCodec, config, signal, aacLeadingFrames);
 		}
 		if (codec === 'mp3') {
 			const { inspectMp3GaplessGeometry } = await import('./mp3-gapless-import.ts');

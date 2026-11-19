@@ -9,6 +9,10 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 import { MILESTONE_5_NATIVE_SOURCE_IDS } from '../scripts/lib/milestone-5-native-source-acquisitions.mjs';
+import {
+	SOUNDSCAPER_PROFESSIONAL_NATIVE_TARGETS,
+	soundscaperProfessionalNativeSourceIdsForTarget,
+} from '../scripts/lib/soundscaper-professional-native-build-result-contract.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const provisioner = resolve(repositoryRoot, 'scripts/provision-milestone-5-native-sources.mjs');
@@ -40,6 +44,17 @@ test('an absent cache is reported as absent for every registered source and fail
 		`0/${MILESTONE_5_NATIVE_SOURCE_IDS.length} exact archive/extracted-tree inputs authenticated`,
 		'u',
 	));
+});
+
+test('the Soundscaper professional cache covers exactly the inputs to all native build targets', async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'm5-provision-professional-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const { status, output } = provision(['--check', '--soundscaper-professional', '--root', join(root, 'cache')]);
+	assert.equal(status, 1, 'an unprovisioned cache is never a success');
+	const expectedIds = new Set(SOUNDSCAPER_PROFESSIONAL_NATIVE_TARGETS
+		.flatMap(soundscaperProfessionalNativeSourceIdsForTarget));
+	const reportedIds = new Set([...output.matchAll(/^absent\s+(\S+)/gmu)].map(([, id]) => id));
+	assert.deepEqual(reportedIds, expectedIds);
 });
 
 test('an archive that does not match its pin provisions nothing', async (context) => {

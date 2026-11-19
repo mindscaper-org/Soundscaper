@@ -7,6 +7,7 @@ import { prepareStreamedAudioImport } from '../src/common/editor/browser-streame
 import { canUseDesktopAacImport, openDesktopAacImportSession } from '../src/common/editor/desktop-aac-import.ts';
 import { aacLcM4a48_000Fixture } from './helpers/os-audio-codec-fixtures.ts';
 import { deferred } from './helpers/async-test-control.ts';
+import { implicitAacFixture } from './helpers/implicit-sbr-aac-fixture.ts';
 
 test('desktop M4A import reaches the utility codec without browser AAC and trims only its final packet padding', async () => {
 	class RangeFile extends File {
@@ -48,6 +49,30 @@ test('desktop M4A import reaches the utility codec without browser AAC and trims
 	} finally {
 		globalThis.fetch = originalFetch;
 		if (originalDecoder) Object.defineProperty(globalThis, 'AudioDecoder', originalDecoder);
+	}
+});
+
+test('implicit HE-AAC and PS use the expanded FFmpeg PCM geometry before import storage is opened', async () => {
+	for (const profile of ['he', 'ps'] as const) {
+		const { file, channels, frameCount } = implicitAacFixture(profile);
+		const prepared = await prepareStreamedAudioImport(file, { desktop: true, reviewedFallback: false,
+			desktopCodec: { decode(_file, options) {
+				assert.equal(options.format, 'aac-m4a');
+				assert.ok(typeof options.maximumOutputBytes === 'number');
+				assert.ok(options.maximumOutputBytes >= frameCount * channels.length * 4);
+				return Promise.resolve({ sampleRate: 48_000, channels });
+			} },
+		});
+		assert.equal(prepared.descriptor.sampleRate, 48_000);
+		assert.equal(prepared.descriptor.channelCount, 2);
+		assert.equal(prepared.descriptor.frameCount, frameCount);
+		let frames = 0;
+		await prepared.stream({ chunkFrames: 127, onChunk(chunk) {
+			assert.equal(chunk.length, 2);
+			assert.deepEqual(chunk[1], channels[1]!.slice(frames, frames + chunk[1]!.length));
+			frames += chunk[1]!.length;
+		} });
+		assert.equal(frames, frameCount);
 	}
 });
 

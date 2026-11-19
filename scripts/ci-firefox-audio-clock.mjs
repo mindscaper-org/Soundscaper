@@ -3,9 +3,11 @@
 
 import { firefox } from '@playwright/test';
 
-const browser = await firefox.launch({ headless: true });
+const browser = await firefox.launch({ headless: process.env.SCAPE_FIREFOX_HEADED !== '1' });
 try {
 	const page = await browser.newPage();
+	const webgl2 = await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2')));
+	if (!webgl2) throw new Error('Firefox could not create a WebGL2 context on the CI display.');
 	await page.setContent(`
 		<button id="start" type="button">Start audio</button>
 		<script>

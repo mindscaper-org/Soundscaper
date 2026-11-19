@@ -100,6 +100,19 @@ test('a source frame timestamp during seeking is accepted only inside the reques
 	assert.equal(ready, true); assertReleased(video);
 });
 
+test('an indexed seek still rejects a queued picture after seeked', async () => {
+	const video = new NativeVideo(); let ready = false;
+	const pending = seekVideoFrameForCapture(video, .04, { timeoutMs: 1_000,
+		isRequestedFrame: mediaTime => mediaTime >= 0 && mediaTime < .067,
+	}).then(() => { ready = true; });
+	video.completeSeek();
+	video.presentFrame(.067); await Promise.resolve();
+	assert.equal(ready, false);
+	assert.equal(video.callbacks.size, 1);
+	video.presentFrame(0); await pending;
+	assert.equal(ready, true); assertReleased(video);
+});
+
 test('a matching compositor presentation during seeking remains valid after seeked', async () => {
 	const video = new NativeVideo(); let ready = false;
 	const pending = seekVideoFrameForCapture(video, .1005, { timeoutMs: 1_000 }).then(() => { ready = true; });

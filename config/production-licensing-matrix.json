@@ -704,6 +704,18 @@
 			"verification": "exact-bytes-only-no-codec-or-patent-clearance"
 		},
 		"providerOrder": ["bundled-reviewed-codecs", "os", "external-user-install"],
+		"standaloneAac": {
+			"status": "distributed-target-native",
+			"version": "2.0.3",
+			"license": "FDK-AAC",
+			"frontendLicense": "MIT",
+			"sourceSha256": "2dc6952b70283888994ae6e551a79039781f0a64c67fb637bffd5a8f483c34c5",
+			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
+			"encodeOrder": ["os", "standalone-fdk-aac", "external-user-install"],
+			"decodeOrder": ["standalone-fdk-aac", "external-user-install"],
+			"correspondingSource": "licenses/fdk-aac/",
+			"evidence": ["native/fdk-aac-tool/README.md", "scripts/lib/desktop-fdk-aac-staging.mjs"]
+		},
 		"bundledProviders": {
 			"flac": {
 				"status": "admitted",

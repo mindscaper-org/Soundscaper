@@ -23,7 +23,10 @@ export async function buildDesktopAudioStreamRequest(file: Blob, format: Desktop
 	const tuple: DesktopAudioCodecCapabilityTuple = { operation: 'audio-encode', format,
 		sampleRate: media.sampleRate, channelCount: media.channelCount,
 		settings: encodeDesktopAudioSettings(format, media) as DesktopAudioCodecCapabilityTuple['settings'] };
-	if (queryCapability && (await queryDesktopAudioCodecCapability(queryCapability, tuple)).provider !== 'bundled') return null;
+	if (queryCapability) {
+		const { provider } = await queryDesktopAudioCodecCapability(queryCapability, tuple);
+		if (provider !== 'bundled' && !(format === 'aac-m4a' && provider === 'operating-system')) return null;
+	}
 	if (media.sampleRate !== descriptor.sampleRate || (settings.inputChannelCount !== undefined && settings.inputChannelCount !== descriptor.channelCount)) {
 		throw new RangeError('The staged WAV geometry must match its desktop streaming export settings.');
 	}
