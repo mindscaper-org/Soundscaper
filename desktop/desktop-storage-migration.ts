@@ -5,9 +5,11 @@
 import { createHash } from 'node:crypto';
 import { constants as fsConstants, type Stats } from 'node:fs';
 import {
-	chmod, copyFile, lstat, mkdir, open, readdir, rename, rmdir, unlink,
+	chmod, copyFile, link, lstat, mkdir, open, readdir, rename, rmdir, unlink,
 } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { DesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
+import { syncNativeCheckpointDirectory } from './native-services-checkpoint-directory-durability.ts';
 
 interface StorageEntry {
 	readonly source: string;
@@ -17,11 +19,14 @@ interface StorageEntry {
 interface MigrationOperations {
 	readonly rename: typeof rename;
 	readonly copyFile: typeof copyFile;
+	readonly link: typeof link;
 	readonly unlink: typeof unlink;
+	readonly copyStageDirectory?: string | undefined;
+	readonly createCopyStage?: (() => Promise<string>) | undefined;
 	readonly beforeMove?: () => Promise<void>;
 }
 
-const OPERATIONS: MigrationOperations = Object.freeze({ rename, copyFile, unlink });
+const OPERATIONS: MigrationOperations = Object.freeze({ rename, copyFile, link, unlink });
 
 /**
  * Preflight all entries, then move them without replacing destination files.
@@ -32,11 +37,15 @@ export async function migrateDesktopStorageEntries(
 	entries: readonly StorageEntry[],
 	operations: Partial<MigrationOperations> = {},
 ): Promise<void> {
-	const pending = await preflightEntries(entries, 'migration');
-	if (pending.length > 0) await operations.beforeMove?.();
 	const io = { ...OPERATIONS, ...operations };
+	if (io.copyStageDirectory !== undefined) await assertSafeAncestors(io.copyStageDirectory);
+	const stage = io.copyStageDirectory === undefined && io.createCopyStage === undefined ? undefined
+		: new DesktopStorageCopyStage(io.copyStageDirectory, io.createCopyStage, io.link);
+	const pending = await preflightEntries(entries, 'migration', stage);
+	if (pending.length === 0) return;
+	await io.beforeMove?.();
 	for (const entry of pending) {
-		try { await migrate(entry.source, entry.destination, io); }
+		try { await migrate(entry.source, entry.destination, io, stage); }
 		catch (error) { throw migrationFailure(entry, error, 'migration'); }
 	}
 }
@@ -48,7 +57,9 @@ export async function checkDesktopStorageMigrationDestination(entry: StorageEntr
 
 type PreflightPurpose = 'migration' | 'selection';
 
-async function preflightEntries(entries: readonly StorageEntry[], purpose: PreflightPurpose): Promise<StorageEntry[]> {
+async function preflightEntries(
+	entries: readonly StorageEntry[], purpose: PreflightPurpose, stage?: DesktopStorageCopyStage,
+): Promise<StorageEntry[]> {
 	const pending: StorageEntry[] = [];
 	for (const entry of entries) {
 		if (!validPath(entry.source) || !validPath(entry.destination)) {
@@ -64,7 +75,7 @@ async function preflightEntries(entries: readonly StorageEntry[], purpose: Prefl
 			await assertSafeAncestors(normalized.source);
 			if (await optionalStat(normalized.source) === null) continue;
 			await assertSafeAncestors(normalized.destination);
-			await preflight(normalized.source, normalized.destination, purpose);
+			await preflight(normalized.source, normalized.destination, purpose, stage);
 			pending.push(normalized);
 		} catch (error) {
 			throw migrationFailure(normalized, error, purpose);
@@ -126,7 +137,9 @@ async function assertSafeAncestors(path: string): Promise<void> {
 	}
 }
 
-async function preflight(source: string, destination: string, purpose: PreflightPurpose): Promise<void> {
+async function preflight(
+	source: string, destination: string, purpose: PreflightPurpose, stage?: DesktopStorageCopyStage,
+): Promise<void> {
 	const destinationMetadata = await optionalStat(destination);
 	if (destinationMetadata === null && purpose === 'selection') return;
 	const sourceMetadata = await lstat(source);
@@ -139,14 +152,15 @@ async function preflight(source: string, destination: string, purpose: Preflight
 	}
 	if (sourceMetadata.isDirectory()) {
 		for (const child of await readdir(source)) {
-			await preflight(join(source, child), join(destination, child), purpose);
+			await preflight(join(source, child), join(destination, child), purpose, stage);
 		}
 	} else if (destinationMetadata !== null) {
+		await stage?.verifyReceipt(destination);
 		await verifyIdentical(source, destination);
 	}
 }
 
-async function migrate(source: string, destination: string, io: MigrationOperations): Promise<void> {
+async function migrate(source: string, destination: string, io: MigrationOperations, stage?: DesktopStorageCopyStage): Promise<void> {
 	const sourceMetadata = await lstat(source);
 	assertRegularEntry(source, sourceMetadata);
 	let destinationMetadata = await optionalStat(destination);
@@ -171,12 +185,16 @@ async function migrate(source: string, destination: string, io: MigrationOperati
 			if (!destinationMetadata.isDirectory()) throw new Error(`Directory conflict at "${destination}".`);
 		}
 		for (const child of await readdir(source)) {
-			await migrate(join(source, child), join(destination, child), io);
+			await migrate(join(source, child), join(destination, child), io, stage);
 		}
 		await rmdir(source);
 		return;
 	}
-	if (destinationMetadata === null) {
+	let verifiedSource: Stats | null = null;
+	if (destinationMetadata === null && stage !== undefined) {
+		verifiedSource = await copyWithReceipt(source, destination, sourceMetadata, io, stage);
+	}
+	if (destinationMetadata === null && verifiedSource === null) {
 		try {
 			await io.copyFile(source, destination, fsConstants.COPYFILE_EXCL);
 			await chmod(destination, sourceMetadata.mode & 0o777);
@@ -184,11 +202,38 @@ async function migrate(source: string, destination: string, io: MigrationOperati
 			if (errorCode(error) !== 'EEXIST') throw error;
 		}
 	}
-	const verifiedSource = await verifyIdentical(source, destination);
+	if (verifiedSource === null) {
+		verifiedSource = await verifyIdentical(source, destination);
+		await stage?.verifyReceipt(destination);
+	}
 	if (!sameSnapshot(verifiedSource, await lstat(source))) {
 		throw new Error(`The source changed during migration verification: "${source}".`);
 	}
 	await io.unlink(source);
+	await stage?.removeFile(destination);
+}
+
+async function copyWithReceipt(
+	source: string, destination: string, sourceMetadata: Stats, io: MigrationOperations, copies: DesktopStorageCopyStage,
+): Promise<Stats | null> {
+	const staged = await copies.prepareFile(destination);
+	if (staged === null) return null;
+	await io.copyFile(source, staged, fsConstants.COPYFILE_EXCL);
+	await chmod(staged, 0o600);
+	const handle = await open(staged, fsConstants.O_RDWR | fsConstants.O_NOFOLLOW);
+	try {
+		await chmod(staged, sourceMetadata.mode & 0o777);
+		await handle.sync();
+	} finally { await handle.close(); }
+	const stagedSnapshot = await lstat(staged, { bigint: true });
+	const verified = await verifyIdentical(source, staged);
+	if (!await copies.publish(staged, destination)) {
+		await copies.removeFile(destination);
+		return null;
+	}
+	await syncNativeCheckpointDirectory(dirname(destination));
+	await copies.verifyReceipt(destination, stagedSnapshot);
+	return verified;
 }
 
 function sameSnapshot(first: Stats, second: Stats): boolean {

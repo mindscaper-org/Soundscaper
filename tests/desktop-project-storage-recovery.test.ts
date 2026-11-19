@@ -7,6 +7,7 @@ import test from 'node:test';
 import { OriginalFileOverwriteStore } from '../desktop/original-file-overwrite.ts';
 import { exactOriginalFileIdentity } from '../desktop/original-file-identity.ts';
 import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
+import { projectLibraryLocationDirectory } from '../desktop/project-library-directory-lock.ts';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
 
 test('failed association persistence does not poison restoration of committed entries', async context => {
@@ -120,4 +121,29 @@ test('overlapping folder choices persist the last selection through a single wri
 	await Promise.all([storage.select(first), storage.select(second)]);
 	assert.equal(storage.status().selectedFolder, second);
 	assert.equal(await new TemporaryProjectStorage(path, active, 'Soundscaper').prepare(), second);
+});
+
+test('restart clears a registered copy stage after the library source was retired', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-relocation-receipt-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const selected = join(root, 'selected');
+	const configuration = join(root, 'settings.json');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const settings = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	const destination = join(selected, 'Soundscaper', 'project-library', 'v1');
+	await mkdir(destination, { recursive: true });
+	const catalog = join(destination, 'library.sqlite3');
+	await writeFile(catalog, 'already published');
+	const copyStage = `relocation-${'a'.repeat(32)}`;
+	const stage = join(projectLibraryLocationDirectory(selected, 'Soundscaper'), copyStage);
+	await mkdir(stage);
+	await writeFile(join(stage, 'b'.repeat(64)), 'already published');
+	await writeFile(configuration, JSON.stringify({ ...settings, moveStarted: true, copyStage }));
+
+	const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	assert.equal(await restarted.prepare(), selected);
+	await assert.rejects(lstat(stage), { code: 'ENOENT' });
+	assert.equal(await readFile(catalog, 'utf8'), 'already published');
+	assert.equal(restarted.status().restartRequired, false);
 });

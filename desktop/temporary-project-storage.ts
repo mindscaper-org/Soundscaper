@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, writeFile, access, lstat, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rmdir, writeFile, access, lstat, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
 import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
 import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
 const FOLDER_ID = /^[a-f0-9]{32}$/u;
+const COPY_STAGE = /^relocation-[a-f0-9]{32}$/u;
 type FolderState = Readonly<{
 	active: string; selected: string; moveStarted: boolean; activeId?: string | undefined; selectedId?: string | undefined;
+	copyStage?: string | undefined;
 }>;
 
 export class TemporaryProjectStorageUnavailableError extends Error {
@@ -34,8 +37,10 @@ export class TemporaryProjectStorage {
 			if (value && typeof value === 'object' && 'active' in value && 'selected' in value) {
 				const active = folder(value.active), selected = folder(value.selected);
 				// An older pending selection may already have moved some files.
-				this.#state = { active, selected, moveStarted: active !== selected && (!('moveStarted' in value) || value.moveStarted !== false),
-					activeId: folderId(value, 'activeId'), selectedId: folderId(value, 'selectedId') };
+				const moveStarted = active !== selected && (!('moveStarted' in value) || value.moveStarted !== false);
+				this.#state = { active, selected, moveStarted,
+					activeId: folderId(value, 'activeId'), selectedId: folderId(value, 'selectedId'),
+					copyStage: moveStarted ? copyStageName(value) : undefined };
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
 		const activeRoot = await this.#openActiveFolder();
@@ -54,14 +59,28 @@ export class TemporaryProjectStorage {
 				throw new TemporaryProjectStorageUnavailableError('selected');
 			}
 			let selectedId = state.selectedId;
+			const location = projectLibraryLocationDirectory(selectedRoot, this.appName);
+			let copyStageDirectory: string | undefined;
+			if (state.copyStage !== undefined) {
+				await assertCopyStageParent(location);
+				copyStageDirectory = join(location, state.copyStage);
+			}
 			await migrateDesktopStorageEntries([{
 				source: this.#libraryPath(activeRoot), destination: this.#libraryPath(selectedRoot),
-			}], { beforeMove: async () => {
-				selectedId ??= await this.#rememberFolder(selectedRoot);
-				if (!state.moveStarted || selectedId !== state.selectedId) {
-					await this.#persist({ ...state, selectedId, moveStarted: true });
-				}
-			} });
+			}], {
+				beforeMove: async () => {
+					selectedId ??= await this.#rememberFolder(selectedRoot);
+					if (!state.moveStarted || selectedId !== state.selectedId) {
+						await this.#persist({ ...state, selectedId, moveStarted: true });
+					}
+				},
+				copyStageDirectory,
+				createCopyStage: process.platform === 'linux' ? async () => {
+					copyStageDirectory = await this.#createCopyStage(location);
+					return copyStageDirectory;
+				} : undefined,
+			});
+			if (copyStageDirectory !== undefined) await clearDesktopStorageCopyStage(copyStageDirectory);
 			selectedId ??= await this.#rememberFolder(selectedRoot);
 			await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
 			return this.#state.active;
@@ -84,7 +103,7 @@ export class TemporaryProjectStorage {
 		await access(selected, constants.W_OK);
 		const selectedId = active === selected && this.#state.activeId !== undefined
 			? this.#state.activeId : await this.#rememberFolder(selected);
-		await this.#persist({ ...this.#state, selected, selectedId, moveStarted: false });
+		await this.#persist({ ...this.#state, selected, selectedId, moveStarted: false, copyStage: undefined });
 		return this.status();
 	}
 	async #openActiveFolder(): Promise<string> {
@@ -120,6 +139,18 @@ export class TemporaryProjectStorage {
 		await mkdir(join(markerRoot, id), { mode: 0o700 });
 		return id;
 	}
+	async #createCopyStage(location: string): Promise<string> {
+		await assertCopyStageParent(location);
+		const copyStage = `relocation-${randomBytes(16).toString('hex')}`;
+		const path = join(location, copyStage);
+		await mkdir(path, { mode: 0o700 });
+		try { await this.#persist({ ...this.#state, copyStage }); }
+		catch (error) {
+			await rmdir(path).catch(() => undefined);
+			throw error;
+		}
+		return path;
+	}
 	async #persist(state: FolderState): Promise<void> {
 		await mkdir(dirname(this.configurationPath), { recursive: true, mode: 0o700 });
 		const temporary = `${this.configurationPath}.tmp`;
@@ -141,6 +172,15 @@ function folderId(value: object, key: 'activeId' | 'selectedId'): string | undef
 	if (id === undefined) return undefined;
 	if (typeof id !== 'string' || !FOLDER_ID.test(id)) throw new TypeError('Invalid temporary data folder identity.');
 	return id;
+}
+function copyStageName(value: object): string | undefined {
+	const stage: unknown = Reflect.get(value, 'copyStage');
+	if (stage === undefined) return undefined;
+	if (typeof stage !== 'string' || !COPY_STAGE.test(stage)) throw new TypeError('Invalid temporary library copy stage.');
+	return stage;
+}
+async function assertCopyStageParent(path: string): Promise<void> {
+	if (!(await lstat(path)).isDirectory()) throw new Error('The temporary library copy stage must be inside its library location.');
 }
 async function availableTemporaryFolder(path: string): Promise<string | null> {
 	try {

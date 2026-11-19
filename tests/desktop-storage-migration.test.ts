@@ -220,6 +220,84 @@ test('a destination created during copy is never overwritten', async (context) =
 	assert.equal(await readFile(destination, 'utf8'), 'concurrent destination');
 });
 
+test('a failed staged copy leaves the final path vacant and resumes from the original', async (context) => {
+	const { root, source, destination } = await fixture(context);
+	const copyStageDirectory = await mkdtemp(join(root, 'relocation-'));
+	await writeFile(source, 'original complete bytes');
+	await assert.rejects(migrateDesktopStorageEntries([{ source, destination }], {
+		copyStageDirectory,
+		copyFile: async (_from, to) => {
+			await writeFile(to, 'partial', { flag: 'wx' });
+			throw new Error('interrupted while writing');
+		},
+	}), /interrupted while writing/u);
+	assert.equal(await readFile(source, 'utf8'), 'original complete bytes');
+	await assert.rejects(lstat(destination), /ENOENT/u);
+	await migrateDesktopStorageEntries([{ source, destination }], { copyStageDirectory });
+	assert.equal(await readFile(destination, 'utf8'), 'original complete bytes');
+	await assert.rejects(lstat(source), /ENOENT/u);
+	assert.deepEqual(await readdir(copyStageDirectory), []);
+});
+
+test('a concurrently created identical file cannot claim a staged copy on restart', async (context) => {
+	const { root, source, destination } = await fixture(context);
+	const copyStageDirectory = await mkdtemp(join(root, 'relocation-'));
+	const bytes = 'independently produced bytes';
+	await writeFile(source, bytes);
+	await assert.rejects(migrateDesktopStorageEntries([{ source, destination }], {
+		copyStageDirectory,
+		copyFile: async (from, to, mode) => {
+			await writeFile(destination, bytes, { flag: 'wx' });
+			await copyFile(from, to, mode);
+		},
+	}), /conflict/iu);
+	const original = await lstat(destination, { bigint: true });
+	await assert.rejects(migrateDesktopStorageEntries([{ source, destination }], { copyStageDirectory }), /conflict/iu);
+	assert.equal(await readFile(source, 'utf8'), bytes);
+	assert.equal(await readFile(destination, 'utf8'), bytes);
+	assert.equal((await lstat(destination, { bigint: true })).ino, original.ino);
+});
+
+test('a staged hard link is recoverable after the source could not yet be retired', async (context) => {
+	const { root, source, destination } = await fixture(context);
+	const copyStageDirectory = await mkdtemp(join(root, 'relocation-'));
+	await writeFile(source, 'recoverable bytes');
+	await assert.rejects(migrateDesktopStorageEntries([{ source, destination }], {
+		copyStageDirectory,
+		unlink: async () => { throw new Error('source temporarily busy'); },
+	}), /source temporarily busy/u);
+	assert.equal((await lstat(destination)).nlink, 2);
+	await migrateDesktopStorageEntries([{ source, destination }], { copyStageDirectory });
+	assert.equal(await readFile(destination, 'utf8'), 'recoverable bytes');
+	assert.equal((await lstat(destination)).nlink, 1);
+	assert.deepEqual(await readdir(copyStageDirectory), []);
+	await assert.rejects(lstat(source), /ENOENT/u);
+});
+
+test('a filesystem without hard links keeps the compatible exclusive-copy path', async (context) => {
+	const { root, source, destination } = await fixture(context);
+	const copyStageDirectory = await mkdtemp(join(root, 'relocation-'));
+	await writeFile(source, 'portable bytes');
+	const copies: string[] = [];
+	let links = 0;
+	await migrateDesktopStorageEntries([{ source, destination }], {
+		copyStageDirectory,
+		link: async () => {
+			links++;
+			throw Object.assign(new Error('Hard links are unavailable'), { code: 'ENOTSUP' });
+		},
+		copyFile: async (from, to, mode) => {
+			copies.push(String(to));
+			await copyFile(from, to, mode);
+		},
+	});
+	assert.equal(links, 1);
+	assert.deepEqual(copies, [destination]);
+	assert.equal(await readFile(destination, 'utf8'), 'portable bytes');
+	assert.deepEqual(await readdir(copyStageDirectory), []);
+	await assert.rejects(lstat(source), /ENOENT/u);
+});
+
 test('irregular source entries reject without renaming the tree', {
 	skip: process.platform === 'win32',
 }, async (context) => {
