@@ -45,6 +45,7 @@ import { useDesktopExportAvailability } from '../use-desktop-export-availability
 import { desktopCodecMessage } from '../../desktop-codec-presentation.ts';
 import ExportFormatAvailabilityDialog from './ExportFormatAvailabilityDialog.tsx';
 import { useExportDialogSubmission } from './useExportDialogSubmission.ts';
+import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 import {
 	constrainExportDialogSampleRate, exportDialogBitRateOptions,
 	exportDialogBitRateSelectionReason, exportDialogCompressionLevels,
@@ -56,21 +57,29 @@ import {
 } from '../export-dialog-audio-codec-options.ts';
 import { samePresetParams } from './effect-helpers.ts';
 import EditorControlLabel from '../EditorControlLabel.tsx';
-export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fileService, onClose }) {
+export function ExportDialog({
+	isOpen, controller, snapshot, copy, productId, fileService, onClose,
+	clipExportRequest = /** @type {Readonly<{ projectSession: string, range: import('../../clip-content-range.ts').ClipContentRange }> | null} */ (null),
+}) {
 	const exportProgress = useAudioEditorTelemetrySelector(controller, (telemetry) => telemetry.taskProgress?.kind === 'export' ? telemetry.taskProgress.value : telemetry.exportProgress);
 	const [metadataOpen, setMetadataOpen] = useState(false);
 	const [metadataTab, setMetadataTab] = useState('general');
 	const [mappingOpen, setMappingOpen] = useState(false);
 	const [editingSampleRate, setEditingSampleRate] = useState(false);
 	const projectIdentity = exportDialogProjectIdentity(snapshot.project);
+	const ownsClipRange = (id) => !clipExportRequest || clipExportRequest.projectSession === editorProjectEditSessionKey(controller, id);
+	const clipExportCurrent = ownsClipRange(projectIdentity);
+	const clipRange = clipExportCurrent ? clipExportRequest?.range : null;
+	const selectionProject = useMemo(() => clipRange ? { ...snapshot.project, selection: clipRange } : snapshot.project,
+		[clipRange, snapshot.project]);
 	const settingsProjectIdentity = useRef(projectIdentity);
-	const [settings, setSettings] = useState(() => createExportDialogInitialSettings(snapshot.project));
+	const [settings, setSettings] = useState(() => createExportDialogInitialSettings(snapshot.project, clipRange ? 'selection' : undefined));
 	const [error, setError] = usePresentationFeedback(copy);
 	const [presetId, setPresetId] = useState('');
 	const [presetName, setPresetName] = useState('');
 	const operationOwner = useMemo(
-		() => ({ controller, isOpen, projectIdentity }),
-		[controller, isOpen, projectIdentity],
+		() => ({ controller, isOpen, projectIdentity, clipExportCurrent }),
+		[controller, isOpen, projectIdentity, clipExportCurrent],
 	);
 	const currentOperationOwner = useRef(operationOwner);
 	const submission = useExportDialogSubmission(operationOwner, (cause) => setError(feedbackFailure(cause)));
@@ -93,7 +102,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		setSettings, setPresetId, setPresetName,
 		isCurrent: () => currentOperationOwner.current === operationOwner,
 	});
-	const hasSelection = Boolean(resolveSelectionRange(snapshot.project));
+	const hasSelection = Boolean(resolveSelectionRange(selectionProject));
 	const hasLoop = Boolean(snapshot.project?.loop?.enabled);
 	const exporting = Boolean(snapshot.exporting);
 	const settingsDisabled = exporting || submission.pending;
@@ -101,7 +110,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	const output = snapshot.export?.output;
 	// The export action admits sources for its chosen delivery, including verified
 	// render fallbacks; an unavailable unused Bin source does not block that output.
-	const blocked = !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
+	const blocked = !clipExportCurrent || !snapshot.ready || snapshot.importing || snapshot.recording || snapshot.processingEffect || !snapshot.project?.clips?.length;
 	const hasTimelineVideo = projectHasTimelineVideo(snapshot.project);
 	const videoFormat = isVideoExportDialogFormat(settings.format);
 	const captionDeliveryUnavailable = videoCaptionDeliveryUnavailable(
@@ -233,6 +242,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 	});
 	const metadataAvailable = exportDialogMetadataAvailable(settings.format, desktop);
 	const start = () => submission.start(() => {
+		if (clipExportRequest && !ownsClipRange(controller.getSnapshot().project?.id)) return;
 		setError('');
 		if (desktopFormatRefusal) throw new Error(desktopFormatRefusal);
 		const admittedSettings = normalizeExportDialogAudioSettings(settings, desktop, projectChannelCount);
@@ -243,7 +253,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 		const metadata = compactFields(exportDialogMetadataFields(settings, customMetadata));
 		const request = createExportDialogRequest(admittedSettings, {
 			metadata: exportDialogMetadata(admittedSettings.format, desktop, metadata), desktop,
-			captionDeliveryUnavailable, captionBurnInOnly, project: snapshot.project,
+			captionDeliveryUnavailable, captionBurnInOnly, project: selectionProject,
 			bext: admittedSettings.bext,
 			adm: admittedSettings.adm,
 			channelMapping: videoFormat
@@ -409,7 +419,7 @@ export function ExportDialog({ isOpen, controller, snapshot, copy, productId, fi
 						<LabeledDropdown label={copy.quality} hook="quality" value={settings.compressionLevel} onChange={(value) => setCodec('compressionLevel', value)} disabled={settingsDisabled} options={exportDialogCompressionLevels(settings.format, desktop).map((level) => ({ value: String(level), label: `${copy.level} ${level}` }))} />
 					)}
 					{!videoFormat && <label className="audio-editor-field" data-export-field="sampleRate"><EditorControlLabel>{copy.sampleRate}</EditorControlLabel><input type="number" min="8000" max={maximumAudioSampleRate} step="1" list="audio-editor-export-rates" value={settings.sampleRate} disabled={settingsDisabled || admPassthrough} onFocus={() => setEditingSampleRate(true)} onChange={(event) => set('sampleRate', event.currentTarget.value)} onBlur={() => { setEditingSampleRate(false); setCodec('sampleRate', settings.sampleRate); }} /><datalist id="audio-editor-export-rates">{exportDialogSampleRateSuggestions(maximumAudioSampleRate, snapshot.project?.sampleRate, settings.format, desktop).map((value) => <option key={value} value={value} />)}</datalist></label>}
-					<ExportEmbeddedChaptersField copy={copy} settings={settings} project={snapshot.project} exporting={settingsDisabled} onChange={set} />
+					<ExportEmbeddedChaptersField copy={copy} settings={settings} project={selectionProject} exporting={settingsDisabled} onChange={set} />
 					{videoFormat && (
 						<VideoDeliveryFields
 							copy={copy}

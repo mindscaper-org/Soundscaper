@@ -2,7 +2,7 @@
 
 export const WORKSPACE_OVERLAY_MODEL_KEYS = Object.freeze([
 	'activeSurface', 'surfaceRequestId', 'applicationMenus', 'aboutLabel', 'capabilities',
-	'closeNyquist', 'controller', 'copy', 'dialog', 'displayAudioSupported',
+	'clipExportRequest', 'closeNyquist', 'controller', 'copy', 'dialog', 'displayAudioSupported',
 	'dialogTrackId', 'dialogValue', 'effectWindows', 'editBlocked', 'fileService', 'confirmFileSizeWarning',
 	'generatorType', 'locale', 'macroDraft', 'nyquistTarget', 'preferences',
 	'preferencesPage', 'projectBinEffectivelyOpen', 'productId', 'run', 'scapeOpenDecision',

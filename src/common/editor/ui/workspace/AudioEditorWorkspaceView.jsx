@@ -382,9 +382,11 @@ export default function AudioEditorWorkspaceView({ model }) {
 							if (!clip) return;
 							const range = clipContentRange(project, clip);
 							if (!range) return;
-							run(() => controller.actions.timeline.selectClip(clip.id));
-							run(() => controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame));
-							openSurface('export');
+							if (!snapshot.readOnly) {
+								run(() => controller.actions.timeline.selectClip(clip.id));
+								run(() => controller.actions.timeline.setExactSelection(range.startFrame, range.endFrame));
+							}
+							openSurface('export-selection', { projectId: project.id, range });
 						}}
 						onUploadClipToFreesound={productId === 'soundscaper' ? uploadClipToFreesound : undefined}
 						onRevealProjectBin={revealProjectBin}

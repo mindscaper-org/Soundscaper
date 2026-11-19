@@ -11,7 +11,7 @@ export function exportDialogProjectIdentity(projectValue: unknown): string | nul
 	return typeof id === 'string' ? id : null;
 }
 
-export function createExportDialogInitialSettings(projectValue: unknown) {
+export function createExportDialogInitialSettings(projectValue: unknown, range: 'project' | 'selection' = 'project') {
 	const project = dataRecord(projectValue);
 	const projectMetadata = dataRecord(project.metadata);
 	const tags = projectAudioMetadata(projectMetadata);
@@ -22,7 +22,7 @@ export function createExportDialogInitialSettings(projectValue: unknown) {
 	return {
 		mode: 'mix',
 		chapterSource: 'labels',
-		range: 'project',
+		range,
 		format: 'wav',
 		sampleFormat: 'int24',
 		bitRate: '192',

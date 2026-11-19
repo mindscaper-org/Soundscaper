@@ -74,6 +74,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 	const parityRuntime = useControllerOwnedActionRuntime(controller, productId, locale);
 	const snapshot = useAudioEditorSnapshot(controller);
 	const [activeSurface, setActiveSurface, surfaceRequestId] = useTakeCycleRecoverySurface(productId, snapshot.takeCycleRecovery);
+	const [clipExportRequest, setClipExportRequest] = useState(null);
 	useProjectRecoverySurface(productId, snapshot.projectRecovery?.projectId, setActiveSurface, snapshot.projectRecovery?.requestId);
 	usePrivacyPolicySurface(productId, initialSurface, setActiveSurface);
 	const { windows: effectWindows, open: setEffectWindow, close: closeEffectWindow } = useWorkspaceEffectWindows(snapshot.project?.id ?? null);
@@ -255,8 +256,9 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		if (surface === 'preferences') {
 			setPreferencesPage(workspacePreferencesPage(options?.section));
 		}
+		if (surface === 'export-selection') setClipExportRequest({ projectSession: editorProjectEditSessionKey(controller, options.projectId), range: options.range });
 		setActiveSurface(surface);
-	}, [openClipPropertiesSurface, setActiveSurface]);
+	}, [controller, openClipPropertiesSurface, setActiveSurface]);
 	const soundscaperWorkflow = useSoundscaperWorkflowWorkspace({ productId, controller, project, selectedTrackId: snapshot.selectedTrackId, openSurface });
 	const { effectsPanelTarget, openEffects } = useWorkspaceEffectsPanel({
 		controller, run, setActiveSurface, selectedTrackId: snapshot.selectedTrackId,
@@ -468,7 +470,7 @@ const DEFERRED_WEB_VCR_PANEL_ID = 'web-vcr'; export default function AudioEditor
 		toggleRecording, toolbarButtons: toolbarButtonPreferences, toolbars: toolbarPreferences, uiFlags, zoomProject, toolbarDock, onToolbarDock: setToolbarDock,
 	};
 	const overlayModel = createWorkspaceOverlayModel({
-		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, closeNyquist,
+		activeSurface, surfaceRequestId, applicationMenus, aboutLabel, capabilities, clipExportRequest, closeNyquist,
 		controller, copy, dialog, displayAudioSupported, dialogTrackId, dialogValue,
 		effectWindows, editBlocked, fileService, confirmFileSizeWarning, generatorType, locale, macroDraft,
 		nyquistTarget, preferences, preferencesPage, projectBinEffectivelyOpen, productId,

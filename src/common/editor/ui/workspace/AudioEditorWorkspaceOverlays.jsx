@@ -68,7 +68,7 @@ function LazyInspectorFallback({ copy }) {
 export default function AudioEditorWorkspaceOverlays({ model }) {
 	const [batchMacro, setBatchMacro] = React.useState(null);
 	const {
-		activeSurface, surfaceRequestId,
+		activeSurface, surfaceRequestId, clipExportRequest,
 		applicationMenus,
 		aboutLabel,
 		capabilities,
@@ -444,11 +444,13 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					/>
 				</div>
 			)}
-			{activeSurface === 'export' && (
+			{(activeSurface === 'export' || activeSurface === 'export-selection') && (
 				<div data-editor-surface="export">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
 						<ExportDialog
+							key={activeSurface === 'export-selection' ? surfaceRequestId : undefined}
 							isOpen
+							clipExportRequest={activeSurface === 'export-selection' ? clipExportRequest : null}
 							controller={controller}
 							snapshot={snapshot}
 							copy={copy}

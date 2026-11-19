@@ -105,6 +105,13 @@ test('export metadata keeps a title cleared in Project properties empty', () => 
 	}).metadataTitle, '');
 });
 
+test('the clip export default captures its prepared range while ordinary export defaults to the project', () => {
+	const project = { sampleRate: 48_000, tracks: [], clips: [], selection: { startFrame: 96_000, endFrame: 134_400 } };
+	assert.equal(createExportDialogRequest(createExportDialogInitialSettings(project), { project }).range, 'project');
+	assert.deepEqual(createExportDialogRequest(createExportDialogInitialSettings(project, 'selection'), { project }).range,
+		{ startFrame: 96_000, endFrame: 134_400 });
+});
+
 test('label exports preserve periods in a project title and replace label file suffixes', async context => {
 	assert.equal(labelExportFileName('Episode 1.2', 'srt'), 'Episode 1.2.srt');
 	assert.equal(labelExportFileName('Captions.VTT', 'srt'), 'Captions.srt');
