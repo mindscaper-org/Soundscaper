@@ -32,6 +32,7 @@ import { createExportOperationAvailability } from './export-operation-availabili
 import { beginExportTask, handleExportFailure } from './export-task-lifecycle.ts';
 import { createExportSnapshotRenderer } from '../export-snapshot-renderer.ts';
 import type { EditorExportState } from '../export-state.ts';
+import { isCurrentAssertion } from '../../shared/lifecycle.ts';
 import { streamStemArchiveExport } from './archive/streaming-stem-archive-export.ts';
 import { executeDirectStemRenderArchive } from './direct/direct-stem-render-execution.ts';
 import { assertDesktopAudioExportCapability } from './desktop-audio-export-capability.ts';
@@ -136,6 +137,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			return executionOwner === 'persistent' ? PERSISTENT_EXPORT_BUSY : undefined;
 		}
 		const preparationGeneration = state.exportGeneration;
+		const preparationProject = typeof runtime.prepareProjectForExport === 'function' ? projectGeneration.capture() : null;
 		audioExportPreparing = true;
 		exportOwner = executionOwner;
 		try {
@@ -148,7 +150,8 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		} finally {
 			audioExportPreparing = false;
 		}
-		if (state.exportAbort || state.exportGeneration !== preparationGeneration || state.disposed) {
+		if (state.exportAbort || state.exportGeneration !== preparationGeneration || state.disposed
+			|| (preparationProject && !isCurrentAssertion(() => projectGeneration.assertCurrent(preparationProject)))) {
 			releaseExportOwner(executionOwner);
 			return;
 		}
