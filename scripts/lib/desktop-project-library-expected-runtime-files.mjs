@@ -25,6 +25,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/scape-expanded-byte-budget.js',
 	...DESKTOP_5B_TRANSITIVE_RUNTIME_FILES,
 	'desktop/desktop-storage-paths.js', 'desktop/desktop-storage-migration.js', 'desktop/desktop-storage-migration-sync.js',
+	'desktop/desktop-storage-copy-stage.js',
 	'desktop/desktop-database.js', 'desktop/desktop-database-contention.js', 'desktop/local-storage-safety.js', 'desktop/local-storage-volume.js',
 	'desktop/desktop-storage-bootstrap.js', 'desktop/desktop-browser-cache.js',
 	'desktop/desktop-project-library-migration.js', 'desktop/desktop-projects-directory.js',
@@ -373,7 +374,10 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/i18n/editor-copy-scope.js',
 	'src/common/i18n/editor-file-validation-copy.js',
 	'src/common/i18n/editor-format-file-failure-copy.js',
+	'src/common/i18n/editor-framescaper-native-services-copy.js',
 	'src/common/i18n/editor-id3-metadata-copy.js',
 	'src/common/i18n/editor-spatial-render-copy.js',
 	'src/common/i18n/presentation-message.js',
+	'src/common/i18n/processing-dialog-copy.js',
+	'src/common/editor/midi-compact-score.js',
 ].sort());
