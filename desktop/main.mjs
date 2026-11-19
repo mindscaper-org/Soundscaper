@@ -197,7 +197,10 @@ async function startApplication() {
 	await linkedVideoLocators.ready();
 	if (applicationShutdown.requested) return;
 	temporaryProjectStorage = new TemporaryProjectStorage(resolve(desktopStorage.configRoot, 'temporary-project-storage.json'), resolveDesktopProjectLibraryAppData({ applicationDataPath: desktopStorage.projectLibraryAppData, argv: startupOptionArguments }), APP_NAME);
-	const temporaryProjectAppData = await temporaryProjectStorage.prepare();
+	const temporaryProjectAppData = await temporaryProjectStorage.prepare((error) => {
+		electronDialog.showErrorBox('The temporary data folder could not be moved',
+			`Your project library is still in its current folder. Choose a different temporary data folder in Preferences.\n\n${cleanError(error.cause ?? error)}`);
+	});
 	projectFileAssociations = new ProjectFileAssociations(resolve(desktopStorage.configRoot, 'project-file-associations.json'), originalFiles); await projectFileAssociations.load();
 	const libraryStartup = startDesktopProjectLibraryProductRuntime({
 		productId: PRODUCT_ID, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)),

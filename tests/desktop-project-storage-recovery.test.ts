@@ -128,6 +128,39 @@ test('startup cancels a fresh destination alias without switching the active lib
 	assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), { active, selected: active, moveStarted: false });
 });
 
+for (const moveStarted of [false, true]) test(`startup preserves both libraries when a pending destination becomes occupied (${moveStarted ? 'started' : 'fresh'})`, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-late-conflict-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const configuration = join(root, 'settings.json');
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const library = join('Soundscaper', 'project-library', 'v1');
+	const source = join(active, library, 'library.sqlite3'), destination = join(selected, library, 'library.sqlite3');
+	await mkdir(join(active, library), { recursive: true });
+	await writeFile(source, 'original catalog');
+	await new TemporaryProjectStorage(configuration, active, 'Soundscaper').select(selected);
+	const recorded = JSON.parse(await readFile(configuration, 'utf8')) as object;
+	await writeFile(configuration, JSON.stringify({ ...recorded, moveStarted }));
+	await mkdir(join(selected, library), { recursive: true });
+	await writeFile(destination, 'independent catalog');
+
+	const restarted = new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	const refused: Error[] = [];
+	const startup = restarted.prepare(error => { refused.push(error); });
+	if (moveStarted) {
+		await assert.rejects(startup, /verification conflict/iu);
+		assert.deepEqual(refused, []);
+		assert.deepEqual(JSON.parse(await readFile(configuration, 'utf8')), { ...recorded, moveStarted: true });
+	} else {
+		assert.equal(await startup, active);
+		assert.equal(refused.length, 1);
+		assert.match(refused[0]!.message, /verification conflict/iu);
+		assert.deepEqual(restarted.status(), { folder: active, selectedFolder: active, restartRequired: false });
+		assert.equal(await new TemporaryProjectStorage(configuration, active, 'Soundscaper').prepare(), active);
+	}
+	assert.equal(await readFile(source, 'utf8'), 'original catalog');
+	assert.equal(await readFile(destination, 'utf8'), 'independent catalog');
+});
+
 test('overlapping folder choices persist the last selection through a single writer', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-storage-select-'));
 	context.after(() => rm(root, { recursive: true, force: true }));

@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, rename, rmdir, writeFile, access, lstat, stat
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
-import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries, sameDesktopStorageDirectory } from './desktop-storage-migration.ts';
+import { checkDesktopStorageMigrationDestination, DesktopStorageMigrationPreflightError, migrateDesktopStorageEntries, sameDesktopStorageDirectory } from './desktop-storage-migration.ts';
 import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
@@ -31,7 +31,7 @@ export class TemporaryProjectStorage {
 	constructor(readonly configurationPath: string, readonly defaultRoot: string, readonly appName: string) {
 		this.#state = { active: defaultRoot, selected: defaultRoot, moveStarted: false };
 	}
-	async prepare(): Promise<string> {
+	async prepare(onSelectionRefused?: (error: Error) => void): Promise<string> {
 		try {
 			const value: unknown = JSON.parse(await readFile(this.configurationPath, 'utf8'));
 			if (value && typeof value === 'object' && 'active' in value && 'selected' in value) {
@@ -88,6 +88,11 @@ export class TemporaryProjectStorage {
 			selectedId ??= await this.#rememberFolder(selectedRoot);
 			await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
 			return this.#state.active;
+		}).catch(async (error: unknown) => {
+			if (state.moveStarted || !(error instanceof DesktopStorageMigrationPreflightError)) throw error;
+			await this.#resetFolderSelection();
+			onSelectionRefused?.(error);
+			return state.active;
 		});
 	}
 	status(): Readonly<{ folder: string; selectedFolder: string; restartRequired: boolean }> {
@@ -119,8 +124,11 @@ export class TemporaryProjectStorage {
 			|| await sameDesktopStorageDirectory(this.#libraryPath(active), this.#libraryPath(selected));
 	}
 	async #cancelAliasedSelection(): Promise<void> {
-		const { active, activeId, selected, moveStarted } = this.#state;
-		if (moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
+		if (this.#state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
+		await this.#resetFolderSelection();
+	}
+	async #resetFolderSelection(): Promise<void> {
+		const { active, activeId, selected } = this.#state;
 		if (active !== selected) await this.#persist({ active, activeId, selected: active, selectedId: activeId, moveStarted: false });
 	}
 	async #openActiveFolder(): Promise<string> {

@@ -28,6 +28,11 @@ interface MigrationOperations {
 
 const OPERATIONS: MigrationOperations = Object.freeze({ rename, copyFile, link, unlink });
 
+/** The migration has finished checking paths without changing the source library. */
+export class DesktopStorageMigrationPreflightError extends Error {
+	override readonly name = 'DesktopStorageMigrationPreflightError';
+}
+
 /**
  * Preflight all entries, then move them without replacing destination files.
  * Failed copies remain available for inspection; only verified source duplicates
@@ -93,7 +98,7 @@ async function preflightEntries(
 			await preflight(normalized.source, normalized.destination, purpose, stage);
 			pending.push(normalized);
 		} catch (error) {
-			throw migrationFailure(normalized, error, purpose);
+			throw migrationFailure(normalized, error, purpose, DesktopStorageMigrationPreflightError);
 		}
 	}
 	return pending;
@@ -108,11 +113,14 @@ function nested(parent: string, child: string): boolean {
 	return path !== '' && !isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`);
 }
 
-function migrationFailure(entry: StorageEntry, cause: unknown, purpose: PreflightPurpose): Error {
+function migrationFailure(
+	entry: StorageEntry, cause: unknown, purpose: PreflightPurpose,
+	Failure: new (message: string, options: ErrorOptions) => Error = Error,
+): Error {
 	const reason = cause instanceof Error ? cause.message : String(cause);
 	const recovery = purpose === 'selection' ? 'Choose a different temporary data folder.'
 		: 'Resolve the conflicting or unsupported paths and restart.';
-	return new Error(
+	return new Failure(
 		`Could not migrate desktop storage: source "${entry.source}", destination "${entry.destination}": ${reason} `
 		+ `${recovery} Existing destination data is preserved.`,
 		{ cause },
