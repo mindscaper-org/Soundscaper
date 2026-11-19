@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction, getMenuItem, openNestedCommandMenu } from './audio-editor-test-helpers.js';
 import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 import { exportScapeProject } from '../../src/common/editor/scape-project.js';
 import { createProjectStore } from '../../src/common/editor/storage.js';
@@ -40,9 +40,6 @@ test('native checksum export cancellation preserves its report for a successful 
 	// streaming save route, so its checksums remain available for later work.
 	await chooseExportProjectFileAction(page, editor);
 	await expect(editor.locator('[data-status]')).toContainText('All changes saved locally');
-	const archiveTabId = await editor.getAttribute('data-project-id');
-	await editor.getByRole('button', { name: 'New project', exact: true }).click();
-	await expect.poll(() => editor.getAttribute('data-project-id')).not.toBe(archiveTabId);
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Save archive checksums']);
 	await expect.poll(() => page.evaluate(() => globalThis.__manifestRequests.filter(request => request.purpose === 'report').length)).toBe(1);
 	await expect(editor.locator('[data-status]')).not.toContainText('Archive checksums saved');
@@ -51,4 +48,10 @@ test('native checksum export cancellation preserves its report for a successful 
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Save archive checksums']);
 	await expect(editor.locator('[data-status]')).toContainText('Archive checksums saved');
 	expect(await page.evaluate(() => globalThis.__manifestReportWrites)).toBe(1);
+
+	const archiveTabId = await editor.getAttribute('data-project-id');
+	await editor.getByRole('button', { name: 'New project', exact: true }).click();
+	await expect.poll(() => editor.getAttribute('data-project-id')).not.toBe(archiveTabId);
+	const menu = await openNestedCommandMenu(page, editor, 'File', ['Project management']);
+	await expect(getMenuItem(menu, 'Save archive checksums')).toBeDisabled();
 });
