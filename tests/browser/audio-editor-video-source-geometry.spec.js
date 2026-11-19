@@ -7,9 +7,13 @@ import {
 	resolveVideoSourcePresentation,
 } from '../../src/common/editor/video-source-presentation.ts';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
-import { openClipProperties, openExportDialog } from './audio-editor-test-helpers.js';
+import {
+	bootEditor, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker,
+	downloadBytes, importFiles, openClipProperties, openExportDialog, waitForProjectActivation,
+} from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import {
 	DURABLE_MEDIA_STORAGE_REQUIRED,
@@ -22,6 +26,29 @@ const ROTATED_ANAMORPHIC = videoSourceGeometryMedia.find(
 );
 
 test.describe('3B-2b source display geometry qualification', () => {
+	test('portable reopen preserves the authored orientation of the Programme picture', async ({ page, browser }) => {
+		test.setTimeout(60_000);
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await importFiles(editor, [ROTATED_ANAMORPHIC.file]);
+		await expectProgrammeQuadrants(page, editor);
+
+		const download = page.waitForEvent('download');
+		await chooseExportProjectFileAction(page, editor);
+		const buffer = Buffer.from(await downloadBytes(await download));
+		const reopened = await browser.newPage();
+		try {
+			const target = await bootEditor(reopened, '/framescaper/embed/en/');
+			const projectId = await target.getAttribute('data-project-id');
+			const chooser = reopened.waitForEvent('filechooser');
+			await chooseFileAction(reopened, target, 'Open');
+			await (await chooser).setFiles({ name: 'Rotated footage.fscape', mimeType: 'application/zip', buffer });
+			await expect(target).not.toHaveAttribute('data-project-id', projectId);
+			await waitForProjectActivation(target);
+			await expectProgrammeQuadrants(reopened, target);
+		} finally { await reopened.close(); }
+	});
+
 	test('the probe reports coded geometry and each engine resolves its own residual', async ({
 		browserName,
 		page,
@@ -147,6 +174,32 @@ test.describe('3B-2b source display geometry qualification', () => {
 		}
 	});
 });
+
+async function expectProgrammeQuadrants(page, editor) {
+	const preview = editor.locator('[data-video-preview]');
+	const canvas = preview.locator('[data-video-preview-canvas]');
+	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+	await seekFramescaperTimecode(page, editor, '00:00:00:12');
+	await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', '19200');
+	await expect.poll(async () => {
+		const screenshot = await canvas.screenshot({ scale: 'css' });
+		return page.evaluate(async ({ png, display }) => {
+			const bytes = Uint8Array.from(atob(png), value => value.charCodeAt(0));
+			const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+			try {
+				const contentWidth = image.height * display.width / display.height;
+				const context = new OffscreenCanvas(image.width, image.height).getContext('2d');
+				context.drawImage(image, 0, 0);
+				return [.25, .75].flatMap(y => [-.25, .25].map(x => {
+					const { data } = context.getImageData(
+						Math.floor(image.width / 2 + x * contentWidth), Math.floor(y * image.height), 1, 1,
+					);
+					return [...data.slice(0, 3)].map(channel => Number(channel > 128));
+				}));
+			} finally { image.close(); }
+		}, { png: screenshot.toString('base64'), display: ROTATED_ANAMORPHIC.display });
+	}).toEqual([[0, 1, 0], [1, 1, 1], [1, 0, 0], [0, 0, 1]]);
+}
 
 /** Collect the bytes the direct export route writes to its prepared target. */
 async function installVideoSaveTarget(page) {

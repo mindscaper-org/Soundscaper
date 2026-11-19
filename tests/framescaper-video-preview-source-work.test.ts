@@ -38,8 +38,9 @@ test('preview membership preserves proxy, missing-source, failed-URL and absent-
 	const result = preview(Object.freeze({ sources, clips }), id => ({ url: `blob:${id}`, ...(id === 'proxy' ? { mediaKind: 'proxy' } : {}) }),
 		new Set(['missing', 'proxy']), new Map([['failed', 'blob:failed']]));
 	assert.deepEqual([...result.clipStateById], [
-		['ready', { available: true }], ['missing', { available: false }], ['proxy', { available: true }],
-		['failed', { available: false }], ['absent', { available: false }],
+		['ready', { available: true, usesProxy: false }], ['missing', { available: false, usesProxy: false }],
+		['proxy', { available: true, usesProxy: true }], ['failed', { available: false, usesProxy: false }],
+		['absent', { available: false, usesProxy: false }],
 	]);
 });
 
@@ -51,7 +52,7 @@ test('mutable preview inventories stay live across visual-provider callbacks', (
 		project.sources = [{ id }];
 		return { url: `blob:${id}` };
 	});
-	assert.deepEqual([...result.clipStateById.values()], [{ available: true }, { available: true }]);
+	assert.deepEqual([...result.clipStateById.values()].map(state => state.available), [true, true]);
 });
 
 test('frozen containers with mutable source identities retain live reads', () => {
@@ -60,7 +61,7 @@ test('frozen containers with mutable source identities retain live reads', () =>
 		{ kind: 'video', id: 'a', sourceId: 'first' }, { kind: 'video', id: 'b', sourceId: 'second' },
 	]) });
 	const result = preview(project, id => { source.id = id; return { url: `blob:${id}` }; });
-	assert.deepEqual([...result.clipStateById.values()], [{ available: true }, { available: true }]);
+	assert.deepEqual([...result.clipStateById.values()].map(state => state.available), [true, true]);
 });
 
 test('custom source membership and source accessors remain observable', () => {

@@ -23,11 +23,12 @@ export function createVideoPreviewTimelineState(
 			if (clip?.kind !== 'video') continue;
 			const visual = resolveVideoPreviewVisual(controller, clip.id, clip.sourceId);
 			const sourceUrl = visual?.mediaUrl || visual?.url || null;
+			const usesProxy = visual?.mediaKind === 'proxy';
 			hasSource ??= createVideoPreviewSourceMembership(project);
-			clipStateById.set(clip.id, { available: Boolean(
+			clipStateById.set(clip.id, { usesProxy, available: Boolean(
 				hasSource(clip.sourceId)
 				&& sourceUrl && visual?.available !== false
-				&& (visual?.mediaKind === 'proxy' || !missingSourceIds.has(clip.sourceId))
+				&& (usesProxy || !missingSourceIds.has(clip.sourceId))
 				&& failedVideoSources.get(clip.id) !== sourceUrl,
 			) });
 		}
