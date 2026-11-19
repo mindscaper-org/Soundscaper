@@ -35,11 +35,17 @@ export function createUnifiedExactLinearPremultipliedFrameV13(
 	const height = dimension(heightValue, 'linear frame height');
 	const rgba = tuple(background, 'linear frame background');
 	const pixels = new Float64Array(width * height * 4);
-	for (let offset = 0; offset < pixels.length; offset += 4) {
-		pixels[offset] = rgba[0] * rgba[3];
-		pixels[offset + 1] = rgba[1] * rgba[3];
-		pixels[offset + 2] = rgba[2] * rgba[3];
-		pixels[offset + 3] = rgba[3];
+	const [red, green, blue, alpha] = rgba;
+	if (alpha !== 0) {
+		const premultipliedRed = red * alpha;
+		const premultipliedGreen = green * alpha;
+		const premultipliedBlue = blue * alpha;
+		for (let offset = 0; offset < pixels.length; offset += 4) {
+			pixels[offset] = premultipliedRed;
+			pixels[offset + 1] = premultipliedGreen;
+			pixels[offset + 2] = premultipliedBlue;
+			pixels[offset + 3] = alpha;
+		}
 	}
 	return Object.freeze({ width, height, pixels });
 }
@@ -407,10 +413,16 @@ function rgbaFrame(value: unknown, name: string): UnifiedExactRenderRgbaFrameV13
 	const frame = value as Partial<UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame>;
 	const width = dimension(frame.width, `${name} width`);
 	const height = dimension(frame.height, `${name} height`);
-	if (!(frame.pixels instanceof Uint8Array || frame.pixels instanceof Float32Array) || frame.pixels.length !== width * height * 4) {
+	const pixels = frame.pixels;
+	if (!(pixels instanceof Uint8Array || pixels instanceof Float32Array) || pixels.length !== width * height * 4) {
 		throw new RangeError(`${name} has invalid RGBA geometry.`);
 	}
-	if (frame.pixels instanceof Float32Array) for (const channel of frame.pixels) unit(channel, name);
+	if (pixels instanceof Float32Array) {
+		for (let index = 0; index < pixels.length; index += 1) {
+			const channel = pixels[index]!;
+			if (!(channel >= 0 && channel <= 1)) throw new RangeError(`${name} must be between zero and one.`);
+		}
+	}
 	return frame as UnifiedExactRenderRgbaFrameV13 | UnifiedExactLinearSourceFrame;
 }
 
