@@ -22,8 +22,7 @@ export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}
 		throw new TypeError('Working database storage requires an absolute filesystem path.');
 	}
 	const selected = resolve(path);
-	const ancestor = existingAncestor(selected);
-	const physical = resolve(ancestor.physical, relative(ancestor.path, selected));
+	const { path: physical, existingPath } = physicalStorageLocation(selected);
 	const roots = synchronizedRoots(probe.environment ?? process.env, probe.homePath ?? homedir());
 	for (const candidate of [selected, physical]) {
 		const components = candidate.split(/[/\\]/u);
@@ -31,8 +30,18 @@ export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}
 			|| /[/\\]Library[/\\](?:CloudStorage|Mobile Documents)(?:[/\\]|$)/iu.test(candidate)
 			|| roots.some(root => within(root, candidate))) throw new Error(STORAGE_ERROR);
 	}
-	if (!(probe.volumeIsLocal ?? isLocalDesktopVolume)(ancestor.physical)) throw new Error(STORAGE_ERROR);
+	if (!(probe.volumeIsLocal ?? isLocalDesktopVolume)(existingPath)) throw new Error(STORAGE_ERROR);
 	return physical;
+}
+
+/** Resolve supplied directory aliases while leaving any missing path components intact. */
+export function physicalDesktopStoragePath(path: string): string {
+	return physicalStorageLocation(resolve(path)).path;
+}
+
+function physicalStorageLocation(path: string): { path: string; existingPath: string } {
+	const ancestor = existingAncestor(path);
+	return { path: resolve(ancestor.physical, relative(ancestor.path, path)), existingPath: ancestor.physical };
 }
 
 function existingAncestor(path: string): { path: string; physical: string } {
