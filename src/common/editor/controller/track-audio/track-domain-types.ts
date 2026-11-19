@@ -22,6 +22,8 @@ export interface ControllerClip extends Readonly<Record<string, unknown>> {
 	readonly durationFrames: number;
 	readonly trimStartFrames?: number;
 	readonly trimEndFrames?: number;
+	readonly effects?: readonly ControllerEffect[];
+	readonly effectsActive?: boolean;
 }
 
 export interface ControllerSource extends Readonly<Record<string, unknown>> {

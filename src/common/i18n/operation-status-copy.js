@@ -18,6 +18,7 @@ export const OPERATION_STATUS_COPY_BY_LOCALE = Object.freeze({
 			rightChannel: 'Right',
 			stereoTrackRequired: 'Select a stereo track first.',
 			stereoSplitCustomRoutingRequiresReset: 'Reset or remove the custom channel map in Routing graph before splitting this stereo track.',
+			stereoSplitEffectsRequireRender: 'Use Mix & Render with Stereo output and Render effects enabled before splitting this track.',
 			monoTrackRequired: 'Select a mono track first.',
 			compatibleMonoTrackRequired: 'Two mono tracks are required to make a stereo track.',
 			rendering: 'Rendering audio in your browser',

@@ -19,7 +19,7 @@ import { requireWritableAudioTransformTrack } from './track-transform-admission.
 import { stereoTrackRenderRange } from './stereo-track-render-range.ts';
 import { splitStereoSourceChannels } from './split-stereo-source-channels.ts';
 import { planSplitStereoSources, splitStereoClipCommands } from './split-stereo-clip-commands.ts';
-import { assertStereoSplitRoutingRepresentable } from './stereo-split-routing-admission.ts';
+import { assertStereoSplitRepresentable } from './stereo-split-routing-admission.ts';
 import { monoMergeRoutingCompatible } from './mono-merge-routing-admission.ts';
 import { admChannelTransformCommands } from './adm-channel-transforms.ts';
 import { resampledClipSelectionCommands } from './resampled-clip-selection.ts';
@@ -245,9 +245,9 @@ export function createTrackTransformService(
 		const project = dependencies.getProject();
 		const track = requireStereoTrack(project, trackId);
 		assertTrackChannelRewriteAllowed(project, [track.id], dependencies.copy);
-		assertStereoSplitRoutingRepresentable(project, track.id, dependencies.copy);
-		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const clips = trackClips(project, track);
+		assertStereoSplitRepresentable(project, track, clips, dependencies.copy);
+		const trackIndex = project.tracks.findIndex((candidate) => candidate.id === track.id);
 		const sources = dependencies.derivedSources.uniqueClipSources(clips);
 		const { sourceById, sourcePairs, sourcesToSplit } = planSplitStereoSources(clips, sources);
 		const bytes = sourcesToSplit.reduce((sum, source) => sum

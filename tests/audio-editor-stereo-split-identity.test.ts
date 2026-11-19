@@ -5,20 +5,25 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createEffect } from '../src/common/editor/effects.js';
+import { OPERATION_STATUS_COPY_BY_LOCALE } from '../src/common/i18n/operation-status-copy.js';
 import { readTrackPlaylists } from '../src/common/editor/track-playlists.ts';
 import { audioTrackChannelCount } from '../src/common/editor/project-audio-factory.js';
 import { createTrackTransformService } from '../src/common/editor/controller/track-audio/internal/track-transform-service.ts';
 import type { TrackTransformServiceDependencies } from '../src/common/editor/controller/track-audio/internal/track-transform-service.ts';
 import { findControllerSource, type ControllerProject } from '../src/common/editor/controller/track-audio/track-domain-types.ts';
 
-function fixture(playlists = false, panAutomation = false, channelCount = 2) {
+function fixture(playlists = false, panAutomation = false, channelCount = 2, rack?: Readonly<{
+	readonly scope: 'clip' | 'track'; readonly enabled?: boolean; readonly mix?: number;
+}>) {
+	const effects = rack ? [createEffect('reverb', { id: 'room', enabled: rack.enabled ?? true,
+		params: { mix: rack.mix ?? .5 } })] : [];
 	let project = createSoundscaperProject({ sources: [{ id: 'source', storageKey: 'source', frameCount: 100, sampleRate: 48000, channelCount }],
-		clips: [{ id: 'clip', sourceId: 'source', durationFrames: 100 },
+		clips: [{ id: 'clip', sourceId: 'source', durationFrames: 100, effects: rack?.scope === 'clip' ? effects : [] },
 			...(channelCount === 1 ? [{ id: 'partner-clip', sourceId: 'source', durationFrames: 100 }] : [])],
 		automationLanes: panAutomation ? ['detector', 'programme'].map(id => ({ id: `${id}-pan`, timebase: 'absolute-samples',
 			address: { kind: 'strip', strip: { kind: 'track', id }, parameterId: 'pan' },
 			points: [{ id: 'point', position: 0, value: .5 }], segments: [] })) : [],
-		tracks: [{ id: 'detector', type: 'audio', clipIds: ['clip'] }, { id: 'programme', type: 'audio', clipIds: channelCount === 1 ? ['partner-clip'] : [],
+		tracks: [{ id: 'detector', type: 'audio', clipIds: ['clip'], effects: rack?.scope === 'track' ? effects : [] }, { id: 'programme', type: 'audio', clipIds: channelCount === 1 ? ['partner-clip'] : [],
 			effects: [createEffect('audacity-auto-duck', { id: 'duck', context: { controlTrackId: 'detector' } })] }],
 	});
 	if (playlists) project = applySoundscaperProjectCommand(project, { type: 'track/playlist-create', trackId: 'detector',
@@ -29,7 +34,7 @@ function fixture(playlists = false, panAutomation = false, channelCount = 2) {
 	const dependencies: TrackTransformServiceDependencies = {
 		lifetime: { assertActive() {}, startTask: name => ({ name, scope: null, generation: 0,
 			signal: new AbortController().signal, assertCurrent() {}, finish() {}, abort() {} }) },
-		copy: { v2Required: 'Current project required', audioTrackRequired: 'Audio required', stereoTrackRequired: 'Stereo required',
+		copy: { ...OPERATION_STATUS_COPY_BY_LOCALE.en, v2Required: 'Current project required', audioTrackRequired: 'Audio required', stereoTrackRequired: 'Stereo required',
 			monoTrackRequired: 'Mono required', compatibleMonoTrackRequired: 'Compatible mono tracks required',
 			resamplingTrack: 'Resampling', audacityProcessing: 'Processing', rewritingChannels: 'Rewriting', done: 'Done',
 			channelsSwapped: 'Swapped', leftChannel: 'Left', rightChannel: 'Right', stereo: 'Stereo' },
@@ -69,6 +74,21 @@ test('channel splitting refuses saved alternatives before allocating media and r
 	assert.equal(f.getProject(), before);
 	assert.equal(f.getPreflights(), 0);
 	assert.equal(readTrackPlaylists(f.getProject())[0]!.playlists.length, 2);
+});
+
+for (const scope of ['clip', 'track'] as const) test(`stereo split preserves an active stereo ${scope} rack before allocating media`, async () => {
+	const f = fixture(false, false, 2, { scope });
+	const before = f.getProject();
+	await assert.rejects(f.service.splitStereoTrack('detector', scope === 'clip'), /Mix & Render.*Stereo output/u);
+	assert.equal(f.getProject(), before);
+	assert.equal(f.getPreflights(), 0);
+});
+
+for (const rack of [{ enabled: false }, { mix: 0 }] as const) test(`stereo split accepts an inactive Reverb: ${JSON.stringify(rack)}`, async () => {
+	const f = fixture(false, false, 2, { scope: 'clip', ...rack });
+	await f.service.splitStereoTrack('detector');
+	assert.equal(f.getPreflights(), 1);
+	assert.equal(f.getProject().clips.length, 2);
 });
 
 
