@@ -5,27 +5,35 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { act, createElement, useSyncExternalStore } from 'react';
 import { readClipLoop } from '../src/common/editor/audio-clip-loop.ts';
 import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { loopPointerPreview } from '../src/common/editor/ui/timeline/clip-loop-pointer.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { assertPcmChannelsEqual } from './helpers/assert-pcm-samples.ts';
 import { readCustodyPcm } from './helpers/audio-project-archive-pcm-custody.ts';
 import { audioRenderCustody } from './helpers/audio-render-custody.ts';
 import { clipboardDocument, clipboardProject } from './helpers/clipboard-source-custody.ts';
+import { mountControllerDataDom } from './helpers/controller-data-dom.ts';
+import { reactProps } from './helpers/react-test-dom.ts';
 
 const PERIOD = 4_800;
 const RATE = 48_000;
 
 for (const [name, length, splitAt, originalPhase, reversedPhase] of [
 	['partial split loop', 12_000, 650, 650, 2400],
+	['Clip Properties partial split loop', 12_000, 650, 650, 2400],
+	['merged Clip Properties partial split loop', 12_000, 650, 650, 2400],
+	['Clip Spreadsheet partial split loop', 12_000, 650, 650, 2400],
 	['split loop shorter than one period', 7800, 4600, 4600, 1800],
 	['whole loop', 9600, 0, 0, 0],
 	['legacy partial single pass', 2400, 0, 650, null],
 	['ordinary clip', PERIOD, 0, null, null],
 ] as const) {
-	test(`timeline Reverse plays the complete ${name} backwards through Undo and Redo`, async context => {
+	test(`Reverse plays the complete ${name} backwards through Undo and Redo`, async context => {
 		const { controller, render, archive, store, open } = await audioRenderCustody(context);
 		const path = await mkdtemp(join(tmpdir(), 'goal-loop-reverse.'));
 		context.after(async () => { await rm(path, { recursive: true }); });
@@ -63,6 +71,7 @@ for (const [name, length, splitAt, originalPhase, reversedPhase] of [
 			controller.actions.transport.seek(splitAt);
 			await controller.actions.edit.split(clip.id);
 		}
+		if (name === 'merged Clip Properties partial split loop') await controller.actions.clip.reverse(clip.id);
 		const before = clipboardProject(controller.project);
 		const target = resolveRuntimeProjectProjection(before).clips.find(value => value.timelineStartFrame === splitAt);
 		assert.ok(target?.kind === 'audio');
@@ -70,7 +79,11 @@ for (const [name, length, splitAt, originalPhase, reversedPhase] of [
 		assert.equal(readClipLoop(target)?.offsetFrames ?? null, originalPhase);
 		const forward = await render(length);
 		const history = controller.getSnapshot().history.undoEntries.length;
-		await controller.actions.clip.reverse(target.id);
+		if (name.includes('Clip Properties')) {
+			await reverseInClipProperties(controller, target.id, name.startsWith('merged') ? clip.id : undefined);
+		} else if (name === 'Clip Spreadsheet partial split loop') {
+			await controller.actions.clip.editSpreadsheet(before.id, [{ clipId: target.id, column: 'reversed', value: 'true' }]);
+		} else await controller.actions.clip.reverse(target.id);
 		const after = clipboardProject(controller.project), reversed = await render(length);
 		assert.equal(controller.getSnapshot().history.undoEntries.length, history + 1);
 		assertReversedInterior(reversed, forward, splitAt, length);
@@ -99,8 +112,42 @@ for (const [name, length, splitAt, originalPhase, reversedPhase] of [
 				const [storedSource] = after.sources; assert.ok(storedSource?.kind === 'audio');
 				assertPcmChannelsEqual(await readCustodyPcm(recipient, storedSource), [source], 'reopened immutable PCM');
 			} finally { await recipient.close(); }
+			await controller.actions.clip.update(target.id, { reversed: false, loop: { periodFrames: PERIOD, offsetFrames: 1700 } });
+			const explicit = clipboardProject(controller.project).clips.find(value => value.id === target.id);
+			assert.ok(explicit?.kind === 'audio');
+			assert.equal(explicit.reversed, false);
+			assert.deepEqual(readClipLoop(explicit), { periodFrames: PERIOD, offsetFrames: 1700 });
+			await controller.actions.clip.update(target.id, { reversed: true, fadeInFrames: 48, fadeOutFrames: 96 });
+			const edited = clipboardProject(controller.project).clips.find(value => value.id === target.id);
+			assert.ok(edited?.kind === 'audio');
+			assert.deepEqual([edited.fadeInFrames, edited.fadeOutFrames], [48, 96]);
 		}
 	});
+}
+
+async function reverseInClipProperties(controller: Awaited<ReturnType<typeof audioRenderCustody>>['controller'],
+	clipId: string, otherClipId?: string) {
+	const fixture = mountControllerDataDom();
+	function Properties() {
+		const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+		const project = clipboardProject(snapshot.project);
+		const clips = project.clips.map(clip => {
+			assert.ok(clip.kind === 'audio');
+			return { ...clip, sourceId: clip.sourceId };
+		});
+		return createElement(ClipPropertiesPanel, {
+			controller, snapshot: { ...snapshot, project: { ...project, clips } }, copy: ENGLISH_COPY, run: fixture.run,
+		});
+	}
+	try {
+		controller.actions.timeline.selectClip(clipId);
+		if (otherClipId !== undefined) controller.actions.timeline.selectClip(otherClipId, { additive: true });
+		await fixture.render(createElement(Properties));
+		const checkbox = fixture.dom.one('[data-clip-properties-field="reverse"]');
+		assert.equal(checkbox.getAttribute('aria-checked'), otherClipId === undefined ? 'false' : 'mixed');
+		await act(async () => { reactProps(checkbox).onClick(); await fixture.settle(); });
+		assert.equal(checkbox.getAttribute('aria-checked'), 'true');
+	} finally { await fixture.dispose(); }
 }
 
 function assertReversedInterior(actual: readonly Float32Array[], forward: readonly Float32Array[], start: number, end: number) {

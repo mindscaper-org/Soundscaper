@@ -69,6 +69,17 @@ export function normalizeInactiveClipLoop<Clip extends LoopAudioClip>(clip: Clip
 	return readClipLoop(clip) && !clipHasLoopRepeats(clip) ? { ...clip, ...clipLoopUpdateFields(clip, false) } : clip;
 }
 
+/** Keep the audible span when its source orientation changes. */
+export function reverseClipLoopChange(clip: LoopAudioClip): ClipLoopChange | false | undefined {
+	const loop = readClipLoop(clip);
+	if (!loop) return undefined;
+	const remainingFrames = loop.periodFrames - loop.offsetFrames;
+	if (clip.durationFrames <= remainingFrames) return false;
+	const phase = (remainingFrames - clip.durationFrames % loop.periodFrames) % loop.periodFrames;
+	const offsetFrames = phase < 0 ? phase + loop.periodFrames : phase;
+	return offsetFrames === loop.offsetFrames ? undefined : { periodFrames: loop.periodFrames, offsetFrames };
+}
+
 function frame(value: unknown, minimum: number, name: string): number {
 	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) throw new RangeError(`Invalid loop ${name}.`);
 	return value;

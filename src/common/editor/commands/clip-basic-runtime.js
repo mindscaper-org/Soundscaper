@@ -11,7 +11,7 @@ import {
 	findClipTrack,
 } from '../project.js';
 import { shapesForNewClipFades } from '../audio-clip-transition-gain.ts';
-import { clipLoopUpdateFields, withoutClipLoop } from '../audio-clip-loop.ts';
+import { clipLoopUpdateFields, reverseClipLoopChange, withoutClipLoop } from '../audio-clip-loop.ts';
 import { resampledClipSourceStretchFields } from '../clip-source-stretch-memory.ts';
 import { collectRelatedClipIds, mergeEditingRanges } from './editing-selection-authority.ts';
 import { hasCoreEditingProjectAuthority, hasProjectBinMediaAuthority } from '../project-schema-version.ts';
@@ -119,7 +119,11 @@ export function updateClip(project, clipId, changes = {}) {
 		]);
 	for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new RangeError(`Clip field cannot be updated: ${key}.`);
 	const { loop, ...fields } = changes;
-	const loopFields = Object.hasOwn(changes, 'loop') ? clipLoopUpdateFields(clip, loop) : {};
+	const explicitLoop = Object.hasOwn(changes, 'loop');
+	const reversalLoop = !explicitLoop && typeof fields.reversed === 'boolean' && fields.reversed !== Boolean(clip.reversed)
+		? reverseClipLoopChange(clip) : undefined;
+	const loopFields = explicitLoop ? clipLoopUpdateFields(clip, loop)
+		: reversalLoop === undefined ? {} : clipLoopUpdateFields({ ...clip, ...fields, reversed: clip.reversed }, reversalLoop);
 	const updated = normalizeClipForProject(project, {
 		...clip,
 		...shapesForNewClipFades(clip, changes),
