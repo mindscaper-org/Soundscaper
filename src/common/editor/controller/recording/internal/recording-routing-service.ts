@@ -478,15 +478,7 @@ export function createRecordingRoutingService<
 		if (!force && state.preferences.recording.retainInputs) return false;
 		if (!state.microphoneMetering) return recordingCapturePool.releaseAll();
 		const meterDeviceId = getMicrophoneMeterSession()?.deviceId || microphoneMeterDeviceId();
-		let released = false;
-		for (const source of recordingCapturePool.getSnapshot?.() || []) {
-			if (source.kind === 'display') {
-				released = recordingCapturePool.releaseDisplay() || released;
-			} else if (source.kind === 'device' && source.deviceId && source.deviceId !== meterDeviceId) {
-				released = recordingCapturePool.releaseHardware(source.deviceId) || released;
-			}
-		}
-		return released;
+		return Boolean(recordingCapturePool.releaseAll({ retainHardwareDeviceId: meterDeviceId }));
 	}
 
 	function syncRecordingPoolSnapshot() {
