@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { createHash, webcrypto } from 'node:crypto';
-import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
-import vm from 'node:vm';
-import { MessageChannel } from 'node:worker_threads';
+import { loadPreload } from './helpers/framescaper-native-services-preload-fixture.mjs';
 const JOB_ID = 'ab'.repeat(20);
 const PROJECT_IDENTITY = Object.freeze({ schemaFamily: 'framescaper', schemaVersion: 1 });
 test('the public v1 bridge exposes a pathless, frozen native-services snapshot', async () => {
@@ -562,39 +560,4 @@ function openFxProjection() {
 		components: ['RGBA'], pixelDepths: ['byte'], threading: 'fully-safe',
 		state: 'consented', quarantined: false,
 	};
-}
-
-async function loadPreload(results) {
-	let bridge;
-	const invocations = [];
-	const dataPlaneChunks = [];
-	const source = await readDesktopPreloadSource();
-	vm.runInNewContext(source, {
-		AggregateError, Array, ArrayBuffer, JSON, Number, Object, Promise, RangeError, String,
-		TypeError, Uint8Array, URL, Blob, MessageChannel, setTimeout, clearTimeout,
-		crypto: webcrypto, structuredClone,
-		require: () => ({
-			contextBridge: { exposeInMainWorld(name, value) { if (name === 'framescaperDesktop') bridge = value.v1; } },
-			ipcRenderer: {
-				invoke(channel, value) { invocations.push([channel, value]); return Promise.resolve(results.shift()); },
-				postMessage(channel, value, ports) {
-					invocations.push([channel, value]);
-					const port = ports[0];
-					port.on('message', (message) => {
-						if (message.type === 'chunk') {
-							dataPlaneChunks.push({ sequence: message.sequence, offset: message.offset,
-								byteLength: message.bytes.byteLength });
-							port.postMessage({ dataPlaneVersion: 1, type: 'ack', streamId: message.streamId, sequence: message.sequence, receivedBytes: message.offset + message.bytes.byteLength });
-						}
-						else if (message.type === 'complete' && !channel.endsWith(':image-sequence:import-port')) port.postMessage({ dataPlaneVersion: 1, type: 'result', streamId: message.streamId, projection: results.shift() });
-					});
-					port.start();
-				},
-				send: () => undefined,
-				on: () => undefined,
-				removeListener: () => undefined,
-			},
-		}),
-	});
-	return { bridge, invocations, dataPlaneChunks };
 }
