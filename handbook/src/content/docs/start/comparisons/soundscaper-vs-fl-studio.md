@@ -168,7 +168,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Drum-hit sample replacement | / | / |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | ~ — Windows VST bridge :: Optional bridged VST hosting isolates plug-ins from FL Studio; not available in the Mac host. |
 | 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Built-in x86 bridge for 32-bit VST2 effects, enabled by default. Other platforms and plug-in formats retain native-architecture requirements. | ~ — Windows VST bridge |
-| Suspend idle plug-in processing | ~ — Built-ins + native :: Supported built-ins preserve tail reserves; native effects use five seconds of silence detection. Per-plug-in Auto-idle choices override the global preference; excluded built-ins keep running. | + — Smart Disable |
+| Suspend idle plug-in processing | + — Built-ins + native :: Supported built-ins preserve tail reserves; native effects use five seconds of silence detection. Per-plug-in Auto-idle choices override the global preference; excluded built-ins keep running. | + — Smart Disable |
 | Real-time true-peak limiting | + — Limiter :: Optional True Peak mode in the built-in Limiter, available for real-time racks and selection processing. | + — Emphasis |
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
@@ -357,7 +357,7 @@ Format ratings describe export support, not import.
 | Stems and alternates in one pass | + | ~ — Stems + master :: Split mixer tracks includes the master; arbitrary alternate mixes need separate renders. |
 | Region-by-region delivery | + — :: Mastering sequences with per-region metadata, gaps, and fades | + — Edison regions |
 | Individual clip delivery | + — :: Single-clip export or one rendered file per audio clip in an archive | ~ — Edison files :: Save an individual sample, selection, or region; no rendered clip archive is documented. |
-| Embedded podcast chapters | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | / |
+| Embedded podcast chapters | + — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | / |
 | Loudness normalisation on export | + | / — :: Local render offers peak processing; FL Cloud mastering is a separate online service. |
 | Dither and channel mapping | + | ~ — Dither / mono :: Dither plus stereo, merged mono, left-only, and right-only exports; no surround channel map. |
 | Delivery report | + | / |

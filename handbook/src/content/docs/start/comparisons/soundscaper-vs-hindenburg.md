@@ -168,7 +168,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Drum-hit sample replacement | / | / |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | / |
 | 32-bit plug-ins in a 64-bit host | ~ — Windows x64 / VST2 :: Built-in x86 bridge for 32-bit VST2 effects, enabled by default. Other platforms and plug-in formats retain native-architecture requirements. | / |
-| Suspend idle plug-in processing | ~ — Built-ins + native :: Supported built-ins preserve tail reserves; native effects use five seconds of silence detection. Per-plug-in Auto-idle choices override the global preference; excluded built-ins keep running. | / |
+| Suspend idle plug-in processing | + — Built-ins + native :: Supported built-ins preserve tail reserves; native effects use five seconds of silence detection. Per-plug-in Auto-idle choices override the global preference; excluded built-ins keep running. | / |
 | Real-time true-peak limiting | + — Limiter :: Optional True Peak mode in the built-in Limiter, available for real-time racks and selection processing. | / |
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
@@ -357,7 +357,7 @@ Format ratings describe export support, not import.
 | Stems and alternates in one pass | + | ~ — Export tracks :: Exports tracks separately; alternate mixes need separate exports. |
 | Region-by-region delivery | + — :: Mastering sequences with per-region metadata, gaps, and fades | + — Chapters |
 | Individual clip delivery | + — :: Single-clip export or one rendered file per audio clip in an archive | ~ — :: Selection / clipboard. Exports selected audio or clipboard entries; no clip archive documented. |
-| Embedded podcast chapters | ~ — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | + — M4A |
+| Embedded podcast chapters | + — MP3 / M4A :: Label chapters in a single MP3 or M4A mix; M4A requires an available desktop encoder | + — M4A |
 | Loudness normalisation on export | + | + |
 | Dither and channel mapping | + | ~ — Mono / stereo :: Mono/stereo output selection; dither controls not documented. |
 | Delivery report | + | ~ — Music usage |
