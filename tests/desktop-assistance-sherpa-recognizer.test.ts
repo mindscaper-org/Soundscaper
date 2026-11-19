@@ -12,6 +12,7 @@ import {
 	sherpaResultToRecognition,
 } from '../desktop/assistance-sherpa-recognizer.ts';
 import { ingestRecognitionResult } from '../src/common/editor/assistance/transcript-ingest.ts';
+import { writeSherpaVadWave } from './helpers/sherpa-vad-wave.ts';
 
 /**
  * The opening of the shipped test clip as the real model decoded it: sub-word
@@ -173,11 +174,13 @@ test('the factory decodes only reviewed VAD ranges and restores absolute word ti
 	const root = await mkdtemp(join(tmpdir(), 'sherpa-vad-recognition-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const vadPath = join(root, 'voice-activity.json');
+	const pcm = Float32Array.from({ length: 160_000 }, (_, index) => (index % 49 - 24) / 32);
+	const { audioPath } = await writeSherpaVadWave(t, pcm);
 	await writeFile(vadPath, JSON.stringify({ sampleRate: 16_000, segments: [
-		{ startSample: 16_000, sampleCount: 32_000 },
-		{ startSample: 80_000, sampleCount: 16_000 },
+		{ startSample: 16_000, sampleCount: 80_000 },
+		{ startSample: 112_000, sampleCount: 16_000 },
 	] }));
-	const accepted: number[] = [];
+	const accepted: Float32Array[] = [];
 	let decoded = -1;
 	const results = [
 		{ text: ' first', tokens: [' first'], timestamps: [0.25], durations: [0.25], lang: 'en' },
@@ -187,7 +190,7 @@ test('the factory decodes only reviewed VAD ranges and restores absolute word ti
 		OfflineRecognizer: class {
 			createStream() {
 				return { acceptWaveform: ({ samples }: { samples: Float32Array }) => {
-					accepted.push(samples.length);
+					accepted.push(samples);
 				} };
 			}
 
@@ -195,24 +198,24 @@ test('the factory decodes only reviewed VAD ranges and restores absolute word ti
 
 			getResult() { return results[decoded]!; }
 		},
-		readWave: () => ({ samples: new Float32Array(160_000), sampleRate: 16_000 }),
+		readWave() { assert.fail('Reviewed speech must use only the selected PCM ranges.'); },
 	};
 	const progress: Array<readonly [number, number]> = [];
 	const recognizer = await createSherpaRecognizerFactory(runtime).create({
-		audioPath: '/media/episode.wav', voiceActivityPath: vadPath,
+		audioPath, voiceActivityPath: vadPath,
 		model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' },
 		onProgress: ({ completed, total }) => progress.push([completed, total]),
 	});
-	const result = await recognizer.recognize('/media/episode.wav', vadPath);
+	const result = await recognizer.recognize(audioPath, vadPath);
 
-	assert.deepEqual(accepted, [32_000, 16_000]);
+	assert.deepEqual(accepted, [pcm.subarray(16_000, 96_000), pcm.subarray(112_000, 128_000)]);
 	assert.deepEqual(result.segments.map(({ startSeconds, endSeconds, words }) => ({
 		startSeconds, endSeconds, word: words?.[0],
 	})), [
-		{ startSeconds: 1.25, endSeconds: 3,
+		{ startSeconds: 1.25, endSeconds: 6,
 			word: { text: 'first', startSeconds: 1.25, endSeconds: 1.5, confidence: null } },
-		{ startSeconds: 5.1, endSeconds: 6,
-			word: { text: 'second', startSeconds: 5.1, endSeconds: 5.3, confidence: null } },
+		{ startSeconds: 7.1, endSeconds: 8,
+			word: { text: 'second', startSeconds: 7.1, endSeconds: 7.3, confidence: null } },
 	]);
 	assert.deepEqual(progress, [[1, 2], [2, 2]]);
 });
@@ -221,6 +224,7 @@ test('zero, malformed, and out-of-range VAD never fall back to whole-audio recog
 	const root = await mkdtemp(join(tmpdir(), 'sherpa-vad-refusal-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const vadPath = join(root, 'voice-activity.json');
+	const { audioPath } = await writeSherpaVadWave(t, new Float32Array(32_000));
 	let decodes = 0;
 	const runtime = {
 		OfflineRecognizer: class {
@@ -228,20 +232,20 @@ test('zero, malformed, and out-of-range VAD never fall back to whole-audio recog
 			decode() { decodes += 1; }
 			getResult() { return MEASURED; }
 		},
-		readWave: () => ({ samples: new Float32Array(32_000), sampleRate: 16_000 }),
+		readWave() { assert.fail('An empty or invalid activity result must not load the whole WAV.'); },
 	};
 	const recognizer = await createSherpaRecognizerFactory(runtime).create({
-		audioPath: '/media/episode.wav', voiceActivityPath: vadPath,
+		audioPath, voiceActivityPath: vadPath,
 		model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' },
 	});
 	await writeFile(vadPath, '{"sampleRate":16000,"segments":[]}');
-	assert.deepEqual(await recognizer.recognize('/media/episode.wav', vadPath), {
+	assert.deepEqual(await recognizer.recognize(audioPath, vadPath), {
 		language: null, segments: [],
 	});
 	await writeFile(vadPath, '{not-json');
-	await assert.rejects(recognizer.recognize('/media/episode.wav', vadPath), /malformed.*JSON/iu);
+	await assert.rejects(recognizer.recognize(audioPath, vadPath), /malformed.*JSON/iu);
 	await writeFile(vadPath, JSON.stringify({ sampleRate: 16_000,
 		segments: [{ startSample: 31_000, sampleCount: 2_000 }] }));
-	await assert.rejects(recognizer.recognize('/media/episode.wav', vadPath), /exceeds.*audio/iu);
+	await assert.rejects(recognizer.recognize(audioPath, vadPath), /exceeds.*audio/iu);
 	assert.equal(decodes, 0);
 });

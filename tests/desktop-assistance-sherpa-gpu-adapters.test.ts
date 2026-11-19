@@ -182,12 +182,13 @@ test('Sherpa recognition replays reviewed VAD ranges after GPU failure without d
 	const root = await mkdtemp(join(tmpdir(), 'sherpa-gpu-range-retry-'));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const activityPath = join(root, 'activity.json');
+	const { audioPath } = await writeSherpaVadWave(t, new Float32Array(48_000));
 	await writeFile(activityPath, JSON.stringify({ sampleRate: 16_000,
 		segments: [0, 16_000, 32_000].map((startSample) => ({ startSample, sampleCount: 16_000 })) }));
 	const events: string[] = [];
 	const progress: number[] = [];
 	const factory = createSherpaRecognizerFactory({
-		readWave: () => ({ sampleRate: 16_000, samples: new Float32Array(48_000) }),
+		readWave() { assert.fail('Reviewed speech must read the same file ranges after fallback.'); },
 		OfflineRecognizer: class {
 			readonly provider: string;
 			calls = 0;
@@ -203,11 +204,11 @@ test('Sherpa recognition replays reviewed VAD ranges after GPU failure without d
 			free() { events.push(`free:${this.provider}`); }
 		},
 	}, { executionProviders: ['webgpu', 'cpu'] });
-	const recognizer = await factory.create({ audioPath: '/audio.wav',
+	const recognizer = await factory.create({ audioPath,
 		model: { encoder: '/e', decoder: '/d', joiner: '/j', tokens: '/t' },
 		onProgress: ({ completed }) => { progress.push(completed); } });
 	try {
-		const result = await recognizer.recognize('/audio.wav', activityPath);
+		const result = await recognizer.recognize(audioPath, activityPath);
 		assert.deepEqual(result.segments.map(({ startSeconds }) => startSeconds), [0, 1, 2]);
 		assert.deepEqual(progress, [1, 2, 2, 2, 3]);
 		assert.ok(events.indexOf('free:webgpu') < events.indexOf('create:cpu'));

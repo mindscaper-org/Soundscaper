@@ -13,6 +13,8 @@
  * wrong places.
  */
 
+import { stat } from 'node:fs/promises';
+
 import type {
 	RecognizedSegmentResult,
 	RecognizedWordResult,
@@ -22,9 +24,17 @@ import type {
 } from './assistance-speech-runtime.ts';
 import { readAssistanceVoiceActivityInputV1 } from './assistance-voice-activity-input.ts';
 import {
+	ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES,
+	openAssistanceFloat32MonoWaveFileV1,
+	type AssistanceFloat32MonoWaveFileV1,
+} from './assistance-float32-mono-wave-file-reader.ts';
+import {
 	callSherpaNativeV1, createSherpaNativeExecutorV1, disposeSherpaNativeV1,
 	type SherpaAccelerationOptions, type SherpaExecutionProvider,
 } from './assistance-sherpa-acceleration.ts';
+
+const SPEECH_SAMPLE_RATE = 16_000;
+const PCM_BLOCK_SAMPLES = ASSISTANCE_WAVE_MAXIMUM_FILE_READ_BYTES / Float32Array.BYTES_PER_ELEMENT;
 
 /** The raw shape the runtime returns for one decoded stream. */
 export interface SherpaTransducerResult {
@@ -220,25 +230,21 @@ export function createSherpaRecognizerFactory(
 					voiceActivityPath?: string,
 				): Promise<SpeechRecognitionResult> {
 					request.signal?.throwIfAborted();
-					// Electron's V8 sandbox requires V8-owned buffers.
-					const wave = module.readWave(audioPath, false);
-					if (wave.sampleRate !== 16_000 || !(wave.samples instanceof Float32Array)
-						|| wave.samples.length < 1) {
-						throw new RangeError('Speech recognition requires exact 16 kHz mono selected audio.');
-					}
-					const activity = voiceActivityPath === undefined ? undefined
-						: await readAssistanceVoiceActivityInputV1(voiceActivityPath, wave.samples.length, request.signal);
+					const input = voiceActivityPath === undefined
+						? { kind: 'whole' as const, samples: readWholeSpeechWave(module, audioPath) }
+						: await openReviewedSpeechRanges(audioPath, voiceActivityPath, request.signal);
 					let completedRanges = 0;
-					return executor.run(request.signal, (provider) => {
+					return executor.run(request.signal, async (provider) => {
 						if (recognizer === null) construct(provider);
 						const active = recognizer!;
 						try {
-							if (activity === undefined) {
-								const result = decodeRange(active, wave.samples, wave.sampleRate);
+							if (input.kind === 'whole') {
+								const result = decodeRange(active, input.samples, SPEECH_SAMPLE_RATE);
 								request.signal?.throwIfAborted();
 								request.onProgress?.(Object.freeze({ completed: 1, total: 1 }));
 								return result;
 							}
+							const { wave, activity } = input;
 							if (activity.segments.length === 0) {
 								request.onProgress?.(Object.freeze({ completed: 1, total: 1 }));
 								return Object.freeze({ language: null, segments: Object.freeze([]) });
@@ -247,12 +253,11 @@ export function createSherpaRecognizerFactory(
 							const languages = new Set<string>();
 							for (const [index, range] of activity.segments.entries()) {
 								request.signal?.throwIfAborted();
-								const endSample = range.startSample + range.sampleCount;
-								const local = decodeRange(active,
-									wave.samples.subarray(range.startSample, endSample), wave.sampleRate);
+								const samples = await readReviewedSamples(wave, range.startSample, range.sampleCount, request.signal);
+								const local = decodeRange(active, samples, SPEECH_SAMPLE_RATE);
 								if (local.language !== null) languages.add(local.language);
 								segments.push(...remapRecognitionRange(
-									local, range.startSample / wave.sampleRate, range.sampleCount / wave.sampleRate,
+									local, range.startSample / SPEECH_SAMPLE_RATE, range.sampleCount / SPEECH_SAMPLE_RATE,
 								));
 								request.signal?.throwIfAborted();
 								completedRanges = Math.max(completedRanges, index + 1);
@@ -267,11 +272,45 @@ export function createSherpaRecognizerFactory(
 								segments: Object.freeze(segments),
 							});
 						} catch (error) { dispose(); throw error; }
-					});
+					}).finally(() => input.kind === 'reviewed' ? input.wave.close() : undefined);
 				},
 			};
 		},
 	};
+}
+
+function readWholeSpeechWave(module: SherpaRuntimeModule, path: string): Float32Array {
+	// Electron's V8 sandbox requires V8-owned buffers.
+	const wave = module.readWave(path, false);
+	if (wave.sampleRate !== SPEECH_SAMPLE_RATE || !(wave.samples instanceof Float32Array) || wave.samples.length < 1) {
+		throw new RangeError('Speech recognition requires exact 16 kHz mono selected audio.');
+	}
+	return wave.samples;
+}
+
+async function openReviewedSpeechRanges(audioPath: string, activityPath: string, signal?: AbortSignal) {
+	const { size } = await stat(audioPath);
+	const wave = await openAssistanceFloat32MonoWaveFileV1(audioPath, SPEECH_SAMPLE_RATE, size);
+	try {
+		const activity = await readAssistanceVoiceActivityInputV1(activityPath, wave.sampleCount, signal);
+		return { kind: 'reviewed' as const, wave, activity };
+	} catch (error) {
+		await wave.close().catch(() => undefined);
+		throw error;
+	}
+}
+
+async function readReviewedSamples(
+	wave: AssistanceFloat32MonoWaveFileV1, startSample: number, sampleCount: number, signal?: AbortSignal,
+): Promise<Float32Array> {
+	if (sampleCount <= PCM_BLOCK_SAMPLES) return wave.readSamples(startSample, sampleCount, signal);
+	const samples = new Float32Array(sampleCount);
+	for (let offset = 0; offset < sampleCount; offset += PCM_BLOCK_SAMPLES) {
+		const block = await wave.readSamples(startSample + offset,
+			Math.min(PCM_BLOCK_SAMPLES, sampleCount - offset), signal);
+		samples.set(block, offset);
+	}
+	return samples;
 }
 
 function decodeRange(
