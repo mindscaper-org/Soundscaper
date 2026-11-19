@@ -11,10 +11,28 @@ import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-
 import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { offsetVideoWebmFixture, zeroOriginVideoWebmFixture } from './fixtures/video-offset-webm.js';
+import { hybridAv1VideoFixture } from './fixtures/video-hybrid-av1.js';
 import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
+	test('hybrid AV1 delivery includes the pictures after its initial sample table', async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', 'The maintained WebKit runtime cannot decode this AV1 profile.');
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await importFiles(editor, [hybridAv1VideoFixture()]);
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
+		await expect(link.or(error).first()).toBeVisible({ timeout: 25_000 });
+		await expect(link).toBeVisible();
+		const pictures = await readDeliveredPictureLabels(page, await readDownloadBytes(page, link));
+		expect(pictures).toEqual([0, 0, 2, 3, 5, 5, 7, 9, 10, 10, 13, 14, 15, 15, 18, 19, 20, 22, 23, 24, 25, 25, 28]);
+	});
+
 	test('a forward VFR seek retry delivers the requested picture rather than its predecessor', async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');

@@ -7,6 +7,7 @@ import { BlobSource, EncodedPacketSink, Input, MP4 } from 'mediabunny';
 import { prepareFragmentPlaybackView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
 import { sourceMonitorFragmentedMedia } from './browser/fixtures/video-timing-probe-media.js';
+import { hybridAv1VideoFixture } from './browser/fixtures/video-hybrid-av1.js';
 
 async function pictureBodies(file: Blob): Promise<string[]> {
 	const input = new Input({ formats: [MP4], source: new BlobSource(file) });
@@ -42,4 +43,36 @@ test('Source Monitor fragment views retain all authored timings and original enc
 		assert.equal(await prepareFragmentPlaybackView(file, { ...timing, frameCount: 21 }, signal), null);
 		assert.equal(await prepareFragmentPlaybackView(file, timing, signal, { maximumBytes: 1024 }), null);
 	}
+});
+
+test('hybrid AV1 playback keeps all authored packets and requires its original decoder configuration', async () => {
+	const { buffer, mimeType } = hybridAv1VideoFixture();
+	const asFile = (bytes: Buffer) => new Blob([Uint8Array.from(bytes)], { type: mimeType });
+	const file = asFile(buffer);
+	const original = await demuxVideoTiming(file);
+	const timing = { ...original, frameCount: original.presentationTicks.length,
+		presentationTick: (ordinal: number) => original.presentationTicks[ordinal] };
+	const signal = new AbortController().signal;
+	const view = await prepareFragmentPlaybackView(file, timing, signal, { standardSampleEntry: true, zeroOriginHybrid: true });
+	assert.ok(view);
+	const projected = await demuxVideoTiming(view);
+	assert.equal(projected.timescale, original.timescale);
+	assert.equal(projected.finalFrameDurationTicks, original.finalFrameDurationTicks);
+	assert.deepEqual(projected.presentationTicks, original.presentationTicks);
+	const pictures = await pictureBodies(view);
+	assert.equal(pictures.length, 23);
+	// SHA-256 of all original packet SHA-256 strings from ffprobe, in coded order.
+	assert.equal(createHash('sha256').update(pictures.join('')).digest('hex'),
+		'b3bba3296cd525ddea1ea988712659d70d97f854293d91fd4a8829a3259043bf');
+	const av1Configuration = buffer.indexOf('av1C');
+	assert.ok(av1Configuration > 0);
+	const patched = (offset: number, value: number) => {
+		const copy = Buffer.from(buffer);
+		copy[offset] = value;
+		return asFile(copy);
+	};
+	const flags = av1Configuration + 7;
+	const obu = av1Configuration + 10;
+	assert.equal(await prepareFragmentPlaybackView(patched(flags, 0x10), timing, signal), null);
+	assert.equal(await prepareFragmentPlaybackView(patched(obu, buffer[obu]! ^ 1), timing, signal), null);
 });

@@ -6,7 +6,7 @@ const MAXIMUM_CHUNK_MAP_ENTRIES = 8_192;
 
 /** Verify the original classic track has one out-of-band AVC description for every coded picture. */
 export async function hasClassicAvcDecoderConfiguration(blob: Blob, expectedTrackId: number, signal: AbortSignal): Promise<boolean> {
-	const { read, boxes, trackId, trackSampleTable, singleAvcSampleEntry } = createIsoBoxReader(blob, signal);
+	const { read, boxes, trackId, trackSampleTable, singleVisualSampleEntry } = createIsoBoxReader(blob, signal);
 	const roots = await boxes(0, blob.size);
 	const movies = roots.filter(box => box.type === 'moov');
 	if (movies.length !== 1 || roots.some(box => box.type === 'moof')) return false;
@@ -25,10 +25,8 @@ export async function hasClassicAvcDecoderConfiguration(blob: Blob, expectedTrac
 	const chunkMaps = table.filter(box => box.type === 'stsc');
 	if (descriptions.length !== 1 || chunkMaps.length !== 1) return false;
 	const description = descriptions[0]!;
-	const extensionStart = await singleAvcSampleEntry(description);
-	if (extensionStart === null || extensionStart > description.end) return false;
-	const sampleEntryLength = (await read(description.start + 8, 4, description.end)).getUint32(0);
-	if (sampleEntryLength !== description.end - description.start - 8) return false;
+	const extensionStart = await singleVisualSampleEntry(description, 'avc1');
+	if (extensionStart === null) return false;
 	const extensions = await boxes(extensionStart, description.end);
 	if (extensions.filter(box => box.type === 'avcC').length !== 1
 		|| extensions.some(box => !['avcC', 'pasp', 'btrt'].includes(box.type))) return false;

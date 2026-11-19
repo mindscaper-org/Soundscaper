@@ -52,12 +52,15 @@ export function createIsoBoxReader(file: Blob, signal?: AbortSignal) {
 		], { type: file.type }) : null;
 		return { initialCount, tail };
 	};
-	const singleAvcSampleEntry = async (description: IsoBox): Promise<number | null> => {
+	const singleVisualSampleEntry = async (description: IsoBox, type: 'avc1' | 'av01'): Promise<number | null> => {
 		const stsd = await read(description.start, 16, description.end);
-		return stsd.getUint32(4) === 1 && stsd.getUint32(12) === 0x61766331
-			? description.start + 16 + 78 : null; // avc1 visual sample entry extensions
+		const extensionStart = description.start + 16 + 78;
+		const tag = type === 'avc1' ? 0x61766331 : 0x61763031;
+		return stsd.getUint32(4) === 1 && stsd.getUint32(12) === tag
+			&& stsd.getUint32(8) === description.end - description.start - 8 && extensionStart <= description.end
+			? extensionStart : null;
 	};
-	return { read, boxes, trackId, trackSampleTable, fragmentSampleView, singleAvcSampleEntry };
+	return { read, boxes, trackId, trackSampleTable, fragmentSampleView, singleVisualSampleEntry };
 }
 
 function safeInteger(value: bigint): number {
