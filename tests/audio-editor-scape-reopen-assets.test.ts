@@ -54,9 +54,8 @@ test('reused video must also match the local immutable body digest and size', as
 	const sources = [{ id: 'picture', storageKey: 'stored-picture' }];
 	const store = {
 		async *readSourceChunks() { yield []; },
-		async getMediaAssetMetadata(key: string, options?: { verifyOpfsBodySize?: boolean }) {
+		async getMediaAssetMetadata(key: string) {
 			assert.equal(key, 'stored-picture');
-			assert.equal(options?.verifyOpfsBodySize, true);
 			return { sha256: descriptor.sha256, size: 3 };
 		},
 	};
@@ -64,6 +63,64 @@ test('reused video must also match the local immutable body digest and size', as
 	await assert.rejects(verifyScapeReopenAssets(entries, [descriptor], sources, new ScapeExpandedByteBudget(6), undefined,
 		{ ...store, getMediaAssetMetadata: () => Promise.resolve({ sha256: '0'.repeat(64), size: 3 }) }),
 	{ name: 'ScapeProjectReopenConflictError' });
+});
+
+test('reopen compares current OPFS video slices against the authenticated archive bytes', async () => {
+	const bytes = Uint8Array.of(10, 20, 30, 40, 50);
+	const { descriptor, entry } = asset('video', bytes);
+	let emitted = bytes;
+	entry.getData = async stream => {
+		const writer = stream.getWriter();
+		try {
+			await writer.write(emitted.subarray(0, 2));
+			await writer.write(emitted.subarray(2));
+			await writer.close();
+		} finally { writer.releaseLock(); }
+	};
+	const ranges: [number | undefined, number | undefined][] = [];
+	let stored = new Blob([bytes]);
+	let failRead: Error | undefined;
+	const abort = new AbortController();
+	const reason = new Error('The project open was canceled.');
+	let abortWhileReading = false;
+	const fake = {
+		async *readSourceChunks() { yield []; },
+		async getMediaAssetMetadata() { return { sha256: descriptor.sha256, size: stored.size }; },
+		async readMediaAssetVerificationSnapshot(key: string) {
+			assert.equal(key, 'local-picture');
+			return { metadata: await this.getMediaAssetMetadata(), file: {
+				size: stored.size,
+				arrayBuffer: () => assert.fail('Never load the complete snapshot into memory'),
+				slice(start?: number, end?: number) {
+					ranges.push([start, end]);
+					const part = stored.slice(start, end);
+					return { size: part.size, slice: part.slice.bind(part),
+						arrayBuffer() {
+							if (abortWhileReading) {
+								abort.abort(reason);
+								return new Promise<ArrayBuffer>(() => undefined);
+							}
+							return failRead ? Promise.reject(failRead) : part.arrayBuffer();
+						} };
+				},
+			} };
+		},
+	};
+	const verify = (signal?: AbortSignal) => verifyScapeReopenAssets(new Map([[entry.filename, entry]]), [descriptor],
+		[{ id: descriptor.sourceId, storageKey: 'local-picture' }], new ScapeExpandedByteBudget(bytes.length), signal, fake);
+	await verify();
+	assert.deepEqual(ranges, [[0, 2], [2, 5]]);
+	stored = new Blob([Uint8Array.of(10, 20, 99, 40, 50)]);
+	await assert.rejects(verify(), { name: 'ScapeProjectReopenConflictError' });
+	failRead = new DOMException('Denied', 'NotAllowedError');
+	await assert.rejects(verify(), error => error === failRead);
+	emitted = Uint8Array.of(10, 20, 30, 40, 255);
+	await assert.rejects(verify(), /SHA-256 verification/u);
+	emitted = bytes;
+	failRead = new DOMException('Gone', 'NotFoundError');
+	await assert.rejects(verify(), { name: 'ScapeProjectReopenConflictError' });
+	abortWhileReading = true;
+	await assert.rejects(verify(abort.signal), error => error === reason);
 });
 
 test('valid archive PCM offers a separate copy when its local body is missing, preserving storage faults', async () => {

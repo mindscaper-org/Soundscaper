@@ -33,7 +33,7 @@ test('markerless media rows load intact and never gain digest provenance', async
 	assert.equal(Object.hasOwn(legacyRecord, 'sha256'), false);
 });
 
-test('opt-in media metadata checks the owned OPFS file size without loading payloads or fallback chunks', async () => {
+test('asset verification snapshots check the owned OPFS file size without loading payloads or fallback chunks', async () => {
 	let size = 12, opfsReads = 0;
 	let failure: Error | undefined;
 	const abort = new AbortController();
@@ -54,19 +54,20 @@ test('opt-in media metadata checks the owned OPFS file size without loading payl
 		store.memory.mediaAssets.set('video', { sourceId: 'video', storage: 'opfs', size, path: 'owned-original' });
 		store.memory.mediaAssets.set('chunked', chunkedMediaRecord('chunked'));
 		assert.equal((await store.getMediaAssetMetadata('video'))?.size, 12);
-		assert.ok(await store.getMediaAssetMetadata('chunked', { verifyOpfsBodySize: true }));
+		assert.equal((await store.readMediaAssetVerificationSnapshot('chunked'))?.file, null);
 		assert.equal(opfsReads, 0);
-		const options = { verifyOpfsBodySize: true };
-		assert.equal((await store.getMediaAssetMetadata('video', options))?.size, 12);
+		const healthy = await store.readMediaAssetVerificationSnapshot('video');
+		assert.equal(healthy?.metadata.size, 12);
+		assert.equal(healthy.file?.size, 12);
 		size--;
-		assert.equal(await store.getMediaAssetMetadata('video', options), null);
+		assert.equal(await store.readMediaAssetVerificationSnapshot('video'), null);
 		failure = new DOMException('File was removed', 'NotFoundError');
-		assert.equal(await store.getMediaAssetMetadata('video', options), null);
+		assert.equal(await store.readMediaAssetVerificationSnapshot('video'), null);
 		failure = new DOMException('Cannot inspect this file', 'NotAllowedError');
-		await assert.rejects(store.getMediaAssetMetadata('video', options), error => error === failure);
+		await assert.rejects(store.readMediaAssetVerificationSnapshot('video'), error => error === failure);
 		failure = undefined;
 		abortWhileReading = true;
-		await assert.rejects(store.getMediaAssetMetadata('video', { ...options, signal: abort.signal }),
+		await assert.rejects(store.readMediaAssetVerificationSnapshot('video', abort.signal),
 			error => error === abort.signal.reason);
 	} finally { await store.close(); }
 });

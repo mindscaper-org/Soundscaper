@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createDigest, hex } from '../media/bytes.ts';
-import { awaitScapeOperation, throwIfScapeAborted } from '../scape/abort.ts';
+import { awaitScapeOperation, awaitScapeReadOperation, throwIfScapeAborted } from '../scape/abort.ts';
 import { verifyScapeExtractedAsset } from '../scape/asset-bytes.ts';
 import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../scape/archive-envelope.ts';
 import type { ScapeExpandedByteBudget } from '../scape/expanded-byte-budget.ts';
@@ -10,12 +10,18 @@ import { ScapeAudioChunkBudget } from './scape-expanded-byte-budget.ts';
 import { SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from './scape-archive-video.ts';
 import { EXTERNAL_MEDIA_ENCODING } from './desktop-external-media.ts';
 import { ScapeProjectReopenConflictError } from './scape-project-canonical-inspection.ts';
-import type { MediaAssetMetadataOptions } from './storage/media-repository.ts';
+import type { MediaAssetVerificationSnapshot } from './storage/media-repository.ts';
+import type { BlobLike } from './storage/media-records.ts';
 import { isStoredPcmReadDamage } from './storage/source-read-recovery.ts';
 
 type ReopenAssetStore = Parameters<typeof scapeAudioSourceStream>[0] & Readonly<{
-	getMediaAssetMetadata?(key: string, options?: MediaAssetMetadataOptions): PromiseLike<unknown>;
+	getMediaAssetMetadata?(key: string): PromiseLike<unknown>;
+	readMediaAssetVerificationSnapshot?(key: string, signal?: AbortSignal): PromiseLike<MediaAssetVerificationSnapshot | null>;
 }>;
+
+type LocalVideoVerification = Readonly<{ matches: true; file: BlobLike | null }>
+	| Readonly<{ matches: false }>
+	| Readonly<{ error: unknown }>;
 
 /** Verify reused archive bodies with the ordinary bounds, without staging or replacing local media. */
 export async function verifyScapeReopenAssets(
@@ -53,10 +59,13 @@ export async function verifyScapeReopenAssets(
 			}
 			continue;
 		}
+		let local = store && asset.kind === 'video'
+			? await openLocalVideoVerification(store, sourceById.get(asset.sourceId)?.storageKey || asset.sourceId, asset, signal)
+			: null;
 		const digest = createDigest();
 		let size = 0;
 		await awaitScapeOperation(entry.getData(new WritableStream<Uint8Array>({
-			write(bytes) {
+			async write(bytes) {
 				throwIfScapeAborted(signal);
 				if (!(bytes instanceof Uint8Array) || bytes.byteLength > SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES) {
 					throw new RangeError('A Scape asset emission exceeds the fixed 4 MiB chunk limit.');
@@ -64,16 +73,47 @@ export async function verifyScapeReopenAssets(
 				budget.consume(bytes.byteLength, asset.entry);
 				if (bytes.byteLength > entry.uncompressedSize - size) throw new Error(`${asset.entry} emitted an unexpected size.`);
 				digest.update(bytes);
+				if (local && 'matches' in local && local.matches && local.file && bytes.byteLength > 0) {
+					local = await compareLocalVideoChunk(local.file, bytes, size, signal);
+				}
 				size += bytes.byteLength;
 			},
 		}), { signal, strictness: 'strict' }), signal);
 		verifyScapeExtractedAsset(asset, hex(digest.digest()), size, asset.entry);
-		if (store && asset.kind === 'video') {
-			const source = sourceById.get(asset.sourceId);
-			const metadata = await awaitScapeOperation(store.getMediaAssetMetadata?.(source?.storageKey || asset.sourceId,
-				asset.encoding === 'original' ? { signal, verifyOpfsBodySize: true } : undefined), signal);
-			if (!metadata || typeof metadata !== 'object' || !('sha256' in metadata) || !('size' in metadata)
-				|| metadata.sha256 !== asset.sha256 || metadata.size !== asset.size) throw new ScapeProjectReopenConflictError();
-		}
+		if (local && 'error' in local) throw local.error;
+		if (local && !local.matches) throw new ScapeProjectReopenConflictError();
 	}
+}
+
+async function openLocalVideoVerification(store: ReopenAssetStore, key: string, asset: ScapeAssetDescriptor,
+	signal?: AbortSignal): Promise<LocalVideoVerification> {
+	try {
+		const readSnapshot = store.readMediaAssetVerificationSnapshot;
+		const snapshot = asset.encoding === 'original' && readSnapshot
+			? await awaitScapeReadOperation(() => readSnapshot.call(store, key, signal), signal)
+			: undefined;
+		const metadata = snapshot === undefined
+			? await awaitScapeReadOperation(() => store.getMediaAssetMetadata?.(key), signal) : snapshot?.metadata;
+		if (!metadata || typeof metadata !== 'object' || !('sha256' in metadata) || !('size' in metadata)
+			|| metadata.sha256 !== asset.sha256 || metadata.size !== asset.size) return { matches: false };
+		return { matches: true, file: snapshot?.file ?? null };
+	} catch (error) { return localVideoFailure(error, signal); }
+}
+
+async function compareLocalVideoChunk(file: BlobLike,
+	archive: Uint8Array, offset: number, signal?: AbortSignal): Promise<LocalVideoVerification> {
+	try {
+		const stored = new Uint8Array(await awaitScapeReadOperation(
+			() => file.slice(offset, offset + archive.byteLength).arrayBuffer(), signal));
+		if (stored.byteLength !== archive.byteLength) return { matches: false };
+		for (let index = 0; index < stored.byteLength; index += 1) {
+			if (stored[index] !== archive[index]) return { matches: false };
+		}
+		return { matches: true, file };
+	} catch (error) { return localVideoFailure(error, signal); }
+}
+
+function localVideoFailure(error: unknown, signal?: AbortSignal): LocalVideoVerification {
+	throwIfScapeAborted(signal);
+	return error instanceof Error && error.name === 'NotFoundError' ? { matches: false } : { error };
 }

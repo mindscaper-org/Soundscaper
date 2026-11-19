@@ -49,10 +49,9 @@ interface MediaWriteOptions {
 	readonly signal?: AbortSignal;
 }
 
-export interface MediaAssetMetadataOptions {
-	readonly signal?: AbortSignal;
-	/** Corroborate an OPFS metadata row without materializing or hashing its body. */
-	readonly verifyOpfsBodySize?: boolean;
+export interface MediaAssetVerificationSnapshot {
+	readonly metadata: Readonly<Record<string, unknown>>;
+	readonly file: BlobLike | null;
 }
 
 interface MediaRepositoryOptions {
@@ -187,15 +186,22 @@ export class MediaRepository {
 		return this.#assetLoads.load(sourceId, options);
 	}
 
-	async getAssetMetadata(sourceId: string, options: MediaAssetMetadataOptions = {}): Promise<Record<string, unknown> | null> {
-		throwIfAborted(options.signal);
+	async getAssetMetadata(sourceId: string): Promise<Record<string, unknown> | null> {
 		const record = await this.assetRecord(sourceId);
-		throwIfAborted(options.signal);
-		if (record?.storage === 'opfs' && options.verifyOpfsBodySize) {
-			if (typeof record.path !== 'string' || !record.path || !Number.isSafeInteger(record.size)) return null;
-			if (await this.#opfs.binaryFileSize(record.path, options.signal) !== record.size) return null;
-		}
 		return record ? mediaAssetMetadata(record) : null;
+	}
+
+	/** Inspect one retained media row and obtain its body only for OPFS storage. */
+	async readAssetVerificationSnapshot(sourceId: string, signal?: AbortSignal): Promise<MediaAssetVerificationSnapshot | null> {
+		throwIfAborted(signal);
+		const record = await this.assetRecord(sourceId);
+		throwIfAborted(signal);
+		if (!record) return null;
+		const metadata = mediaAssetMetadata(record);
+		if (record.storage !== 'opfs') return { metadata, file: null };
+		if (typeof record.path !== 'string' || !record.path || !Number.isSafeInteger(record.size)) return null;
+		const file = await this.#opfs.binaryFileSnapshot(record.path, signal);
+		return file && file.size === record.size ? { metadata, file } : null;
 	}
 
 	async deleteAsset(sourceId: string): Promise<void> {

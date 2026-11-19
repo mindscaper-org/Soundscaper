@@ -223,20 +223,20 @@ export class AudioEditorProjectStore {
 	async writeMediaAsset(sourceId, input, metadata = {}, { signal } = {}) {
 		return this.mediaRepository.writeAsset(sourceId, input, metadata, { signal });
 	}
-
 	/** Start a bounded transactional write without retaining the whole container. */
 	async beginMediaAssetWrite(sourceId, metadata = {}, options = {}) {
 		return this.mediaRepository.beginAssetWrite(sourceId, metadata, options);
 	}
-
 	async loadMediaAsset(sourceId, options = {}) {
 		return this.mediaRepository.loadAsset(sourceId, options);
 	}
-	/** @param {string} sourceId @param {import('./storage/media-repository.ts').MediaAssetMetadataOptions} [options] */
-	async getMediaAssetMetadata(sourceId, options = {}) {
-		return this.mediaRepository.getAssetMetadata(sourceId, options);
+	async getMediaAssetMetadata(sourceId) {
+		return this.mediaRepository.getAssetMetadata(sourceId);
 	}
-
+	/** @param {string} sourceId @param {AbortSignal} [signal] */
+	async readMediaAssetVerificationSnapshot(sourceId, signal) {
+		return this.mediaRepository.readAssetVerificationSnapshot(sourceId, signal);
+	}
 	async bindLinkedAudioOriginal(projectId, source, locatorId, options = {}) {
 		this.#assertOpen();
 		return this.linkedOriginalStoreService.bindAudio(projectId, source, locatorId, options);
