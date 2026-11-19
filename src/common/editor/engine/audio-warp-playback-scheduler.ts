@@ -7,9 +7,9 @@ import {
 	getTransientNodes,
 	releaseTransientNodes,
 } from './audio-node-utils.ts';
-import { prepareExactAudioWarpPlayback } from './audio-warp-fallback.ts';
+import { exactAudioWarpPlaybackEnd, prepareExactAudioWarpPlayback } from './audio-warp-fallback.ts';
 import { confirmClockedPlaybackStart, type ClockedPlaybackStartHook } from './clocked-playback-start.ts';
-import { clampFrame, playRangeStopFrame } from './buffer-math.ts';
+import { clampFrame } from './buffer-math.ts';
 import { createAnalyser } from './effect-rack.ts';
 import { playbackOutputDestination } from './playback-output.ts';
 import { createPlaybackGraphOutput, attachPlaybackGraphOutput } from './playback-graph-output.ts';
@@ -73,9 +73,7 @@ export async function scheduleExactWarpPlayback(
 		productionStripAnalysersV21: masterBank ? new Map([['master', masterBank]]) : undefined };
 	attachPlaybackGraphOutput(graph, output);
 	engine.graph = graph;
-	engine.playEndFrame = isPlaybackLoopEnabled(engine)
-		? engine.loop.endFrame
-		: playRangeStopFrame(engine.playRange, frame, engine.durationFrames);
+	engine.playEndFrame = exactAudioWarpPlaybackEnd(engine, frame);
 	engine.playbackStartFrame = frame;
 	engine.positionFrame = frame;
 	engine.loopScheduleTime = Number.POSITIVE_INFINITY;
@@ -104,15 +102,15 @@ async function exactWindowAt(
 	fromFrame: number,
 ): Promise<PreparedAudioWarpPlayback | null> {
 	if (fromFrame >= prepared.startFrame && fromFrame < prepared.endFrame) return prepared;
-	const boundary = isPlaybackLoopEnabled(engine) ? engine.loop.endFrame : engine.durationFrames;
 	const requestedFrame = clampFrame(fromFrame, 0, isPlaybackLoopEnabled(engine) ? engine.playbackDurationFrames : engine.durationFrames);
+	const boundary = exactAudioWarpPlaybackEnd(engine, requestedFrame);
 	if (requestedFrame >= boundary) {
 		engine[ENGINE_HALT_GRAPH]();
 		engine[ENGINE_SET_STATE]('stopped');
 		engine[ENGINE_EMIT_POSITION]();
 		return null;
 	}
-	return prepareExactAudioWarpPlayback(engine, requestedFrame, boundary);
+	return prepareExactAudioWarpPlayback(engine, requestedFrame);
 }
 
 async function scheduleWindow(
@@ -141,6 +139,8 @@ async function scheduleWindow(
 		&& prepared.endFrame === engine.loop.endFrame
 		&& offsetFrames === 0;
 	if (wholeLoop) source.loop = true;
+	const durationFrames = Math.min(prepared.endFrame, engine.playEndFrame) - prepared.startFrame - offsetFrames;
+	const durationSeconds = durationFrames / prepared.sampleRate;
 	let ended = false;
 	let prefetchStarted = false;
 	let following: ScheduledExactWarpWindow | null = null;
@@ -157,14 +157,16 @@ async function scheduleWindow(
 		if (engine.graph !== graph || graph.abortController.signal.aborted) {
 			throw new DOMException('Playback cancelled', 'AbortError');
 		}
-		source.start(scheduledTime, offsetFrames / prepared.sampleRate);
+		const offsetSeconds = offsetFrames / prepared.sampleRate;
+		if (durationFrames < prepared.frameCount - offsetFrames) {
+			source.start(scheduledTime, offsetSeconds, durationSeconds);
+		} else source.start(scheduledTime, offsetSeconds);
 		graph.sources.add(source);
 	} catch (error) {
 		release();
 		throw error;
 	}
-	const scheduledEndTime = scheduledTime
-		+ (prepared.frameCount - offsetFrames) / prepared.sampleRate;
+	const scheduledEndTime = scheduledTime + durationSeconds;
 	return Object.freeze({
 		startTime: scheduledTime,
 		prefetchFollowing(): void {
@@ -195,17 +197,12 @@ async function prepareFollowingWindow(
 	requestedTime: number,
 ): Promise<ScheduledExactWarpWindow | null> {
 	if (!engine.context || !engine.project || engine.graph !== graph || graph.abortController.signal.aborted) return null;
-	const boundary = isPlaybackLoopEnabled(engine) ? engine.loop.endFrame : engine.durationFrames;
+	const boundary = engine.playEndFrame;
 	const nextStart = prepared.endFrame < boundary
 		? prepared.endFrame
 		: isPlaybackLoopEnabled(engine) ? engine.loop.startFrame : null;
 	if (nextStart === null || nextStart >= boundary) return null;
-	const next = await prepareExactAudioWarpPlayback(
-		engine,
-		nextStart,
-		boundary,
-		graph.abortController.signal,
-	);
+	const next = await prepareExactAudioWarpPlayback(engine, nextStart, graph.abortController.signal);
 	if (!engine.context || engine.graph !== graph || graph.abortController.signal.aborted) return null;
 	if (engine.context.currentTime > requestedTime) {
 		throw new Error('Exact audio warp playback could not prepare its next bounded window before the audio deadline.');
