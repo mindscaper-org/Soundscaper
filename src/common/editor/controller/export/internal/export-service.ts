@@ -7,6 +7,7 @@ import { createExportRenderProject, exportReplacementTrackIds } from '../export-
 import { createSpatialExportRenderProject } from './spatial-render-project.ts';
 import { publishBufferedExport } from './buffered-export-publication.ts';
 import { isOriginalOverwriteSettings } from './overwrite-original-action.ts';
+import { originalOverwriteChannelMapping } from './original-overwrite-channel-mapping.ts';
 import { retirePreviousExportOutput, reportExportOutputFailure } from './retire-export-output.ts';
 import {
 	admitAudioRenderedFallbackExport,
@@ -156,7 +157,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			return;
 		}
 		let admission: AudioExportAdmission;
-		const preserveIxmlFileIdentity = isOriginalOverwriteSettings(requestedSettings);
+		const overwriteOriginal = isOriginalOverwriteSettings(requestedSettings);
 		try {
 			admission = admitAudioExportDelivery(runtime, requestedSettings);
 		} catch (error) {
@@ -202,8 +203,9 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				});
 			const plan = createExportPlan(exportProject, {
 				...settings,
-				preserveIxmlFileIdentity,
-				aifcCompression: preserveIxmlFileIdentity ? requestedSettings.aifcCompression : undefined,
+				preserveIxmlFileIdentity: overwriteOriginal,
+				aifcCompression: overwriteOriginal ? requestedSettings.aifcCompression : undefined,
+				channelMapping: overwriteOriginal ? originalOverwriteChannelMapping(exportProject, settings.channelMapping) : settings.channelMapping,
 				inputChannelCount: exportProject.masterChannels,
 				mobile: state.mobile,
 				livePcmBytes: undefined,

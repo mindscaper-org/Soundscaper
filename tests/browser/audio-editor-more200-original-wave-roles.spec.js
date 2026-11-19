@@ -65,7 +65,7 @@ for (const [channelCount, channelMask] of [[2, 5], [2, 3], [1, 4]]) test(`Origin
 		const output = new Blob([new Uint8Array(await native.savedBytes()).buffer]);
 		const descriptor = await inspectWavBlobPcm(output);
 		const decoded = await createWavBlobPcmChunkReader(output, { descriptor }).readChunk(0);
-		expect(Math.abs(decoded.channels[0][1200] - .125 * (channelCount === 1 && !refused ? Math.SQRT1_2 : 1))).toBeLessThan(.00001);
+		expect(Math.abs(decoded.channels[0][1200] - .125)).toBeLessThan(.00001);
 		if (channelCount === 2) expect(Math.abs(decoded.channels[1][1200] + .0625)).toBeLessThan(.00001);
 		expect(descriptor.channelMask).toBe(channelMask);
 		expect(descriptor.frameCount).toBe(2400);
