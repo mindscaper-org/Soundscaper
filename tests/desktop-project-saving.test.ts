@@ -141,7 +141,7 @@ test('a picked project destination becomes repeatable only after commit and surv
 	const saves = new AtomicSaveManager({ targets } as never);
 	t.after(async () => { originals.dispose(); await reads.dispose(); await saves.dispose(); });
 	const path = join(root, 'project.sscape');
-	const target = originals.registerProjectSave(path, { owner });
+	const target = await originals.registerProjectSave(path, { owner });
 	await assert.rejects(originals.prepare(target.originalFile.id, { owner }));
 	const session = await saves.begin({ targetId: target.id, owner, size: 4 });
 	await saves.writeChunk({ owner, writeId: session.writeId, offset: 0, bytes: new TextEncoder().encode('data') });
@@ -155,6 +155,45 @@ test('a picked project destination becomes repeatable only after commit and surv
 	assert.ok(await originals.prepare(restored.originalFile.id, { owner }));
 	await rename(path, `${path}.old`); await writeFile(path, 'external replacement');
 	assert.equal((await restarted.restore('project-a', owner))?.originalFile, null);
+});
+
+for (const existing of [false, true]) test(`Save As preserves a destination that changes during the write (${existing ? 'existing' : 'new'} file)`, async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-save-as-destination-changed-'));
+	const path = join(root, 'project.sscape'), external = join(root, 'external.sscape');
+	const reads = new ReadCapabilityStore(), targets = new SaveTargetStore();
+	const originals = new OriginalFileOverwriteStore({ reads, targets, acceptsFile, cleanDisplayName: value => value, maximumCount: 10 });
+	const saves = new AtomicSaveManager({ targets } as never);
+	t.after(async () => {
+		originals.dispose();
+		await Promise.all([reads.dispose(), saves.dispose()]);
+		await rm(root, { recursive: true, force: true });
+	});
+	if (existing) await writeFile(path, 'previous project');
+	const target = await originals.registerProjectSave(path, { owner });
+	const session = await beginWrite(target.id);
+	await writeFile(external, 'another process saved here');
+	await rename(external, path);
+	await assert.rejects(saves.finish(session.writeId, { owner }), /selected project save destination changed/iu);
+	assert.equal(await readFile(path, 'utf8'), 'another process saved here');
+	assert.deepEqual(await readdir(root), ['project.sscape']);
+	await assert.rejects(originals.prepare(target.originalFile.id, { owner }), /unavailable/iu);
+
+	const cancelled = await originals.registerProjectSave(path, { owner });
+	assert.equal(await saves.abort((await beginWrite(cancelled.id)).writeId, { owner }), true);
+	assert.equal(await readFile(path, 'utf8'), 'another process saved here');
+	assert.deepEqual(await readdir(root), ['project.sscape']);
+	await assert.rejects(originals.prepare(cancelled.originalFile.id, { owner }), /unavailable/iu);
+
+	const retry = await originals.registerProjectSave(path, { owner });
+	await saves.finish((await beginWrite(retry.id)).writeId, { owner });
+	assert.equal(await readFile(path, 'utf8'), 'my edited project');
+
+	async function beginWrite(targetId: string) {
+		const bytes = new TextEncoder().encode('my edited project');
+		const write = await saves.begin({ targetId, owner, size: bytes.length });
+		await saves.writeChunk({ owner, writeId: write.writeId, offset: 0, bytes });
+		return write;
+	}
 });
 
 test('native close prompts map Save, Discard and Cancel and default unknown results to Cancel', async () => {

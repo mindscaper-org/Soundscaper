@@ -2,7 +2,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { constants, type BigIntStats } from 'node:fs';
-import { access, lstat } from 'node:fs/promises';
+import { access, lstat, stat } from 'node:fs/promises';
 import { basename, dirname } from 'node:path';
 import { exactOriginalFileIdentity as identity, type ExactOriginalFileIdentity as Identity } from './original-file-identity.ts';
 
@@ -93,14 +93,24 @@ export class OriginalFileOverwriteStore {
 	}
 
 	/** A save-picker destination becomes reusable authority only after publication. */
-	registerProjectSave(path: string, { owner }: { owner: Owner }): OriginalFile & { originalFile: OriginalFile } {
+	async registerProjectSave(path: string, { owner }: { owner: Owner }): Promise<OriginalFile & { originalFile: OriginalFile }> {
 		this.#assertOwner(owner);
 		if (!isProject(path)) throw new TypeError('A Scape project destination is required');
+		const expected = await pickedProjectDestination(path);
+		this.#assertOwner(owner);
 		if ([...this.#entries.values()].filter(entry => entry.owner === owner).length >= this.#maximumCount) throw new RangeError('Project file permission limit reached');
 		const id = randomBytes(24).toString('hex');
 		const name = this.#cleanDisplayName(basename(path));
 		const target = this.#targets.registerPath(path, {
-			owner, purpose: 'project', beforeCommit: async () => { this.#assertOwner(owner); },
+			owner, purpose: 'project', beforeCommit: async () => {
+				this.#assertOwner(owner);
+				const current = await pickedProjectDestination(path);
+				this.#assertOwner(owner);
+				if (current.directory.dev !== expected.directory.dev || current.directory.ino !== expected.directory.ino
+					|| !sameIdentity(current.file, expected.file)) {
+					throw Object.assign(new Error('The selected project save destination changed.'), { code: 'PROJECT_SAVE_DESTINATION_CHANGED' });
+				}
+			},
 			afterCommit: async (published) => {
 				this.#assertOwner(owner);
 				const details = await lstat(path, { bigint: true });
@@ -180,8 +190,21 @@ export class OriginalFileOverwriteStore {
 }
 
 function assertIdentity(details: BigIntStats, expected: Identity): void {
-	if (!details.isFile() || (['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'] as const).some((key) => details[key] !== expected[key])) {
+	if (!details.isFile() || !sameIdentity(details, expected)) {
 		throw new Error('The original file changed since it was imported');
+	}
+}
+
+function sameIdentity(first: Identity | null, second: Identity | null): boolean {
+	return (['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'] as const).every(key => first?.[key] === second?.[key]);
+}
+
+async function pickedProjectDestination(path: string) {
+	const directory = await stat(dirname(path), { bigint: true });
+	try { return { directory, file: identity(await lstat(path, { bigint: true })) }; }
+	catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+		return { directory, file: null };
 	}
 }
 

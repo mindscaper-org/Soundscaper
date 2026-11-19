@@ -9,6 +9,9 @@ export function isSpaceExhaustedError(error) {
 }
 
 export function commitFailureMessage(error) {
+	if (error?.code === 'PROJECT_SAVE_DESTINATION_CHANGED') {
+		return 'The selected project save destination changed. Choose it again before saving.';
+	}
 	return isSpaceExhaustedError(error)
 		? 'Could not commit the saved file: the destination ran out of space'
 		: 'Could not commit the saved file';

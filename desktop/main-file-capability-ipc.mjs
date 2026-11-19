@@ -14,7 +14,7 @@ import { acceptsFile, validateFileChoice, validateSaveChoice } from './validatio
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor | null>} registerRead
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor>} prepare
  * @property {(id: string, options: {owner: object}) => boolean} release
- * @property {(path: string, options: {owner: object}) => OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}} registerProjectSave
+ * @property {(path: string, options: {owner: object}) => Promise<OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}>} registerProjectSave
  */
 
 // Save purposes that write a project rather than exporting something out of one.
