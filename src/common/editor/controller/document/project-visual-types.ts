@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { VideoTimingIndex } from '../../video-timing-asset.ts';
+import type { VideoSourceCharacteristics } from '../../video-source-characteristics.ts';
 import type { PrepareSpectrogramProcessedPcm } from '../../spectrogram-processed-pcm-contract.ts';
 import type { VideoDerivativeInput } from '../../storage/video-derivative-repository.ts';
 
@@ -28,6 +29,7 @@ export interface ProjectVisualSource {
 	readonly sampleRate?: number;
 	readonly contentSha256?: string;
 	readonly timingAsset?: unknown;
+	readonly characteristics?: Pick<VideoSourceCharacteristics, 'audioStreams'>;
 	/** Video sources also carry the timing decision, proxy attachment and frame rate the preview resolvers read. */
 	readonly timingDecision?: unknown;
 	readonly proxyAttachment?: unknown;

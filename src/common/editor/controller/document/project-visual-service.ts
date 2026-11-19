@@ -99,7 +99,9 @@ export function createProjectVisualService(
 			? projectBinClips(project).filter((candidate) => candidate.binItemId === clip.binItemId)
 			: [clip];
 		const videoClip = itemClips.find((candidate) => candidate.kind === 'video') ?? null;
-		const video = videoClip ? videoVisuals.get(videoClip.sourceId)?.visual : null;
+		const record = videoClip ? videoVisuals.get(videoClip.sourceId) : null;
+		const video = record?.visual;
+		const videoSource = videoClip?.sourceId === clip.sourceId ? source : videoClip && findSource(project, videoClip.sourceId);
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
 		const frequencyWindow = clipFrequencyWindow(project, clip, source);
 		const prepareSpectrogramPcm = source ? dependencies.prepareSpectrogramPcm?.(project, clip, source) : undefined;
@@ -117,7 +119,8 @@ export function createProjectVisualService(
 			...(videoClip ? {
 				itemClips: Object.freeze(itemClips),
 				videoClip,
-				mediaUrl: video?.mediaUrl ?? null,
+				mediaUrl: (videoSource?.characteristics?.audioStreams?.length === 0 ? record?.picturePlaybackUrl : null)
+					?? video?.mediaUrl ?? null,
 				posterUrl: video?.posterUrl ?? null,
 				thumbnails: video?.thumbnails ?? Object.freeze([]),
 				...(video?.mediaKind ? { mediaKind: video.mediaKind } : {}),
