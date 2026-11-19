@@ -20,14 +20,14 @@ sidebar:
 | Licence | + — AGPL-3.0-only | / — Proprietary |
 | Cost | + — Free | / — Paid, perpetual :: Discounted and commercial licences; a fully functional 60-day evaluation is available. |
 | Runs in a browser | / | / — :: The web interface remotely controls the desktop application; it is not a browser DAW. |
-| Runs on Windows | + | + |
+| Runs on Windows | + — :: Windows x64 and arm64 packages include a per-machine MSI option and Group Policy templates for updates, online features, and launch preferences. | + |
 | Runs on Linux | + | + |
 | Runs on macOS | + | + |
 | Runs on BSD | / | / — :: No native BSD build is listed in the reviewed downloads. |
 | Works with no account | + — :: Local editing needs no account; optional sharing has its own sign-in | + — Licence key :: No online account or activation service is required to run the application. |
 | Cloud project storage | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | / |
 
-[Platform limits](/start/web-or-desktop/) · [Storage and backups](/projects-and-data/storage-backups-and-privacy/)
+[Platform limits](/start/web-or-desktop/) · [Storage and backups](/projects-and-data/storage-backups-and-privacy/) · [Managed Windows deployment](https://github.com/mindscaper-org/Soundscaper/blob/874b19a9d/docs/operations/windows-enterprise-deployment.md)
 
 ## Project and session model
 
@@ -63,7 +63,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Cool Edit / Audition (`.ses`) | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / |
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / |
 | Ardour (`.ardour`) | ~ — Import :: Audio edits and editable MIDI from supported modern sessions, clip envelopes, gain/pan/mute/send automation, bus routing, markers, and supported stepped tempo/meter maps. Locates nearby media or requests a folder. Foreign plug-ins retain available state as bypassed placeholders; MIDI uses a replacement instrument. No export. | / |
-| REAPER (`.rpp`) | / | + — :: Text project with referenced media; copy media when moving a project. |
+| REAPER (`.rpp`) | ~ — Import :: Supported audio cuts, active takes, static mix settings, simple fades, markers, and initial tempo and meter. Locates nearby media or asks for a folder. MIDI, automation, routing, and plug-ins are omitted. | + — :: Text project with referenced media; copy media when moving a project. |
 | Hindenburg (`.nhsx`) | ~ — Import :: Audio cuts, trims, static levels, mute and fade lengths; locates companion media or requests a folder. Pan and fade curves are converted; ducking, plug-ins, transcripts, markers and Narrator authoring are omitted. No export. | / |
 | Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | / |
 | Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | / |
@@ -103,13 +103,13 @@ Hover for limits. Include any referenced media when sharing projects.
 | Clip gain | + | + |
 | Per-clip pitch and speed | + | + — :: Take properties / envelopes |
 | Follow tempo changes | + | + — Item timebase |
-| Audio quantisation and groove | + | ~ — :: Stretch markers / grid. Quantises audio timing; arbitrary groove extraction/application requires external scripts or extensions. |
+| Audio quantisation and groove | + — Audio warp and transients :: Quantises detected attacks toward a grid or groove using editable warp anchors. | ~ — :: Stretch markers / grid. Quantises audio timing; arbitrary groove extraction/application requires external scripts or extensions. |
 | Snap to zero crossings | + | + |
 | Sample-level drawing | + | / — External editor |
 | Keyboard-only editing | + | + — Action list |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | + — Project Bay :: Sortable Media Items table with rename, mute, and source-replacement operations; its columns and clipboard workflow differ from Soundscaper’s Clip spreadsheet. |
 | Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — :: Media / razor-edit groups |
-| Beat slicing and gap smoothing | / | + — :: Dynamic split / crossfades |
+| Beat slicing and gap smoothing | ~ — Split at beat labels :: Create labels with Beat Finder or the optional Beat This model, then use Edit → Labeled audio → Split labeled audio. Automatic slice placement and gap smoothing are planned. | + — :: Dynamic split / crossfades |
 | Offline effect render handles | / | / — :: Take FX and render tails are available; no AudioSuite-style source handles are documented. |
 | Non-destructive clip effects | + — Clip racks :: Clip properties → Effects adds editable processing before the track rack, with per-effect and rack bypass; .sscape saves preserve it. Native plug-ins retain their desktop runtime and offline-render requirements. | + — Take FX |
 | Place audio at its BWF timestamp | + — On import :: Uses BWF TimeReference relative to the project origin unless an explicit import position is supplied. | + — :: Preferred source position |
@@ -173,6 +173,11 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
 
+Both editions stream eligible fixed-length effects, such as Normalize and
+Amplify, over long timeline and source-editor selections. Desktop's effect
+memory limit defaults to 4 GiB and is configurable in Advanced preferences.
+[Audio processing and memory limits](https://github.com/mindscaper-org/Soundscaper/blob/fad77334c/docs/architecture/time-and-media.md#proxies-and-derived-media)
+
 ## MIDI & Notes
 
 | Capability | Soundscaper<br>Desktop | REAPER<br>7.86 |
@@ -198,11 +203,11 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | MPE recording and editing | / | ~ — Channel-based MPE :: Records channelised MPE; note selection can filter matching expression CCs, rather than dedicated per-note expression curves. |
 | Per-note expression curves | / | / — :: Conventional channel CC and pitch-bend lanes are not per-note curves. |
 | Note-driven modulation curves | / | / |
-| Custom tuning and microtonality | / | / — :: ReaScale selects MIDI note pitches; microtonal tuning requires a suitably tuned instrument or custom processing. |
+| Custom tuning and microtonality | ~ — Surge XT :: Applies custom tuning inside the bundled instrument. The Soundscaper piano roll keeps its semitone grid. | / — :: ReaScale selects MIDI note pitches; microtonal tuning requires a suitably tuned instrument or custom processing. |
 | Tabular note / event list | / | + |
 | MIDI keyboard recording | / | + |
 | Retrospective MIDI capture | / | + — :: Retroactive record actions |
-| Built-in instruments | + — :: Oscillators / FM / SoundFont. Four basic waveforms plus libADLMIDI FM and FluidSynth SoundFont reference banks, synthesized on demand in a worker. Additional native instruments are user-installed. | + — :: ReaSynth / ReaSamplOmatic |
+| Built-in instruments | + — Surge XT / Dexed :: Bundled VST3 instruments on MIDI tracks, alongside the shared oscillators and reference banks. | + — :: ReaSynth / ReaSamplOmatic |
 | Instrument plug-in hosting | + — :: VST2/VST3 instruments and Linux LV2 instruments on MIDI beta tracks, through Plugin Manager. | + |
 | Melody audio to MIDI | + — Local model | + — ReaTune :: Monophonic pitch-to-MIDI output can be recorded. |
 | Polyphonic audio to MIDI | + — Local model | / |
@@ -225,8 +230,9 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | Custom pitch and drum-note names | / | + |
 | Non-destructive velocity response curves | / | ~ — MIDI FX scaling :: Bundled velocity scaling/compression; no dedicated graphical response-curve editor. |
 
-Soundscaper's opt-in MIDI beta supports note editing and playback; live MIDI
-recording is unavailable. Manage desktop instruments in Plugin Manager.
+Soundscaper's opt-in MIDI beta supports note editing and playback. Choose an
+instrument on a MIDI track and open **Instrument settings** to edit it. Use
+Plugin Manager to scan and enable additional desktop instruments.
 
 ## Instruments and sound design
 
@@ -234,9 +240,9 @@ recording is unavailable. Manage desktop instruments in Plugin Manager.
 | --- | --- | --- |
 | User-sample playback instrument | / — :: FluidSynth uses a bundled reference SoundFont; user-sample instruments require an external plug-in. | + — ReaSamplOmatic5000 |
 | Multisample key and velocity zones | / | ~ — :: Multiple sampler instances. Key ranges and MIDI filtering can build layers; no unified key/velocity-zone editor. |
-| Editable subtractive synthesis | / — :: Basic oscillators and reference-bank engines have no instrument filter/envelope editor; external instruments can add synthesis features. | ~ — ReaSynth :: Basic oscillator/envelope synthesis; no integrated subtractive filter section. |
-| Wavetable synthesis | / | / |
-| FM synthesis | + — libADLMIDI :: Built-in FM synthesis with an original reference bank; no operator/patch editor. Dexed remains an external instrument. | / |
+| Editable subtractive synthesis | + — Surge XT :: Bundled instrument with editable oscillators, filters, and envelopes. | ~ — ReaSynth :: Basic oscillator/envelope synthesis; no integrated subtractive filter section. |
+| Wavetable synthesis | + — Surge XT | / |
+| FM synthesis | + — Dexed :: Bundled six-operator FM synth with an editable patch interface, alongside the shared libADLMIDI engine. | / |
 | Physical-modelling instruments | / | / |
 | Granular sampling | / | + — :: Bundled Granular Loop Sampler |
 | Dedicated drum instrument | / | + — ReaSynDr |
@@ -416,7 +422,7 @@ Storage, downloads, and licence checks do not affect this rating.
 | Automatic ducking | + | ~ — :: Sidechain / modulation. Configure ReaComp or audio-control parameter modulation; no speech-aware envelope-generation workflow is documented. |
 | Music remix to target duration | / | / |
 | Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / |
-| Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beats / transients :: Dynamic split and transient detection; no shot detector is documented. |
+| Beat and shot detection | ~ — Beat Finder / Beat This :: Beat Finder places labels at strong attacks. The optional Beat This model adds beat and downbeat tracking and can propose a tempo map. Framescaper provides shot detection. | ~ — Beats / transients :: Dynamic split and transient detection; no shot detector is documented. |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | + — :: Editing and rendering run locally; optional ReaNINJAM/ReaStream sends only when configured. |
 | Models are optional and removable | + | / |
 

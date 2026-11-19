@@ -20,14 +20,14 @@ sidebar:
 | Licence | + — AGPL-3.0-only | / — Proprietary |
 | Cost | + — Free | / — Paid |
 | Runs in a browser | / | / |
-| Runs on Windows | + | + |
+| Runs on Windows | + — :: Windows x64 and arm64 packages include a per-machine MSI option and Group Policy templates for updates, online features, and launch preferences. | + |
 | Runs on Linux | + | / |
 | Runs on macOS | + | + |
 | Runs on BSD | / | / |
 | Works with no account | + — :: Local editing needs no account; optional sharing has its own sign-in | / |
 | Cloud project storage | ~ — Manual archives :: Manual AUP3/AUP4 archive storage on a configured Audiocity server; no automatic sync | + |
 
-[Platform limits](/start/web-or-desktop/) · [Storage and backups](/projects-and-data/storage-backups-and-privacy/)
+[Platform limits](/start/web-or-desktop/) · [Storage and backups](/projects-and-data/storage-backups-and-privacy/) · [Managed Windows deployment](https://github.com/mindscaper-org/Soundscaper/blob/874b19a9d/docs/operations/windows-enterprise-deployment.md)
 
 ## Project and session model
 
@@ -63,7 +63,7 @@ Hover for limits. Include any referenced media when sharing projects.
 | Cool Edit / Audition (`.ses`) | ~ — Import :: Recognized legacy binary layouts only; unsupported state and missing media are reported. No export. | / |
 | Audition (`.sesx`) | ~ — Import :: Imports audio tracks, clip placement, trims, simple fades, and static mixer settings. Effects, automation, routing, and other unsupported state are reported; no SESX export. | / |
 | Ardour (`.ardour`) | ~ — Import :: Audio edits and editable MIDI from supported modern sessions, clip envelopes, gain/pan/mute/send automation, bus routing, markers, and supported stepped tempo/meter maps. Locates nearby media or requests a folder. Foreign plug-ins retain available state as bypassed placeholders; MIDI uses a replacement instrument. No export. | / |
-| REAPER (`.rpp`) | / | / |
+| REAPER (`.rpp`) | ~ — Import :: Supported audio cuts, active takes, static mix settings, simple fades, markers, and initial tempo and meter. Locates nearby media or asks for a folder. MIDI, automation, routing, and plug-ins are omitted. | / |
 | Hindenburg (`.nhsx`) | ~ — Import :: Audio cuts, trims, static levels, mute and fade lengths; locates companion media or requests a folder. Pan and fade curves are converted; ducking, plug-ins, transcripts, markers and Narrator authoring are omitted. No export. | / |
 | Pro Tools (`.ptf`) | ~ — Import :: Supported native PTF audio edits, track names, trims, and stereo lanes; locates the Audio Files folder. Legacy PTS is also supported. Mix settings, fades, MIDI, and plug-ins are omitted; no export. | + — :: Opens legacy PTF sessions; Save Copy In writes Pro Tools 7–9 copies, omitting newer features. |
 | Pro Tools (`.ptx`) | ~ — Import :: Supported native PTX audio-edit layouts; locates the Audio Files folder. Missing media and unsupported mix settings, fades, MIDI, and plug-ins are reported; no export. | + |
@@ -103,13 +103,13 @@ Hover for limits. Include any referenced media when sharing projects.
 | Clip gain | + | + |
 | Per-clip pitch and speed | + | + |
 | Follow tempo changes | + | + |
-| Audio quantisation and groove | + | + — Beat Detective |
+| Audio quantisation and groove | + — Audio warp and transients :: Quantises detected attacks toward a grid or groove using editable warp anchors. | + — Beat Detective |
 | Snap to zero crossings | + | / |
 | Sample-level drawing | + | + |
 | Keyboard-only editing | + | ~ — :: Extensive keyboard shortcuts. |
 | Spreadsheet-based editing | + — Clip spreadsheet :: Window → Clip spreadsheet edits clip names, tracks, sources, timing, pitch, speed, gain, fades, and polarity; supports multi-cell tabular copy/paste and row insertion. | / |
 | Linked-track edit groups | ~ — Folder edits :: Explicit edits can target all folder descendants; ordinary edits on one child do not propagate to siblings. No persistent linked-track groups. | + — Edit groups |
-| Beat slicing and gap smoothing | / | + — Beat Detective :: Separates and conforms rhythmic clips, then fills gaps and adds crossfades. |
+| Beat slicing and gap smoothing | ~ — Split at beat labels :: Create labels with Beat Finder or the optional Beat This model, then use Edit → Labeled audio → Split labeled audio. Automatic slice placement and gap smoothing are planned. | + — Beat Detective :: Separates and conforms rhythmic clips, then fills gaps and adds crossfades. |
 | Offline effect render handles | / | + — AudioSuite :: Renders extra source audio outside the selected clip edges so the processed clip can be trimmed out later. |
 | Non-destructive clip effects | + — Clip racks :: Clip properties → Effects adds editable processing before the track rack, with per-effect and rack bypass; .sscape saves preserve it. Native plug-ins retain their desktop runtime and offline-render requirements. | ~ — EQ / dynamics :: Studio includes editable per-clip input, EQ, filters, and dynamics; this is not a general per-clip insert rack. |
 | Place audio at its BWF timestamp | + — On import :: Uses BWF TimeReference relative to the project origin unless an explicit import position is supplied. | + — Original Timestamp |
@@ -173,6 +173,11 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 
 See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [macro programs](/reference/macro-programs/), and [commands](/reference/generated/commands/). Desktop ARA edits one mono or stereo clip at a time, up to 128 MiB of decoded audio.
 
+Both editions stream eligible fixed-length effects, such as Normalize and
+Amplify, over long timeline and source-editor selections. Desktop's effect
+memory limit defaults to 4 GiB and is configurable in Advanced preferences.
+[Audio processing and memory limits](https://github.com/mindscaper-org/Soundscaper/blob/fad77334c/docs/architecture/time-and-media.md#proxies-and-derived-media)
+
 ## MIDI & Notes
 
 | Capability | Soundscaper<br>Desktop | Pro Tools<br>Studio |
@@ -198,11 +203,11 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | MPE recording and editing | / | + — 2026.11 :: Native MPE input, playback, and dedicated expression lanes in the Edit window and MIDI Editor. |
 | Per-note expression curves | / | + — MPE |
 | Note-driven modulation curves | / | / |
-| Custom tuning and microtonality | / | / — :: Requires an external instrument or tuning tool. |
+| Custom tuning and microtonality | ~ — Surge XT :: Applies custom tuning inside the bundled instrument. The Soundscaper piano roll keeps its semitone grid. | / — :: Requires an external instrument or tuning tool. |
 | Tabular note / event list | / | + |
 | MIDI keyboard recording | / | + |
 | Retrospective MIDI capture | / | + |
-| Built-in instruments | + — :: Oscillators / FM / SoundFont. Four basic waveforms plus libADLMIDI FM and FluidSynth SoundFont reference banks, synthesized on demand in a worker. Additional native instruments are user-installed. | + — PlayCell :: Avid's included instrument installs separately. |
+| Built-in instruments | + — Surge XT / Dexed :: Bundled VST3 instruments on MIDI tracks, alongside the shared oscillators and reference banks. | + — PlayCell :: Avid's included instrument installs separately. |
 | Instrument plug-in hosting | + — :: VST2/VST3 instruments and Linux LV2 instruments on MIDI beta tracks, through Plugin Manager. | + |
 | Melody audio to MIDI | + — Local model | / — :: Uses the separately licensed Melodyne plug-in. |
 | Polyphonic audio to MIDI | + — Local model | / — :: Requires an external polyphonic transcription tool. |
@@ -225,8 +230,9 @@ See [plug-in management](/help/local-processing/#manage-plugins-and-devices), [m
 | Custom pitch and drum-note names | / | + — Key labels |
 | Non-destructive velocity response curves | / | + — Velocity Control |
 
-Soundscaper's opt-in MIDI beta supports note editing and playback; live MIDI
-recording is unavailable. Manage desktop instruments in Plugin Manager.
+Soundscaper's opt-in MIDI beta supports note editing and playback. Choose an
+instrument on a MIDI track and open **Instrument settings** to edit it. Use
+Plugin Manager to scan and enable additional desktop instruments.
 
 ## Instruments and sound design
 
@@ -234,9 +240,9 @@ recording is unavailable. Manage desktop instruments in Plugin Manager.
 | --- | --- | --- |
 | User-sample playback instrument | / — :: FluidSynth uses a bundled reference SoundFont; user-sample instruments require an external plug-in. | + — GrooveCell |
 | Multisample key and velocity zones | / | ~ — Drum layers :: GrooveCell layers up to three samples per pad with velocity switching; not a general keyboard-zone multisampler. |
-| Editable subtractive synthesis | / — :: Basic oscillators and reference-bank engines have no instrument filter/envelope editor; external instruments can add synthesis features. | + — SynthCell |
-| Wavetable synthesis | / | / |
-| FM synthesis | + — libADLMIDI :: Built-in FM synthesis with an original reference bank; no operator/patch editor. Dexed remains an external instrument. | / |
+| Editable subtractive synthesis | + — Surge XT :: Bundled instrument with editable oscillators, filters, and envelopes. | + — SynthCell |
+| Wavetable synthesis | + — Surge XT | / |
+| FM synthesis | + — Dexed :: Bundled six-operator FM synth with an editable patch interface, alongside the shared libADLMIDI engine. | / |
 | Physical-modelling instruments | / | / |
 | Granular sampling | / | / |
 | Dedicated drum instrument | / | + — GrooveCell |
@@ -416,7 +422,7 @@ Storage, downloads, and licence checks do not affect this rating.
 | Automatic ducking | + | ~ — Sidechain |
 | Music remix to target duration | / | / |
 | Automatic dialogue alignment | + — :: Same local workflow as Web; no model download. | / — :: Requires an external alignment plug-in, such as VocAlign. |
-| Beat and shot detection | ~ — Beats only :: Beat detection with an optional model; shot detection is in Framescaper | ~ — Beat Detective |
+| Beat and shot detection | ~ — Beat Finder / Beat This :: Beat Finder places labels at strong attacks. The optional Beat This model adds beat and downbeat tracking and can propose a tempo map. Framescaper provides shot detection. | ~ — Beat Detective |
 | Exclusively local media processing | + — :: Local editing and offline inference after model installation; optional sharing. | / — :: Speech-to-text runs locally, but integrated Splice Search with Sound uploads audio for AI matching. |
 | Models are optional and removable | + | ~ — Speech engine |
 
