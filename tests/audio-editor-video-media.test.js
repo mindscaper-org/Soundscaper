@@ -110,6 +110,19 @@ test('decoded pixel capture shares the seek queue and bypasses still encoding', 
 	fixture.extractor.dispose();
 });
 
+test('capture reuses the current frame interval and seeks adjacent millisecond frames', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: 0.004,
+		timing: { timescale: 1_000, presentationTicks: [0n, 1n, 2n, 3n], finalFrameDurationTicks: 1n },
+	});
+	try {
+		for (const timestamp of [0.0005, 0.00075, 0.0015, 0.0025, 0.0035]) {
+			await fixture.extractor.capturePixels(timestamp, { maximumWidth: 64, maximumHeight: 36 });
+		}
+		assert.deepEqual(fixture.seeks, [0.0005, 0.0015, 0.0025, 0.003]);
+	} finally { fixture.extractor.dispose(); }
+});
+
 test('video preview capture fences cancellation before seek and after encoding', async () => {
 	const preAborted = await videoExtractorFixture();
 	const earlyController = new AbortController();
@@ -180,7 +193,7 @@ async function videoExtractorFixture(options = {}) {
 		muted: false,
 		playsInline: false,
 		currentTime: 0,
-		duration: 10,
+		duration: options.duration ?? 10,
 		videoWidth: options.videoWidth ?? 640,
 		videoHeight: options.videoHeight ?? 360,
 		addEventListener(type, listener) {
@@ -243,7 +256,7 @@ async function videoExtractorFixture(options = {}) {
 	};
 	const extractor = await createAudioEditorVideoFrameExtractor(
 		new Blob(['video'], { type: 'video/mp4' }),
-		{ document, urlApi, timeoutMs: 100 },
+		{ document, urlApi, timeoutMs: 100, timing: options.timing },
 	);
 	return {
 		extractor,

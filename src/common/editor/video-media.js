@@ -171,7 +171,8 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		const seekTimestamp = timestamp === 0 && !hasPresentedFrame
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
 			: timestamp;
-		if (Math.abs(Number(video.currentTime) - seekTimestamp) > (hasPresentedFrame ? 0.001 : 0)) {
+		const currentTime = Number(video.currentTime);
+		if (hasPresentedFrame ? !matchesCaptureFrame(seekTimestamp, currentTime) : currentTime !== seekTimestamp) {
 			await seekVideoFrameForCapture(video, seekTimestamp, {
 				signal,
 				timeoutMs,
