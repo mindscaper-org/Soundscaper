@@ -149,6 +149,10 @@ candidate. An absent backend may advance the list; refusal of a requested format
 or mode does not silently turn into a different request.
 For ASIO, a rate outside the driver's advertised list is refused before
 opening a stream can retune the configured clock.
+Audio Setup saves a native sample rate after the selected routes open and
+bind at that rate. If opening fails, it restores the previous Web Audio rate
+and reopens the previously connected routes. A separately opened route can
+recover even if another device has disconnected.
 
 Real-time audio uses a directly transferred `MessagePort` between the helper and
 the `AudioWorklet`. Electron's utility port copies PCM typed arrays through

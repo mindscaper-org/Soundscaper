@@ -5,6 +5,7 @@ import { nativeAudioDeviceId, type NativeAudioDeviceDefaults, type NativeAudioDe
 import { createNativeAudioRouteOpenRequest, isNativeAudioStreamingBackend, nativeAudioInputChannelDemand } from './soundscaper-native-audio-route.ts';
 import type { NativeAudioAvailability, NativeAudioSessionOpenRequestV1, SoundscaperNativeServicesBridge } from './soundscaper-native-services-bridge.ts';
 import type { MicrophoneMeterInputReplacement } from '../controller/recording/microphone-meter-service.ts';
+import { normalizeRecordingSampleRate } from '../controller/recording/recording-model.ts';
 
 interface AudioHostPreferences {
 	readonly inputAccess?: boolean;
@@ -22,6 +23,7 @@ export interface SoundscaperAudioHostController {
 	subscribe(listener: () => void): () => void;
 	readonly actions: Readonly<{ audioDevices: Readonly<{
 		setHostInventory(host: string, inventory: NativeAudioInventoryReport | null, defaults?: NativeAudioDeviceDefaults): Promise<unknown>;
+		setRecordingSampleRate(sampleRate: number): Promise<unknown>;
 		requestAccess(): Promise<unknown>;
 	}>; recording?: Readonly<{ prepareInputReplacement?(): MicrophoneMeterInputReplacement }> }>;
 }
@@ -39,6 +41,7 @@ export interface SoundscaperAudioHostRuntime {
 	subscribe(listener: () => void): () => void;
 	refresh(): Promise<void>;
 	setHost(host: string): Promise<void>;
+	setRecordingSampleRate(sampleRate: number): Promise<void>;
 	reportDeviceLoss(sessionId: string, reason: string): void;
 	settle(): Promise<void>;
 	dispose(): Promise<void>;
@@ -64,6 +67,7 @@ export function isSoundscaperAudioHostController(value: unknown): value is Sound
 	const port = value as Partial<SoundscaperAudioHostController> | null;
 	return typeof port?.getSnapshot === 'function' && typeof port.subscribe === 'function'
 		&& typeof port.actions?.audioDevices?.setHostInventory === 'function'
+		&& typeof port.actions.audioDevices.setRecordingSampleRate === 'function'
 		&& typeof port.actions.audioDevices.requestAccess === 'function';
 }
 
@@ -114,6 +118,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			if (busy()) throw new AudioHostError('recording-active', 'Stop recording before changing the audio host.');
 			await activate(host, true);
 		}),
+		setRecordingSampleRate: (sampleRate: number) => enqueue(() => changeRecordingSampleRate(sampleRate)),
 		reportDeviceLoss: (sessionId: string, reason: string) => {
 			const session = sessions.get(sessionId);
 			if (!session || disposed) return;
@@ -139,8 +144,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	return runtime;
 
 	function preferences(): AudioHostPreferences { return controller.getSnapshot().audioDevices; }
-	function preferenceKey(): string {
-		const value = preferences();
+	function preferenceKey(value = preferences()): string {
 		return [value.host, value.preferredInputDeviceId, value.preferredOutputDeviceId,
 			value.preferredInputChannelCount, value.recordingSampleRate,
 			isNativeAudioStreamingBackend(value.host) ? inputChannelCount(value) : 0].join('|');
@@ -166,6 +170,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		assertActive();
 		if (busy()) throw new AudioHostError('recording-active', 'Stop recording or cancel scheduled recording before changing audio devices.');
 	}
+	function publishFailure(error: unknown): void {
+		publish({ error: errorMessage(error), failureCode: error instanceof AudioHostError ? error.code : 'operation' });
+	}
 	function enqueue(operation: () => Promise<void>): Promise<void> {
 		if (disposed) return Promise.resolve();
 		const request = ++requestGeneration;
@@ -174,7 +181,7 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			publish({ pending: true, error: '', failureCode: null });
 			let completed = false;
 			try { await operation(); completed = true; }
-			catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: error instanceof AudioHostError ? error.code : 'operation' }); }
+			catch (error) { publishFailure(error); }
 			finally {
 				try { await settleInputReplacement(disposed ? 'disposed' : request !== requestGeneration ? 'superseded' : completed ? 'ready' : 'failed'); }
 				catch (error) { publish({ error: error instanceof Error ? error.message : String(error), failureCode: 'operation' }); }
@@ -212,6 +219,77 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		}));
 		const failed = results.find((result) => result.status === 'rejected');
 		if (failed?.status === 'rejected') throw failed.reason;
+	}
+	async function changeRecordingSampleRate(sampleRate: number): Promise<void> {
+		assertCanReplaceDevices();
+		const previous = preferences();
+		if (sampleRate === previous.recordingSampleRate) return;
+		if (sampleRate !== normalizeRecordingSampleRate(sampleRate)) throw new AudioHostError('rate-mismatch', 'Choose a valid recording sample rate.');
+		if (inventory?.backend !== previous.host) throw new AudioHostError('inventory', 'Refresh audio devices before changing the recording sample rate.');
+		const next = { ...previous, recordingSampleRate: sampleRate };
+		const plan = routeRequests(previous.host, inventory, next, inputChannelCount(next));
+		if (!plan.length) throw new AudioHostError('inventory', 'No audio devices are available for the selected host.');
+		const before = preferenceKey(), after = preferenceKey(next), previousConnection = connectedKey;
+		const previousRoutes = [...sessions.values()].filter(session => session.state === 'bound').map(session => session.request);
+		const assertCurrent = () => {
+			assertCanReplaceDevices();
+			if (before !== preferenceKey()) throw new AudioHostError('session-open', 'The audio device choice changed while opening the selected rate.');
+		};
+		const previousContext = await options.engine.getAudioContext({ resume: false }).catch(() => null);
+		assertCurrent();
+		inputReplacement = controller.actions.recording?.prepareInputReplacement?.() ?? inputReplacement;
+		let retired = false;
+		try {
+			await prepareRate(sampleRate);
+			retired = true;
+			connectedKey = '';
+			await closeSessions();
+			assertCurrent();
+			const refused = await openRequests(plan, true);
+			if (refused) throw new AudioHostError(refused.code === 'format-refused' ? 'rate-mismatch' : 'session-open', refused.message);
+			assertCurrent();
+			if ([...sessions.values()].some(session => session.state !== 'bound')) {
+				throw new AudioHostError('device-loss', 'The selected audio device disconnected while opening the selected rate.');
+			}
+			requestedKey = after;
+			await controller.actions.audioDevices.setRecordingSampleRate(sampleRate);
+			connectedKey = after;
+		} catch (error) {
+			assertActive();
+			if (before !== preferenceKey()) {
+				connectedKey = '';
+				await closeSessions();
+				throw error;
+			}
+			let recovery: string[];
+			try {
+				if (retired) await closeSessions();
+				const context = await prepareRate(previous.recordingSampleRate);
+				if (!retired && context !== previousContext) await closeSessions();
+				recovery = retired || context !== previousContext ? await restoreRateRoutes(previousRoutes) : [];
+			} catch (failure) { recovery = [errorMessage(failure)]; }
+			connectedKey = recovery.length ? '' : previousConnection;
+			const failure = recovery.length
+				? new AudioHostError('session-open', `${errorMessage(error)} The previous audio route could not be restored. ${recovery.join(' ')}`)
+				: error;
+			// Only a recovered input can support idle microphone metering.
+			if (![...sessions.values()].some(({ state, request }) => state === 'bound' && request.direction !== 'output')) throw failure;
+			publishFailure(failure);
+		}
+	}
+	async function prepareRate(sampleRate: number): Promise<AudioContext> {
+		const context = await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: true, sampleRate }));
+		if (context.sampleRate !== sampleRate) throw new AudioHostError('rate-mismatch', 'The audio host could not use the selected recording sample rate. Choose another sample rate.');
+		return context;
+	}
+	async function restoreRateRoutes(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<string[]> {
+		const failures: string[] = [];
+		for (const request of requests) {
+			const retained = new Set(sessions.keys());
+			try { await openBoundRequests([request]); }
+			catch (error) { await closeSessions(retained); failures.push(errorMessage(error)); }
+		}
+		return failures;
 	}
 	async function activate(host: string, enumerate: boolean): Promise<void> {
 		assertCanReplaceDevices();
@@ -301,10 +379,13 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 				plan = routeRequests(host, nextInventory, current, inputChannelCount(current));
 			}
 			const pending = plan.filter(request => ![...retained.values()].some(session => sameRoute(session.request, request)));
-			const refused = await openRequests(pending, true);
-			if (refused) throw new AudioHostError('session-open', refused.message);
+			await openBoundRequests(pending);
 			connectedKey = key;
 		} catch (error) { await closeSessions(retainedIds); throw error; }
+	}
+	async function openBoundRequests(requests: readonly NativeAudioSessionOpenRequestV1[]): Promise<void> {
+		const refused = await openRequests(requests, true);
+		if (refused) throw new AudioHostError('session-open', refused.message);
 	}
 	async function openRequests(requests: readonly NativeAudioSessionOpenRequestV1[], bindImmediately: boolean) {
 		for (const request of requests) {
@@ -365,6 +446,8 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 		publish({ host });
 	}
 }
+
+function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
 function sameRoute(left: NativeAudioSessionOpenRequestV1, right: NativeAudioSessionOpenRequestV1): boolean {
 	return left.direction === right.direction && left.mode === right.mode && left.sampleRate === right.sampleRate

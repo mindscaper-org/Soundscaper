@@ -28,8 +28,13 @@ export function createRecordingRateSetting({ state, engine, lifetime, persist, p
 				await engine.getAudioContext?.({ resume: false, sampleRate: normalized });
 			}
 			assertCurrent();
+			const previous = state.preferredRecordingSampleRate;
 			state.preferredRecordingSampleRate = normalized;
-			await persist();
+			try { await persist(); }
+			catch (error) {
+				if (request === generation) state.preferredRecordingSampleRate = previous;
+				throw error;
+			}
 			assertCurrent();
 			publish();
 			return normalized;

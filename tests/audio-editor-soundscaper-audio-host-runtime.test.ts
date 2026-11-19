@@ -492,6 +492,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 		subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
 		actions: { audioDevices: {
 			setHostInventory: async (next, value, defaults?) => { settings = { ...settings, host: next, ...defaults }; inventory = value; },
+			setRecordingSampleRate: async recordingSampleRate => { settings = { ...settings, recordingSampleRate }; },
 			requestAccess: async () => { requests += 1; },
 		}, recording: { prepareInputReplacement: meter.prepareInputReplacement } },
 	};

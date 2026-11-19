@@ -140,8 +140,11 @@ export function AudioDevicesFlyout({
 			{native && <>
 				<label>
 					<EditorControlLabel>{copy.audioDeviceRecordingSampleRate}</EditorControlLabel>
-					<select aria-label={copy.audioDeviceRecordingSampleRate} value={sampleRate} disabled={busy}
-						onChange={(event) => run(() => controller.actions.audioDevices.setRecordingSampleRate(Number(event.currentTarget.value)))}>
+				<select aria-label={copy.audioDeviceRecordingSampleRate} value={sampleRate} disabled={busy || !audioHostRuntime}
+					onChange={(event) => {
+						const rate = Number(event.currentTarget.value);
+						run(() => audioHostRuntime.setRecordingSampleRate(rate));
+					}}>
 						{sampleRates.map((rate) => <option key={rate} value={rate}>{copy.audioDeviceSampleRateValue.replace('{sampleRate}', String(rate))}</option>)}
 					</select>
 				</label>
