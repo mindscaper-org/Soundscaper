@@ -121,11 +121,29 @@ test('the helper bounds each apt-get call with a wall clock', () => {
 			calls.some((call) => call.includes('install') && call.includes('pulseaudio-utils')),
 			'the missing packages must be installed',
 		);
+		assert.ok(calls.every((call) => !call.includes('--no-install-recommends')));
 		assert.equal(
 			harness.timeoutInvocations(),
 			calls.length,
 			'every apt-get call must run under timeout(1)',
 		);
+	} finally {
+		harness.cleanup();
+	}
+});
+
+test('the helper can skip recommended packages while still installing missing dependencies', () => {
+	const harness = createHarness({ installed: ['xvfb'] });
+	try {
+		const preinstalled = harness.run(['--no-install-recommends', 'xvfb']);
+		assert.equal(preinstalled.status, 0, preinstalled.stderr);
+		assert.deepEqual(harness.aptCalls(), []);
+
+		const result = harness.run(['--no-install-recommends', 'flatpak', 'xvfb']);
+		assert.equal(result.status, 0, result.stderr);
+		const [update, install] = harness.aptCalls();
+		assert.doesNotMatch(update, /--no-install-recommends/u);
+		assert.match(install, / install --yes --no-install-recommends flatpak$/u);
 	} finally {
 		harness.cleanup();
 	}

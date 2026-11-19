@@ -1009,8 +1009,12 @@ jobs:
           path: .desktop-build/flatpak-packages
 
       - name: Install Flatpak packaging and smoke tools
-        timeout-minutes: 10
-        run: bash scripts/ci-apt-install.sh flatpak flatpak-builder xvfb xauth dbus-daemon
+        timeout-minutes: 20
+        env:
+          CI_APT_TIMEOUT_SECONDS: '150' # Leave room for update and install retries.
+        run: >-
+          bash scripts/ci-apt-install.sh --no-install-recommends
+          flatpak flatpak-builder xvfb xauth dbus-daemon desktop-file-utils libgl1-mesa-dri libglx-mesa0
 
       - name: Allow the Flatpak build sandbox on Ubuntu
         run: |
