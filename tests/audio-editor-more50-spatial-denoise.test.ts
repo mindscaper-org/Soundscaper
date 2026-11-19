@@ -30,12 +30,12 @@ test('cooperative spatial denoise yields once per group of output rows and can s
 	const reason = new DOMException('Denoise cancelled', 'AbortError');
 	let yields = 0;
 	let cancel = false;
-	const postMessage = MessagePort.prototype.postMessage;
-	t.mock.method(MessagePort.prototype, 'postMessage', function (this: MessagePort, message: unknown) {
+	const enqueue = setImmediate;
+	t.mock.method(globalThis, 'setImmediate', (callback: () => void) => enqueue(() => {
 		yields += 1;
 		if (cancel && yields === 2) controller.abort(reason);
-		postMessage.call(this, message);
-	});
+		callback();
+	}));
 	const frame = { width: 4, height: 97, samples: Array.from({ length: 388 }, (_, index) => index % 3 / 2) };
 	const options = { radius: 16, strength: 0.6, signal: controller.signal };
 	assert.deepEqual(await processSpatialDenoiseCooperativeV1(frame, options), processSpatialDenoiseV1(frame, options));
