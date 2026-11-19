@@ -5,6 +5,12 @@ type DrawableInterval = Readonly<{
 	readonly drawableSourceEndTime?: unknown;
 }>;
 
+/** A browser seek near the start stays clear of nearest-picture rounding. */
+export function browserVideoFrameSeekSeconds(start: number, end: number): number {
+	const target = start + (end - start) / 4;
+	return target >= start && target < end ? target : start;
+}
+
 /** Choose a browser seek inside a drawable frame's half-open exact-time interval. */
 export function drawableVideoIntervalInteriorSeconds(
 	descriptor: DrawableInterval,
@@ -14,8 +20,7 @@ export function drawableVideoIntervalInteriorSeconds(
 	const start = optionalExactSeconds(descriptor.drawableSourceStartTime, allowArrayRationals);
 	const end = optionalExactSeconds(descriptor.drawableSourceEndTime, allowArrayRationals);
 	if (start === null || end === null || !(start < end)) return null;
-	const midpoint = (start + end) / 2;
-	return midpoint >= start && midpoint < end ? midpoint : start;
+	return browserVideoFrameSeekSeconds(start, end);
 }
 
 function optionalExactSeconds(value: unknown, allowArrayRationals: boolean): number | null {

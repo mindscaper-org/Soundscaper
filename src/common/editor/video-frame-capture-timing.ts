@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { demuxVideoTiming } from './video-timing-demux.ts';
+import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
 import type { VideoTimingProbeResult } from './video-timing-probe.ts';
 
 type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTicks' | 'finalFrameDurationTicks'>;
@@ -55,10 +56,7 @@ export async function createVideoFrameCaptureTiming(
 	const seekTime = (timestamp: number): number | null => {
 		const frame = frameAt(timestamp);
 		if (frame === null) return null;
-		const start = starts[frame]!;
-		// Chromium can present the nearest decoded picture on a seek. Bias the
-		// target toward this frame's PTS while remaining inside its interval.
-		return start + ((starts[frame + 1] ?? end) - start) / 4;
+		return browserVideoFrameSeekSeconds(starts[frame]!, starts[frame + 1] ?? end);
 	};
 	const clampTime = (timestamp: number, duration: number): number => {
 		const last = starts.at(-1);

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { seekVideoPreviewMedia, type VideoPreviewMediaSeekSource } from '../../controller/clip-video/video-preview-media-seek.ts';
+import { indexedVideoSourceSeekSeconds } from '../../video-source-time.ts';
 
 import {
 	createRegisteredVideoRetimeWebCorePreviewResolver,
@@ -35,6 +36,7 @@ export function resolveRegisteredVideoRetimePreview(
 export function synchronizeVideoPreviewMedia(
 	video: VideoPreviewMediaSeekSource & Pick<HTMLVideoElement, 'playbackRate' | 'pause' | 'play'>,
 	entry: Readonly<{
+		readonly source?: unknown;
 		readonly sourceTimeSeconds?: unknown;
 		readonly playbackRate?: unknown;
 		readonly exactPresentation?: unknown;
@@ -42,8 +44,10 @@ export function synchronizeVideoPreviewMedia(
 	transportPlaybackRate: number,
 	transportState: string,
 ): void {
-	const targetTime = Math.max(0, Number(entry.sourceTimeSeconds) || 0);
+	const sourceTime = Math.max(0, Number(entry.sourceTimeSeconds) || 0);
 	const exact = entry.exactPresentation === true;
+	const targetTime = !exact && transportState !== 'playing'
+		? indexedVideoSourceSeekSeconds(entry.source, sourceTime) : sourceTime;
 	// Drift tolerance keeps continuous playback from seeking on every update.
 	// A stopped transport owns an explicit picture, even a single frame away.
 	const tolerance = exact || transportState !== 'playing' ? 0.000001 : 0.08;

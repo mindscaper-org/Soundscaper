@@ -13,7 +13,7 @@ const time = (numerator: bigint, denominator = 1n) => ({ numerator, denominator 
 test('drawable interval chooses an interior browser seek and rejects invalid intervals', () => {
 	assert.equal(drawableVideoIntervalInteriorSeconds({
 		drawableSourceStartTime: time(9n), drawableSourceEndTime: time(10n),
-	}), 9.5);
+	}), 9.25);
 	for (const descriptor of [
 		{},
 		{ drawableSourceStartTime: time(9n), drawableSourceEndTime: time(9n) },
@@ -23,19 +23,19 @@ test('drawable interval chooses an interior browser seek and rejects invalid int
 	]) assert.equal(drawableVideoIntervalInteriorSeconds(descriptor), null);
 });
 
-test('drawable interval uses its start when a finite endpoint midpoint overflows', () => {
+test('drawable interval keeps an interior seek when adding endpoints would overflow', () => {
 	const start = BigInt(`1${'0'.repeat(308)}`);
 	const end = BigInt(`11${'0'.repeat(307)}`);
 	assert.equal(drawableVideoIntervalInteriorSeconds({
 		drawableSourceStartTime: time(start), drawableSourceEndTime: time(end),
-	}), 1e308);
+	}), 1.025e308);
 });
 
 test('preview retains its historical array-backed rational acceptance while exact mapping does not', () => {
 	const start = Object.assign([], time(1n));
 	const descriptor = { drawableSourceStartTime: start, drawableSourceEndTime: time(2n) };
 	assert.equal(drawableVideoIntervalInteriorSeconds(descriptor), null);
-	assert.equal(drawableVideoIntervalInteriorSeconds(descriptor, { allowArrayRationals: true }), 1.5);
+	assert.equal(drawableVideoIntervalInteriorSeconds(descriptor, { allowArrayRationals: true }), 1.25);
 });
 
 test('exact presentation falls back to source time when the optional drawable interval is invalid', () => {

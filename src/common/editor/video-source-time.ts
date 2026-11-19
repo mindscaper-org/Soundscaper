@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { browserVideoFrameSeekSeconds } from './video-drawable-interval.ts';
+
 export const VIDEO_THUMBNAIL_BASE_INTERVAL_SECONDS = 5;
 export const VIDEO_THUMBNAIL_MINIMUM_SPACING_PIXELS = 80;
 
@@ -102,6 +104,19 @@ export function unregisterVideoTimingIndex(sourceValue: unknown): void {
 /** Read the exact active registry object without copying or re-validating its timing payload. */
 export function registeredVideoTimingIndex(sourceValue: unknown): RuntimeVideoTimingIndex | undefined {
 	return VIDEO_TIMING_INDEXES.get(videoTimingKey(record(sourceValue, 'source')));
+}
+
+/** Resolve a paused seek inside the picture that owns the source timestamp. */
+export function indexedVideoSourceSeekSeconds(sourceValue: unknown, timestamp: number): number {
+	const source = optionalRecord(sourceValue, 'source');
+	const index = source && registeredVideoTimingIndex(source);
+	if (!index) return timestamp;
+	const end = Number(index.endTicks) / index.timescale;
+	if (!(timestamp >= Number(index.presentationTicks[0]) / index.timescale && timestamp < end)) return timestamp;
+	const frame = sourceFrameIndexAtTime(timestamp, index);
+	const start = Number(index.presentationTicks[frame]) / index.timescale;
+	const next = Number(index.presentationTicks[frame + 1] ?? index.endTicks) / index.timescale;
+	return browserVideoFrameSeekSeconds(start, next);
 }
 
 /** Identity changes whenever exact timing availability or lease restoration changes. */
@@ -377,6 +392,15 @@ function sourceTimeSecondsToFrame(sourceTimeSeconds: number, index: RuntimeVideo
 	const end = Number(index.endTicks) / index.timescale;
 	if (target <= first) return 0;
 	if (target >= end) return index.frameCount;
+	const lower = sourceFrameIndexAtTime(target, index);
+	const start = Number(index.presentationTicks[lower]) / index.timescale;
+	const next = lower + 1 < index.frameCount
+		? Number(index.presentationTicks[lower + 1]) / index.timescale
+		: end;
+	return lower + boundedProgress((target - start) / (next - start));
+}
+
+function sourceFrameIndexAtTime(target: number, index: RuntimeVideoTimingIndex): number {
 	let lower = 0;
 	let upper = index.frameCount;
 	while (lower + 1 < upper) {
@@ -385,11 +409,7 @@ function sourceTimeSecondsToFrame(sourceTimeSeconds: number, index: RuntimeVideo
 		if (middleTime <= target) lower = middle;
 		else upper = middle;
 	}
-	const start = Number(index.presentationTicks[lower]) / index.timescale;
-	const next = lower + 1 < index.frameCount
-		? Number(index.presentationTicks[lower + 1]) / index.timescale
-		: end;
-	return lower + boundedProgress((target - start) / (next - start));
+	return lower;
 }
 
 function boundedProgress(value: number): number {
