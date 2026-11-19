@@ -118,7 +118,10 @@ test('Split for a context clip uses the cursor and its group while Edit Split us
 	controller.actions.transport.setLoopRegion(2_000, 8_000);
 	await controller.actions.transport.seek(4_800);
 	const starts = (id: string) => controller.project!.clips.filter(item => item.sourceId === `${id}-source`)
-		.map(item => item.timelineStartFrame).sort((left, right) => left - right);
+		.map(item => {
+			assert.ok(typeof item.timelineStartFrame === 'number');
+			return item.timelineStartFrame;
+		}).sort((left, right) => left - right);
 
 	controller.actions.edit.split('target');
 	assert.deepEqual(starts('target'), [0, 4_800]);
