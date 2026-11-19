@@ -50,9 +50,9 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		const onAbort = (): void => { finish(aborted()); };
 		const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
 			callbackId = undefined;
-			// WebKit can submit the requested pixels before clearing seeking. Keep
-			// that frame's timing evidence; older queued frames still need a new callback.
-			if (video.seeking && (!Number.isFinite(metadata.mediaTime)
+			// A queued picture can arrive on either side of seeked. An indexed seek
+			// must match the requested picture until capture is ready.
+			if ((options.isRequestedFrame || video.seeking) && (!Number.isFinite(metadata.mediaTime)
 				|| !(options.isRequestedFrame?.(metadata.mediaTime)
 					?? Math.abs(metadata.mediaTime - timestamp) <= 0.000001))) {
 				callbackId = video.requestVideoFrameCallback?.(onFrame); return;

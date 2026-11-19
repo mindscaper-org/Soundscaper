@@ -166,7 +166,8 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		// video frame before canvas capture, including for the timestamp-zero
 		// poster.
 		const { matches, seekTime } = captureTiming;
-		const seekTimestamp = seekTime(timestamp) ?? (timestamp === 0 && !hasPresentedFrame
+		const indexedSeekTimestamp = seekTime(timestamp);
+		const seekTimestamp = indexedSeekTimestamp ?? (timestamp === 0 && !hasPresentedFrame
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
 			: timestamp);
 		const currentTime = Number(video.currentTime);
@@ -175,7 +176,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 				signal,
 				timeoutMs,
 				retryTimestamp: seekTime(timestamp, 'retry'),
-				isRequestedFrame: mediaTime => matches(seekTimestamp, mediaTime),
+				isRequestedFrame: indexedSeekTimestamp === null ? undefined : mediaTime => matches(seekTimestamp, mediaTime),
 			});
 		}
 		throwIfCaptureAborted(signal);
