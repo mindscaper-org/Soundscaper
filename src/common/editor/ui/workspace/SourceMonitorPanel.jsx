@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { cancelVideoPreviewMediaSeek, seekVideoPreviewMedia } from '../../controller/clip-video/video-preview-media-seek.ts';
+import { resolveVideoDisplayGeometry } from '../../video-display-geometry.ts';
 import '../audio-editor-design-system/23-source-monitor.css';
 import EditorControlLabel from '../EditorControlLabel.tsx';
 
@@ -18,6 +19,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	const endedNaturally = useRef(false);
 	const playRequest = useRef(0);
 	const [playing, setPlaying] = useState(false);
+	const [decodedSize, setDecodedSize] = useState(null);
 	const view = controller.actions.video.sourceMonitor.view();
 	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
 	const mediaUrl = visual?.available === false ? null : visual?.mediaUrl || null;
@@ -26,6 +28,23 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 		if (videoRef.current !== media) cancelVideoPreviewMediaSeek(videoRef.current);
 		videoRef.current = media;
 	}, []);
+	const readDecodedSize = (event) => {
+		const { videoWidth: width, videoHeight: height } = event.currentTarget;
+		if (!width || !height) return;
+		setDecodedSize(previous => previous?.mediaUrl === mediaUrl && previous.width === width && previous.height === height
+			? previous : { mediaUrl, width, height });
+	};
+	const geometry = decodedSize && decodedSize.mediaUrl === mediaUrl
+		? resolveVideoDisplayGeometry(visual?.source?.characteristics, decodedSize)
+		: null;
+	const pictureStyle = geometry?.reconciliation === 'residual' && geometry.residualRotationDegrees === 0
+		? {
+			aspectRatio: `${geometry.displayWidth} / ${geometry.displayHeight}`,
+			height: 'auto',
+			objectFit: 'fill',
+			width: `min(100%, calc(100% * ${geometry.displayWidth / geometry.displayHeight} / var(--source-monitor-viewport-aspect)))`,
+		}
+		: undefined;
 
 	// Playing a source is a viewing action; stopping it is what makes the
 	// controller's frame authoritative again.
@@ -109,11 +128,13 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 					ref={setVideoRef}
 					data-source-monitor-video
 					src={mediaUrl}
+					style={pictureStyle}
 					muted
 					playsInline
 					preload="auto"
 					aria-label={`${copy.panelSourceMonitor}: ${view.sourceName || copy.videoClip}`}
-					onLoadedMetadata={(event) => seekPausedPicture(event.currentTarget)}
+					onLoadedMetadata={(event) => { readDecodedSize(event); seekPausedPicture(event.currentTarget); }}
+					onResize={readDecodedSize}
 					onTimeUpdate={capturePlayback}
 					onEnded={() => run(() => {
 						if (playingRef.current) endedNaturally.current = true;

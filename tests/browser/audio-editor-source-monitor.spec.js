@@ -3,6 +3,7 @@ import { test } from './audio-editor-test-fixtures.js';
 
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
 import { highRateIntraVideoFile } from './fixtures/video-paused-preview-media.js';
+import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import {
@@ -18,6 +19,35 @@ const MARKED_FRAMES = MARK_OUT_FRAME + 1 - MARK_IN;
 const SOURCE_FRAMES = CFR.presentationTicks.length;
 
 test.describe('3B-3b source monitor qualification', () => {
+	test('the Source Monitor displays the authored width of a rotated anamorphic picture', async ({ page, browserName }) => {
+		test.skip(browserName === 'webkit', 'The rotated AVC fixture follows its Chromium and Firefox import qualification.');
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		const fixture = videoSourceGeometryMedia.find(({ id }) => id === 'geometry-rotated-anamorphic-mp4-v1');
+		await editor.locator('[data-project-bin-input]').setInputFiles(fixture.file);
+		await editor.locator('[data-bin-action="source-monitor"]').first().click();
+		const picture = editor.locator('[data-source-monitor-video]').locator('..');
+		await expect.poll(async () => {
+			const screenshot = await picture.screenshot({ scale: 'css' });
+			return page.evaluate(async ({ png, width, height }) => {
+				const image = new Image();
+				image.src = `data:image/png;base64,${png}`;
+				await image.decode();
+				const canvas = document.createElement('canvas');
+				canvas.width = image.width;
+				const context = canvas.getContext('2d');
+				context.drawImage(image, 0, -Math.floor(image.height / 4));
+				const { data } = context.getImageData(0, 0, image.width, 1);
+				let occupied = 0;
+				for (let pixel = 2; pixel < image.width - 2; pixel++) {
+					const rgb = pixel * 4;
+					if (data[rgb] + data[rgb + 1] + data[rgb + 2] > 80) occupied++;
+				}
+				return Math.abs(occupied - image.height * width / height);
+			}, { png: screenshot.toString('base64'), ...fixture.display });
+		}).toBeLessThanOrEqual(2);
+	});
+
 	test('stepping displays each high-speed source picture at its exact ordinal', async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'The high-speed AVC fixture exercises Chromium frame selection.');
 		const editor = await openFramescaper(page);
