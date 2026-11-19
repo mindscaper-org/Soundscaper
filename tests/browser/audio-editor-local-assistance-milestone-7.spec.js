@@ -16,6 +16,7 @@ import {
 	createDeterministicSilentVideoFixture,
 } from './fixtures/deterministic-av-media.js';
 import { classicAvcCaptureMedia } from './fixtures/video-native-capture-media.js';
+import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
 import {
 	completeMilestone7Run,
 	installMilestone7LocalAssistanceFixture,
@@ -29,20 +30,25 @@ const LINKED_AV = createDeterministicAvFixture('milestone-7-linked-workflows.web
 test.describe('Milestone 7 Guided workflow qualification', () => {
 	registerAudioEditorHooks();
 
-	test('Accurate Mark Cuts stages the last authored AVC picture', async ({ page, browserName }) => {
-		test.skip(browserName !== 'chromium', 'The classic AVC duration is rounded in Chromium.');
+	for (const [layout, makeFile] of [['classic', classicAvcCaptureMedia], ['reordered fragmented', videoOnlyFragmentedAvcFixture]])
+		test(`Accurate Mark Cuts stages all authored ${layout} AVC pictures`, async ({ page, browserName }) => {
+			test.skip(layout === 'classic' && browserName !== 'chromium', 'The classic AVC duration is rounded in Chromium.');
+			test.setTimeout(60_000);
+			await expectAccurateAvcPictures(page, makeFile());
+		});
+
+	async function expectAccurateAvcPictures(page, file) {
 		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 		await installMilestone7LocalAssistanceFixture(page, [['transnetv2', '1.0.0', 'shot-detection']]);
 		const editor = await bootEditor(page, '/framescaper/en/');
-		const file = classicAvcCaptureMedia();
 		await editor.locator('[data-project-bin-input]').setInputFiles(file);
-		await editor.getByRole('button', { name: 'Add to timeline: classic-vfr-capture', exact: true }).click();
+		await editor.getByRole('button', { name: `Add to timeline: ${file.name.replace(/\.mp4$/u, '')}`, exact: true }).click();
 		await editor.getByRole('group', { name: /^Video clip:/u }).first().press('Enter');
 		const dialog = await openAssistanceTask(page, editor, 'Mark Cuts');
 		await dialog.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true }).click();
 		page.once('dialog', event => { void event.dismiss(); });
 		await dialog.getByRole('button', { name: 'Analyze', exact: true }).click();
-		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots)
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots, { timeout: 30_000 })
 			.toContain('detect-shots:frame-pack');
 		const bytes = await page.evaluate(async () => {
 			const input = [...globalThis.__milestone7Fixture.stagedInputBodies.entries()]
@@ -62,7 +68,7 @@ test.describe('Milestone 7 Guided workflow qualification', () => {
 				: null;
 		});
 		expect(labels).toEqual([0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28]);
-	});
+	}
 
 	test('reviews transcript audition and independent beat publication choices', async ({ page }) => {
 		test.setTimeout(180_000);

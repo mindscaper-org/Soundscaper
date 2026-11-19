@@ -17,6 +17,7 @@ import {
 import type {
 	LocalAssistanceSelectedVideoFramePackTiming,
 } from './local-assistance-selected-video-timing.ts';
+import type { VideoTimingIndex } from '../../../../video-timing-asset.ts';
 
 export const LOCAL_ASSISTANCE_FRAME_PACK_MEDIA_TYPE =
 	'application/vnd.soundscaper.frame-pack';
@@ -81,12 +82,8 @@ export async function createLocalAssistanceSelectedVideoFramePacksV1(
 	if (packCount < 1 || packCount > LOCAL_ASSISTANCE_VIDEO_MAXIMUM_FRAME_PACKS) {
 		throw new RangeError('Selected-video frame packing exceeds its bounded pack inventory.');
 	}
-	const createDecoder = options.createDecoder ?? defaultDecoder;
-	const decoder = await createDecoder(normalized.body, { signal: normalized.signal,
-		width: ASSISTANCE_TRANSNET_V2_WIDTH, height: ASSISTANCE_TRANSNET_V2_HEIGHT });
-	if (!decoder || typeof decoder.capture !== 'function' || typeof decoder.dispose !== 'function') {
-		throw new TypeError('Selected-video frame packing received an invalid decoder.');
-	}
+	const decoder = await openDecoder(normalized, options.createDecoder,
+		ASSISTANCE_TRANSNET_V2_WIDTH, ASSISTANCE_TRANSNET_V2_HEIGHT);
 	const packs: Blob[] = [];
 	try {
 		for (let packIndex = 0; packIndex < packCount; packIndex += 1) {
@@ -162,12 +159,7 @@ export async function createLocalAssistanceSelectedVideoVisualFramePacksV2(
 		throw new RangeError('Selected-video visual packing exceeds its bounded pack inventory.');
 	}
 	assertReady(normalized);
-	const decoder = await (options.createDecoder ?? defaultDecoder)(normalized.body, {
-		signal: normalized.signal, width: rasterWidth, height: rasterHeight,
-	});
-	if (!decoder || typeof decoder.capture !== 'function' || typeof decoder.dispose !== 'function') {
-		throw new TypeError('Selected-video visual packing received an invalid decoder.');
-	}
+	const decoder = await openDecoder(normalized, options.createDecoder, rasterWidth, rasterHeight);
 	const packs: Blob[] = [];
 	try {
 		for (let packIndex = 0; packIndex < packCount; packIndex += 1) {
@@ -230,6 +222,21 @@ function normalizeRequest(
 		assertCurrent: request.assertCurrent });
 }
 
+async function openDecoder(
+	request: LocalAssistanceSelectedVideoFramePackRequest,
+	create: LocalAssistanceSelectedVideoFramePackOptions['createDecoder'],
+	width: number,
+	height: number,
+): Promise<LocalAssistanceSelectedVideoFrameDecoder> {
+	const options = { signal: request.signal, width, height };
+	const decoder = await (create ? create(request.body, options)
+		: defaultDecoder(request.body, options, request.timing.sourceIndex));
+	if (!decoder || typeof decoder.capture !== 'function' || typeof decoder.dispose !== 'function') {
+		throw new TypeError('Selected-video frame packing received an invalid decoder.');
+	}
+	return decoder;
+}
+
 async function defaultDecoder(
 	body: Blob,
 	options: Readonly<{
@@ -237,9 +244,12 @@ async function defaultDecoder(
 		readonly width: number;
 		readonly height: number;
 	}>,
+	sourceIndex: VideoTimingIndex | undefined,
 ): Promise<LocalAssistanceSelectedVideoFrameDecoder> {
 	const media = await import('../../../../video-media.js');
-	const extractor = await media.createAudioEditorVideoFrameExtractor(body, options) as Readonly<{
+	const view = sourceIndex && await qualifiedPictureView(body, sourceIndex, options.signal);
+	const extractor = await media.createAudioEditorVideoFrameExtractor(view || body,
+		view ? { ...options, timing: sourceIndex } : options) as Readonly<{
 		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{
 			readonly width: number;
 			readonly height: number;
@@ -258,6 +268,19 @@ async function defaultDecoder(
 		},
 		dispose: () => extractor.dispose(),
 	});
+}
+
+async function qualifiedPictureView(body: Blob, index: VideoTimingIndex, signal: AbortSignal): Promise<Blob | null> {
+	if (body.type !== 'video/mp4' && body.type !== 'video/quicktime') return null;
+	try {
+		const { prepareFragmentPlaybackView } = await import('../../../../video-source-monitor-fragment-view.ts');
+		return await prepareFragmentPlaybackView(body, {
+			...index, presentationTick: ordinal => index.presentationTicks[ordinal],
+		}, signal, { standardSampleEntry: true, programmePicture: true });
+	} catch {
+		signal.throwIfAborted();
+		return null;
+	}
 }
 
 function reviewedFrame(value: unknown): LocalAssistanceDecodedVideoFrame {
