@@ -9,6 +9,7 @@ import {
 	renameSync, rmdirSync as rmdir, unlinkSync, type Stats,
 } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { sameDesktopStorageDirectoryIdentity } from './desktop-storage-migration.ts';
 
 interface StorageEntry {
 	readonly source: string;
@@ -98,6 +99,13 @@ function assertRegularEntry(path: string, metadata: Stats): void {
 	}
 }
 
+function assertDistinctStorageDirectories(source: string, destination: string, original: Stats, target: Stats): void {
+	if (original.isDirectory() && target.isDirectory() && original.dev === target.dev && original.ino === target.ino
+		&& sameDesktopStorageDirectoryIdentity(lstat(source, { bigint: true }), lstat(destination, { bigint: true }))) {
+		throw new Error(`Source and destination refer to the same storage directory: "${source}" and "${destination}".`);
+	}
+}
+
 function assertSafeAncestors(path: string): void {
 	const parents: string[] = [];
 	for (let parent = dirname(path); ; parent = dirname(parent)) {
@@ -121,6 +129,7 @@ function preflight(source: string, destination: string, io: MigrationOperations)
 		if (sourceMetadata.isDirectory() !== destinationMetadata.isDirectory()) {
 			throw new Error(`File/directory conflict between "${source}" and "${destination}".`);
 		}
+		assertDistinctStorageDirectories(source, destination, sourceMetadata, destinationMetadata);
 	}
 	if (sourceMetadata.isDirectory()) {
 		for (const child of readdir(source)) {
@@ -155,6 +164,7 @@ function migrate(source: string, destination: string, io: MigrationOperations): 
 			assertRegularEntry(destination, destinationMetadata);
 			if (!destinationMetadata.isDirectory()) throw new Error(`Directory conflict at "${destination}".`);
 		}
+		assertDistinctStorageDirectories(source, destination, sourceMetadata, destinationMetadata);
 		for (const child of readdir(source)) {
 			migrate(join(source, child), join(destination, child), io);
 		}

@@ -109,6 +109,25 @@ test('temporary storage refuses a directory alias that resolves inside its activ
 	assert.equal(storage.status().restartRequired, false);
 });
 
+test('startup cancels a fresh destination alias without switching the active library', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-pending-alias-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active');
+	const alias = join(root, 'alias');
+	const library = join(active, 'Soundscaper', 'project-library', 'v1');
+	const catalog = join(library, 'library.sqlite3');
+	const settings = join(root, 'settings.json');
+	await mkdir(library, { recursive: true });
+	await writeFile(catalog, 'original catalog');
+	await symlink(active, alias, 'junction');
+	await writeFile(settings, JSON.stringify({ active, selected: alias, moveStarted: false }));
+	const storage = new TemporaryProjectStorage(settings, active, 'Soundscaper');
+	assert.equal(await storage.prepare(), active);
+	assert.deepEqual(storage.status(), { folder: active, selectedFolder: active, restartRequired: false });
+	assert.equal(await readFile(catalog, 'utf8'), 'original catalog');
+	assert.deepEqual(JSON.parse(await readFile(settings, 'utf8')), { active, selected: active, moveStarted: false });
+});
+
 test('overlapping folder choices persist the last selection through a single writer', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-storage-select-'));
 	context.after(() => rm(root, { recursive: true, force: true }));

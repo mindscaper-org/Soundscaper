@@ -3,7 +3,7 @@
 /** Resumable, non-overwriting relocation of legacy desktop storage. */
 
 import { createHash } from 'node:crypto';
-import { constants as fsConstants, type Stats } from 'node:fs';
+import { constants as fsConstants, type BigIntStats, type Stats } from 'node:fs';
 import {
 	chmod, copyFile, link, lstat, mkdir, open, readdir, rename, rmdir, unlink,
 } from 'node:fs/promises';
@@ -53,6 +53,21 @@ export async function migrateDesktopStorageEntries(
 /** Check for conflicts before accepting a new destination from the folder picker. */
 export async function checkDesktopStorageMigrationDestination(entry: StorageEntry): Promise<void> {
 	await preflightEntries([entry], 'selection');
+}
+
+/** Real directories can share an inode through a mount without sharing a path spelling. */
+export async function sameDesktopStorageDirectory(first: string, second: string): Promise<boolean> {
+	if (first === second) return true;
+	const inspect = (path: string) => lstat(path, { bigint: true }).catch((error: unknown) => {
+		if (['ENOENT', 'ENOTDIR'].includes(errorCode(error))) return null;
+		throw error;
+	});
+	const [left, right] = await Promise.all([inspect(first), inspect(second)]);
+	return sameDesktopStorageDirectoryIdentity(left, right);
+}
+
+export function sameDesktopStorageDirectoryIdentity(left: BigIntStats | null, right: BigIntStats | null): boolean {
+	return !!left?.isDirectory() && !!right?.isDirectory() && left.ino > 0n && left.dev === right.dev && left.ino === right.ino;
 }
 
 type PreflightPurpose = 'migration' | 'selection';
@@ -123,6 +138,13 @@ function assertRegularEntry(path: string, metadata: Stats): void {
 	}
 }
 
+async function assertDistinctStorageDirectories(source: string, destination: string, original: Stats, target: Stats): Promise<void> {
+	if (original.isDirectory() && target.isDirectory() && original.dev === target.dev && original.ino === target.ino
+		&& await sameDesktopStorageDirectory(source, destination)) {
+		throw new Error(`Source and destination refer to the same storage directory: "${source}" and "${destination}".`);
+	}
+}
+
 async function assertSafeAncestors(path: string): Promise<void> {
 	const parents: string[] = [];
 	for (let parent = dirname(path); ; parent = dirname(parent)) {
@@ -149,6 +171,7 @@ async function preflight(
 		if (sourceMetadata.isDirectory() !== destinationMetadata.isDirectory()) {
 			throw new Error(`File/directory conflict between "${source}" and "${destination}".`);
 		}
+		await assertDistinctStorageDirectories(source, destination, sourceMetadata, destinationMetadata);
 	}
 	if (sourceMetadata.isDirectory()) {
 		for (const child of await readdir(source)) {
@@ -184,6 +207,7 @@ async function migrate(source: string, destination: string, io: MigrationOperati
 			assertRegularEntry(destination, destinationMetadata);
 			if (!destinationMetadata.isDirectory()) throw new Error(`Directory conflict at "${destination}".`);
 		}
+		await assertDistinctStorageDirectories(source, destination, sourceMetadata, destinationMetadata);
 		for (const child of await readdir(source)) {
 			await migrate(join(source, child), join(destination, child), io, stage);
 		}

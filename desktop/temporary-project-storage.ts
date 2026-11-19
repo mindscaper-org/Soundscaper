@@ -5,7 +5,7 @@ import { mkdir, readFile, readdir, rename, rmdir, writeFile, access, lstat, stat
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
-import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
+import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries, sameDesktopStorageDirectory } from './desktop-storage-migration.ts';
 import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
@@ -49,6 +49,10 @@ export class TemporaryProjectStorage {
 		const selectedRoot = await this.#availableFolder(state.selected, state.selectedId);
 		if (selectedRoot === null) {
 			if (state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
+			return state.active;
+		}
+		if (await this.#sharesCurrentLibraryStorage(activeRoot, selectedRoot)) {
+			await this.#cancelAliasedSelection();
 			return state.active;
 		}
 		return withProjectLibraryRelocation([activeRoot, selectedRoot], this.appName, async () => {
@@ -98,6 +102,10 @@ export class TemporaryProjectStorage {
 	async #select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
 		const selected = assertLocalDesktopStorage(folder(path));
 		const active = await this.#openActiveFolder();
+		if (selected !== active && await this.#sharesCurrentLibraryStorage(active, selected)) {
+			await this.#cancelAliasedSelection();
+			return this.status();
+		}
 		await checkDesktopStorageMigrationDestination({ source: this.#libraryPath(active), destination: this.#libraryPath(selected) });
 		await mkdir(selected, { recursive: true, mode: 0o700 });
 		await access(selected, constants.W_OK);
@@ -105,6 +113,15 @@ export class TemporaryProjectStorage {
 			? this.#state.activeId : await this.#rememberFolder(selected);
 		await this.#persist({ ...this.#state, selected, selectedId, moveStarted: false, copyStage: undefined });
 		return this.status();
+	}
+	async #sharesCurrentLibraryStorage(active: string, selected: string): Promise<boolean> {
+		return await sameDesktopStorageDirectory(active, selected)
+			|| await sameDesktopStorageDirectory(this.#libraryPath(active), this.#libraryPath(selected));
+	}
+	async #cancelAliasedSelection(): Promise<void> {
+		const { active, activeId, selected, moveStarted } = this.#state;
+		if (moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
+		if (active !== selected) await this.#persist({ active, activeId, selected: active, selectedId: activeId, moveStarted: false });
 	}
 	async #openActiveFolder(): Promise<string> {
 		const state = this.#state;
