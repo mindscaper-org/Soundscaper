@@ -49,12 +49,12 @@ function publishOutputRoute(context: BaseAudioContext): void {
 	for (const listener of routeListeners) listener(context);
 }
 
-/** Keep an already selected native output private through replacement or refusal. */
+/** Keep programme on the selected native backend through a loss or replacement. */
 export function guardSoundscaperNativeAudioOutput(context: BaseAudioContext): void {
 	if (!GUARDED_OUTPUTS.has(context)) GUARDED_OUTPUTS.set(context, null);
 }
 
-/** An explicit Electron selection also releases any graph built during a failed replacement. */
+/** An explicit Electron selection also unmutes any graph built while the native output was unavailable. */
 export function selectSoundscaperBrowserAudioOutput(context: BaseAudioContext): void {
 	const mute = GUARDED_OUTPUTS.get(context);
 	GUARDED_OUTPUTS.delete(context);
@@ -225,6 +225,7 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			if (!prepared.has(sessionId)) return;
 			const reason = nativeAudioLossReason(value.reason, fallback);
 			if (request.direction !== 'input' && directionGenerations.get('output') === generation) {
+				guardSoundscaperNativeAudioOutput(context);
 				OUTPUT_FAILURES.set(context, new Error('The selected audio output is unavailable.', { cause: reason }));
 				publishOutputRoute(context);
 			}

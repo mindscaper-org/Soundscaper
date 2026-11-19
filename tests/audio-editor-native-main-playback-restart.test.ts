@@ -117,6 +117,25 @@ for (const browserSelected of [false, true]) test(`a pending replacement guards 
 	} finally { await f.dispose(); }
 });
 
+test('playing again after native speaker loss keeps the selected route silent', async () => {
+	const f = fixture();
+	const context = f.context as unknown as AudioContext;
+	try {
+		await f.attach();
+		await f.engine.play();
+		await f.loseOutput();
+		assert.equal(f.engine.getState().state, 'paused');
+		assert.equal(soundscaperBoundNativeAudioDestination(context), null);
+		await f.engine.play();
+		const mute = soundscaperNativeAudioDestination(context, context.destination) as GainNode;
+		assert.notEqual(mute, context.destination);
+		assert.equal(mute.gain.value, 0);
+		await f.attach('recovered');
+		assert.equal(f.engine.getState().state, 'playing');
+		assert.equal(soundscaperNativeAudioDestination(context, context.destination), soundscaperBoundNativeAudioDestination(context));
+	} finally { await f.dispose(); }
+});
+
 function fixture(reversed = false) {
 	const context = new MockAudioContext(); context.currentTime = 37;
 	// The established Web Audio test double supplies the engine's browser-resource boundary.
@@ -133,10 +152,15 @@ function fixture(reversed = false) {
 	engine.renderMix = async (options = {}) => new MockAudioBuffer(1,
 		Number(options.outputFrames ?? (Number(options.endFrame ?? frames) - Number(options.startFrame ?? 0))), 48_000) as unknown as AudioBuffer;
 	const bus = new EventTarget(); Object.defineProperty(bus, 'window', { value: bus });
+	let reportLoss: ((value: Readonly<{ reason: string }>) => void) | undefined;
 	const renderer = createSoundscaperNativeAudioRenderer({ engine, windowValue: bus,
-		createNode: async () => ({ node: context.createGain() as unknown as AudioNode,
-			attach: (_port, config) => config.generation, revoke: () => 1, notifyPeerLoss: () => 1,
-			calibrate: async () => 0, dispose() {} }),
+		onDeviceLoss: () => { engine.pause(); },
+		createNode: async (_context, options) => {
+			reportLoss = options.onClose;
+			return { node: context.createGain() as unknown as AudioNode,
+				attach: (_port, config) => config.generation, revoke: () => 1, notifyPeerLoss: () => 1,
+				calibrate: async () => 0, dispose() {} };
+		},
 	});
 	let current = '';
 	async function attach(id = 'first') {
@@ -150,6 +174,7 @@ function fixture(reversed = false) {
 		await renderer.waitForPort(id); await setImmediate();
 	}
 	return { engine, context, attach, detach: () => renderer.release(current),
+		loseOutput: async () => { assert.ok(reportLoss); reportLoss({ reason: 'device-loss' }); await setImmediate(); },
 		replace: async () => { await renderer.release(current); await attach('replacement'); },
 		dispose: async () => { engine.stop(); await renderer.dispose(); await engine.dispose(); },
 	};

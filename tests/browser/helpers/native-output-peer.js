@@ -15,6 +15,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 		const unavailable = { status: 'unavailable', reason: 'not-built', detail: '' };
 		const queueCapacity = 8;
 		window.__nativeOutput = { packets: 0, mean: 0, channelMeans: [], channelRms: [], loss: [], packetHistory: [], queueCapacity };
+		window.__nativeOutput.loseDevice = sessionId => peers.get(sessionId).worker.postMessage({ deviceLost: true });
 		let observationFailure = null;
 		const failObservation = message => {
 			observationFailure = message;
@@ -111,7 +112,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 				const observer = new Worker(observerUrl);
 				const url = URL.createObjectURL(new Blob([`
 					let latestPacket = null, lastSequence = -1, measuredSequence = -1;
-					let pending = 0, failed = false;
+					let pending = 0, failed = false, deviceLost = false;
 					const fences = [];
 					const finishFences = () => {
 						for (let index = fences.length - 1; index >= 0; index--) {
@@ -121,6 +122,7 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 					};
 					onmessage = ({ data }) => {
 						if (data.fence) { fences.push({ id: data.fence, sequence: lastSequence }); finishFences(); return; }
+						if (data.deviceLost) { deviceLost = true; return; }
 						const { port, observations } = data;
 						observations.onmessage = ({ data }) => {
 							pending--; measuredSequence = data.sequence; latestPacket = data.packet;
@@ -129,6 +131,11 @@ export async function installNativeOutputPeer(page, { outputChannelCount = 2, me
 						observations.start();
 						port.onmessage = ({ data }) => {
 							if (data.kind !== 'audio') return;
+							if (deviceLost) {
+								port.postMessage({ ...data, kind: 'return', status: 'device-unavailable', framesTransferred: 0 },
+									data.channels.map(channel => channel.buffer));
+								return;
+							}
 							lastSequence = data.sequence;
 							// One bounded copy models the native device write. Neither FFT
 							// nor telemetry can delay the next eight-credit packet return.

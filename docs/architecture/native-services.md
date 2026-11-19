@@ -187,8 +187,9 @@ packets it already accepted and signals the valid frame count in its final
 render quantum. The recorder flushes those frames before renderer-side teardown.
 Removing a PipeWire input ends its capture session. Opening a new session can
 select the new default source.
-Output loss stops monitoring; playback may use an explicitly compatible Web
-fallback, with the backend change reported and the project unchanged.
+Output loss pauses playback and stops monitoring. Pressing Play again
+keeps the browser output silent until a native route binds successfully or
+the user selects Electron.
 
 Plug-in discovery and execution are separate helper kinds and security controls.
 Scanning grants no project audio and hosts no project instance. Scan roots are

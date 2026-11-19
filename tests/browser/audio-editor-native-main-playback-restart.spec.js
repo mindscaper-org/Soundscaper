@@ -90,6 +90,43 @@ test('native playback keeps the same device clock while paused and resumes audio
 	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
 });
 
+test('play after native speaker loss keeps the browser output silent until Electron is selected', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'The control uses Chromium’s silent AudioContext sink.');
+	await installNativeOutputPeer(page, { backend: 'wasapi' });
+	await installSilentBrowserOutputMeter(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'Native speaker recovery.wav', frequency: 440, duration: 12 })]);
+	const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const host = setup.getByRole('combobox', { name: 'Host', exact: true });
+	await settings.click(); await host.selectOption('wasapi'); await expect(host).toBeEnabled();
+	await page.keyboard.press('Escape');
+	const play = editor.getByRole('button', { name: 'Play', exact: true });
+	const position = async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'));
+	const browserPeak = () => page.evaluate(() => window.__browserOutputPeak());
+	await play.click();
+	await expect.poll(() => page.evaluate(() => window.__browserOutputContext?.sinkId?.type)).toBe('none');
+	await expect.poll(() => page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms))).toBeGreaterThan(.05);
+	const sessionId = await page.evaluate(() => {
+		const id = window.__nativeOutput.sessionId;
+		window.__nativeOutput.loseDevice(id);
+		return id;
+	});
+	await expect.poll(() => page.evaluate(() => window.__nativeOutput.loss)).toEqual([{ sessionId, reason: 'device-loss' }]);
+	await expect(play).toBeVisible();
+	const pausedFrame = await position();
+	await play.click();
+	await expect.poll(position).toBeGreaterThan(pausedFrame + 12_000);
+	expect(await browserPeak()).toBeLessThan(.001);
+	await settings.click();
+	await expect(host).toHaveValue('wasapi');
+	await expect(setup.getByRole('alert')).toBeVisible();
+	await host.selectOption('electron'); await expect(host).toBeEnabled();
+	await expect.poll(browserPeak).toBeGreaterThan(.05);
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+});
+
 for (const refuse of [false, true]) {
 	test(`native refresh keeps project audio off the browser output, refusal=${refuse}`, async ({ page, browserName }) => {
 		test.skip(browserName !== 'chromium', 'The control uses Chromium’s silent AudioContext sink.');
@@ -105,39 +142,8 @@ for (const refuse of [false, true]) {
 				}
 				return open(request);
 			};
-			const setSinkId = AudioContext.prototype.setSinkId;
-			AudioContext.prototype.setSinkId = function() { return setSinkId.call(this, { type: 'none' }); };
-			window.AudioContext = new Proxy(window.AudioContext, {
-				construct(Context, [options], target) {
-					const context = Reflect.construct(Context, [{ ...options, sinkId: { type: 'none' } }], target);
-					window.__browserOutputContext = context;
-					return context;
-				},
-			});
-			const connect = AudioNode.prototype.connect;
-			const analysers = new Map();
-			AudioNode.prototype.connect = function(destination, ...ports) {
-				const context = this.context;
-				if (destination !== context.destination || context instanceof OfflineAudioContext) return connect.call(this, destination, ...ports);
-				let analyser = analysers.get(context);
-				if (!analyser) {
-					analyser = context.createAnalyser();
-					analysers.set(context, analyser);
-				}
-				connect.call(this, analyser, ports[0] ?? 0);
-				return connect.call(this, destination, ...ports);
-			};
-			window.__browserOutputPeak = () => {
-				let peak = 0;
-				for (const [context, analyser] of analysers) {
-					if (context.state === 'closed') continue;
-					const values = new Float32Array(analyser.fftSize);
-					analyser.getFloatTimeDomainData(values);
-					for (const value of values) peak = Math.max(peak, Math.abs(value));
-				}
-				return peak;
-			};
 		}, refuse);
+		await installSilentBrowserOutputMeter(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [createWavFixture({ name: 'Selected native speakers.wav', frequency: 440, duration: 12 })]);
 		const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
@@ -214,5 +220,42 @@ for (const [rate, refresh] of [[2, false], [1, true], [2, true]]) {
 			await expect.poll(frequency).toBeGreaterThan(440 * rate - 30);
 			await expect.poll(frequency).toBeLessThan(440 * rate + 30);
 		} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+	});
+}
+
+async function installSilentBrowserOutputMeter(page) {
+	await page.addInitScript(() => {
+		const setSinkId = AudioContext.prototype.setSinkId;
+		AudioContext.prototype.setSinkId = function() { return setSinkId.call(this, { type: 'none' }); };
+		window.AudioContext = new Proxy(window.AudioContext, {
+			construct(Context, [options], target) {
+				const context = Reflect.construct(Context, [{ ...options, sinkId: { type: 'none' } }], target);
+				window.__browserOutputContext = context;
+				return context;
+			},
+		});
+		const connect = AudioNode.prototype.connect;
+		const analysers = new Map();
+		AudioNode.prototype.connect = function(destination, ...ports) {
+			const context = this.context;
+			if (destination !== context.destination || context instanceof OfflineAudioContext) return connect.call(this, destination, ...ports);
+			let analyser = analysers.get(context);
+			if (!analyser) {
+				analyser = context.createAnalyser();
+				analysers.set(context, analyser);
+			}
+			connect.call(this, analyser, ports[0] ?? 0);
+			return connect.call(this, destination, ...ports);
+		};
+		window.__browserOutputPeak = () => {
+			let peak = 0;
+			for (const [context, analyser] of analysers) {
+				if (context.state === 'closed') continue;
+				const values = new Float32Array(analyser.fftSize);
+				analyser.getFloatTimeDomainData(values);
+				for (const value of values) peak = Math.max(peak, Math.abs(value));
+			}
+			return peak;
+		};
 	});
 }
