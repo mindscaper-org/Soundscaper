@@ -5,6 +5,7 @@ import { mkdir, readFile, readdir, rename, writeFile, access, lstat, stat } from
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
+import { projectLibraryLocationDirectory, withProjectLibraryRelocation } from './project-library-directory-lock.ts';
 import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
@@ -45,18 +46,26 @@ export class TemporaryProjectStorage {
 			if (state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
 			return state.active;
 		}
-		let selectedId = state.selectedId;
-		await migrateDesktopStorageEntries([{
-			source: this.#libraryPath(activeRoot), destination: this.#libraryPath(selectedRoot),
-		}], { beforeMove: async () => {
-			selectedId ??= await this.#rememberFolder(selectedRoot);
-			if (!state.moveStarted || selectedId !== state.selectedId) {
-				await this.#persist({ ...state, selectedId, moveStarted: true });
+		return withProjectLibraryRelocation([activeRoot, selectedRoot], this.appName, async () => {
+			if (state.activeId !== undefined && await this.#availableFolder(state.active, state.activeId) !== activeRoot) {
+				throw new TemporaryProjectStorageUnavailableError('active');
 			}
-		} });
-		selectedId ??= await this.#rememberFolder(selectedRoot);
-		await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
-		return this.#state.active;
+			if (state.selectedId !== undefined && await this.#availableFolder(state.selected, state.selectedId) !== selectedRoot) {
+				throw new TemporaryProjectStorageUnavailableError('selected');
+			}
+			let selectedId = state.selectedId;
+			await migrateDesktopStorageEntries([{
+				source: this.#libraryPath(activeRoot), destination: this.#libraryPath(selectedRoot),
+			}], { beforeMove: async () => {
+				selectedId ??= await this.#rememberFolder(selectedRoot);
+				if (!state.moveStarted || selectedId !== state.selectedId) {
+					await this.#persist({ ...state, selectedId, moveStarted: true });
+				}
+			} });
+			selectedId ??= await this.#rememberFolder(selectedRoot);
+			await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
+			return this.#state.active;
+		});
 	}
 	status(): Readonly<{ folder: string; selectedFolder: string; restartRequired: boolean }> {
 		const { active, selected } = this.#state;
@@ -97,16 +106,12 @@ export class TemporaryProjectStorage {
 	async #availableFolder(path: string, identity: string | undefined): Promise<string | null> {
 		const root = await availableTemporaryFolder(path);
 		if (root === null || identity === undefined) return root;
-		return (await optionalMetadata(join(this.#markerRoot(root), identity)))?.isDirectory() ? root : null;
+		return (await optionalMetadata(join(projectLibraryLocationDirectory(root, this.appName), identity)))?.isDirectory() ? root : null;
 	}
 	#libraryPath(root: string): string { return join(root, this.appName, 'project-library', 'v1'); }
-	#markerRoot(root: string): string {
-		// Keep the folder marker outside the library tree moved between volumes.
-		return join(root, `.${this.appName.toLowerCase()}-temporary-library`);
-	}
 	async #rememberFolder(root: string): Promise<string | undefined> {
 		if (root === resolve(this.defaultRoot)) return undefined;
-		const markerRoot = this.#markerRoot(root);
+		const markerRoot = projectLibraryLocationDirectory(root, this.appName);
 		await mkdir(markerRoot, { recursive: true, mode: 0o700 });
 		const entries = await readdir(markerRoot, { withFileTypes: true });
 		const existing = entries.find(entry => entry.isDirectory() && FOLDER_ID.test(entry.name));

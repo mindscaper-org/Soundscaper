@@ -1,4 +1,5 @@
 import { TemporaryProjectStorage, TemporaryProjectStorageUnavailableError } from './project-library-runtime/desktop/temporary-project-storage.js';
+import { ProjectLibraryDirectoryInUseError } from './project-library-runtime/desktop/project-library-directory-lock.js';
 import { ProjectFileAssociations } from './project-library-runtime/desktop/project-file-associations.js';
 import { registerProjectSavingIpc } from './project-library-runtime/desktop/project-saving-main-ipc.js';
 import { randomUUID } from 'node:crypto'; import { takeCoverage } from 'node:v8';
@@ -185,7 +186,7 @@ if (!app.requestSingleInstanceLock()) {
 	for (const filePath of extractProjectPaths(process.argv, process.cwd())) enqueueProjectPath(filePath);
 	void startApplication().catch(async (error) => {
 		console.error('Soundscaper desktop failed to start:', cleanError(error));
-		if (error instanceof TemporaryProjectStorageUnavailableError) electronDialog.showErrorBox('Temporary project data is unavailable', cleanError(error));
+		if (error instanceof TemporaryProjectStorageUnavailableError || error instanceof ProjectLibraryDirectoryInUseError) electronDialog.showErrorBox('Temporary project data is unavailable', cleanError(error));
 		await exitApplication(1);
 	});
 }

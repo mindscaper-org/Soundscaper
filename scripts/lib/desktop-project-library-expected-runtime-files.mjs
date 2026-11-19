@@ -38,7 +38,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/project-saving-main-ipc.js',
 	'desktop/project-saving-preload.js',
 	'desktop/save-target-preload.js',
-	'desktop/temporary-project-storage.js',
+	'desktop/temporary-project-storage.js', 'desktop/project-library-directory-lock.js',
 	'desktop/windows-store-distribution.js',
 	'desktop/update-installation.js', 'desktop/update-service.js', 'desktop/update-preferences.js',
 	'desktop/managed-policy.js', 'desktop/windows-managed-policy.js', 'desktop/managed-network-policy.js',

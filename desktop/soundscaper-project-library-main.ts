@@ -3,6 +3,7 @@
 import { chmod, mkdir } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import { openLocalDesktopDatabase } from './desktop-database.ts';
+import { openProjectLibraryDirectoryLock } from './project-library-directory-lock.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 import { readSoundscaperDesktopProjectRecoveryCandidates, listSoundscaperDesktopProjectRecoverySummaries } from './soundscaper-project-recovery-reader.ts';
 
@@ -108,6 +109,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 	#renewTimer: ReturnType<typeof setInterval> | null = null;
 	readonly #writer: Readonly<SoundscaperDesktopProjectLibraryMainWriter>;
 	readonly #leaseTtlMs: number;
+	readonly #releaseDirectory: () => void;
 
 	private constructor(
 		database: DatabaseSync,
@@ -120,10 +122,12 @@ export class SoundscaperDesktopProjectLibraryMain {
 		writer: Readonly<SoundscaperDesktopProjectLibraryMainWriter>,
 		renewIntervalMs: number,
 		leaseTtlMs: number,
+		releaseDirectory: () => void,
 	) {
 		this.#writer = writer;
 		this.#leaseTtlMs = leaseTtlMs;
 		this.#database = database;
+		this.#releaseDirectory = releaseDirectory;
 		this.#catalog = catalog;
 		this.#host = host;
 		this.#lifecycle = lifecycle;
@@ -146,6 +150,12 @@ export class SoundscaperDesktopProjectLibraryMain {
 
 	static async start(value: unknown): Promise<SoundscaperDesktopProjectLibraryMain> {
 		const options = validateStartOptions(value);
+		const releaseDirectory = openProjectLibraryDirectoryLock(options.appDataPath, 'Soundscaper', 'open');
+		try { return await this.#openLibrary(options, releaseDirectory); }
+		catch (error) { releaseDirectory(); throw error; }
+	}
+
+	static async #openLibrary(options: Readonly<StartOptions>, releaseDirectory: () => void): Promise<SoundscaperDesktopProjectLibraryMain> {
 		const leaseTtlMs = options.testControl?.leaseTtlMs ?? LEASE_TTL_MS;
 		const paths = createSoundscaperDesktopProjectLibraryPaths(options.appDataPath);
 		await createPrivateLibrary(paths);
@@ -215,6 +225,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 				}),
 				options.testControl?.renewIntervalMs ?? RENEW_INTERVAL_MS,
 				leaseTtlMs,
+				releaseDirectory,
 			);
 		} catch (error) {
 			if (catalog && lease) {
@@ -281,6 +292,7 @@ export class SoundscaperDesktopProjectLibraryMain {
 			}
 		} catch (error) { failures.push(error); }
 		try { this.#database.close(); } catch (error) { failures.push(error); }
+		try { this.#releaseDirectory(); } catch (error) { failures.push(error); }
 		throwFailures(failures);
 	}
 

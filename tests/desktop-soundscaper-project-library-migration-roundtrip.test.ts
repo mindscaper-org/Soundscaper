@@ -144,6 +144,44 @@ test('a disconnected active temporary folder preserves its migrated SQLite catal
 	}
 });
 
+test('temporary library relocation refuses while another profile owns the library', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-library-live-relocation-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const shared = join(root, 'shared'), selected = join(root, 'selected');
+	const settings = join(root, 'relocating-profile.json');
+	const relocatingProfile = () => new TemporaryProjectStorage(settings, shared, 'Soundscaper');
+	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
+	const project = createSoundscaperProject({ id: 'shared-project', title: 'Shared library project' });
+	const firstOwner = await start(shared, 'profile-selecting-relocation');
+	try {
+		const session = firstOwner.openSession(handshake);
+		try {
+			const publicationId = 'b'.repeat(48);
+			await session.beginPublication({ publicationId, expectedMetadataRevision: 0, expectedProject: null, project, bodies: [] });
+			await session.finishPublication({ publicationId });
+			await relocatingProfile().select(selected);
+		} finally { await session.close(); }
+	} finally { await firstOwner.close(); }
+
+	const liveOwner = await start(shared, 'profile-still-editing');
+	try {
+		const session = liveOwner.openSession(handshake);
+		try {
+			await assert.rejects(relocatingProfile().prepare(), /project library is in use/iu);
+			await assert.rejects(lstat(createSoundscaperDesktopProjectLibraryPaths(selected).databasePath), { code: 'ENOENT' });
+			assert.equal((await session.readProjectBundle(project.id))?.project.projectId, project.id);
+		} finally { await session.close(); }
+	} finally { await liveOwner.close(); }
+
+	assert.equal(await relocatingProfile().prepare(), selected);
+	const reopened = await start(selected, 'relocation-after-close');
+	try {
+		const session = reopened.openSession(handshake);
+		try { assert.equal((await session.readProjectBundle(project.id))?.project.projectId, project.id); }
+		finally { await session.close(); }
+	} finally { await reopened.close(); }
+});
+
 function start(appDataPath: string, instanceId: string): Promise<SoundscaperDesktopProjectLibraryMain> {
 	return SoundscaperDesktopProjectLibraryMain.start({
 		appDataPath,
