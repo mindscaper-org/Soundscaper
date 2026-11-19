@@ -71,6 +71,7 @@ export const RECORDING_COPY_BY_LOCALE = Object.freeze({
 			timedRecordingScheduledRange: 'Recording scheduled from {start} to {end}. Keep this tab open.',
 			timedRecordingCancelled: 'Scheduled recording cancelled.',
 			timedRecordingPast: 'Choose a recording time in the future.',
+			timedRecordingMissed: 'The recording could not start within the scheduled time window.',
 			timedRecordingEndBeforeStart: 'Choose a recording end after the start.',
 			timedRecordingInvalidLocalDateTime: 'Enter a date and time that exist in your time zone.',
 			soundActivationLevel: 'Set activation level',

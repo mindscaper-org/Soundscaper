@@ -28,6 +28,48 @@ test.describe('audio editor timed recording', () => {
 		await expect(dialog.getByRole('alert')).toHaveText('Choose a recording time in the future.');
 	});
 
+	test('a suspended timer cannot start recording after the scheduled end', async ({ page }) => {
+		await page.addInitScript(() => {
+			Object.defineProperty(navigator, 'mediaDevices', {
+				configurable: true,
+				value: {
+					enumerateDevices: async () => [],
+					getUserMedia: async () => {
+						const context = new AudioContext();
+						const oscillator = context.createOscillator();
+						const destination = context.createMediaStreamDestination();
+						oscillator.connect(destination);
+						oscillator.start();
+						await context.resume();
+						return destination.stream;
+					},
+				},
+			});
+		});
+		const editor = await bootEditor(page, '/embed/en/');
+		await page.clock.install({ time: new Date('2030-02-01T12:00:00Z') });
+		await editor.getByRole('button', { name: 'Record options', exact: true }).click();
+		await page.getByRole('dialog', { name: 'Record options', exact: true })
+			.getByRole('button', { name: 'Timed recording', exact: true }).click();
+		const dialog = page.getByRole('dialog', { name: 'Set up timed recording', exact: true });
+		const dateTimes = dialog.locator('input[type="datetime-local"]');
+		const [start, end] = await page.evaluate(() => [20_000, 22_000].map(delay => {
+			const date = new Date(Date.now() + delay);
+			return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
+		}));
+		await dateTimes.first().fill(start);
+		await dialog.getByRole('radio', { name: 'End date and time', exact: true }).check();
+		await dateTimes.nth(1).fill(end);
+		await dialog.getByRole('button', { name: 'Schedule recording', exact: true }).click();
+		const scheduled = editor.getByRole('region', { name: /Recording is scheduled for/u });
+		await expect(scheduled).toBeVisible();
+		await expect(dialog).toBeHidden();
+		await page.clock.fastForward(25_000);
+		await expect(scheduled).toBeHidden();
+		await expect(editor.getByRole('region', { name: 'Recording', exact: true })).toHaveCount(0);
+		await expect(editor.getByRole('alert').filter({ hasText: 'The recording could not start within the scheduled time window.' })).toBeVisible();
+	});
+
 	test('keeps a countdown toast through the scheduled and active recording phases', async ({ page }) => {
 		test.setTimeout(40_000);
 		await page.addInitScript(() => {

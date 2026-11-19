@@ -148,6 +148,12 @@ export function createTimedRecordingService<TimerHandle>(
 			|| projectId !== runtime.getProjectId()) throw abortError();
 	}
 
+	function missedRecordingError(): Error {
+		const missed = runtime.messages.missed;
+		const key = missed ? 'timedRecordingMissed' : 'timedRecordingPast';
+		return createLocalizedError(Error, { [key]: missed || runtime.messages.past }, key);
+	}
+
 	function armTimedRecordingTimer(scheduled: TimedRecordingDescriptor): void {
 		if (state.timedRecording !== scheduled) return;
 		if (state.timedRecordingTimer !== null) runtime.clearTimer(state.timedRecordingTimer);
@@ -179,23 +185,38 @@ export function createTimedRecordingService<TimerHandle>(
 		state.timedRecording = null;
 		state.activeTimedRecording = scheduled;
 		state.timedRecordingTimer = null;
+		let expired = false;
 		const scope = Object.freeze({
 			assertCurrent(): void {
 				assertScheduledGeneration(scheduled.generation, scheduled.projectId);
 				if (activating !== activation || state.recorder !== activation.recorder) throw abortError();
+				const { endTimeMs } = scheduled.options;
+				if (endTimeMs !== undefined && runtime.currentTimeMs() >= endTimeMs) {
+					expired = true;
+					throw missedRecordingError();
+				}
 			},
 		});
 		try {
+			scope.assertCurrent();
 			await runtime.activatePreparedRecording(scheduled, scope);
 			scope.assertCurrent();
 			return true;
 		} catch (error) {
 			if (activating === activation) {
+				activating = null;
 				state.activeTimedRecording = null;
-				handleError(error);
-				state.recordingDiscardRequested = true;
 				state.timedRecordingCancelling = true;
-				void discardPreparedTimedRecording(activation.recorder);
+				if (expired) {
+					// The capture clock may already have collected part of the window.
+					await settlePreparedTimedRecording(activation.recorder);
+					if (scheduled.generation === state.timedRecordingGeneration
+						&& scheduled.projectId === runtime.getProjectId() && !state.disposed) handleError(error);
+				} else {
+					state.recordingDiscardRequested = true;
+					handleError(error);
+					void settlePreparedTimedRecording(activation.recorder);
+				}
 			}
 			return null;
 		} finally {
@@ -203,7 +224,7 @@ export function createTimedRecordingService<TimerHandle>(
 		}
 	}
 
-	async function discardPreparedTimedRecording(
+	async function settlePreparedTimedRecording(
 		recorder: RecordingControllerLike | null = state.recorder,
 	): Promise<void> {
 		try {
@@ -245,7 +266,7 @@ export function createTimedRecordingService<TimerHandle>(
 		state.timedRecordingCancelling = hadPreparedRecorder;
 		if (hadPreparedRecorder) state.recordingDiscardRequested = true;
 		if (state.recordingStarting || state.recordingAdmissionPending) runtime.cancelRecordingStart();
-		if (hadPreparedRecorder) void discardPreparedTimedRecording(preparedRecorder);
+		if (hadPreparedRecorder) void settlePreparedTimedRecording(preparedRecorder);
 		if (hadTimer && options.releaseInputs !== false) {
 			releaseInputs({ force: true });
 			state.recordingReleaseAfterStop = false;
@@ -311,7 +332,7 @@ export function createTimedRecordingService<TimerHandle>(
 			});
 			assertScheduledGeneration(generation, projectId);
 			if (state.timedRecording !== scheduled) throw abortError();
-			if (!state.recorder) throw createLocalizedError(Error, { [runtime.messages.missed ? 'timedRecordingMissed' : 'timedRecordingPast']: runtime.messages.missed || runtime.messages.past }, runtime.messages.missed ? 'timedRecordingMissed' : 'timedRecordingPast');
+			if (!state.recorder) throw missedRecordingError();
 			armTimedRecordingTimer(scheduled);
 			setStatus('');
 			return Object.freeze({
