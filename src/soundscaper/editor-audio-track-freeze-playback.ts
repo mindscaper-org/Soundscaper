@@ -23,6 +23,7 @@ import {
 } from '../common/editor/project-schema-identity.ts';
 import { soundscaperAudioTrackFreezeRequirementId } from './editor-project-feature-requirements.ts';
 import { hasSoundscaperFreezeSidechain } from './editor-audio-track-freeze-sidechain.ts';
+import { createRecoveryModelWaveVerifier, legacyRecoveryModelWaveBitDepth } from './editor-project-recovery-model-wave.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
@@ -44,6 +45,7 @@ export interface SoundscaperAudioTrackFreezePlaybackService extends PlaybackProj
 		projectId: string,
 		source: DataRecord,
 		signal?: AbortSignal,
+		inputProject?: DataRecord,
 	) => Promise<string>;
 	readonly admitVerifiedFreeze: (request: VerifiedSoundscaperAudioTrackFreeze) => () => void;
 	readonly getFreezeStatus: (
@@ -164,15 +166,23 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 		projectId: string,
 		sourceValue: DataRecord,
 		signal?: AbortSignal,
+		inputProject?: DataRecord,
 	): Promise<string> {
 		const source = dataRecord(sourceValue, 'audio freeze PCM source');
+		const readSignal = signal ?? new AbortController().signal;
+		readSignal.throwIfAborted();
+		const bitDepth = inputProject ? legacyRecoveryModelWaveBitDepth(inputProject, source) : null;
+		const legacyWave = bitDepth === null ? null : await createRecoveryModelWaveVerifier(source, bitDepth);
 		const actual = await pcm.resolveSourceSha256(
 			stableId(projectId, 'audio freeze project'),
 			{ ...source, contentSha256: undefined } as TransientAnalysisPcmSource,
-			signal ?? new AbortController().signal,
+			readSignal,
+			legacyWave?.write,
 		);
 		if (Object.hasOwn(source, 'contentSha256') && source.contentSha256 !== undefined
 			&& source.contentSha256 !== actual) {
+			// Retain the authenticated input identity used by the saved document and its freeze record.
+			if (typeof source.contentSha256 === 'string' && legacyWave?.matches()) return source.contentSha256;
 			throw new Error(`Stored PCM for ${String(source.id)} does not match its project digest.`);
 		}
 		return actual;
@@ -270,7 +280,7 @@ export function createSoundscaperAudioTrackFreezePlaybackService(
 			const source = exactRecordById(sources, sourceId, 'frozen track source');
 			identities.push(Object.freeze({
 				sourceId,
-				contentSha256: await hashSourceContent(projectId, source, signal),
+				contentSha256: await hashSourceContent(projectId, source, signal, project),
 			}));
 		}
 		return Object.freeze(identities);

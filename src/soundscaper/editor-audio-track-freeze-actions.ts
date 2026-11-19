@@ -111,8 +111,8 @@ export function createSoundscaperAudioFreezeActions(
 		},
 		planRenderRange: ({ project, trackId }) => planFreezeRange(project, trackId),
 		allocateDerivedSourceId: () => stableId(createId('source'), 'audio freeze derived source'),
-		hashSourceContent: ({ project, source, signal }) => environment.playback.hashSourceContent(
-			project.id, source, signal,
+		hashSourceContent: ({ project, source, sourceRole, signal }) => environment.playback.hashSourceContent(
+			project.id, source, signal, sourceRole === 'input' ? project : undefined,
 		),
 		render: async (request) => renderFreezeBody(
 			environment.store, controller, createRenderEngine, request, options,
