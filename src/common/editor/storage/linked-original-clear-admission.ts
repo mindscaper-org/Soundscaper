@@ -10,7 +10,11 @@ export interface LocalStoreClearAdmission {
 	cancel(): void;
 }
 
-export interface LocalStoreClearOptions { readonly preserveSettings?: readonly string[] }
+export interface LocalStoreClearOptions {
+	readonly preserveProjectData?: boolean;
+	readonly preserveSettings?: readonly string[];
+	readonly preserveSettingPrefixes?: readonly string[];
+}
 
 export interface LocalStoreClearPort {
 	admitClear?(options?: LocalStoreClearOptions): LocalStoreClearAdmission;

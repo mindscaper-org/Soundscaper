@@ -3,6 +3,7 @@
 export const LEGACY_WAVEFORM_PEAK_CACHE_PREFIX = 'audio-editor-peaks-v1:';
 export const WAVEFORM_PEAK_CACHE_PREFIX = 'audio-editor-peaks-v2:';
 export const FREQUENCY_WAVEFORM_CACHE_PREFIX = 'audio-editor-frequency-waveform-v1:';
+export const AUDIO_ANALYSIS_REPORT_CACHE_PREFIX = 'audio-editor-analysis-v6:';
 
 /** Every source-owned analysis namespace that storage cleanup must remove. */
 export const SOURCE_ANALYSIS_CACHE_PREFIXES = Object.freeze([

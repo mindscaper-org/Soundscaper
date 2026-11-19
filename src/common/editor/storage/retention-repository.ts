@@ -40,6 +40,7 @@ import type { TransientAnalysisCacheRepository } from './transient-analysis-cach
 import type { AssistanceDerivativeRepositoryPort } from './deferred-assistance-derivative-repository.ts';
 import { SOURCE_ANALYSIS_CACHE_PREFIXES } from '../source-analysis-cache.ts';
 import { EditorStoreClearInUseError } from './status.ts';
+import { clearRetainedProjectLocalState } from './retained-project-local-state.ts';
 
 interface PruneOptions {
 	readonly protectedProjects?: readonly unknown[];
@@ -143,8 +144,12 @@ export class RetentionRepository {
 		return this.admitClear().begin();
 	}
 
-	admitClear({ preserveSettings = [] }: LocalStoreClearOptions = {}): LocalStoreClearAdmission {
-		const preservedKeys = [...new Set(preserveSettings)];
+	admitClear(options: LocalStoreClearOptions = {}): LocalStoreClearAdmission {
+		const clearOptions = {
+			preserveProjectData: options.preserveProjectData === true,
+			preserveSettings: [...new Set(options.preserveSettings)],
+			preserveSettingPrefixes: [...new Set(options.preserveSettingPrefixes)],
+		};
 		const maintenance = this.#options.media.beginAssetMaintenance();
 		let sourceWriteMaintenance: SourceWriteMaintenance;
 		try { sourceWriteMaintenance = this.#options.sources.beginWriteMaintenance(); }
@@ -161,7 +166,7 @@ export class RetentionRepository {
 			begin: () => {
 				if (!pending) throw new Error('The retention clear admission is no longer current.');
 				pending = false;
-				return this.#beginClear(maintenance, sourceWriteMaintenance, databasePromise, preservedKeys);
+				return this.#beginClear(maintenance, sourceWriteMaintenance, databasePromise, clearOptions);
 			},
 			cancel: () => {
 				if (!pending) return;
@@ -176,12 +181,12 @@ export class RetentionRepository {
 		maintenance: ReturnType<MediaRepository['beginAssetMaintenance']>,
 		sourceWriteMaintenance: SourceWriteMaintenance,
 		databasePromise: Promise<IDBDatabase | null>,
-		preservedKeys: readonly string[],
+		options: Required<LocalStoreClearOptions>,
 	): LocalStoreClearOperation {
 		let committed = false;
 		let resolveLocalCommit!: (value: boolean) => void;
 		const localCommit = new Promise<boolean>((resolve) => { resolveLocalCommit = resolve; });
-		const completion = this.#clear(maintenance, sourceWriteMaintenance, databasePromise, preservedKeys, () => {
+		const completion = this.#clear(maintenance, sourceWriteMaintenance, databasePromise, options, () => {
 			committed = true;
 			resolveLocalCommit(true);
 		});
@@ -196,15 +201,21 @@ export class RetentionRepository {
 		maintenance: ReturnType<MediaRepository['beginAssetMaintenance']>,
 		sourceWriteMaintenance: SourceWriteMaintenance,
 		databasePromise: Promise<IDBDatabase | null>,
-		preservedKeys: readonly string[],
+		options: Required<LocalStoreClearOptions>,
 		onLocalCommit: () => void,
 	): Promise<void> {
 		try {
 			await abortStoreWriters(maintenance, sourceWriteMaintenance);
 			await this.#options.sources.stopBackgroundWork();
+			const database = await databasePromise;
+			if (options.preserveProjectData) {
+				await clearRetainedProjectLocalState(database, this.#options.port.memory, this.#options.sessionGuard, options);
+				onLocalCommit();
+				return;
+			}
+			const { preserveSettings: preservedKeys } = options;
 			const opfsRecords: StorageRecord[] = [];
 			const stagedPaths = new Set<string>();
-			const database = await databasePromise;
 			if (!database) {
 				if (this.#options.sessionGuard?.hasOtherMemorySession()) {
 					throw new EditorStoreClearInUseError();

@@ -6,7 +6,7 @@ import { createProjectStoreId } from './project-store-defaults.ts';
 import type { StorageRepositoryPort } from './repository-port.ts';
 import { EditorStoreClosedError } from './status.ts';
 
-const SESSION_KEY_PREFIX = 'audio-editor-retention-session-v1:';
+export const RETENTION_SESSION_SETTING_PREFIX = 'audio-editor-retention-session-v1:';
 const SESSION_ADMISSION_LOCK = 'audio-editor-retention-session-admission-v1';
 const memorySessions = new WeakMap<EditorMemoryDatabase, MemorySessionState>();
 
@@ -33,7 +33,7 @@ export class RetentionSessionGuard {
 	readonly #port: StorageRepositoryPort;
 	readonly #locks: LockManager | null;
 	readonly #memorySessions: MemorySessionState;
-	readonly #key = `${SESSION_KEY_PREFIX}${createProjectStoreId('owner')}`;
+	readonly #key = `${RETENTION_SESSION_SETTING_PREFIX}${createProjectStoreId('owner')}`;
 	#registration: Promise<void> | null = null;
 	#releaseLock: (() => void) | null = null;
 	#lockRun: Promise<void> | null = null;
@@ -229,7 +229,7 @@ function isWebLockRecord(value: unknown): value is Readonly<{
 	const record = value as Readonly<{ key?: unknown; value?: Readonly<{
 		owner?: unknown; webLock?: unknown;
 	}> }>;
-	return typeof record.key === 'string' && record.key.startsWith(SESSION_KEY_PREFIX)
+	return typeof record.key === 'string' && record.key.startsWith(RETENTION_SESSION_SETTING_PREFIX)
 		&& record.value?.owner === record.key && record.value.webLock === true;
 }
 
@@ -244,7 +244,7 @@ function retentionSessionKeys(settings: IDBObjectStore): Promise<string[]> {
 		cursor.onsuccess = () => {
 			const entry = cursor.result;
 			if (!entry) { resolve(keys); return; }
-			if (typeof entry.key === 'string' && entry.key.startsWith(SESSION_KEY_PREFIX)) {
+			if (typeof entry.key === 'string' && entry.key.startsWith(RETENTION_SESSION_SETTING_PREFIX)) {
 				keys.push(entry.key);
 			}
 			entry.continue();

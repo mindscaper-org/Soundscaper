@@ -466,17 +466,17 @@ export class AudioEditorProjectStore {
 		this.#assertOpen();
 		if (!this.clearPromise) {
 			const admission = admitLocalStoreClear(this.retentionRepository, options);
-			const operation = Promise.resolve(this.sourceRepository.releaseReadSessions?.())
-				.then(() => this.linkedOriginalStoreService.clear(admission));
+			const operation = Promise.resolve(this.sourceRepository.releaseReadSessions?.()).then(options.preserveProjectData === true
+				? () => this.linkedOriginalStoreService.run(() => admission.begin().completion)
+				: () => this.linkedOriginalStoreService.clear(admission));
 			this.clearPromise = operation;
 			void operation.then(
 				() => { if (this.clearPromise === operation) this.clearPromise = null; },
-				() => { if (this.clearPromise === operation) this.clearPromise = null; },
+				() => { admission.cancel(); if (this.clearPromise === operation) this.clearPromise = null; },
 			);
 		}
 		return this.clearPromise;
 	}
-
 	close() {
 		if (this.closePromise) return this.closePromise;
 		if (this.closed) return Promise.resolve();

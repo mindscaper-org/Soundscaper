@@ -14,6 +14,7 @@ import {
 import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
 import type { LocalStoreClearOptions } from '../common/editor/storage/linked-original-clear-admission.ts';
 import { SUBPROJECT_LIBRARY_SETTING } from '../common/editor/subproject-library-setting.ts';
+import { SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX } from './desktop-project-library-delete-intents.ts';
 import type { EditorProjectRuntimeProfile } from '../common/editor/project-runtime-profile.ts';
 import {
 	assertSoundscaperProjectProfile,
@@ -300,7 +301,8 @@ function proxyHandler<Store extends SoundscaperDesktopProjectStoreLocal>(
 				timestamp,
 			});
 		},
-		clear: () => localStore.clear({ preserveSettings: [SUBPROJECT_LIBRARY_SETTING] }),
+		clear: () => localStore.clear({ preserveProjectData: true, preserveSettings: [SUBPROJECT_LIBRARY_SETTING],
+			preserveSettingPrefixes: [SOUNDSCAPER_DESKTOP_DELETE_INTENT_SETTING_PREFIX] }),
 		preservesProjectsOnClear: () => true,
 	});
 	return {

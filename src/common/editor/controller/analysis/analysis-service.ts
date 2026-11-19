@@ -6,6 +6,7 @@ import type { RepeatedSoundOptions, RepeatedSoundResult } from '../../repeated-s
 import { createLocalizedError, setLocalizedStatus } from '../../../i18n/presentation-message.ts';
 import { measureBextLoudness } from '../../broadcast-loudness.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from '../../ebu-r128.js';
+import { AUDIO_ANALYSIS_REPORT_CACHE_PREFIX } from '../../source-analysis-cache.ts';
 import { resolveAdmEbuChannelWeights } from '../../loudness-channel-layout.ts';
 import type { DeliveryReport } from '../../delivery-report.ts';
 import {
@@ -172,8 +173,7 @@ export function createAudioAnalysisService(dependencies: AnalysisDependencies) {
 		const request = captureRequest(project, scope, dependencies.getRange(), dependencies.getSelectedTrackId());
 		const projectToken = dependencies.captureProject();
 		const task = begin('analysisRendering');
-		const key = [
-			'audio-editor-analysis-v6',
+		const key = AUDIO_ANALYSIS_REPORT_CACHE_PREFIX + [
 			request.projectId,
 			request.revision,
 			analysisDocumentFingerprint(project),

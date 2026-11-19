@@ -212,6 +212,64 @@ test('the desktop linked-video chooser reads a selected WebM behind a trimmed di
 	} finally { await close(); }
 });
 
+test('Framescaper desktop Clear preserves a saved portable project and its linked physical WAV', async context => {
+	const previousAudioContext = globalThis.AudioContext;
+	globalThis.AudioContext = MockAudioContext as unknown as typeof AudioContext;
+	context.after(() => { globalThis.AudioContext = previousAudioContext; });
+	const directory = await mkdtemp(join(tmpdir(), 'framescaper-clear-linked-original-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const archive = await writeProjectArchive(directory);
+	const samples = Float32Array.from({ length: 4096 }, (_, index) => (index % 97 - 48) / 256);
+	const encoded = encodeWav([samples], { sampleRate: 48_000, float: true, dither: 'none' });
+	assert.ok(encoded instanceof Uint8Array);
+	const input = join(directory, 'field.wav');
+	await writeFile(input, encoded);
+	const indexedDB = createInstrumentedIndexedDB();
+	const native = linkedFileService(directory, input);
+	const { fileService } = native;
+	const open = () => startFramescaperDesktopProjectSession(directory, {
+		openEnvironment: () => createFramescaperEditorProjectEnvironment({ storeOptions: {
+			indexedDB, preferOpfs: false, storageManager: { estimate: async () => ({ usage: 0, quota: 4 * 1024 ** 3 }) },
+			linkedOriginalPort: fileService.linkedOriginalPort, linkedVideoOriginalPort: fileService.linkedVideoOriginalPort,
+		} }), presentation: { locale: 'en', fileService },
+	});
+	try {
+		const projectId = 'linked-archive';
+		const initial = await open();
+		let locatorId: string;
+		try {
+			const { controller, environment } = initial;
+			await controller.actions.project.openScapeFile(archive, () => assert.fail('Expected a new working copy.'));
+			await importLinkedProjectBinChoice({
+				getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.project?.id),
+				choose: fileService.chooseLinkedAudioOriginal,
+				release: fileService.releaseLinkedAudioOriginal,
+				importFile: (file, options) => controller.actions.project.importFiles([file], options),
+			}, 'audio');
+			await controller.actions.project.save();
+			const [source] = controller.project?.sources ?? [];
+			assert.ok(source?.kind === 'audio');
+			const binding = await environment.store.getLinkedOriginalBinding(projectId, source.id);
+			assert.ok(binding?.kind === 'audio');
+			locatorId = binding.locatorId;
+			await controller.actions.project.clear();
+			assert.ok((await environment.controllerStore.listProjects()).some(project => project.id === projectId));
+			assert.deepEqual(await environment.store.getLinkedOriginalBinding(projectId, source.id), binding);
+		} finally { await initial.close(); }
+		const restarted = await open();
+		try {
+			await restarted.controller.actions.project.openById(projectId);
+			const [source] = restarted.controller.project?.sources ?? [];
+			assert.ok(source?.kind === 'audio');
+			const resolved = await restarted.environment.store.resolveLinkedAudioOriginal(projectId, source);
+			assert.ok(resolved);
+			assert.equal(resolved.binding.locatorId, locatorId);
+			assert.deepEqual(new Uint8Array(await resolved.blob.arrayBuffer()), encoded);
+			assert.deepEqual((await restarted.environment.store.readSourceChunk(source.storageKey, 0)).channels[0], samples);
+		} finally { await restarted.close(); }
+	} finally { await native.close(); }
+});
+
 async function writeProjectArchive(directory: string) {
 	const library = await openFramescaperImageFixtureLibrary();
 	try {

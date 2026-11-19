@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { admitProjectPublication, projectPublicationWarningOptions } from '../common/editor/storage/project-publication-options.ts';
+import type { LocalStoreClearOptions } from '../common/editor/storage/linked-original-clear-admission.ts';
 import type { LinkedOriginalStoreService } from '../common/editor/storage/linked-original-store-service.ts';
 import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/project-duplication.ts';
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
@@ -31,6 +32,7 @@ export interface FramescaperDesktopProjectStoreLocal {
 	estimateStorage(): PromiseLike<unknown>;
 	loadProject(projectId: string, options?: unknown): PromiseLike<unknown> | unknown;
 	listProjects(): PromiseLike<readonly unknown[]> | readonly unknown[];
+	clear(options?: LocalStoreClearOptions): Promise<void>;
 	readonly linkedOriginalStoreService: Pick<LinkedOriginalStoreService, 'deleteProject' | 'duplicateProject'>;
 }
 
@@ -192,6 +194,7 @@ function proxyHandler<Store extends FramescaperDesktopProjectStoreLocal>(
 				sourceProjectId, copyProjectId, title, timestamp,
 			});
 		},
+		clear: () => localStore.clear({ preserveProjectData: true }),
 		preservesProjectsOnClear: () => true,
 	});
 	return {
