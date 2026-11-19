@@ -25,13 +25,14 @@ for (const frames of [1, 22]) test(`natural source end preserves the native repl
 	} finally { await f.close(); }
 });
 
-test('manual stopped source positioning includes the last frame without claiming native end', async () => {
-	const f = await fixture(22);
+test('a decoder end flag during a paused seek does not suppress the last picture', async () => {
+	const f = await fixture(4, 2_000);
 	try {
-		Reflect.set(f.video, 'ended', false);
-		await act(async () => { f.monitor.seek(21); });
+		await act(async () => { f.monitor.seek(2); });
+		Reflect.set(f.video, 'ended', true);
+		await act(async () => { f.monitor.seek(3); });
 		assert.equal(Reflect.get(f.video, 'currentTime'), f.monitor.view().mediaSeconds);
-		assert.notEqual(Reflect.get(f.video, 'currentTime'), 22 / 25);
+		assert.notEqual(Reflect.get(f.video, 'currentTime'), .002);
 		await act(async () => { f.monitor.step(-1); });
 		assert.equal(Reflect.get(f.video, 'currentTime'), f.monitor.view().mediaSeconds);
 	} finally { await f.close(); }
@@ -55,7 +56,7 @@ test('an interrupted Play rejection leaves the newer Source Monitor playback run
 	} finally { await f.close(); }
 });
 
-async function fixture(frames: number) {
+async function fixture(frames: number, frameRate = 25) {
 	const dom = installReactTestDom();
 	const global = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const previous = global.IS_REACT_ACT_ENVIRONMENT; global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -64,7 +65,7 @@ async function fixture(frames: number) {
 	let render = (): void => undefined;
 	const monitor = createSourceMonitorService({ lifetime: { assertActive() {} },
 		getProject: () => ({ id: 'source-replay', sources: [{ id: 'camera', kind: 'video', name: 'Camera',
-			sourceFrameCount: frames, frameRate: { num: 25, den: 1 } }] }),
+			sourceFrameCount: frames, frameRate: { num: frameRate, den: 1 } }] }),
 		publishProjectState: () => { render(); },
 	});
 	monitor.openSource('camera');

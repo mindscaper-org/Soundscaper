@@ -2,6 +2,7 @@ import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
 
 import { videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import { highRateIntraVideoFile } from './fixtures/video-paused-preview-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import {
@@ -17,6 +18,40 @@ const MARKED_FRAMES = MARK_OUT_FRAME + 1 - MARK_IN;
 const SOURCE_FRAMES = CFR.presentationTicks.length;
 
 test.describe('3B-3b source monitor qualification', () => {
+	test('stepping displays each high-speed source picture at its exact ordinal', async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The high-speed AVC fixture exercises Chromium frame selection.');
+		const editor = await openFramescaper(page);
+		test.skip(!await page.evaluate(hasDurableMediaStorageCapability), DURABLE_MEDIA_STORAGE_REQUIRED);
+		await editor.locator('[data-project-bin-input]').setInputFiles(highRateIntraVideoFile);
+		await page.locator('[data-bin-action="source-monitor"]').first().click();
+		const monitor = editor.locator('[data-source-monitor]');
+		await expect(monitor.locator('[data-source-monitor-scrub]')).toHaveAttribute('max', '3');
+		const video = monitor.locator('video');
+		const picture = () => video.evaluate(element => {
+			const canvas = document.createElement('canvas');
+			canvas.width = canvas.height = 1;
+			const context = canvas.getContext('2d');
+			context.drawImage(element, 0, 0, 1, 1);
+			return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3).map(channel => Number(channel > 128));
+		});
+		await expect.poll(picture).toEqual([1, 0, 0]);
+		for (const [frame, color] of [[1, [0, 1, 0]], [2, [0, 0, 1]], [3, [1, 1, 0]]]) {
+			await monitor.getByRole('button', { name: 'Next frame', exact: true }).click();
+			await expect(monitor).toHaveAttribute('data-source-monitor-frame', String(frame));
+			await expect.poll(picture).toEqual(color);
+		}
+		await monitor.getByRole('button', { name: 'Previous frame', exact: true }).click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-frame', '2');
+		await expect.poll(picture).toEqual([0, 0, 1]);
+
+		await scrubTo(page, 1);
+		await scrubTo(page, 3);
+		await scrubTo(page, 1);
+		await monitor.locator('[data-source-monitor-action="mark-in"]').click();
+		await expect(monitor).toHaveAttribute('data-source-monitor-mark-in', '1');
+		await expect.poll(picture).toEqual([0, 1, 0]);
+	});
+
 	test('a marked range edits, matches back, and replaces in place', async ({ page }) => {
 		test.setTimeout(180_000);
 
