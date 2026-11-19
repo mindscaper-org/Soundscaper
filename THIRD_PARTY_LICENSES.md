@@ -627,6 +627,17 @@ reactivation therefore remains blocked by the licensing matrix. The descriptor
 name is historical; neither it nor its referenced archives are copied into a
 browser bundle, desktop package, or desktop release set.
 
+## Standalone FDK AAC 2.0.3 desktop codec
+
+Soundscaper and Framescaper desktop packages include a standalone executable
+built with Fedora's stripped FDK AAC source and an MIT-licensed frontend.
+The command-line interface exchanges standard AAC-LC ADTS and float32 PCM files.
+The frontend and modification notice are in
+[`native/fdk-aac-tool`](native/fdk-aac-tool/README.md).
+Every package includes the complete hash-pinned FDK source archive, the
+modification, build files, and both licenses in `licenses/fdk-aac`.
+The FDK software license provides no patent grant.
+
 ## Desktop codec execution and external FFmpeg
 
 The desktop build has a separate application codec composition. Its renderer

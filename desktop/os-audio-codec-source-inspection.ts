@@ -310,7 +310,7 @@ function exactEsds(
 		&& streamLayer.end - streamLayer.payload === 1 && input[streamLayer.payload] === 0x02;
 }
 
-function exactAudioSpecificConfig(
+export function exactAudioSpecificConfig(
 	config: Uint8Array,
 	expectedSampleRate: number,
 	expectedChannelCount: number,

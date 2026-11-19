@@ -9,6 +9,13 @@ order:
 2. codecs supplied by the operating system;
 3. an external `ffmpeg`/`ffprobe` installation selected by the user.
 
+AAC-LC file export prefers the target's admitted operating-system encoder.
+The bundled FDK encoder handles other supported AAC-LC export tuples and
+long exports that need the desktop file-streaming path. The bundled decoder
+handles admitted AAC-LC files before the external FFmpeg tier. Other AAC
+profiles, unsupported packet layouts, and decodes beyond the bundled input or
+PCM-output bounds fall through to FFmpeg.
+
 The production browser build contains no application-supplied FFmpeg runtime.
 
 The export dialog lists every supported audio container and all video containers
@@ -147,11 +154,22 @@ certificate or trust identity. Windows needs no corresponding seal.
 Preparation, beforePack, afterPack, the package-content manifest, and runtime admission
 all bind the same exact manifest, payload, target, byte length, and SHA-256. A
 supported package build fails closed if that matching target-native result is
-absent or changes. Linux intentionally has no uniform OS tier and falls
-straight through to external FFmpeg. mac-x64 is rejected at target selection,
+absent or changes. Linux uses the bundled AAC provider in the absence of a
+uniform OS tier. mac-x64 is rejected at target selection,
 build, staging, packaging, and runtime. This Linux development session cannot
 execute the Windows/macOS native canaries; each target-native workflow records
 what it built and tested and does not check native binaries into Git.
+
+The desktop build compiles the hash-pinned Fedora FDK AAC 2.0.3 fork into a
+standalone, statically linked codec executable for each maintained target. The
+frontend exposes AAC-LC encode and decode through ADTS and interleaved float32
+PCM files. A decoder patch refuses in-band SBR so implicit HE-AAC falls through
+to FFmpeg with its full audio spectrum intact. The desktop process owns the
+scratch files, PCM limits, M4A mux and demux, executable identity checks, process
+deadlines, and cancellation. The M4A writer records encoder priming in an edit
+list and sets the presentation end from the original PCM frame count. The build
+runs an encode/decode canary, pins the executable and app manifest, and ships
+the exact original archive, modifications, and notices under `licenses/fdk-aac`.
 
 External FFmpeg CLI support is implemented for matching `ffmpeg`/`ffprobe`
 released versions from 4.4 through 9.x (`>=4.4.0`, `<10.0.0`). Main fingerprints

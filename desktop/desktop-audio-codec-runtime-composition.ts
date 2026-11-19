@@ -107,6 +107,7 @@ export interface DesktopAudioCodecRuntimeCompositionOptions {
 		'admission' | 'invalidateAdmission'
 	>;
 	readonly createBundledRuntime?: DesktopAudioCodecRuntimeFactory;
+	readonly bundledAacRuntime?: DesktopAudioCodecProviderRuntime;
 	readonly createOperatingSystemRuntime?: DesktopAudioCodecRuntimeFactory;
 	readonly createExternalRunner?: ExternalFfmpegAudioRunnerFactory;
 	readonly onReceipt?: (observation: DesktopAudioCodecReceiptObservation) => void;
@@ -169,7 +170,7 @@ export function createDesktopAudioCodecRuntimeComposition(
 			const capabilities: DesktopAudioCodecCapabilityEntry[] = [];
 			for (const tuple of query.operations) {
 				capabilities.push(await inspectCapability(
-					tuple, target, bundled, operatingSystem, admission,
+					tuple, target, bundledRuntimeFor(tuple.format), operatingSystem, admission,
 				));
 			}
 			return normalizeDesktopAudioCodecCapabilityResult({
@@ -191,7 +192,9 @@ export function createDesktopAudioCodecRuntimeComposition(
 				createRunner, gate: externalGate,
 				preferences: options.externalFfmpegPreferences,
 			});
-			const broker = createDesktopAudioCodecBroker({ runtimes: [bundled, operatingSystem, external] });
+			const platform = request.operation === 'audio-decode' && request.format === 'aac-m4a' && options.bundledAacRuntime
+				? unavailableRuntime('operating-system', target) : operatingSystem;
+			const broker = createDesktopAudioCodecBroker({ runtimes: [bundledRuntimeFor(request.format), platform, external] });
 			const outcome = await broker.execute(request, { signal: executionOptions.signal });
 			const result = normalizeDesktopAudioCodecResult(outcome.result, request.maximumOutputBytes);
 			options.onReceipt?.(Object.freeze({
@@ -201,6 +204,10 @@ export function createDesktopAudioCodecRuntimeComposition(
 			return result;
 		},
 	});
+
+	function bundledRuntimeFor(format: DesktopAudioCodecRequest['format']): DesktopAudioCodecProviderRuntime {
+		return format === 'aac-m4a' ? options.bundledAacRuntime ?? bundled : bundled;
+	}
 }
 
 async function inspectCapability(
@@ -214,7 +221,9 @@ async function inspectCapability(
 	try { request = capabilityRequest(tuple); }
 	catch { return unavailableCapability(tuple, 'unsupported-settings'); }
 	const operation = deriveDesktopAudioCodecOperation(request);
-	for (const runtime of [bundled, operatingSystem, null]) {
+	const ordered = tuple.operation === 'audio-encode' && tuple.format === 'aac-m4a'
+		? [operatingSystem, bundled, null] : [bundled, operatingSystem, null];
+	for (const runtime of ordered) {
 		let provider: DesktopCodecProvider;
 		try {
 			provider = runtime === null

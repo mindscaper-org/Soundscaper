@@ -18,6 +18,7 @@ const macEntitlements = framescaper
 // assembly; electron-builder must not sign those runtime bytes a second time.
 const macPreAuthenticatedRuntimePayload = [
 	'/Contents/Resources/runtime/(?:',
+	'fdk-aac/fdk-aac-tool|',
 	'native/soundscaper-os-audio-codec/mac-arm64/soundscaper_os_audio_codec\\.node',
 	'|',
 	`${regexEscape(professionalNativePayloadManifest.staging.runtimePrefix)}/mac-arm64(?:/.*)?`,
@@ -92,6 +93,8 @@ module.exports = {
 	],
 	win: {
 		...signing.win,
+		// The standalone helper is authenticated against the staged executable bytes.
+		signExts: ['!fdk-aac-tool.exe'],
 		extraResources: [{ from: 'desktop/installer/windows-ffmpeg-install.ps1', to: 'installer/windows-ffmpeg-install.ps1' }],
 		icon: '.desktop-build/icons/icon.ico',
 		target: ['nsis', 'zip', 'msi'],

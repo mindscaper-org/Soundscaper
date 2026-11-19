@@ -108,6 +108,24 @@ test('preflight falls through in fixed priority and only the selected external r
 	assert.notEqual(outcome.result.bytes, input);
 });
 
+test('AAC-LC prefer platform encode, then bundled, then external FFmpeg', async () => {
+	for (const [os, bundled, expected] of [
+		['supported', 'supported', 'operating-system'],
+		['unavailable', 'supported', 'bundled'],
+		['unsupported', 'unavailable', 'external-ffmpeg'],
+	] as const) {
+		const trace: string[] = [];
+		const broker = createDesktopAudioCodecBroker({ runtimes: [
+			runtime(provider('bundled', bundled, trace), () => executed([1])),
+			runtime(provider('operating-system', os, trace), () => executed([2])),
+			runtime(provider('external-ffmpeg', 'supported', trace), () => executed([3])),
+		] });
+		const outcome = await broker.execute(encodeRequest('aac-m4a'));
+		assert.equal(outcome.receipt.provider.kind, expected);
+		assert.equal(trace[0], 'preflight:operating-system');
+	}
+});
+
 test('large audio inputs bypass bounded tiers and reach external FFmpeg with no fixed output cap', async () => {
 	const trace: string[] = [];
 	const request = { ...encodeRequest('opus'), input: new Uint8Array(32 * 1024 ** 2 + 8),

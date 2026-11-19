@@ -22,7 +22,7 @@ export type DesktopAudioStreamCommand =
 export function normalizeDesktopAudioStreamPlan(value: unknown): DesktopAudioStreamPlan {
 	const record = audioStreamRecord(value, ['schemaVersion', 'tuple', 'frameCount', 'maximumOutputBytes']);
 	const tuple = normalizeDesktopAudioCodecCapabilityQuery({ schemaVersion: 2, operations: [record.tuple] }).operations[0]!;
-	if (record.schemaVersion !== 1 || tuple.operation !== 'audio-encode' || tuple.format === 'aac-m4a') {
+	if (record.schemaVersion !== 1 || tuple.operation !== 'audio-encode') {
 		throw new TypeError('Desktop streaming audio requires a reviewed bundled encoder.');
 	}
 	const frameCount = audioStreamInteger(record.frameCount, 1, LARGE_AUDIO_DURATION_SECONDS * tuple.sampleRate, 'frame count');
