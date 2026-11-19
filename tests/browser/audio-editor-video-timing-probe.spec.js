@@ -1,13 +1,16 @@
 import { expect } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { test } from './audio-editor-test-fixtures.js';
 
 import { validateVideoTimingAssetBytes } from '../../src/common/editor/video-timing-asset.ts';
 import {
-	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, videoTimingProbeMedia,
+	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, sourceMonitorFragmentedMedia, videoTimingProbeMedia,
 } from './fixtures/video-timing-probe-media.js';
+import { bootEditor, chooseFileAction, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
+import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode.js';
 import {
 	FRAMESCAPER_DATABASE_NAME,
 	FRAMESCAPER_OPFS_DIRECTORY_NAME,
@@ -119,6 +122,32 @@ test.describe('WP-0.3 browser timing-probe qualification', () => {
 		await expect(properties.locator('[data-source-property="Video codec"] dd'))
 			.toHaveAttribute('data-reported', 'true');
 	});
+});
+
+test('Programme seeks render the authored pictures beyond the first hybrid MP4 run', async ({ page }) => {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const [classic, , hybrid] = sourceMonitorFragmentedMedia();
+	const preview = editor.locator('[data-video-preview]');
+	const picture = preview.locator('[data-video-preview-canvas]');
+	const snapshots = [];
+	for (const file of [classic, hybrid]) {
+		await importFiles(editor, [file]);
+		await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
+		for (const ordinal of [3, 12, 20, 25]) {
+			await seekFramescaperTimecode(page, editor, `00:00:00:${String(ordinal).padStart(2, '0')}`);
+			await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', String(ordinal * 1600));
+			const digest = async () => createHash('sha256').update(await picture.screenshot()).digest('hex');
+			if (file === classic) snapshots.push(await digest());
+			else await expect.poll(digest).toBe(snapshots.shift());
+		}
+		if (file === classic) {
+			expect(new Set(snapshots).size).toBe(4);
+			const projectId = await editor.getAttribute('data-project-id');
+			await chooseFileAction(page, editor, 'New');
+			await expect(editor).not.toHaveAttribute('data-project-id', projectId);
+			await waitForProjectActivation(editor);
+		}
+	}
 });
 
 async function persistedTimingEvidence(page) {

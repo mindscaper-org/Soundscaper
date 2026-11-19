@@ -4,6 +4,7 @@ import { isAudioMediaKind } from '../../audio-media-kind.ts';
 import { hasProjectBinMediaAuthority } from '../../project-schema-version.ts';
 import { createVideoVisualMediaSynchronizer, videoVisualMediaIdentity } from './internal/video-visual-media-sync.ts';
 import { createVideoVisualDerivativePublisher, readVideoDerivative } from './internal/video-visual-derivatives.ts';
+import { createVideoPicturePlaybackUrls } from './internal/video-picture-playback-urls.ts';
 import {
 	resolveRuntimeProjectProjection,
 	type RuntimeClipProject,
@@ -33,6 +34,7 @@ export function createProjectVisualService(
 	const videoVisuals = new Map<string, Readonly<VideoVisualRecord>>();
 	const generations = new Map<string, number>();
 	const mediaIdentities = new Map<string, string>();
+	const picturePlayback = createVideoPicturePlaybackUrls(dependencies.url);
 	let disposed = false;
 	let disposePromise: Promise<void> | null = null;
 	const synchronizeVideoSources = createVideoVisualMediaSynchronizer(
@@ -61,7 +63,8 @@ export function createProjectVisualService(
 		const clip = project?.clips.find((candidate) => candidate.id === clipId) ?? null;
 		if (!project || !clip) return null;
 		const source = findSource(project, clip.sourceId);
-		const video = clip.kind === 'video' ? videoVisuals.get(clip.sourceId)?.visual : null;
+		const record = clip.kind === 'video' ? videoVisuals.get(clip.sourceId) : null;
+		const video = record?.visual;
 		const pcmWindow = dependencies.waveformPcmWindows.get(String(clip.id));
 		const peakWindow = dependencies.waveformPeakWindows?.get(String(clip.id));
 		const frequencyAnalysis = sourceFrequencyAnalysis(project, source);
@@ -78,7 +81,7 @@ export function createProjectVisualService(
 			...(frequencyWindow ? { frequencyWindow } : {}),
 			available: Boolean(source && (!dependencies.missingSourceIds.has(source.id)
 				|| video?.mediaKind === 'proxy')),
-			mediaUrl: video?.mediaUrl ?? null,
+			mediaUrl: record?.picturePlaybackUrl ?? video?.mediaUrl ?? null,
 			posterUrl: video?.posterUrl ?? null,
 			thumbnails: video?.thumbnails ?? Object.freeze([]),
 			...(video?.mediaKind ? { mediaKind: video.mediaKind } : {}),
@@ -174,7 +177,7 @@ export function createProjectVisualService(
 			source,
 			...(options?.sourceMonitor && record?.sourceMonitorBlob ? { sourceMonitorBlob: record.sourceMonitorBlob } : {}),
 			available: !dependencies.missingSourceIds.has(source.id) || visual?.mediaKind === 'proxy',
-			mediaUrl: visual?.mediaUrl ?? null,
+			mediaUrl: record?.picturePlaybackUrl ?? visual?.mediaUrl ?? null,
 			posterUrl: visual?.posterUrl ?? null,
 			thumbnails: visual?.thumbnails ?? Object.freeze([]),
 			...(visual?.mediaKind ? { mediaKind: visual.mediaKind } : {}),
@@ -225,6 +228,7 @@ export function createProjectVisualService(
 			}
 			let mediaBlob = productMedia?.body
 				?? await dependencies.store.loadMediaAsset(sourceId, options);
+			const ownedOriginal = !productMedia && mediaBlob instanceof Blob ? mediaBlob : null;
 			throwIfAborted(options.signal);
 			if (!isActivationCurrent(source.id, operation, project, projectToken)) {
 				return cleanupLate(ownedUrls, linkedPlaybackLease);
@@ -317,6 +321,9 @@ export function createProjectVisualService(
 					}));
 				} else revokeUrls([url]);
 			}
+			const picturePlaybackUrl = ownedOriginal && timing?.index && source.contentSha256
+				? await picturePlayback.create(ownedOriginal, timing.index, options.signal) : null;
+			if (picturePlaybackUrl) ownedUrls.push(picturePlaybackUrl);
 			throwIfAborted(options.signal);
 			if (!isActivationCurrent(source.id, operation, project, projectToken)) {
 				return cleanupLate(ownedUrls, linkedPlaybackLease);
@@ -336,7 +343,8 @@ export function createProjectVisualService(
 			else unregisterVideoTimingIndex(source.id);
 			videoVisuals.set(source.id, Object.freeze({
 				visual,
-				...(!productMedia && mediaBlob instanceof Blob ? { sourceMonitorBlob: mediaBlob } : {}),
+				...(picturePlaybackUrl ? { picturePlaybackUrl } : !productMedia && mediaBlob instanceof Blob
+					? { sourceMonitorBlob: mediaBlob } : {}),
 				objectUrls: Object.freeze([...ownedUrls]),
 				linkedPlaybackLease,
 			}));
@@ -511,7 +519,7 @@ export function createProjectVisualService(
 
 	function revokeUrls(urls: readonly (string | null | undefined)[]): void {
 		for (const url of new Set(urls.filter((value): value is string => Boolean(value)))) {
-			dependencies.url.revokeObjectURL(url);
+			picturePlayback.revoke(url);
 		}
 	}
 }

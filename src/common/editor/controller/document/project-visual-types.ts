@@ -126,6 +126,7 @@ export interface ProjectVideoPreviewMediaRequest {
 
 export interface VideoVisualRecord {
 	readonly visual: Readonly<VideoVisual>;
+	readonly picturePlaybackUrl?: string;
 	readonly sourceMonitorBlob?: Blob;
 	readonly objectUrls: readonly string[];
 	readonly linkedPlaybackLease: LinkedVideoPlaybackLease | null;

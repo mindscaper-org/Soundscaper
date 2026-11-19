@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createIsoBoxReader } from './iso-box-reader.ts';
-import { demuxIsobmffVideoTiming } from './video-timing-demux-isobmff.ts';
+import { demuxIsobmffVideoTiming, hasLeadingIsobmffVideoEdit } from './video-timing-demux-isobmff.ts';
 import { createVideoTimingDemuxReader } from './video-timing-demux-reader.ts';
 export const MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_MUXER_TIMESCALE = 1_000_000;
@@ -16,7 +16,7 @@ export interface FragmentPlaybackClock {
 /** A local, picture-only playback view where browsers disagree on the original fragment clock. */
 export async function prepareFragmentPlaybackView(
 	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal,
-	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean }> = {},
+	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean; zeroOriginHybrid?: boolean }> = {},
 ): Promise<Blob | null> {
 	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
 	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
@@ -28,6 +28,7 @@ export async function prepareFragmentPlaybackView(
 	if (!movie || movies.length !== 1) return null;
 	const children = await boxes(movie.start, movie.end);
 	if (!children.some(box => box.type === 'mvex')) return null;
+	if (options.zeroOriginHybrid && await hasLeadingIsobmffVideoEdit(createVideoTimingDemuxReader(file, { signal }), signal)) return null;
 	const {
 		BlobSource, BufferTarget, EncodedPacketSink, EncodedVideoPacketSource, Input, MP4, Mp4OutputFormat, Output, QTFF,
 	} = await import('mediabunny');
@@ -69,12 +70,18 @@ export async function prepareFragmentPlaybackView(
 		const fragmentTrack = fragments ? (await fragments.getVideoTracks()).find(candidate => candidate.id === track.id) : null;
 		if (fragments && !fragmentTrack) return null;
 		const origin = await track.getFirstTimestamp();
+		const transformationMatrix = await track.getTransformationMatrix();
+		if (options.zeroOriginHybrid) {
+			const ratio = await track.getPixelAspectRatio();
+			if (!fragmentTrack || origin !== 0 || ratio.num !== ratio.den
+				|| transformationMatrix.some((component, index) => component !== (index % 4 === 0 ? 1 : 0))) return null;
+		}
 		const target = new BufferTarget();
 		output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
 		const source = new EncodedVideoPacketSource('avc');
 		output.addVideoTrack(source, {
 			frameRate: timing.timescale,
-			transformationMatrix: await track.getTransformationMatrix(),
+			transformationMatrix,
 		});
 		await output.start();
 		let count = 0, bytes = 0;
