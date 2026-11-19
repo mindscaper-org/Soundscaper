@@ -239,43 +239,24 @@ async function defaultDecoder(
 ): Promise<LocalAssistanceSelectedVideoFrameDecoder> {
 	const media = await import('../../../../video-media.js');
 	const extractor = await media.createAudioEditorVideoFrameExtractor(body, options) as Readonly<{
-		capture(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{
-			readonly blob: Blob;
+		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{
+			readonly width: number;
+			readonly height: number;
+			readonly pixels: Uint8Array;
 		}>>;
-		dispose(): unknown;
+		dispose(): void;
 	}>;
 	return Object.freeze({
 		async capture(request: Readonly<{ timestampSeconds: number; signal: AbortSignal }>) {
-			const captured = await extractor.capture(request.timestampSeconds, {
+			const { width, height, pixels } = await extractor.capturePixels(request.timestampSeconds, {
 				maximumWidth: options.width,
 				maximumHeight: options.height,
-				mimeType: 'image/png', quality: 1, alpha: false, signal: request.signal,
+				alpha: false, signal: request.signal,
 			});
-			return decodeImage(captured.blob, request.signal);
+			return Object.freeze({ width, height, rgba: pixels });
 		},
-		async dispose() { await extractor.dispose(); },
+		dispose: () => extractor.dispose(),
 	});
-}
-
-async function decodeImage(body: Blob, signal: AbortSignal): Promise<LocalAssistanceDecodedVideoFrame> {
-	signal.throwIfAborted();
-	if (typeof globalThis.createImageBitmap !== 'function' || !globalThis.document?.createElement) {
-		throw new Error('Browser selected-video frame decoding is unavailable.');
-	}
-	const bitmap = await globalThis.createImageBitmap(body, {
-		colorSpaceConversion: 'none', premultiplyAlpha: 'none',
-	});
-	try {
-		signal.throwIfAborted();
-		const canvas = globalThis.document.createElement('canvas');
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
-		if (!context) throw new Error('Browser selected-video RGBA readback is unavailable.');
-		context.drawImage(bitmap, 0, 0);
-		return Object.freeze({ width: canvas.width, height: canvas.height,
-			rgba: Uint8Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data) });
-	} finally { bitmap.close(); }
 }
 
 function reviewedFrame(value: unknown): LocalAssistanceDecodedVideoFrame {
