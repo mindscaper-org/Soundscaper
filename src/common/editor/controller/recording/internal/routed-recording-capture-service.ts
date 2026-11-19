@@ -17,6 +17,7 @@ import { compactSoundActivationSegments } from './sound-activation/sound-activat
 import { scaleSampleFrame, secondsToSampleFrame } from '../../../timeline-time.ts';
 import { planRoutedRecordingSources, routedRecordingTargetTracks } from './routed-recording-source-plan.ts';
 import { timedRecordingStopFrame } from '../recording-model.ts';
+import { acquireRecordingHardwareInput } from './recording-hardware-admission.ts';
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
@@ -141,10 +142,10 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					promise = Promise.reject(createLocalizedError(Error, { ['recordingPreparedInputClosed']: runtime.messages.preparedInputClosed }, 'recordingPreparedInputClosed'));
 				} else if (firstRoute.kind === 'display') promise = runtime.capturePool.acquireDisplay();
 				else {
-					promise = runtime.capturePool.acquireHardware(firstRoute.deviceId, {
-						channelCount: requiredChannels,
+					promise = acquireRecordingHardwareInput(runtime.capturePool, {
+						deviceId: firstRoute.deviceId, channelCount: requiredChannels, signal: scope.signal,
 						sampleRate: runtime.recordingInputSampleRate?.() ?? sampleRate,
-					});
+					}, plan.groups.length === 1 && !timedStart);
 				}
 				return { sourceKey, routes, promise: raceAbortablePromise(promise, scope.signal) };
 			});

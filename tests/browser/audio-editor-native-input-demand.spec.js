@@ -27,6 +27,58 @@ test('selecting the WASAPI system default microphone can record again', async ({
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 });
 
+test('Record waits for the alternate WASAPI microphone assigned to its track', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'wasapi' });
+	await page.addInitScript(() => {
+		const api = window.soundscaperDesktop.v1, describe = api.describeNativeAudioBackend, open = api.openNativeAudioSession;
+		const admitted = new Promise(resolve => { window.__allowWASAPIPin = resolve; });
+		api.describeNativeAudioBackend = async request => {
+			const result = await describe(request);
+			result.inventory.devices.push({ handle: 'alternate', label: 'Alternate WASAPI microphone', direction: 'input', channelCount: 2 });
+			return result;
+		};
+		api.openNativeAudioSession = async request => {
+			const deviceHandle = request.candidates[0].deviceHandle;
+			if (deviceHandle === 'alternate') {
+				window.__openingWASAPIPin = true;
+				await admitted;
+			}
+			return { ...await open(request), deviceHandle };
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/');
+	const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const microphone = setup.getByRole('combobox', { name: 'Microphone', exact: true });
+	await settings.click();
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('wasapi');
+	await expect(microphone).toHaveValue('native:wasapi:in:microphone'); await expect(microphone).toBeEnabled();
+	const speaker = await page.evaluate(async () => (await window.__nativeOutput.fence()).sessionId);
+	await page.keyboard.press('Escape');
+	await chooseCommandAction(page, editor, 'View', 'Enable multi-track recording');
+	const row = editor.locator('[data-track-row]').first();
+	const arm = row.getByRole('button', { name: /^Arm for recording:/u });
+	if (await arm.getAttribute('aria-pressed') !== 'true') await arm.click();
+	const source = row.getByRole('combobox', { name: /^Recording source:/u });
+	await source.selectOption('device:native:wasapi:in:alternate');
+	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	await record.click();
+	await expect.poll(() => page.evaluate(() => window.__openingWASAPIPin)).toBe(true);
+	await expect(editor).toHaveAttribute('data-clip-count', '0');
+	await page.evaluate(() => window.__allowWASAPIPin());
+	await expect(record).toHaveAttribute('aria-pressed', 'true');
+	await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(source).toHaveValue('device:native:wasapi:in:alternate');
+	await expect.poll(() => page.evaluate(() => window.__nativeInputPeer.requests.filter(request => request.direction === 'input')
+		.map(request => request.candidates[0].deviceHandle))).toEqual(['microphone', 'alternate', 'microphone']);
+	expect(await page.evaluate(async () => (await window.__nativeOutput.fence()).sessionId)).toBe(speaker);
+	await settings.click();
+	await expect(microphone).toHaveValue('native:wasapi:in:microphone');
+});
+
 test('ALSA can switch a shared PCM to stereo recording without reopening its speakers', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page);

@@ -4,6 +4,7 @@ import { planRoutedRecordingSources, routedRecordingTargetTracks } from './route
 import type { RecordingCapturePool, RecordingEnginePort, RecordingProject } from '../recording-transaction-types.ts';
 import type { RecordingSessionServiceRuntime } from './recording-session-service.ts';
 import { raceAbortablePromise } from '../../../../foundation/abort-race.ts';
+import { acquireRecordingHardwareInput } from './recording-hardware-admission.ts';
 
 function invoke<Value>(operation: () => Promise<Value>): Promise<Value> {
 	try { return operation(); } catch (error) { return Promise.reject(error); }
@@ -41,10 +42,13 @@ export function createRecordingMidiAdmission<Project extends RecordingProject>(r
 				: planRoutedRecordingSources(routedRecordingTargetTracks(project, options), runtime.getRoutes(), recordingRouteSourceKey).groups
 					.map(group => ({ route: group.routes[0]!.route, channels: Math.max(...group.routes.map(item => item.route.channelStart + item.route.channelCount)) }));
 		// Keep display permission in the invoking gesture, ahead of every await.
+		const singleRecordingSource = sources.length === 1 && mode === 'ordinary' && options.timedStartTimeMs === undefined;
+		const input = sources[0]?.route, preparesWASAPIPin = singleRecordingSource
+			&& input?.kind === 'device' && input.deviceId.startsWith('native:wasapi:in:');
 		const acquisitions = options.reusePreparedInputsOnly ? [] : sources.map(source => invoke(() => source.route.kind === 'display'
-			? runtime.capturePool.acquireDisplay() : runtime.capturePool.acquireHardware(source.route.deviceId, {
-				channelCount: source.channels, sampleRate: runtime.sampleRate(),
-			})));
+			? runtime.capturePool.acquireDisplay() : acquireRecordingHardwareInput(runtime.capturePool, {
+				deviceId: source.route.deviceId, channelCount: source.channels, sampleRate: runtime.sampleRate(), signal: scope.signal,
+			}, singleRecordingSource)));
 		const context = invoke(() => runtime.engine.getAudioContext()).then(async value => { await value.resume(); });
 		const preparation = Promise.allSettled([context, ...acquisitions]);
 		const readiness = raceAbortablePromise(Promise.all([preparation, previousStart]).then(([prepared]) => prepared), scope.signal);
@@ -55,6 +59,7 @@ export function createRecordingMidiAdmission<Project extends RecordingProject>(r
 			scope.assertCurrent();
 			const contextResult = results[0];
 			if (contextResult?.status === 'rejected') throw contextResult.reason;
+			if (preparesWASAPIPin && results[1]?.status === 'rejected') throw results[1].reason;
 			// A routed take may retain surviving inputs; its established capture owner
 			// diagnoses unavailable sources without opening a second permission prompt.
 			return { ...options, reusePreparedInputsOnly: true };

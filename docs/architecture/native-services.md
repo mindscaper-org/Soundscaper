@@ -157,6 +157,10 @@ While an already selected native output is being replaced, playback keeps
 its timeline position and uses silence until a native output is bound again.
 A replacement refusal leaves the browser output muted until the user
 selects Electron or a native route binds successfully.
+An ordinary WASAPI take with one assigned input can temporarily bind that
+track's exact microphone before capture. The take keeps the saved global
+input choice and independent speakers. When the take finishes or admission
+fails, the workspace restores the global input.
 
 Real-time audio uses a directly transferred `MessagePort` between the helper and
 the `AudioWorklet`. Electron's utility port copies PCM typed arrays through
