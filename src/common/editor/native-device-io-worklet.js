@@ -52,9 +52,10 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 	}
 
 	process(inputs, outputs) {
-		if (this.direction !== 'input') this.#write(inputs[0] || []);
-		if (this.direction !== 'output') this.#read(outputs[0] || []);
-		else for (const channel of outputs[0] || []) channel.fill(0);
+		const output = outputs[0] || [];
+		if (this.direction !== 'input') this.#write(inputs[0] || [], output[0]?.length || 0);
+		if (this.direction !== 'output') this.#read(output);
+		else for (const channel of output) channel.fill(0);
 		return true;
 	}
 
@@ -83,9 +84,10 @@ export class NativeDeviceIoProcessor extends ProcessorBase {
 		this.#post({ type: NATIVE_DEVICE_IO_CONTROL.attached, generation });
 	}
 
-	#write(input) {
+	#write(input, quantumFrames) {
 		if (!this.portPeer) return;
-		const frames = input[0]?.length || 0;
+		// Pause disconnects programme audio while the bound device keeps its clock.
+		const frames = input[0]?.length ?? (this.outputPacket || this.outputFrame > 0 ? quantumFrames : 0);
 		let read = 0;
 		while (read < frames) {
 			if (!this.outputPacket) {

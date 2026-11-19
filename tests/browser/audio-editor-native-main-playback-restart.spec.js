@@ -4,6 +4,37 @@ import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js'
 import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
+test('native playback keeps the same device clock while paused and resumes audio', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeOutputPeer(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'Pause and resume.wav', sampleRate: 48_000,
+		frequency: 440, duration: 2, channelCount: 1 })]);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('alsa');
+	await expect(setup.getByRole('combobox', { name: 'Speakers', exact: true })).toBeEnabled();
+	await page.keyboard.press('Escape');
+	const play = editor.getByRole('button', { name: 'Play', exact: true });
+	await play.click();
+	try {
+		await expect.poll(() => page.evaluate(() => window.__nativeOutput.packetHistory.some(packet => Math.max(...packet.peaks) > .05)))
+			.toBe(true);
+		const sessionId = await page.evaluate(() => window.__nativeOutput.sessionId);
+		const before = await page.evaluate(async () => (await window.__nativeOutput.fence()).packet.endFrame);
+		await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+		await expect(play).toBeVisible();
+		await expect.poll(() => page.evaluate(frame => window.__nativeOutput.packetHistory.filter(packet =>
+			packet.startFrame >= frame && packet.peaks.every(peak => peak === 0)).length, before))
+			.toBeGreaterThanOrEqual(16);
+		const paused = await page.evaluate(async () => (await window.__nativeOutput.fence()).packet.endFrame);
+		await play.click();
+		await expect.poll(() => page.evaluate(frame => window.__nativeOutput.packetHistory.some(packet =>
+			packet.startFrame >= frame && Math.max(...packet.peaks) > .05), paused)).toBe(true);
+		expect(await page.evaluate(() => [window.__nativeOutput.sessionId, window.__nativeOutput.loss])).toEqual([sessionId, []]);
+	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+});
+
 for (const [rate, refresh] of [[2, false], [1, true], [2, true]]) {
 	test(`native ${rate}x timeline playback retains its actual pitch through device refresh=${refresh}`, async ({ page, browserName }) => {
 		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);

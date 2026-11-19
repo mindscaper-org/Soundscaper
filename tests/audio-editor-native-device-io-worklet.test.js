@@ -159,6 +159,43 @@ test('capture silence before attachment does not report phantom frame loss', asy
 	assert.deepEqual(processor.port.posted, []);
 });
 
+test('native playback keeps contiguous packets across a disconnected programme input', async () => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const processor = new NativeDeviceIoProcessor({ processorOptions: {
+		direction: 'output', channelCount: 2, periodFrames: 256, queueCapacity: 2,
+	} });
+	const peer = messagePort();
+	processor.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	const output = [[new Float32Array(128), new Float32Array(128)]];
+	const program = [[new Float32Array(128).fill(.25), new Float32Array(128).fill(-.25)]];
+	const histories = [];
+	const receive = () => {
+		const block = peer.posted.shift();
+		assert.equal(block?.kind, 'audio');
+		histories.push([block.sequence, block.startFrame]);
+		const samples = block.channels.map(channel => [...channel]);
+		peer.onmessage({ data: { ...block, kind: 'return', status: 'ok', framesTransferred: 256 } });
+		return samples;
+	};
+	processor.process([[]], output);
+	processor.process([[]], output);
+	assert.deepEqual(peer.posted, [], 'the unused route need not start the device');
+	processor.process(program, output);
+	processor.process([[]], output);
+	for (const [channel, samples] of receive().entries()) {
+		assert.equal(samples[0], channel === 0 ? .25 : -.25);
+		assert.ok(samples.slice(128).every(sample => sample === 0));
+	}
+	processor.process([[]], output);
+	processor.process([[]], output);
+	assert.ok(receive().flat().every(sample => sample === 0), 'reused packet planes carry silence during pause');
+	processor.process(program, output);
+	processor.process(program, output);
+	assert.deepEqual(receive().map(channel => [channel[0], channel.at(-1)]), [[.25, .25], [-.25, -.25]]);
+	assert.deepEqual(histories, [[0, 0], [1, 256], [2, 512]]);
+	assert.equal(peer.closed, false);
+});
+
 test('duplex calibration injects one bounded impulse and reports only its frame offset', async (context) => {
 	const original = globalThis.AudioWorkletProcessor;
 	class ProcessorBase {
