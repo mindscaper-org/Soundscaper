@@ -52,11 +52,28 @@ test.describe('video container exporters', () => {
 		}, Array.from(bytes));
 		expect(tailPeak).toBeGreaterThan(.05);
 	});
-	for (const [index, variant] of ['classic', 'fragmented', 'hybrid'].entries()) {
+	for (const [index, variant] of ['classic', 'fragmented', 'hybrid', 'quarter-turned'].entries()) {
 		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page }) => {
 			await disableNativeSavePicker(page);
 			const editor = await bootEditor(page, '/framescaper/embed/en/');
-			const file = sourceMonitorFragmentedMedia()[index];
+			const turned = variant === 'quarter-turned';
+			const file = sourceMonitorFragmentedMedia()[turned ? 0 : index];
+			if (turned) {
+				const buffer = Buffer.from(file.buffer);
+				const header = buffer.indexOf('tkhd');
+				expect(header).toBeGreaterThan(0);
+				expect(buffer[header + 4]).toBe(0);
+				// The fixture uses a version-zero track header with identity display
+				// geometry. Change just its matrix, leaving coded packets untouched.
+				const matrix = header + 44;
+				const identity = [65536, 0, 0, 0, 65536, 0, 0, 0, 1 << 30];
+				const rotation = [0, -65536, 0, 65536, 0, 0, 0, 0, 1 << 30];
+				for (const [i, value] of rotation.entries()) {
+					expect(buffer.readInt32BE(matrix + i * 4)).toBe(identity[i]);
+					buffer.writeInt32BE(value, matrix + i * 4);
+				}
+				file.buffer = buffer;
+			}
 			await importFiles(editor, [file]);
 			await expect(editor).toHaveAttribute('data-clip-count', '2');
 			const dialog = await openExportDialog(page, editor, { label: 'Export video' });
@@ -70,6 +87,9 @@ test.describe('video container exporters', () => {
 			try {
 				const track = await input.getPrimaryVideoTrack();
 				expect(track).not.toBeNull();
+				if (turned) {
+					expect([await track.getCodedWidth(), await track.getCodedHeight()]).toEqual([48, 64]);
+				}
 				let pictures = 0;
 				for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true })) {
 					expect(packet.timestamp).toBeCloseTo(pictures * 29 / 660, 3);

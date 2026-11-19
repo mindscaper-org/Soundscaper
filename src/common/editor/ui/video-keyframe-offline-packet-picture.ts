@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { VideoSample } from 'mediabunny';
+import type { TransformationMatrix, VideoSample } from 'mediabunny';
 import { raceAbortableRead } from '../../foundation/abort-race.ts';
 import { createVideoRetimeHtmlVideoPresentationRequest } from '../video-retime-html-video-seek-port.ts';
 import type { VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot } from './video-keyframe-offline-html-video-source-admission.ts';
 import type { VideoKeyframeOfflineSourcePresentation } from './video-keyframe-offline-rgba-source.ts';
 
 const MAXIMUM_FORWARDS_SKIP = 120;
+
+interface PacketPictureGeometry {
+	readonly codedWidth: number;
+	readonly codedHeight: number;
+	readonly rotation: VideoSample['rotation'];
+}
 
 /** Decode only an admitted picture clock and use one buffered traversal per occurrence. */
 export async function createPacketPicturePresentation(options: Readonly<{
@@ -30,7 +36,20 @@ export async function createPacketPicturePresentation(options: Readonly<{
 		const [track, ...otherPictures] = await raceAbortableRead(() => input.getVideoTracks(), setup);
 		if (!track || otherPictures.length || await raceAbortableRead(() => track.getCodec(), setup) !== 'avc') return null;
 		const matrix = await raceAbortableRead(() => track.getTransformationMatrix(), setup);
-		if (!matrix.every((value, index) => value === (index % 4 === 0 ? 1 : 0))) return null;
+		if (!isUntranslatedQuarterTurn(matrix)) return null;
+		let geometry: PacketPictureGeometry | null = null;
+		if (matrix[0] !== 1) {
+			const [rotation, codedWidth, codedHeight, sampleAspect] = await raceAbortableRead(
+				() => Promise.all([
+					track.getRotation(), track.getCodedWidth(), track.getCodedHeight(),
+					track.getPixelAspectRatio(),
+				]), setup,
+			);
+			const turned = rotation % 180 !== 0;
+			if (sampleAspect.num !== sampleAspect.den || (turned ? codedHeight : codedWidth) !== decodedWidth
+				|| (turned ? codedWidth : codedHeight) !== decodedHeight) return null;
+			geometry = { codedWidth, codedHeight, rotation };
+		}
 		if (!await raceAbortableRead(() => track.canDecode(), setup)) return null;
 		setup.throwIfAborted();
 		const drawable = document.createElement('canvas');
@@ -62,7 +81,7 @@ export async function createPacketPicturePresentation(options: Readonly<{
 					deadline.throwIfAborted();
 					stream = sink.samples(seek.intervalStartSeconds);
 				}
-				await drawExactSample(stream, seek.intervalStartSeconds, context, deadline, closeStream);
+				await drawExactSample(stream, seek.intervalStartSeconds, context, geometry, deadline, closeStream);
 				lastOrdinal = seek.drawableSourceFrame;
 			},
 			async dispose() {
@@ -78,8 +97,15 @@ export async function createPacketPicturePresentation(options: Readonly<{
 	} finally { if (!transferred) input.dispose(); }
 }
 
+function isUntranslatedQuarterTurn(matrix: TransformationMatrix): boolean {
+	const [a, b, u, c, d, v, x, y, w] = matrix;
+	return Number.isInteger(a) && Number.isInteger(b) && Math.abs(a) + Math.abs(b) === 1
+		&& c === -b && d === a && u === 0 && v === 0 && x === 0 && y === 0 && w === 1;
+}
+
 async function drawExactSample(
-	stream: AsyncGenerator<VideoSample, void, unknown>, timestamp: number, context: CanvasRenderingContext2D, signal: AbortSignal,
+	stream: AsyncGenerator<VideoSample, void, unknown>, timestamp: number, context: CanvasRenderingContext2D,
+	geometry: PacketPictureGeometry | null, signal: AbortSignal,
 	closeStream: () => Promise<void>,
 ): Promise<void> {
 	const cancel = (): void => { void closeStream().catch(() => undefined); };
@@ -92,10 +118,15 @@ async function drawExactSample(
 				signal.throwIfAborted();
 				if (sample.timestamp < timestamp) continue;
 				if (sample.timestamp !== timestamp) break;
-				if (sample.displayWidth !== context.canvas.width || sample.displayHeight !== context.canvas.height) {
+				const matchesGeometry = geometry
+					? sample.codedWidth === geometry.codedWidth && sample.codedHeight === geometry.codedHeight
+						&& sample.rotation === geometry.rotation && !sample.flip
+					: sample.displayWidth === context.canvas.width && sample.displayHeight === context.canvas.height;
+				if (!matchesGeometry) {
 					throw new RangeError('The packet picture dimensions disagree with the admitted source.');
 				}
-				sample.draw(context, 0, 0);
+				// The decoded canvas presents the verified rotation once.
+				sample.draw(context, 0, 0, context.canvas.width, context.canvas.height);
 				return;
 			} finally { sample.close(); }
 		}
