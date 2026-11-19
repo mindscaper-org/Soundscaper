@@ -10,6 +10,8 @@ import {
 	chooseFileAction,
 	collectClientErrors,
 	stubStorageEstimate,
+	waitForEditor,
+	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
 import {
 	createDeterministicAvFixture,
@@ -23,6 +25,7 @@ test('publishes, cancels, verifies, and regenerates an existing video proxy', as
 	await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
 	await installPersistentStorageStub(page);
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	await editor.locator('[data-project-bin-input]').setInputFiles(original);
 	await expect(editor.locator('[data-status]')).toHaveAttribute('data-state', 'success', {
 		timeout: 30_000,
@@ -69,6 +72,19 @@ test('publishes, cancels, verifies, and regenerates an existing video proxy', as
 		timeout: 30_000,
 	});
 	await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+	await card.getByRole('button', { name: /Add to timeline:/u }).click();
+	const video = editor.locator('[data-clip-kind="video"]');
+	await expect(video).toHaveCount(1);
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved', {
+		timeout: 20_000,
+	});
+	await page.reload();
+	const reopened = await waitForEditor(page);
+	await waitForProjectActivation(reopened);
+	await expect(reopened).toHaveAttribute('data-project-id', projectId);
+	await expect(video).toHaveCount(1);
+	await openProxyDialog(page, card);
+	await expect(dialog.getByRole('button', { name: 'Detach', exact: true })).toBeVisible();
 	expect(clientErrors).toEqual([]);
 });
 

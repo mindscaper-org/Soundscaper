@@ -93,6 +93,7 @@ interface HarnessOptions {
 	readonly tabs?: readonly SessionTab[];
 	readonly activeProjectId?: string | null;
 	readonly quiesce?: boolean;
+	readonly recordPersistedSnapshot?: (project: Data) => void;
 	readonly releaseLease?: () => boolean;
 	readonly releaseReservation?: () => boolean;
 }
@@ -110,6 +111,7 @@ function harness(options: HarnessOptions = {}): Harness {
 	const signals: (AbortSignal | undefined)[] = [];
 	const sequence = options.sequence ?? [ATTACHED];
 	const tabs = options.tabs ?? [];
+	const { recordPersistedSnapshot } = options;
 	const token = {};
 	let loads = 0;
 	const dependencies = {
@@ -135,6 +137,10 @@ function harness(options: HarnessOptions = {}): Harness {
 				steps.push('cleanup');
 				return { status: 'settled' as const };
 			},
+		},
+		recordPersistedSnapshot: recordPersistedSnapshot === undefined ? null : (project: Data) => {
+			steps.push('record-persisted');
+			recordPersistedSnapshot(project);
 		},
 		synchronizeActiveProject: (update: Data) => { steps.push('sync'); updates.push(update); },
 		quiesceProjectSaves: options.quiesce === false ? null : (projectId: string) => {
@@ -209,7 +215,9 @@ function tick(): Promise<void> {
 }
 
 test('an already attached source reconciles the landed project instead of generating a second proxy', async () => {
-	const { schedule, steps, signals } = harness();
+	const { schedule, steps, signals } = harness({
+		recordPersistedSnapshot: () => assert.fail('The closed project should load its save baseline when reopened.'),
+	});
 
 	await schedule(request());
 
@@ -220,30 +228,36 @@ test('an already attached source reconciles the landed project instead of genera
 });
 
 test('the landed reconciliation of an open active project synchronizes it without rewriting its history', async () => {
+	const persisted: Data[] = [];
 	const { schedule, steps, updates } = harness({
 		tabs: [openTab(ATTACHED)],
 		activeProjectId: PROJECT_ID,
+		recordPersistedSnapshot: (project) => { persisted.push(project); },
 	});
 
 	await schedule(request());
 
-	assert.deepEqual(steps, [LOAD, QUIESCE, LOAD, 'sync', 'reservation-release', 'lease-release']);
+	assert.deepEqual(steps, [LOAD, QUIESCE, LOAD, 'record-persisted', 'sync', 'reservation-release', 'lease-release']);
+	assert.deepEqual(persisted, [ATTACHED]);
 	assert.equal(updates.length, 1);
 	assert.equal(updates[0]!.projectId, PROJECT_ID);
 	assert.equal((updates[0]!.project as Data).revision, ATTACHED.revision);
 	await schedule.dispose();
 });
 
-test('an open project that is not the active one is reconciled without any active update', async () => {
+test('an inactive open tab adopts the durable save baseline without an active update', async () => {
+	const persisted: Data[] = [];
 	const { schedule, steps, updates } = harness({
 		tabs: [openTab(ATTACHED)],
 		activeProjectId: 'another-project',
+		recordPersistedSnapshot: (project) => { persisted.push(project); },
 	});
 
 	await schedule(request());
 
 	assert.deepEqual(updates, []);
-	assert.deepEqual(steps, [LOAD, QUIESCE, LOAD, 'reservation-release', 'lease-release']);
+	assert.deepEqual(persisted, [ATTACHED]);
+	assert.deepEqual(steps, [LOAD, QUIESCE, LOAD, 'record-persisted', 'reservation-release', 'lease-release']);
 	await schedule.dispose();
 });
 
@@ -280,7 +294,11 @@ test('an open project that diverged from the durable target refuses to be reconc
 });
 
 test('a project that changes while the queued saves drain cancels the landed reconciliation', async () => {
-	const { schedule, steps } = harness({ sequence: [ATTACHED, UNATTACHED] });
+	const { schedule, steps } = harness({
+		sequence: [ATTACHED, UNATTACHED],
+		tabs: [openTab(ATTACHED)],
+		recordPersistedSnapshot: () => assert.fail('A stale proxy target must never become the save baseline.'),
+	});
 
 	await assert.rejects(
 		() => schedule(request()),
