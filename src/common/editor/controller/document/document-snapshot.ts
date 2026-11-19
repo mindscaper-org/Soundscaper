@@ -35,7 +35,7 @@ interface SnapshotSelection extends Readonly<Record<string, unknown>> {
 export interface SnapshotProject extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 	readonly selection?: SnapshotSelection | null;
-	readonly tracks?: readonly Readonly<{ readonly id: string }>[];
+	readonly tracks?: readonly Readonly<{ id: string; type?: string; displayMode?: string }>[];
 }
 
 interface SnapshotProjectSummary extends Readonly<Record<string, unknown>> {
@@ -330,7 +330,7 @@ export function createEditorDocumentSnapshot<Project extends SnapshotProject>(
 		processingEffect: state.audacityEffectProcessing,
 		exporting: Boolean(state.exportAbort),
 		timeline: Object.freeze({
-			view: state.timelineView,
+			view: derived.spectralDisplay ?? state.timelineView,
 			showRms: state.showRms,
 			showVerticalRulers: state.showVerticalRulers,
 			scrollViewToPlayhead: state.scrollViewToPlayhead,

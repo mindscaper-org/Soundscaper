@@ -71,6 +71,29 @@ test('the timeline zoom stays with the tab where it was changed', async context 
 	assert.equal(controller.getSnapshot().timeline.pixelsPerSecond, secondZoom);
 });
 
+test('whole-track spectral displays follow the active tab and its undo history', async context => {
+	const { controller, firstId } = await openTabFixture(context);
+	const view = () => controller.getSnapshot().timeline.view;
+	await controller.actions.project.create({ title: 'Second project' });
+	const secondId = controller.project!.id;
+	await controller.actions.project.openById(firstId);
+
+	for (const mode of ['spectrogram', 'multiview'] as const) {
+		assert.equal(view(), 'waveform');
+		controller.actions.timeline.setAllTracksView(mode);
+		assert.equal(view(), mode);
+		await controller.actions.project.openById(secondId);
+		assert.equal(view(), 'waveform');
+		await controller.actions.project.openById(firstId);
+		assert.equal(view(), mode);
+		controller.actions.edit.undo();
+		assert.equal(view(), 'waveform');
+		controller.actions.edit.redo();
+		assert.equal(view(), mode);
+		controller.actions.edit.undo();
+	}
+});
+
 test('temporary working-copy cleanup retires deleted entries from Recent Projects', async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const store = createSoundscaperEphemeralProjectStore();

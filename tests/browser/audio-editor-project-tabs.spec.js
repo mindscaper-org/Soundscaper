@@ -1,11 +1,16 @@
-import { AxeBuilder, expect, test, toneA } from './audio-editor-test-fixtures.js';
+import { rm } from 'node:fs/promises';
+import { AxeBuilder, expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { encodeWav } from '../../src/common/editor/wav.js';
 import {
 	bootEditor,
+	chooseCommandAction,
+	chooseExportProjectFileAction,
+	chooseFileAction,
 	chooseNestedCommandAction,
 	clipByName,
 	collectClientErrors,
 	commitInput,
+	disableNativeSavePicker,
 	getMenuItem,
 	importFiles,
 	openNestedCommandMenu,
@@ -180,6 +185,52 @@ test.describe('project tab close controls', () => {
 		await expect(close).toBeEnabled();
 		await expect(close).toBeFocused();
 	});
+});
+
+test('reopened projects keep track visualization scoped to their tabs and history', async ({ page }, result) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Archived waveform');
+	await importFiles(editor, [toneA]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await chooseFileAction(page, editor, 'New');
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Other waveform');
+		await importFiles(editor, [toneB]);
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Archived waveform', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+
+		const archivedTrack = clipByName(editor, toneA.name).locator('xpath=ancestor::div[@data-track-row]');
+		const otherTrack = clipByName(editor, toneB.name).locator('xpath=ancestor::div[@data-track-row]');
+		const spectrogram = editor.getByRole('button', { name: 'Spectrogram', exact: true });
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await spectrogram.click();
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+
+		await chooseNestedCommandAction(page, editor, 'Window', ['Other waveform']);
+		await waitForProjectActivation(editor);
+		await expect.soft(otherTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await chooseNestedCommandAction(page, editor, 'Window', ['Archived waveform']);
+		await waitForProjectActivation(editor);
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+		await chooseCommandAction(page, editor, 'Edit', 'Undo');
+		await expect.soft(archivedTrack).toHaveAttribute('data-display-mode', 'waveform');
+		await expect.soft(spectrogram).toHaveAttribute('aria-pressed', 'false');
+		await chooseCommandAction(page, editor, 'Edit', 'Redo');
+		await expect(archivedTrack).toHaveAttribute('data-display-mode', 'spectrogram');
+		await expect(spectrogram).toHaveAttribute('aria-pressed', 'true');
+	} finally {
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
 });
 
 test('switching projects restores the playhead and zoom of each tab', async ({ page }) => {
