@@ -101,10 +101,13 @@ static void on_process(void *data)
 			datas[0].chunk->offset, (uint32_t)datas[0].chunk->size, stride, &byte_offset);
 		const float *region = (const float *)(const void *)((const uint8_t *)datas[0].data + byte_offset);
 		const uint32_t produced = frames * session->channel_count;
-		const uint32_t moved = soundscaper_ring_push(&session->ring, region, produced);
+		/* Drain the buffered prefix after an overrun without appending samples
+		 * from the other side of the gap. */
+		const uint32_t moved = atomic_load_explicit(&session->lost_frames, memory_order_relaxed) == 0u
+			? soundscaper_ring_push(&session->ring, region, produced) : 0u;
 		if (moved < produced) {
 			atomic_fetch_add_explicit(&session->lost_frames,
-				(produced - moved) / session->channel_count, memory_order_relaxed);
+				(produced - moved) / session->channel_count, memory_order_release);
 		}
 		atomic_fetch_add_explicit(&session->frames, produced / session->channel_count, memory_order_relaxed);
 	}
@@ -463,6 +466,7 @@ soundscaper_audio_io_status soundscaper_pipewire_read(
 		const uint64_t deadline = monotonic_ms() + session->capture_wait_ms;
 		const struct timespec delay = { .tv_nsec = SOUNDSCAPER_PIPEWIRE_POLL_MS * 1000000L };
 		while (!atomic_load_explicit(&session->lost_device, memory_order_acquire)
+			&& atomic_load_explicit(&session->lost_frames, memory_order_acquire) == 0u
 			&& soundscaper_ring_available(&session->ring) < wanted && monotonic_ms() < deadline) {
 			nanosleep(&delay, NULL);
 		}

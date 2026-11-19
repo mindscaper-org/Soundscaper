@@ -129,8 +129,8 @@
 		},
 		{
 			"path": "pipewire_session.c",
-			"byteLength": 20986,
-			"sha256": "3209036a6853c6b14efd5e00b420efbc7f3655cc42ef3d5f69005aa6aeb993cc"
+			"byteLength": 21260,
+			"sha256": "a291e0f956524627c0021ae6c609ccf8231d7d5cc599569384114c225c660434"
 		},
 		{
 			"path": "pipewire_session.h",
@@ -183,7 +183,7 @@
 			"payload": {
 				"name": "soundscaper_helper.node",
 				"byteLength": 89672,
-				"sha256": "7fa5af80d4b730dcbc2a2c34ea286d792acd6c8bec528646211a4011c0e13592"
+				"sha256": "5afa2bb67d62ffa9ddbd6dd04f366bf4b44ef5f05f47ca26dfe5a83f08741cb4"
 			},
 			"buildResult": null
 		},

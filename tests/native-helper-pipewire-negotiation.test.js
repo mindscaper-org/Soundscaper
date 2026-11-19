@@ -163,3 +163,28 @@ for (const [name, mode, status, lostFrames, left, right] of [
 		assert.ok(elapsed < 1_000, `bounded read took ${elapsed} ms`);
 	});
 }
+
+test('PipeWire drains the contiguous input prefix and reports an overrun before the next packet', {
+	skip: !addonIsBuilt || stubRoot === null,
+}, () => {
+	const observed = probe(`
+		const { session } = open({ direction: 0, periodFrames: 1 });
+		function read() {
+			const left = new Float32Array(16).fill(-1);
+			const right = new Float32Array(16).fill(-1);
+			const { status } = addon.readAudioDevice(session, 16, [left, right]);
+			return { status, left: [...left], right: [...right] };
+		}
+		const first = read();
+		const second = read();
+		const afterGap = read();
+		addon.closeAudioDevice(session);
+		report({ first, second, afterGap });
+	`, { SOUNDSCAPER_STUB_PIPEWIRE: 'capture-overrun' });
+	for (const [offset, block] of [[0, observed.first], [16, observed.second]]) {
+		assert.equal(block.status, 'ok');
+		assert.deepEqual(block.left, Array.from({ length: 16 }, (_, index) => 0.25 + (offset + index) * 0.5));
+		assert.deepEqual(block.right, Array.from({ length: 16 }, (_, index) => 0.5 + (offset + index) * 0.5));
+	}
+	assert.deepEqual(observed.afterGap, { status: 'recovered', left: Array(16).fill(-1), right: Array(16).fill(-1) });
+});

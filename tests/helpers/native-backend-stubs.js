@@ -125,6 +125,7 @@ const char *snd_strerror(int code) { (void)code; return "the stub card refused t
  * `SOUNDSCAPER_STUB_PIPEWIRE_RATE` or `_CHANNELS` says otherwise.
  * `capture-delayed`, `capture-stalled` and `capture-lost` send half an input
  * packet before delivering the rest, stalling, or disconnecting.
+ * `capture-overrun` exceeds a one-frame period's 32-frame ring at startup.
  */
 export const PIPEWIRE_STUB_SOURCE = `
 #include <pthread.h>
@@ -235,9 +236,12 @@ int pw_stream_connect(
 	return 0;
 }
 
-static void stub_capture_pair(float first)
+static void stub_capture_frames(float first, unsigned int frame_count)
 {
-	float samples[] = { first, first + 0.25f, first + 0.5f, first + 0.75f };
+	float samples[frame_count * 2u];
+	for (unsigned int sample = 0; sample < frame_count * 2u; ++sample) {
+		samples[sample] = first + 0.25f * (float)sample;
+	}
 	struct spa_chunk chunk = { .size = sizeof(samples), .stride = 2 * sizeof(float) };
 	struct spa_data data = { .maxsize = sizeof(samples), .data = samples, .chunk = &chunk };
 	struct spa_buffer buffer = { .n_datas = 1, .datas = &data };
@@ -254,8 +258,10 @@ static void *stub_finish_capture(void *data)
 	nanosleep(&delay, NULL);
 	if (strcmp(mode, "capture-lost") == 0) {
 		stub_events->state_changed(stub_data, PW_STREAM_STATE_STREAMING, PW_STREAM_STATE_UNCONNECTED, NULL);
+	} else if (strcmp(mode, "capture-overrun") == 0) {
+		stub_capture_frames(18.25f, 32u);
 	} else {
-		stub_capture_pair(1.25f);
+		stub_capture_frames(1.25f, 2u);
 	}
 	return NULL;
 }
@@ -294,7 +300,7 @@ int pw_thread_loop_start(struct pw_thread_loop *loop)
 		stub_events->state_changed(stub_data, PW_STREAM_STATE_CONNECTING, PW_STREAM_STATE_STREAMING, NULL);
 	}
 	if (strncmp(mode, "capture-", 8u) == 0) {
-		stub_capture_pair(0.25f);
+		stub_capture_frames(0.25f, strcmp(mode, "capture-overrun") == 0 ? 36u : 2u);
 		if (strcmp(mode, "capture-stalled") != 0) {
 			if (pthread_create(&stub_capture_thread, NULL, stub_finish_capture, (void *)mode) != 0) return -1;
 			stub_capture_started = 1;
