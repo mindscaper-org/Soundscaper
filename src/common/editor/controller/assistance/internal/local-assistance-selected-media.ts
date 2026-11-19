@@ -6,7 +6,6 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import { compareCodeUnits } from '../../../code-unit-order.ts';
-import { scaleSampleFrame } from '../../../timeline-time.ts';
 import {
 	normalizeAssistanceOperation,
 	type AssistanceOperation,
@@ -25,7 +24,7 @@ import {
 } from './audio/local-assistance-audio-preparation.ts';
 import { localAssistanceAudioWaveGeometry } from './audio/local-assistance-audio-geometry.ts';
 import { localAssistanceAudioEffectTargets } from './audio/local-assistance-audio-effect-targets.ts';
-import { hasAssistanceIdentityTiming } from '../../../assistance/selected-media-identity-timing.ts';
+import { hasAssistanceIdentityTiming, projectAssistanceSourceRange } from '../../../assistance/selected-media-identity-timing.ts';
 
 const MAXIMUM_OUTPUT_BYTES = 64 * 1024 * 1024;
 const TEXT_ENCODER = new TextEncoder();
@@ -260,15 +259,11 @@ export function resolveLocalAssistanceSelectedMediaAuthority(
 	if (selectionStart < clipStart || selectionEnd > clipEnd || selectionEnd <= selectionStart) {
 		throw new RangeError('The assistance selection must remain inside the selected occurrence.');
 	}
-	const sourceStart = safeAdd(integer(clip.sourceStartFrame, 0, 'clip source start'),
-		Number(scaleSampleFrame(selectionStart - clipStart, project.sampleRate, Number(source.sampleRate), 'point')),
-		'selected source start');
-	const sourceEnd = safeAdd(integer(clip.sourceStartFrame, 0, 'clip source start'),
-		Number(scaleSampleFrame(selectionEnd - clipStart, project.sampleRate, Number(source.sampleRate), 'point')),
-		'selected source end');
-	if (sourceEnd > integer(source.frameCount, 1, 'source frame count')) {
+	const sourceRange = projectAssistanceSourceRange(clip, selectionStart, selectionEnd);
+	if (!sourceRange || sourceRange.endFrame > integer(source.frameCount, 1, 'source frame count')) {
 		throw new RangeError('The assistance selection exceeds its authenticated source.');
 	}
+	const { startFrame: sourceStart, endFrame: sourceEnd } = sourceRange;
 	const fence = createLocalAssistanceSelectionFence(project, clip, source, track,
 		selectionStart, selectionEnd, sourceStart, sourceEnd);
 	return Object.freeze({ project, source, clip, track, startFrame: selectionStart,

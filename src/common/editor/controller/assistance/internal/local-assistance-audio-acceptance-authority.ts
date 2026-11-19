@@ -7,6 +7,7 @@ import {
 	validateAssistanceSelectionFence,
 	type AssistanceSelectionFence,
 } from '../../../assistance/proposal-session.ts';
+import { projectAssistanceSourceRange } from '../../../assistance/selected-media-identity-timing.ts';
 import { scaleSampleFrame } from '../../../timeline-time.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
@@ -64,21 +65,27 @@ export function normalizeLocalAssistanceAudioAcceptanceAuthority(
 		|| stored[0] && (stored[0].sampleRate !== selectedSource?.sampleRate
 			|| stored[0].contentSha256 !== selectedSource?.contentSha256)) throw new AssistanceProposalStaleError();
 	const clip = sourceRecord(authority.clip);
-	const expectedExtent = Number(scaleSampleFrame(timelineEndFrame - timelineStartFrame,
-		sampleRate, sourceSampleRate, 'point'));
 	if (timelineEndFrame <= timelineStartFrame || sourceEndFrame <= sourceStartFrame
 		|| selectedSource?.frameCount !== undefined && sourceEndFrame > Number(selectedSource.frameCount)
-		|| Math.abs(sourceEndFrame - sourceStartFrame - expectedExtent) > (sourceSampleRate === sampleRate ? 0 : 1)
 		|| sourceStartFrame !== fence.sourceStartFrame || sourceEndFrame !== fence.sourceEndFrame) {
 		throw new AssistanceProposalStaleError();
 	}
-	if (clip?.timelineStartFrame !== undefined && clip.sourceStartFrame !== undefined) {
-		const timelineStart = integer(clip.timelineStartFrame, 0, 'clip timeline start');
-		const sourceStart = integer(clip.sourceStartFrame, 0, 'clip source start');
-		if (sourceStartFrame !== sourceStart + Number(scaleSampleFrame(timelineStartFrame - timelineStart,
-			sampleRate, sourceSampleRate, 'point'))
-			|| sourceEndFrame !== sourceStart + Number(scaleSampleFrame(timelineEndFrame - timelineStart,
-				sampleRate, sourceSampleRate, 'point'))) throw new AssistanceProposalStaleError();
+	if (clip && (clip.durationFrames !== undefined || clip.sourceDurationFrames !== undefined)) {
+		const projected = projectAssistanceSourceRange(clip, timelineStartFrame, timelineEndFrame);
+		if (!projected || sourceStartFrame !== projected.startFrame || sourceEndFrame !== projected.endFrame) throw new AssistanceProposalStaleError();
+	} else {
+		const expectedExtent = scaleSampleFrame(timelineEndFrame - timelineStartFrame, sampleRate, sourceSampleRate, 'point');
+		if (Math.abs(sourceEndFrame - sourceStartFrame - expectedExtent) > (sourceSampleRate === sampleRate ? 0 : 1)) {
+			throw new AssistanceProposalStaleError();
+		}
+		if (clip?.timelineStartFrame !== undefined && clip.sourceStartFrame !== undefined) {
+			const timelineStart = integer(clip.timelineStartFrame, 0, 'clip timeline start');
+			const sourceStart = integer(clip.sourceStartFrame, 0, 'clip source start');
+			if (sourceStartFrame !== sourceStart + scaleSampleFrame(timelineStartFrame - timelineStart, sampleRate, sourceSampleRate, 'point')
+				|| sourceEndFrame !== sourceStart + scaleSampleFrame(timelineEndFrame - timelineStart, sampleRate, sourceSampleRate, 'point')) {
+				throw new AssistanceProposalStaleError();
+			}
+		}
 	}
 	return Object.freeze({
 		fence,
@@ -104,7 +111,8 @@ export function localAssistanceSourceFrameToTimelineFrame(
 	if (sourceFrame === authority.sourceStartFrame) return authority.timelineStartFrame;
 	if (sourceFrame === authority.sourceEndFrame) return authority.timelineEndFrame;
 	const result = authority.timelineStartFrame + Number(scaleSampleFrame(
-		sourceFrame - authority.sourceStartFrame, authority.sourceSampleRate, authority.sampleRate,
+		sourceFrame - authority.sourceStartFrame, authority.sourceEndFrame - authority.sourceStartFrame,
+		authority.timelineEndFrame - authority.timelineStartFrame,
 		purpose === 'enclosingStart' ? 'enclosingStart' : purpose === 'enclosingEnd' ? 'enclosingEnd' : 'point'));
 	if (!Number.isSafeInteger(result)) throw new RangeError('An assistance timeline row exceeds safe timing.');
 	return Math.min(authority.timelineEndFrame, Math.max(authority.timelineStartFrame, result));
