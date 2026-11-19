@@ -113,13 +113,15 @@ test('a region named twice is rendered once and delivered twice', async () => {
 	const calls: RenderCall[] = [];
 	const delivered = await renderMasteringSequenceExport(renderRuntime(calls), request(deliveryPlan([
 		{ id: 'e1', annotationId: 'a' },
-		{ id: 'e2', annotationId: 'a', fadeOutFrames: 8 },
+		{ id: 'e2', annotationId: 'b' },
+		{ id: 'e3', annotationId: 'a', fadeOutFrames: 8 },
 	])));
 
-	assert.deepEqual(calls.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[0, 8]],
-		'one render supplies both entries');
+	assert.deepEqual(calls.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[0, 8], [100, 104]],
+		'one render supplies the two entries that use the same region');
 	assert.deepEqual([...delivered.channels[0]], [
 		0, 1, 2, 3, 4, 5, 6, 7,
+		100, 101, 102, 103,
 		0, 0.75, 1.25, 1.5, 1.5, 1.25, 0.75, 0,
 	]);
 });
@@ -156,6 +158,20 @@ test('an aborted delivery stops rendering rather than finishing the sequence', a
 		request(deliveryPlan([{ id: 'e1', annotationId: 'a' }]), { signal: controller.signal }),
 	), /aborted/u);
 	assert.equal(calls.length, 0);
+});
+
+test('a malformed first region is rejected before rendering any later region', async () => {
+	const calls: RenderCall[] = [];
+	const base = renderRuntime(calls);
+	const runtime = { ...base, renderSnapshot(snapshot: unknown, range: RenderCall) {
+		const rendered = base.renderSnapshot(snapshot, range);
+		return range.startFrame === 0 ? { ...rendered, channels: [rendered.channels[0].subarray(1)] } : rendered;
+	} };
+	await assert.rejects(() => renderMasteringSequenceExport(runtime, request(deliveryPlan([
+		{ id: 'e1', annotationId: 'a' },
+		{ id: 'e2', annotationId: 'b' },
+	]))), /e1 rendered 7 frames, not 8/u);
+	assert.deepEqual(calls.map(({ startFrame }) => startFrame), [0]);
 });
 
 test('the export orchestration renders a sequence and refuses the realtime fallback', async () => {

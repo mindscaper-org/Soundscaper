@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	renderMasteringSequenceDelivery,
+	createMasteringSequenceOutput,
+	writeMasteringSequenceEntry,
 } from '../../../mastering-sequence-render.ts';
-import type { MasteringSequenceDeliveryPlan } from '../../../mastering-sequence-delivery.ts';
+import type { MasteringSequenceDeliveryPlan, MasteringSequenceDeliverySegment } from '../../../mastering-sequence-delivery.ts';
 
 type Awaitable<Value> = PromiseLike<Value> | Value;
 
@@ -93,52 +94,25 @@ export async function renderMasteringSequenceExport(
 	runtime: MasteringSequenceExportRenderRuntime,
 	options: MasteringSequenceExportRenderOptions,
 ): Promise<MasteringSequenceRenderedDelivery> {
-	const { audioBufferChannels, copy, renderSnapshot, resampleBuffer, taskProgress, throwIfAborted } = runtime;
-	const { deliveryPlan, outputSampleRate, renderSampleRate, signal, snapshot } = options;
+	const { copy, taskProgress } = runtime;
+	const { deliveryPlan, outputSampleRate } = options;
 	const total = deliveryPlan.segments.length;
 	const span = options.progressRange.end - options.progressRange.start;
-	const byRange = new Map<string, readonly Float32Array[]>();
-	const segments: { entryId: string; channels: readonly Float32Array[] }[] = [];
+	let output: readonly Float32Array[] | undefined;
+	let completed = 0;
 
-	for (let index = 0; index < total; index += 1) {
-		const segment = deliveryPlan.segments[index];
-		throwIfAborted(signal);
+	for (const entries of groupRegions(deliveryPlan.segments)) {
+		runtime.throwIfAborted(options.signal);
 		taskProgress?.setActivePhase?.(copy.rendering, {
 			start: options.progressRange.start,
 			end: options.progressRange.end,
-			value: span > 0 ? index / total : 0,
+			value: span > 0 ? completed / total : 0,
 		}, { key: 'rendering' });
-		const key = `${segment.sourceStartFrame}:${segment.sourceEndFrame}:${segment.outputEndFrame - segment.outputStartFrame}`;
-		let channels = byRange.get(key);
-		if (!channels) {
-			const sourceFrames = segment.sourceEndFrame - segment.sourceStartFrame;
-			const rendered = await renderSnapshot(snapshot, {
-				startFrame: segment.sourceStartFrame,
-				endFrame: segment.sourceEndFrame,
-				// A region ends where it ends: an effect tail spilling past it is
-				// audio the sequence did not name.
-				includeTail: false,
-				outputFrames: sourceFrames,
-				preRollFrames: Math.min(segment.sourceStartFrame, renderSampleRate * 10),
-			}, options.sourceMap, signal, options.chunkSources, options.prepareTimePitchCaches);
-			throwIfAborted(signal);
-			// Each entry is resampled to its own delivered extent, so the rate
-			// conversion cannot move a boundary away from the cue that names it.
-			const delivered = rendered.sampleRate === outputSampleRate
-				? rendered
-				: await resampleBuffer(
-					rendered, outputSampleRate, undefined, copy,
-					segment.outputEndFrame - segment.outputStartFrame,
-				);
-			throwIfAborted(signal);
-			channels = audioBufferChannels(delivered);
-			byRange.set(key, channels);
-		}
-		segments.push({ entryId: segment.entryId, channels });
+		output = await renderRegionIntoOutput(runtime, options, entries, output);
+		completed += entries.length;
 	}
 
-	const channelCount = segments[0]?.channels.length ?? Math.max(1, options.channelCount);
-	const channels = renderMasteringSequenceDelivery({ plan: deliveryPlan, segments, channelCount });
+	const channels = output ?? createMasteringSequenceOutput(deliveryPlan.totalFrames, Math.max(1, options.channelCount));
 	// Read like any other rendered buffer. The encode path takes the delivered
 	// audio through `audioBufferChannels`, which asks a buffer for its channels
 	// the way an AudioBuffer answers; a bare planar record satisfies the type but
@@ -146,7 +120,7 @@ export async function renderMasteringSequenceExport(
 	return Object.freeze({
 		channels,
 		length: deliveryPlan.totalFrames,
-		numberOfChannels: channelCount,
+		numberOfChannels: channels.length,
 		sampleRate: outputSampleRate,
 		getChannelData(channel: number): Float32Array {
 			const data = channels[channel];
@@ -154,4 +128,48 @@ export async function renderMasteringSequenceExport(
 			return data;
 		},
 	});
+}
+
+async function renderRegionIntoOutput(
+	runtime: MasteringSequenceExportRenderRuntime,
+	options: MasteringSequenceExportRenderOptions,
+	entries: readonly MasteringSequenceDeliverySegment[],
+	output: readonly Float32Array[] | undefined,
+): Promise<readonly Float32Array[]> {
+	const { audioBufferChannels, copy, renderSnapshot, resampleBuffer, throwIfAborted } = runtime;
+	const { deliveryPlan, outputSampleRate, renderSampleRate, signal, snapshot } = options;
+	const segment = entries[0]!;
+	const rendered = await renderSnapshot(snapshot, {
+		startFrame: segment.sourceStartFrame,
+		endFrame: segment.sourceEndFrame,
+		includeTail: false,
+		outputFrames: segment.sourceEndFrame - segment.sourceStartFrame,
+		preRollFrames: Math.min(segment.sourceStartFrame, renderSampleRate * 10),
+	}, options.sourceMap, signal, options.chunkSources, options.prepareTimePitchCaches);
+	throwIfAborted(signal);
+	// Resampling to the delivered extent keeps the cue aligned with this region.
+	const delivered = rendered.sampleRate === outputSampleRate
+		? rendered
+		: await resampleBuffer(rendered, outputSampleRate, undefined, copy, segment.outputEndFrame - segment.outputStartFrame);
+	throwIfAborted(signal);
+	const channels = audioBufferChannels(delivered);
+	const target = output ?? createMasteringSequenceOutput(deliveryPlan.totalFrames, channels.length);
+	// Entries occupy disjoint spans. One render supplies every reprise before
+	// this call releases the temporary PCM and returns the assembled output.
+	for (const entry of entries) {
+		throwIfAborted(signal);
+		writeMasteringSequenceEntry(target, entry, channels);
+	}
+	return target;
+}
+
+function groupRegions(segments: readonly MasteringSequenceDeliverySegment[]): Iterable<MasteringSequenceDeliverySegment[]> {
+	const groups = new Map<string, MasteringSequenceDeliverySegment[]>();
+	for (const segment of segments) {
+		const key = `${segment.sourceStartFrame}:${segment.sourceEndFrame}:${segment.outputEndFrame - segment.outputStartFrame}`;
+		const group = groups.get(key);
+		if (group) group.push(segment);
+		else groups.set(key, [segment]);
+	}
+	return groups.values();
 }

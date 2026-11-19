@@ -365,8 +365,8 @@ export function createExportPlan(project, options = {}) {
 			masteringSequence
 				? masteringSequence.plan.segments.map((segment) => ({ startFrame: segment.sourceStartFrame, endFrame: segment.sourceEndFrame }))
 				: spans || [range])
-			// Sequence assembly retains its rendered regions beside the complete
-			// delivery, at the render width before the encoder's channel mapping.
+			// Reserve the delivery and bound assembly scratch at the render width
+			// before the encoder's channel mapping.
 			+ (masteringSequence ? estimatePcmBytes(outputFrames, runtimeProject.masterChannels) * 2 : 0))
 			+ spatialRenderWorkingSetBytes(ear, outputFrames),
 	};
