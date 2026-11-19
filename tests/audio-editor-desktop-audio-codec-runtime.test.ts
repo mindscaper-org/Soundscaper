@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -9,6 +10,8 @@ import {
 } from '../src/common/editor/desktop-audio-codec-runtime.ts';
 import { createDesktopAudioCodecCapabilityQuery } from '../src/common/editor/desktop-audio-codec-capabilities.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { inspectEncodedAudioSampleRate } from '../src/common/editor/audio-file-metadata.js';
+import { decodeStandaloneAudioForImport } from '../src/common/editor/controller/import/internal/standalone-audio-import-decoder.ts';
 import {
 	createDesktopAudioCodecResult,
 	type DesktopAudioCodecFormat,
@@ -166,6 +169,34 @@ test('main-reported source geometry supplies decode geometry instead of project 
 	assert.equal(decoded.sampleRate, 96_000);
 	assert.equal(decoded.channels.length, 1);
 	assert.equal(decoded.frameCount, 1);
+});
+
+test('desktop standalone decode keeps the source clock without reading the original twice', async () => {
+	const encoded = await readFile(new URL('./fixtures/ffmpeg-libmp3lame-one-second.mp3.base64', import.meta.url), 'utf8');
+	let wholeBodyReads = 0;
+	let rangedBytes = 0;
+	class CountedFile extends File {
+		override arrayBuffer(): Promise<ArrayBuffer> { wholeBodyReads++; return super.arrayBuffer(); }
+		override slice(start?: number, end?: number, contentType?: string): Blob {
+			const part = super.slice(start, end, contentType);
+			rangedBytes += part.size;
+			return part;
+		}
+	}
+	const file = new CountedFile([Uint8Array.from(Buffer.from(encoded, 'base64'))], 'recording.mp3');
+	const runtime = createDesktopAudioCodecRuntime(successBridge(() => interleavedBytes([0.5]),
+		() => ({ sampleRate: 96_000, channelCount: 1, frameCount: 1 })));
+	const imported = await decodeStandaloneAudioForImport({ file, codecRuntime: runtime, sampleRate: 44_100,
+		getAudioContext: async () => ({}),
+		decodeWithWebAudio: async () => assert.fail('desktop should use its main codec broker'),
+		decodeWithCodec: (input, settings) => runtime.decode(input, settings),
+		bufferFromChannels: async (_channels, sampleRate) => ({ sampleRate }),
+		inspectEncodedSampleRate: inspectEncodedAudioSampleRate, inspectDecodedSampleRate: () => null,
+	});
+	assert.equal(imported.originalSampleRate, 48_000);
+	assert.equal(imported.decoded.sampleRate, 96_000);
+	assert.equal(rangedBytes, file.size);
+	assert.equal(wholeBodyReads, 0);
 });
 
 test('decode infers all seven file formats and converts exact interleaved results to planar channels', async () => {
