@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { encodeAiff } from '../src/common/editor/aiff.js';
@@ -97,6 +98,37 @@ test('AIFF PCM reads preserve 24-bit and 32-bit integer sample geometry', async 
 
 		assert.equal(descriptor.sampleFormat, sampleFormat);
 		assert.deepEqual([...chunk.channels[0]!], [-1, -0.5, 0, 0.5]);
+	}
+});
+
+test('libsndfile AIFF-C integer tags retain their width, byte order, and exact PCM', async () => {
+	const path = new URL('./fixtures/libsndfile-aifc-integer.json', import.meta.url);
+	const variants = JSON.parse(await readFile(path, 'ascii')) as Record<string, string>;
+	const pattern = [-6542089, 2393443, 4980736, -1835008, 262144, -3670016];
+	for (const [name, base64] of Object.entries(variants)) {
+		const encoded = Uint8Array.from(Buffer.from(base64, 'base64'));
+		const file = new Blob([encoded]);
+		const descriptor = await inspectAiffBlobPcm(file);
+		assert.equal(descriptor.container, 'aifc', name);
+		assert.equal(descriptor.sampleRate, 44_100, name);
+		assert.equal(descriptor.frameCount, 51, name);
+		assert.equal(descriptor.channelCount, 2, name);
+		assert.equal(descriptor.bitDepth, name.includes('24') ? 24 : 32, name);
+		assert.equal(descriptor.littleEndian ?? false, name.startsWith('little'), name);
+		const reader = createAiffBlobPcmChunkReader(file, { descriptor, chunkFrames: 17 });
+		for (const index of [0, 1, 2]) {
+			const chunk = await reader.readChunk(index);
+			for (const [channel, samples] of chunk.channels.entries()) {
+				for (const [frame, value] of samples.entries()) {
+					const expected = pattern[((chunk.frameOffset + frame) * 2 + channel) % pattern.length]! / 8388608;
+					assert.equal(value, expected, name);
+				}
+			}
+		}
+		const comm = Buffer.from(encoded.buffer).indexOf('COMM');
+		assert.ok(comm >= 0, name);
+		new DataView(encoded.buffer).setUint16(comm + 14, 16, false);
+		await assert.rejects(inspectAiffBlobPcm(new Blob([encoded])), /AIFF-C compression/);
 	}
 });
 
