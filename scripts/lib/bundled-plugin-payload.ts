@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { lstat, mkdir, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { BUNDLED_SURGE_DATA_PATH, bundledNativePlugins, isBundledPluginResourcePath } from '../../desktop/bundled-native-plugins.ts';
+import { BUNDLED_ORBITAMP_PATH, BUNDLED_SURGE_DATA_PATH, bundledNativePlugins, isBundledPluginResourcePath } from '../../desktop/bundled-native-plugins.ts';
 import { validateBundledPluginResources, type BundledPluginResource } from '../../desktop/bundled-plugin-resources.ts';
 
 interface CopiedArtifact extends BundledPluginResource { readonly absolutePath?: string }
@@ -24,7 +24,7 @@ export async function copyBundledPluginPayload(options: Options) {
 		return options.copyArtifact(join(options.installRoot, 'runtime', path), destination, options.resultRoot, 0o444);
 	};
 	for (const plugin of plugins) code.push(await copy(plugin.binaryPath));
-	for (const root of ['instruments', BUNDLED_SURGE_DATA_PATH]) {
+	for (const root of ['instruments', BUNDLED_SURGE_DATA_PATH, BUNDLED_ORBITAMP_PATH]) {
 		for (const path of await regularFiles(join(options.installRoot, 'runtime'), root)) {
 			if (nativePaths.has(path)) continue;
 			if (!isBundledPluginResourcePath(path)) throw new Error(`Unexpected bundled plug-in resource: ${path}`);

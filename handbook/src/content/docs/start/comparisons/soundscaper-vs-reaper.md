@@ -163,7 +163,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / — :: JSFX is an editable in-process DSP format; it is not a security sandbox. |
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — ReaVerb |
 | Multiband compression | + | + — ReaXcomp |
-| Guitar amp and cabinet models | / | + — :: Bundled convolution JSFX |
+| Guitar amp and cabinet models | + — OrbitAmp | + — :: Bundled convolution JSFX |
 | Automatic pitch correction | + — :: Automatic pitch correction | + — ReaTune |
 | Drum-hit sample replacement | / | + — :: Drum Trigger / sampler |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | + — :: Separate / dedicated processes |

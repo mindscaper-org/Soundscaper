@@ -58,6 +58,411 @@
 			]
 		},
 		{
+			"id": "orbit-amp",
+			"version": "0.10.1",
+			"git": {
+				"tag": "v0.10.1",
+				"commit": "950abb97a3e80e2ccb71a9578f6ccd490eea92cb"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/orbit-amp/tar.gz/950abb97a3e80e2ccb71a9578f6ccd490eea92cb",
+				"fileName": "orbit-amp-950abb97a3e8.tar.gz",
+				"byteLength": 100652664,
+				"sha256": "e7fe94b8fe85264c338be7ba6cb4734729a001da1e6cfc050e7b58616af23adb"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 1157,
+				"sha256": "057d1f96e3748ba8edbd03e8a47ccb94f684197065d6786963c085a48d3139e7"
+			},
+			"license": "AGPL-3.0-only and separate Darwin’s Cat factory content terms",
+			"licenseSelection": "AGPL-3.0-only",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-juce",
+			"version": "8.0.17-security",
+			"git": {
+				"tag": "8.0.17-security",
+				"commit": "dabd5ad13cd869cba41046947fffc8e5ce5cd662"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/juce-framework/JUCE/tar.gz/dabd5ad13cd869cba41046947fffc8e5ce5cd662",
+				"fileName": "orbit-juce-dabd5ad13cd8.tar.gz",
+				"byteLength": 22909946,
+				"sha256": "302949ee39f8fce798ee2bbd30445f8f31a4ecf4643463c68c54882020e16c13"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 4425,
+				"sha256": "53a0e3444bfb986c87497c64e8ca0024c7dafbf92531706f717ee11f3e5f1046"
+			},
+			"license": "AGPL-3.0-only",
+			"licenseSelection": "AGPL-3.0-only",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-core",
+			"version": "0.62.0",
+			"git": {
+				"tag": "v0.62.0",
+				"commit": "8b6a7a9f6c22ff526bbd97aaf6abfb9ce1c2616d"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/felitronics-core/tar.gz/8b6a7a9f6c22ff526bbd97aaf6abfb9ce1c2616d",
+				"fileName": "orbit-core-8b6a7a9f6c22.tar.gz",
+				"byteLength": 1979807,
+				"sha256": "c0c7301c6e66a0fb48de5749892d7028ec64a9734ce71947e98a688132115b0a"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 369,
+				"sha256": "19846dcf849951e54429a04aa6c0d2e37df055054d77ee1260ef7787fc705ad9"
+			},
+			"license": "AGPL-3.0-or-later",
+			"licenseSelection": "AGPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-guitar",
+			"version": "0.8.0",
+			"git": {
+				"tag": "v0.8.0",
+				"commit": "4024077e79e917c8b31e5c7529af37165394228b"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/felitronics-guitar-core/tar.gz/4024077e79e917c8b31e5c7529af37165394228b",
+				"fileName": "orbit-guitar-4024077e79e9.tar.gz",
+				"byteLength": 662368,
+				"sha256": "cae81da6fae2fdf2fd4cd842ad24498682cca154c780b64932dc95546490828c"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 80,
+				"sha256": "c97c4033a21adff502f26b3cda04707e67511a1c875fcaaa5eef20532f66159d"
+			},
+			"license": "AGPL-3.0-or-later",
+			"licenseSelection": "AGPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-appkit",
+			"version": "0.23.0",
+			"git": {
+				"tag": "v0.23.0",
+				"commit": "6c9e22b0ec544166ca629b38283642d22bd07234"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/felitronics-appkit/tar.gz/6c9e22b0ec544166ca629b38283642d22bd07234",
+				"fileName": "orbit-appkit-6c9e22b0ec54.tar.gz",
+				"byteLength": 1868915,
+				"sha256": "b2a38b6d237496a6e6d0cd091ffde62d522ff9ff30b860d4296214cfdcfe94c2"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 107,
+				"sha256": "868ee4c2a806018ddf11990564b00c8493cb40c2355b2cdb720245444fc2f473"
+			},
+			"license": "AGPL-3.0-or-later",
+			"licenseSelection": "AGPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-cab-ir",
+			"version": "0.4.0",
+			"git": {
+				"tag": "v0.4.0",
+				"commit": "8bb3fe88d87b2b6abc8df63ed3e736a43c76caa2"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/cab-ir-generator/tar.gz/8bb3fe88d87b2b6abc8df63ed3e736a43c76caa2",
+				"fileName": "orbit-cab-ir-8bb3fe88d87b.tar.gz",
+				"byteLength": 17050427,
+				"sha256": "01b3bfc98ef76f847999b8de4ceaf9707afc9d541cd5f12d8a788b7d758adcc0"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 217,
+				"sha256": "f328eab778f108c70a470bc229764d68d68189817f9f1963f13a8d744dc1658d"
+			},
+			"license": "AGPL-3.0-or-later",
+			"licenseSelection": "AGPL-3.0-or-later",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-nam-core",
+			"version": "0.5.4",
+			"git": {
+				"tag": "v0.5.4",
+				"commit": "1f42f88535884450104b8711d7595019afa0495b"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/sdatkinson/NeuralAmpModelerCore/tar.gz/1f42f88535884450104b8711d7595019afa0495b",
+				"fileName": "orbit-nam-core-1f42f8853588.tar.gz",
+				"byteLength": 794185,
+				"sha256": "ac10cdabb0a7408e660d5cc403d1260c966bc839b5b5bb71511b663ca6e4a0cf"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 126,
+				"sha256": "4a5bfca93acd9d7f716953c881475dbbe891c41b975b1e05f4e1e3ccf7cab108"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-eigen",
+			"version": "5.0.1",
+			"git": {
+				"tag": "5.0.1",
+				"commit": "bc3b39870ecb690a623a3f49149a358b95c5781d"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/eigen/tar.gz/bc3b39870ecb690a623a3f49149a358b95c5781d",
+				"fileName": "orbit-eigen-bc3b39870ecb.tar.gz",
+				"byteLength": 2969440,
+				"sha256": "5f6557d1aca6e959a4b955c55f2935261fd30de59c0c79e35bc6d5cbe1de22d1"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 1913,
+				"sha256": "69e410247599979c226d444dd68537fa68828cb03d3092d9b5ccd11f281b0716"
+			},
+			"license": "MPL-2.0",
+			"licenseSelection": "MPL-2.0",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-namz",
+			"version": "5.0.0",
+			"git": {
+				"tag": "v5.0.0",
+				"commit": "717ca2dc34cc712075abc77c613c507ee8bc8727"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/namz/tar.gz/717ca2dc34cc712075abc77c613c507ee8bc8727",
+				"fileName": "orbit-namz-717ca2dc34cc.tar.gz",
+				"byteLength": 254528,
+				"sha256": "3962e07c672f1bddc77fb587a8842fb921fcc6544068372297c0213471e82bc1"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 172,
+				"sha256": "c908e0e642f8576ad37b9455902a3dda315f7132615720f19fda68c19c4c6ec5"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-toml",
+			"version": "0.3.0",
+			"git": {
+				"tag": "v0.3.0",
+				"commit": "6a80df63e3df2950c8d7150f7d525badbdf39e25"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/darwinscat/felitronics-toml/tar.gz/6a80df63e3df2950c8d7150f7d525badbdf39e25",
+				"fileName": "orbit-toml-6a80df63e3df.tar.gz",
+				"byteLength": 969868,
+				"sha256": "ae3cebcfc231de8075b06a9a7c915e3d71f1d326172785776b57aaa541f6b8eb"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 1214,
+				"sha256": "a8438a34d37254aff01aca25e00a1d2512dc772411a0f7605e75ce968a2b1a2f"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-webp",
+			"version": "1.6.0",
+			"git": {
+				"tag": "v1.6.0",
+				"commit": "4fa21912338357f89e4fd51cf2368325b59e9bd9"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/webmproject/libwebp/tar.gz/4fa21912338357f89e4fd51cf2368325b59e9bd9",
+				"fileName": "orbit-webp-4fa219123383.tar.gz",
+				"byteLength": 3834766,
+				"sha256": "923f3382a47a2af185c3240c954cf004428b237bd7317413a95146d01eb4b94b"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 339,
+				"sha256": "ab1b2ee9e25d10f4a122ffbc358f0a51b7393766543b37b3237a164f2fb00ff5"
+			},
+			"license": "BSD-3-Clause",
+			"licenseSelection": "BSD-3-Clause",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-json",
+			"version": "3.11.3",
+			"git": {
+				"tag": "v3.11.3",
+				"commit": "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/nlohmann/json/tar.gz/9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03",
+				"fileName": "orbit-json-9cca280a4d0c.tar.gz",
+				"byteLength": 8054631,
+				"sha256": "0dbc5e40a01ff142e7e68c03e85247a4dcede2f592d12d3677dee3664d17975a"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 1090,
+				"sha256": "8a8abd0c69c9ae64afb9fb751e2f394a523d41736a7f3dbec73882a78f43bdcd"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-clap-extensions",
+			"version": "6bde108329ff",
+			"git": {
+				"tag": null,
+				"commit": "6bde108329ff9fc24404b79b8b397261a75cf6a8"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/free-audio/clap-juce-extensions/tar.gz/6bde108329ff9fc24404b79b8b397261a75cf6a8",
+				"fileName": "orbit-clap-extensions-6bde108329ff.tar.gz",
+				"byteLength": 72162,
+				"sha256": "23e4594ecb5f76b1b121d2746c0e68e9e484134e495d8e0a894f8f5a0a9c54ae"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 37,
+				"sha256": "e01dc745fe7d866cfd9e1a04e5f0464cbd5a93a870d5a647822c49c7df92ff4f"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-clap",
+			"version": "29ffcc273be7",
+			"git": {
+				"tag": null,
+				"commit": "29ffcc273be7c7c651f6c9953b99e69700e2387a"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/free-audio/clap/tar.gz/29ffcc273be7c7c651f6c9953b99e69700e2387a",
+				"fileName": "orbit-clap-29ffcc273be7.tar.gz",
+				"byteLength": 2354035,
+				"sha256": "f8c9aaf318b00e989111630b4cf1118b235bec2059904c3cd1806e71b8e37ff0"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 94,
+				"sha256": "15d832f2e93f6575c1eee2a29e0b2d537379c43860f000d4496d0f3d47aeae43"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
+			"id": "orbit-clap-helpers",
+			"version": "a61bcdf0ecc2",
+			"git": {
+				"tag": null,
+				"commit": "a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc"
+			},
+			"archive": {
+				"url": "https://codeload.github.com/free-audio/clap-helpers/tar.gz/a61bcdf0ecc2c8db1e80bfe8bf9cb7e8d9fd2bbc",
+				"fileName": "orbit-clap-helpers-a61bcdf0ecc2.tar.gz",
+				"byteLength": 43714,
+				"sha256": "48d24c9ad5e22b36040c500198a979aa25d2d7005d76f98a9edbbee0b86a102d"
+			},
+			"extractedTree": {
+				"algorithm": "framescaper-portable-source-tree-sha256-v1",
+				"fileCount": 45,
+				"sha256": "642ad6ffa65ec2f7c08de47a79b78163bd25158a21770a90f7e425e87cf763ad"
+			},
+			"license": "MIT",
+			"licenseSelection": "MIT",
+			"authenticationStatus": "pinned-metadata",
+			"activationStatus": "accepted",
+			"blockedBy": null,
+			"uses": [
+				"bundled-guitar-amp-effect"
+			]
+		},
+		{
 			"id": "electron-node-api-headers",
 			"version": "45.2.3",
 			"git": {

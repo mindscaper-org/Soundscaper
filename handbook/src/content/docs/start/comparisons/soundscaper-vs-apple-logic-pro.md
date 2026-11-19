@@ -163,7 +163,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / |
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — Space Designer |
 | Multiband compression | + | + — Multipressor |
-| Guitar amp and cabinet models | / | + — Amp Designer |
+| Guitar amp and cabinet models | + — OrbitAmp | + — Amp Designer |
 | Automatic pitch correction | + — :: Automatic pitch correction | + — :: Pitch Correction / Flex Pitch |
 | Drum-hit sample replacement | / | + — Drum Replacement |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | ? — Not verified |

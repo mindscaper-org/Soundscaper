@@ -87,6 +87,15 @@ are available only for MIDI tracks and are enabled by default.
 
 ## Soundscaper professional-native desktop payload
 
+OrbitAmp 0.10.1 is built as a VST3 effect from Darwin’s Cat’s pinned source and
+the dependency archives in `config/milestone-5-native-source-acquisitions.json`.
+The code is AGPL-3.0-only. Darwin’s Cat supplies the NAM captures and cabinet
+impulse responses under separate terms that permit distribution in free,
+GPL-compatible software with attribution. The installed notice inventory
+includes those terms and the dependency notices. The build recipe in
+`scripts/lib/bundled-orbitamp-build.ts` resolves the factory data relative to
+the VST3 module so the packaged sounds travel with the plug-in.
+
 Stable Soundscaper desktop packages carry a closed, target-specific notice
 inventory under `licenses/professional-native/`. The exact filenames, byte
 lengths, SHA-256 digests, source targets, and selected license arms are recorded

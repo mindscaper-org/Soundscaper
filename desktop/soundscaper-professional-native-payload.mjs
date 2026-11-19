@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { validateBundledPluginResources } from '#desktop-runtime/bundled-plugin-resources';
-import { isBundledInstrumentArtifactPath } from '#desktop-runtime/bundled-native-plugins';
+import { ORBITAMP_SOURCE_IDS, isSoundscaperOnlyBundledPluginArtifactPath } from '#desktop-runtime/bundled-native-plugins';
 
 import {
 	parseSoundscaperProfessionalNativeBuildAuthority,
@@ -62,7 +62,7 @@ export async function describeSoundscaperProfessionalNativePayload(location, rea
 		deliveryFilesystem = location.pluginOnly === true ? null : await runtimeArtifact(
 			location, manifest, target, selected.deliveryFilesystem, readFileImpl,
 		);
-		const runtimeClosure = Object.freeze(await Promise.all(selected.isolation.runtimeClosure.filter(entry => location.pluginOnly !== true || !isBundledInstrumentArtifactPath(entry.path)).map((entry) =>
+		const runtimeClosure = Object.freeze(await Promise.all(selected.isolation.runtimeClosure.filter(entry => location.pluginOnly !== true || !isSoundscaperOnlyBundledPluginArtifactPath(entry.path)).map((entry) =>
 			runtimeArtifact(location, manifest, target, entry, readFileImpl))));
 		entrypoint = selected.isolation.entrypointPath === selected.pluginPeer.path ? pluginPeer
 			: runtimeClosure.find(({ path }) => path === (location.packaged
@@ -153,7 +153,7 @@ function validateManifest(value, sourceRegister) {
 }
 
 function validSourceAuthentication(value, target, sourceRegister) {
-	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	const ids = ['surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 		...(target.startsWith('win-') ? ['asio-sdk'] : []),
 		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
 	return value?.schemaVersion === 1 && value.status === 'authenticated'

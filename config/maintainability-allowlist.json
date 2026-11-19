@@ -38,7 +38,7 @@
 		"native/soundscaper-helper-addon/src/addon.c": 551,
 		"scripts/lib/desktop-bundled-codec-corresponding-source.mjs": 587,
 		"scripts/lib/m7-local-assistance-privacy-metrics.mjs": 552,
-		"scripts/lib/milestone-5-native-source-acquisitions.mjs": 562,
+		"scripts/lib/milestone-5-native-source-acquisitions.mjs": 557,
 		"src/common/editor/adm-project-metadata.ts": 574,
 		"src/common/editor/assistance/owned-highlight-workflow-transforms-v1.ts": 551,
 		"src/common/editor/assistance/transcript-scape-asset-extension-v1.ts": 574,

@@ -3,7 +3,8 @@
 /** Exact build/stage/runtime authority for the professional Soundscaper addon. */
 import { createHash } from 'node:crypto';
 import { validateBundledPluginResources } from '../../desktop/bundled-plugin-resources.ts';
-import { isBundledInstrumentArtifactPath } from '../../desktop/bundled-native-plugins.ts';
+import { soundscaperProfessionalNativeSourceIdsForTarget } from './soundscaper-professional-native-build-result-contract.mjs';
+import { isSoundscaperOnlyBundledPluginArtifactPath } from '../../desktop/bundled-native-plugins.ts';
 import { lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 
@@ -237,7 +238,7 @@ export async function verifyStagedSoundscaperProfessionalNativePayload({
 }
 
 function projectedClosure(release, pluginOnly) {
-	return release.isolation.runtimeClosure.filter(({ path }) => !pluginOnly || !isBundledInstrumentArtifactPath(path));
+	return release.isolation.runtimeClosure.filter(({ path }) => !pluginOnly || !isSoundscaperOnlyBundledPluginArtifactPath(path));
 }
 
 function validateManifest(value, sourceRegister) {
@@ -295,9 +296,7 @@ function validateManifest(value, sourceRegister) {
 }
 
 function validSourceAuthentication(value, target, sourceRegister) {
-	const ids = ['surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
-		...(target.startsWith('win-') ? ['asio-sdk'] : []),
-		...(target.startsWith('linux-') ? ['ladspa-sdk', 'lv2'] : [])];
+	const ids = soundscaperProfessionalNativeSourceIdsForTarget(target);
 	return value?.schemaVersion === 1 && value.status === 'authenticated'
 		&& Array.isArray(value.sources) && value.sources.length === ids.length
 		&& ids.every((id) => value.sources.filter((source) => source?.id === id).length === 1)

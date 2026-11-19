@@ -163,7 +163,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | ~ — Native plug-ins :: CLAP/VST plug-ins can run in isolated host processes; there is no reviewed WebAssembly effect-package format. |
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — Convolution |
 | Multiband compression | + | ~ — Multiband FX :: Build a split-band chain with the included dynamics devices; no single dedicated multiband compressor is documented. |
-| Guitar amp and cabinet models | / | + — Amp |
+| Guitar amp and cabinet models | + — OrbitAmp | + — Amp |
 | Automatic pitch correction | + — :: Automatic pitch correction | / |
 | Drum-hit sample replacement | / | / |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | + — Configurable :: Hosting modes range from one shared sandbox to a separate process per plug-in instance. |

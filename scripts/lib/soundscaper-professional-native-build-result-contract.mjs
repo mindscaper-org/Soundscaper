@@ -2,6 +2,7 @@
 
 /** Closed build-result contract shared by assembly and package staging. */
 
+import { ORBITAMP_SOURCE_IDS } from '../../desktop/bundled-native-plugins.ts';
 import { createHash } from 'node:crypto';
 import { validateBundledPluginResources } from '../../desktop/bundled-plugin-resources.ts';
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
@@ -29,7 +30,7 @@ const MAXIMUM_FILE_BYTES = 512 * 1024 * 1024;
 const SHA256 = /^[a-f\d]{64}$/u;
 const REVISION = /^(?:[a-f\d]{40}|[a-f\d]{64})$/u;
 const BASE_SOURCE_IDS = Object.freeze([
-	'surge-xt', 'dexed', 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
+	'surge-xt', 'dexed', ...ORBITAMP_SOURCE_IDS, 'electron-node-api-headers', 'juce', 'clap', 'vst3-sdk', 'fst', 'vamp-plugin-sdk', 'ara-api', 'ara-library',
 ]);
 const COMMON_SELF_TEST_IDS = Object.freeze([
 	'addon-exact-backend-format-inventory',

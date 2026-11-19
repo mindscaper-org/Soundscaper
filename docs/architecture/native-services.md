@@ -262,6 +262,20 @@ update prepared coefficient storage without creating processors on the audio
 thread. Four-channel true-stereo IRs and automatic native tail discovery beyond
 the requested project/render interval are not supported by this adapter.
 
+### Bundled guitar amp
+
+Soundscaper desktop packages include OrbitAmp as a single VST3 effect alongside
+the existing JUCE suite. The native build uses the exact, offline source
+closure in the milestone 5 acquisitions register. Its working-copy patch
+locates the factory data inside the VST3 bundle. Only the data named by the
+OrbitAmp factory manifest is staged as plug-in resources. The existing bundle
+fingerprint binds those resources to the target binary, and isolated launches
+carry them with the plug-in snapshot. The build also primes OrbitAmp’s capture
+slots on the control thread during prepare and state restore so a bounce can
+start immediately. Soundscaper discovers OrbitAmp through
+the authenticated startup scan and exposes it through **Effect → Audio Plugins**
+and **Effect → Plugin Manager**.
+
 ### Installed plug-in identities
 
 JUCE identifiers must not hash a binary's location: scans and hosts receive

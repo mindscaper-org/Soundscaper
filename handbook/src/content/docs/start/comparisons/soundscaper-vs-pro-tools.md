@@ -163,7 +163,7 @@ Import [Audacity shortcuts](/reference/generated/commands/) in Preferences; revi
 | Sandboxed effect packages | ~ — WebAssembly :: Reviewed WebAssembly packages, one ships and external ones are fenced | / |
 | Convolution reverb | + — JUCE :: Bundled native convolution with mono/stereo WAV or AIFF impulse responses embedded in effect state; requires the matching staged desktop runtime. | + — Space :: Avid Space is listed in the Studio bundle; no third-party reverb is required. |
 | Multiband compression | + | + — :: Pro Multiband Dynamics |
-| Guitar amp and cabinet models | / | + — Eleven MK II |
+| Guitar amp and cabinet models | + — OrbitAmp | + — Eleven MK II |
 | Automatic pitch correction | + — :: Automatic pitch correction | / — :: Pitch shifting is included; automatic note correction requires a partner plug-in. |
 | Drum-hit sample replacement | / | + — Sound Replacer :: Detects hits and replaces or layers them with samples, with level-dependent triggers. |
 | Native plug-in process isolation | + — :: Separate host processes per renderer owner and plug-in binary digest; instances of the same binary can share a host. | / |
