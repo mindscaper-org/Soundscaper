@@ -6,6 +6,7 @@ import { BUNDLED_SURGE_DATA_PATH, bundledNativePlugins } from '../../desktop/bun
 
 interface EngineBuild {
 	readonly id: 'surge-xt' | 'dexed';
+	readonly target: string;
 	readonly sourceRoot: string;
 	readonly workSourceRoot: string;
 	readonly buildRoot: string;
@@ -37,7 +38,7 @@ export function createBundledMidiInstrumentBuildPlan(options: Options) {
 		if (options.target === 'mac-arm64') configure.push('-DCMAKE_OSX_ARCHITECTURES=arm64', `-DCMAKE_OSX_SYSROOT=${absolute(options.macosSdkPath)}`);
 		const artefacts = id === 'surge-xt' ? 'src/surge-xt/surge-xt_artefacts' : 'source/Dexed_artefacts';
 		const output = join(buildRoot, artefacts, 'Release/VST3', `${plugin.name}.vst3`);
-		return Object.freeze({ id, sourceRoot: absolute(options.sourceRoots[id]), workSourceRoot, buildRoot, targetName,
+		return Object.freeze({ id, target: options.target, sourceRoot: absolute(options.sourceRoots[id]), workSourceRoot, buildRoot, targetName,
 			configure: Object.freeze(configure), build: Object.freeze(['--build', buildRoot, '--config', 'Release', '--target', targetName, '--parallel', '2']), output });
 	});
 	return Object.freeze({ target: options.target, installRoot, engines: Object.freeze(engines) });
@@ -88,6 +89,37 @@ function patchWorkingSource(engine: EngineBuild): void {
 		patch('src/common/SurgeStorage.cpp', 'datapath = suppliedDataPath;', 'datapath = fs::u8path(suppliedDataPath);');
 		patch('src/common/SurgeStorage.cpp', '    if (auto *c = getenv("SURGE_DATA_HOME"))\n    {\n        r = true;\n        v = c;\n    }',
 			'#if defined(_WIN32)\n    if (auto *c = _wgetenv(L"SURGE_DATA_HOME"))\n    {\n        r = true;\n        auto bytes = fs::path(c).u8string();\n        v.assign(bytes.begin(), bytes.end());\n    }\n#else\n    if (auto *c = getenv("SURGE_DATA_HOME"))\n    {\n        r = true;\n        v = c;\n    }\n#endif');
+	}
+	if (engine.target === 'mac-arm64') {
+		const windowing = 'libs/JUCE/modules/juce_gui_basics/native/juce_Windowing_mac.mm';
+		const snapshot = 'static Image createNSWindowSnapshot (NSWindow* nsWindow)';
+		const entry = 'Image createSnapshotOfNativeWindow (void* nativeWindowHandle)';
+		// The macOS 15 SDK removes the legacy CoreGraphics window snapshot API.
+		// Capture the plugin window's own content through AppKit on newer SDKs.
+		patch(windowing, snapshot, `#if defined (MAC_OS_VERSION_15_0) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_VERSION_15_0
+${snapshot}
+{
+    JUCE_AUTORELEASEPOOL
+    {
+        NSView* content = [nsWindow contentView];
+        const auto bounds = [content bounds];
+        if (NSIsEmptyRect (bounds))
+            return {};
+
+        auto* bitmap = [content bitmapImageRepForCachingDisplayInRect: bounds];
+        if (bitmap == nil)
+            return {};
+
+        [content cacheDisplayInRect: bounds toBitmapImageRep: bitmap];
+        Image image (Image::ARGB, (int) [bitmap pixelsWide], (int) [bitmap pixelsHigh], true);
+        CGContextDrawImage (juce_getImageContext (image),
+                            CGRectMake (0, 0, [bitmap pixelsWide], [bitmap pixelsHigh]), [bitmap CGImage]);
+        return image;
+    }
+}
+#else
+${snapshot}`);
+		patch(windowing, entry, `#endif\n\n${entry}`);
 	}
 }
 

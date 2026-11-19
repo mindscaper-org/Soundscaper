@@ -49,3 +49,27 @@ test('building a read-only source snapshot patches only its private copy and kee
 	assert.match(patched, /_wgetenv\(L"SURGE_DATA_HOME"\)/u);
 	await writeFile(join(engine.workSourceRoot, 'src/generated.h'), 'compiler generated');
 });
+
+test('macOS instrument working copies use AppKit snapshots with the current SDK', async context => {
+	const { mkdtemp, mkdir, writeFile, readFile, rm } = await import('node:fs/promises');
+	const { tmpdir } = await import('node:os');
+	const { dirname, join } = await import('node:path');
+	const { prepareBundledMidiInstrumentSources } = await import('../scripts/lib/bundled-midi-instrument-build.ts');
+	const root = await mkdtemp(join(tmpdir(), 'bundled-instrument-macos-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const dexed = join(root, 'dexed');
+	const path = 'libs/JUCE/modules/juce_gui_basics/native/juce_Windowing_mac.mm';
+	const original = 'static Image createNSWindowSnapshot (NSWindow* nsWindow)\r\n{ CGWindowListCreateImage (); }\r\n'
+		+ 'Image createSnapshotOfNativeWindow (void* nativeWindowHandle)\r\n{ return {}; }\r\n';
+	await mkdir(dirname(join(dexed, path)), { recursive: true });
+	await mkdir(join(dexed, 'source'));
+	await writeFile(join(dexed, path), original);
+	await writeFile(join(dexed, 'source/CMakeLists.txt'), 'COPY_PLUGIN_AFTER_BUILD TRUE\n');
+	const { engines } = createBundledMidiInstrumentBuildPlan({ target: 'mac-arm64', sourceRoots: { 'surge-xt': join(root, 'surge'), dexed },
+		buildRoot: join(root, 'build'), installRoot: join(root, 'install'), macosSdkPath: join(root, 'sdk') });
+	const engine = engines.find(item => item.id === 'dexed')!;
+	prepareBundledMidiInstrumentSources(engine);
+	assert.equal(await readFile(join(dexed, path), 'utf8'), original);
+	const patched = await readFile(join(engine.workSourceRoot, path), 'utf8');
+	assert.match(patched, /#if defined \(MAC_OS_VERSION_15_0\)[\s\S]+cacheDisplayInRect[\s\S]+#else[\s\S]+CGWindowListCreateImage[\s\S]+#endif\s+Image createSnapshotOfNativeWindow/u);
+});
