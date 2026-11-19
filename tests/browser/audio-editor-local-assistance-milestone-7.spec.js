@@ -15,17 +15,54 @@ import {
 	createDeterministicAvFixture,
 	createDeterministicSilentVideoFixture,
 } from './fixtures/deterministic-av-media.js';
+import { classicAvcCaptureMedia } from './fixtures/video-native-capture-media.js';
 import {
 	completeMilestone7Run,
 	installMilestone7LocalAssistanceFixture,
 	milestone7FixtureSnapshot,
 } from './helpers/milestone-7-local-assistance.js';
+import { reviewAssistanceFramePackV1 } from '../../src/common/editor/assistance/binary-formats-v1.ts';
 
 const VIDEO = createDeterministicSilentVideoFixture('milestone-7-workflows.webm');
 const LINKED_AV = createDeterministicAvFixture('milestone-7-linked-workflows.webm');
 
 test.describe('Milestone 7 Guided workflow qualification', () => {
 	registerAudioEditorHooks();
+
+	test('Accurate Mark Cuts stages the last authored AVC picture', async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The classic AVC duration is rounded in Chromium.');
+		await stubStorageEstimate(page, { usage: 1024 ** 2, quota: 2 * 1024 ** 3 });
+		await installMilestone7LocalAssistanceFixture(page, [['transnetv2', '1.0.0', 'shot-detection']]);
+		const editor = await bootEditor(page, '/framescaper/en/');
+		const file = classicAvcCaptureMedia();
+		await editor.locator('[data-project-bin-input]').setInputFiles(file);
+		await editor.getByRole('button', { name: 'Add to timeline: classic-vfr-capture', exact: true }).click();
+		await editor.getByRole('group', { name: /^Video clip:/u }).first().press('Enter');
+		const dialog = await openAssistanceTask(page, editor, 'Mark Cuts');
+		await dialog.getByRole('radio', { name: 'Accurate · TransNetV2', exact: true }).click();
+		page.once('dialog', event => { void event.dismiss(); });
+		await dialog.getByRole('button', { name: 'Analyze', exact: true }).click();
+		await expect.poll(async () => (await milestone7FixtureSnapshot(page)).stagedSlots)
+			.toContain('detect-shots:frame-pack');
+		const bytes = await page.evaluate(async () => {
+			const input = [...globalThis.__milestone7Fixture.stagedInputBodies.entries()]
+				.find(([key]) => key.endsWith(':detect-shots:frame-pack'))?.[1];
+			return Array.from(new Uint8Array(await input.arrayBuffer()));
+		});
+		const pack = reviewAssistanceFramePackV1(Uint8Array.from(bytes));
+		expect([pack.timescale, pack.frameCount]).toEqual([90_000, 22]);
+		expect(pack.frameTiming(21)).toEqual({ sourceFrame: 21, presentationTick: '84000' });
+		const labels = Array.from({ length: pack.frameCount }, (_, index) => {
+			const { rgba } = pack.frame(index);
+			const cells = [.25, .75].flatMap(y => [.125, .375, .625, .875].map(x => rgba[
+				(Math.floor(y * pack.height) * pack.width + Math.floor(x * pack.width)) * 4
+			]));
+			return cells[0] < 36 && cells[1] > 214
+				? cells.slice(2, 7).reduce((label, value, bit) => label | (value > 127 ? 1 << bit : 0), 0)
+				: null;
+		});
+		expect(labels).toEqual([0, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25, 28]);
+	});
 
 	test('reviews transcript audition and independent beat publication choices', async ({ page }) => {
 		test.setTimeout(180_000);

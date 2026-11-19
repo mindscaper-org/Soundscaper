@@ -151,6 +151,18 @@ test('a capture inside or beyond a sub-millisecond final frame selects that fram
 	} finally { fixture.extractor.dispose(); }
 });
 
+test('capture keeps the authored final picture when native duration rounds to its start', async () => {
+	const fixture = await videoExtractorFixture({
+		duration: .933333,
+		timing: { timescale: 90_000, presentationTicks: [0n, 75_000n, 84_000n], finalFrameDurationTicks: 3_000n },
+	});
+	try {
+		const frame = await fixture.extractor.capturePixels(.95);
+		assert.equal(frame.timestampSeconds, .95);
+		assert.deepEqual(fixture.seeks.map(time => Math.round(time * 1e6)), [941667]);
+	} finally { fixture.extractor.dispose(); }
+});
+
 test('the initial poster seeks inside the first admitted source frame', async () => {
 	const fixture = await videoExtractorFixture({
 		duration: 0.004,

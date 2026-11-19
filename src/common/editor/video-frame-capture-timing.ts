@@ -60,9 +60,9 @@ export async function createVideoFrameCaptureTiming(
 	};
 	const clampTime = (timestamp: number, duration: number): number => {
 		const last = starts.at(-1);
-		const pictureEnd = Math.min(end, duration);
-		if (last === undefined || last >= pictureEnd) return clampUnindexedTime(timestamp, duration);
-		return timestamp < pictureEnd ? timestamp : last;
+		if (last === undefined) return clampUnindexedTime(timestamp, duration);
+		// Native duration can round to the last picture's start. Preserve the indexed interval.
+		return timestamp < end ? timestamp : last;
 	};
 	return Object.freeze({ matches, seekTime, clampTime });
 }
