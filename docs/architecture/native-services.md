@@ -158,6 +158,10 @@ In WASAPI shared mode the driver sets the callback period. The native bridge
 regroups frames between that period and the negotiated transport packet size
 at the requested sample rate. Playback primes the ring before consuming the
 first packet so the two block sizes can run on their own schedules.
+The Windows build applies a source-pinned patch to its JUCE build copy so
+shared callbacks use the endpoint period at the opened stream rate. Input-only
+callbacks consume complete blocks already in JUCE's capture reservoir before
+waiting for another device event.
 
 Input loss during recording commits only the already captured prefix through
 the normal recording publication path. It never invents recorded silence.

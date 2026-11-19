@@ -75,6 +75,11 @@ if(NOT EXISTS "${SOUNDSCAPER_VAMP_ROOT}/vamp/vamp.h"
 endif()
 
 add_subdirectory("${SOUNDSCAPER_JUCE_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/juce" EXCLUDE_FROM_ALL)
+if(WIN32)
+	include(cmake/wasapi-juce-compatibility.cmake)
+	soundscaper_use_juce_wasapi_clock("${SOUNDSCAPER_JUCE_ROOT}/modules/juce_audio_devices"
+		"${CMAKE_CURRENT_BINARY_DIR}/juce-wasapi")
+endif()
 juce_set_ara_sdk_path("${SOUNDSCAPER_ARA_SDK_ROOT}")
 # FST supplies independently reverse-engineered GPL compatibility headers. Copy
 # the authenticated headers into JUCE's expected layout without mutating the
