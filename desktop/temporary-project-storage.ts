@@ -1,10 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { mkdir, readFile, rename, writeFile, access, stat } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { mkdir, readFile, readdir, rename, writeFile, access, lstat, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
+import { fixedProjectLibraryPaths } from './project-library-path-layout.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
+
+const FOLDER_ID = /^[a-f0-9]{32}$/u;
+type FolderState = Readonly<{
+	active: string; selected: string; moveStarted: boolean; activeId?: string | undefined; selectedId?: string | undefined;
+}>;
 
 export class TemporaryProjectStorageUnavailableError extends Error {
 	constructor(folder: 'active' | 'selected') {
@@ -15,48 +22,45 @@ export class TemporaryProjectStorageUnavailableError extends Error {
 }
 
 export class TemporaryProjectStorage {
-	#active: string;
-	#selected: string;
-	#moveStarted = false;
+	#state: FolderState;
 	#selectionTail = Promise.resolve();
 	constructor(readonly configurationPath: string, readonly defaultRoot: string, readonly appName: string) {
-		this.#active = this.#selected = defaultRoot;
+		this.#state = { active: defaultRoot, selected: defaultRoot, moveStarted: false };
 	}
 	async prepare(): Promise<string> {
 		try {
 			const value: unknown = JSON.parse(await readFile(this.configurationPath, 'utf8'));
 			if (value && typeof value === 'object' && 'active' in value && 'selected' in value) {
-				this.#active = folder(value.active); this.#selected = folder(value.selected);
+				const active = folder(value.active), selected = folder(value.selected);
 				// An older pending selection may already have moved some files.
-				this.#moveStarted = this.#active !== this.#selected
-					&& (!('moveStarted' in value) || value.moveStarted !== false);
+				this.#state = { active, selected, moveStarted: active !== selected && (!('moveStarted' in value) || value.moveStarted !== false),
+					activeId: folderId(value, 'activeId'), selectedId: folderId(value, 'selectedId') };
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-		const active = this.#active === resolve(this.defaultRoot)
-			? assertLocalDesktopStorage(this.#active) : await availableTemporaryFolder(this.#active);
-		if (active === null) throw new TemporaryProjectStorageUnavailableError('active');
-		if (this.#active !== this.#selected) {
-			const selected = await availableTemporaryFolder(this.#selected);
-			if (selected === null) {
-				if (this.#moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
-				return this.#active;
-			}
-			await migrateDesktopStorageEntries([{
-				source: join(active, this.appName, 'project-library', 'v1'),
-				destination: join(selected, this.appName, 'project-library', 'v1'),
-			}], { beforeMove: async () => {
-				if (this.#moveStarted) return;
-				await this.#persist(this.#active, this.#selected, true);
-				this.#moveStarted = true;
-			} });
-			await this.#persist(this.#selected, this.#selected, false);
-			this.#active = this.#selected;
-			this.#moveStarted = false;
+		const activeRoot = await this.#openActiveFolder();
+		const state = this.#state;
+		if (state.active === state.selected) return state.active;
+		const selectedRoot = await this.#availableFolder(state.selected, state.selectedId);
+		if (selectedRoot === null) {
+			if (state.moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
+			return state.active;
 		}
-		return this.#active;
+		let selectedId = state.selectedId;
+		await migrateDesktopStorageEntries([{
+			source: this.#libraryPath(activeRoot), destination: this.#libraryPath(selectedRoot),
+		}], { beforeMove: async () => {
+			selectedId ??= await this.#rememberFolder(selectedRoot);
+			if (!state.moveStarted || selectedId !== state.selectedId) {
+				await this.#persist({ ...state, selectedId, moveStarted: true });
+			}
+		} });
+		selectedId ??= await this.#rememberFolder(selectedRoot);
+		await this.#persist({ active: state.selected, selected: state.selected, moveStarted: false, activeId: selectedId, selectedId });
+		return this.#state.active;
 	}
 	status(): Readonly<{ folder: string; selectedFolder: string; restartRequired: boolean }> {
-		return { folder: this.#active, selectedFolder: this.#selected, restartRequired: this.#active !== this.#selected };
+		const { active, selected } = this.#state;
+		return { folder: active, selectedFolder: selected, restartRequired: active !== selected };
 	}
 	select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
 		const selection = this.#selectionTail.then(() => this.#select(path));
@@ -65,22 +69,73 @@ export class TemporaryProjectStorage {
 	}
 	async #select(path: string): Promise<ReturnType<TemporaryProjectStorage['status']>> {
 		const selected = assertLocalDesktopStorage(folder(path));
-		const source = join(assertLocalDesktopStorage(this.#active), this.appName, 'project-library', 'v1');
-		const destination = join(selected, this.appName, 'project-library', 'v1');
-		await checkDesktopStorageMigrationDestination({ source, destination });
+		const active = await this.#openActiveFolder();
+		await checkDesktopStorageMigrationDestination({ source: this.#libraryPath(active), destination: this.#libraryPath(selected) });
 		await mkdir(selected, { recursive: true, mode: 0o700 });
 		await access(selected, constants.W_OK);
-		await this.#persist(this.#active, selected, false);
-		this.#selected = selected;
-		this.#moveStarted = false;
+		const selectedId = active === selected && this.#state.activeId !== undefined
+			? this.#state.activeId : await this.#rememberFolder(selected);
+		await this.#persist({ ...this.#state, selected, selectedId, moveStarted: false });
 		return this.status();
 	}
-	async #persist(active: string, selected: string, moveStarted: boolean): Promise<void> {
+	async #openActiveFolder(): Promise<string> {
+		const state = this.#state;
+		if (state.activeId === undefined && state.active === resolve(this.defaultRoot)) return assertLocalDesktopStorage(state.active);
+		const root = await this.#availableFolder(state.active, state.activeId);
+		if (root === null) throw new TemporaryProjectStorageUnavailableError('active');
+		if (state.activeId !== undefined) return root;
+		const catalog = fixedProjectLibraryPaths(this.#libraryPath(root)).databasePath;
+		if (!(await optionalMetadata(catalog))?.isFile()) {
+			// A legacy move may already have transferred its catalog to the destination.
+			if (!state.moveStarted) throw new TemporaryProjectStorageUnavailableError('active');
+			return root;
+		}
+		const activeId = await this.#rememberFolder(root);
+		await this.#persist({ ...state, activeId, selectedId: state.active === state.selected ? activeId : state.selectedId });
+		return root;
+	}
+	async #availableFolder(path: string, identity: string | undefined): Promise<string | null> {
+		const root = await availableTemporaryFolder(path);
+		if (root === null || identity === undefined) return root;
+		return (await optionalMetadata(join(this.#markerRoot(root), identity)))?.isDirectory() ? root : null;
+	}
+	#libraryPath(root: string): string { return join(root, this.appName, 'project-library', 'v1'); }
+	#markerRoot(root: string): string {
+		// Keep the folder marker outside the library tree moved between volumes.
+		return join(root, `.${this.appName.toLowerCase()}-temporary-library`);
+	}
+	async #rememberFolder(root: string): Promise<string | undefined> {
+		if (root === resolve(this.defaultRoot)) return undefined;
+		const markerRoot = this.#markerRoot(root);
+		await mkdir(markerRoot, { recursive: true, mode: 0o700 });
+		const entries = await readdir(markerRoot, { withFileTypes: true });
+		const existing = entries.find(entry => entry.isDirectory() && FOLDER_ID.test(entry.name));
+		if (existing) return existing.name;
+		const id = randomBytes(16).toString('hex');
+		await mkdir(join(markerRoot, id), { mode: 0o700 });
+		return id;
+	}
+	async #persist(state: FolderState): Promise<void> {
 		await mkdir(dirname(this.configurationPath), { recursive: true, mode: 0o700 });
 		const temporary = `${this.configurationPath}.tmp`;
-		await writeFile(temporary, JSON.stringify({ active, selected, moveStarted }), { mode: 0o600, flush: true });
+		await writeFile(temporary, JSON.stringify(state), { mode: 0o600, flush: true });
 		await rename(temporary, this.configurationPath);
+		this.#state = state;
 	}
+}
+async function optionalMetadata(path: string) {
+	try { return await lstat(path); }
+	catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+		throw error;
+	}
+}
+function folderId(value: object, key: 'activeId' | 'selectedId'): string | undefined {
+	const id: unknown = Reflect.get(value, key);
+	if (id === undefined) return undefined;
+	if (typeof id !== 'string' || !FOLDER_ID.test(id)) throw new TypeError('Invalid temporary data folder identity.');
+	return id;
 }
 async function availableTemporaryFolder(path: string): Promise<string | null> {
 	try {

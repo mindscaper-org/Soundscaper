@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chmod, mkdtemp, mkdir, readFile, writeFile, rm, rename, stat } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, readdir, writeFile, rm, rename, rmdir, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
@@ -55,6 +55,11 @@ test('a missing pending temporary folder leaves the active library in place unti
 	assert.equal(await readFile(join(original, libraryPath, 'library.sqlite'), 'utf8'), 'working project data');
 	await assert.rejects(stat(selected), { code: 'ENOENT' });
 
+	await mkdir(selected);
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), original);
+	assert.deepEqual(await readdir(selected), []);
+	await rmdir(selected);
+
 	await rename(unavailable, selected);
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
 	assert.equal(await readFile(join(selected, libraryPath, 'library.sqlite'), 'utf8'), 'working project data');
@@ -66,12 +71,14 @@ test('a fresh temporary folder selection can be deferred before any library exis
 	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
 	const unavailable = join(root, 'disconnected');
 	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
+	const { selectedId } = JSON.parse(await readFile(config, 'utf8')) as { selectedId: string };
+	assert.match(selectedId, /^[a-f0-9]{32}$/u);
 	await rename(selected, unavailable);
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), original);
-	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false });
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false, selectedId });
 	await rename(unavailable, selected);
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
-	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false });
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false, activeId: selectedId, selectedId });
 });
 
 for (const moveStarted of [true, undefined]) test(`a disconnected destination cannot reopen a split project library (${moveStarted ?? 'legacy'})`, async t => {
@@ -111,17 +118,18 @@ test('starting a move records it before the destination can refuse filesystem wr
 	await mkdir(source, { recursive: true });
 	await writeFile(join(source, 'library.sqlite'), 'project catalog');
 	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
-	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false });
+	const { selectedId } = JSON.parse(await readFile(config, 'utf8')) as { selectedId: string };
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false, selectedId });
 
 	await chmod(selected, 0o500);
 	try {
 		await assert.rejects(new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), /EACCES|EPERM/iu);
-		assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: true });
+		assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: true, selectedId });
 		assert.equal(await readFile(join(source, 'library.sqlite'), 'utf8'), 'project catalog');
 	} finally { await chmod(selected, 0o700); }
 
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
-	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false });
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false, activeId: selectedId, selectedId });
 	assert.equal(await readFile(join(selected, libraryPath, 'library.sqlite'), 'utf8'), 'project catalog');
 });
 

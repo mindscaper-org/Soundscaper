@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readdir, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -115,8 +115,25 @@ test('a disconnected active temporary folder preserves its migrated SQLite catal
 	await assert.rejects(catalogOnStartup('disconnected-library'), /reconnect the current temporary data folder/iu);
 	await assert.rejects(lstat(activeRoot), { code: 'ENOENT' });
 
+	await mkdir(activeRoot);
+	await assert.rejects(catalogOnStartup('empty-mountpoint'), /reconnect the current temporary data folder/iu);
+	assert.deepEqual(await readdir(activeRoot), []);
+
+	await writeFile(configuration, JSON.stringify({ active: activeRoot, selected: activeRoot, moveStarted: false }));
+	await assert.rejects(catalogOnStartup('legacy-empty-mountpoint'), /reconnect the current temporary data folder/iu);
+	assert.deepEqual(await readdir(activeRoot), []);
+	await rmdir(activeRoot);
+
 	await rename(offlineRoot, activeRoot);
 	assert.deepEqual(await catalogOnStartup('reconnected-library'), catalog);
+
+	const nextRoot = join(root, 'next-selection');
+	const activePaths = createSoundscaperDesktopProjectLibraryPaths(activeRoot);
+	const nextPaths = createSoundscaperDesktopProjectLibraryPaths(nextRoot);
+	await mkdir(nextPaths.libraryRoot, { recursive: true });
+	await rename(activePaths.databasePath, nextPaths.databasePath);
+	await writeFile(configuration, JSON.stringify({ active: activeRoot, selected: nextRoot, moveStarted: true }));
+	assert.deepEqual(await catalogOnStartup('legacy-move-resumed'), catalog);
 
 	async function catalogOnStartup(instanceId: string) {
 		const host = await start(await temporaryStorage().prepare(), instanceId);
