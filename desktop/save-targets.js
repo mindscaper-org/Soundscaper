@@ -13,8 +13,9 @@ import {
 import { restorePublishedFileMode } from './save-publication-mode.js';
 import {
 	SPACE_EXHAUSTED_MESSAGE, commitFailureMessage, isSpaceExhaustedError,
+	assertTemporarySaveFileCurrent, canTrackTemporarySaveFile, cleanupTemporarySaveFile,
 	availableSaveStorageBytes as availableStorageBytes, boundedSaveCapacity as boundedLimit,
-	isMissingSavePathError as isMissingPathError, requireSaveOwner as requireOwner, saveBinaryBuffer as toBuffer,
+	requireSaveOwner as requireOwner, saveBinaryBuffer as toBuffer,
 } from './save-space.js';
 import { validateDeclaredSize } from './validation.js';
 
@@ -360,20 +361,24 @@ export class AtomicSaveManager {
 			throw new Error('Save ended before the declared size was written');
 		}
 		this.#sessions.delete(session.id);
+		const trackStage = canTrackTemporarySaveFile(session.handle);
 		let handleClosed = false;
+		let committed = false;
 		try {
 			await session.handle.sync();
 			await restorePublishedFileMode(session.handle, session.targetPath);
-			const published = session.afterCommit ? await session.handle.stat({ bigint: true }) : null;
-			await session.handle.close();
-			handleClosed = true;
+			const published = trackStage || session.afterCommit ? await session.handle.stat({ bigint: true }) : null;
+			if (!trackStage) { await session.handle.close(); handleClosed = true; }
 			await session.beforeCommit?.();
+			if (trackStage) await assertTemporarySaveFileCurrent(session.temporaryPath, published);
 			if (session.publish) await session.publish(session.temporaryPath); else await this.#rename(session.temporaryPath, session.targetPath);
+			committed = true;
+			if (trackStage) { await session.handle.close(); handleClosed = true; }
 			await session.afterCommit?.(published);
 			this.#releaseReservation(session.reservation);
 			return Object.freeze({ byteLength: session.written });
 		} catch (error) {
-			await this.#cleanupSession(session, { closeHandle: !handleClosed });
+			await this.#cleanupSession(session, { closeHandle: !handleClosed, removeTemporary: !committed });
 			throw new Error(commitFailureMessage(error), { cause: error });
 		}
 	}
@@ -524,22 +529,8 @@ export class AtomicSaveManager {
 		}
 	}
 
-	async #cleanupSession(session, { closeHandle = true } = {}) {
-		const errors = [];
-		if (closeHandle) {
-			try {
-				await session.handle.close();
-			} catch (error) {
-				errors.push(new Error('Could not close the temporary save file', { cause: error }));
-			}
-		}
-		try {
-			await this.#unlink(session.temporaryPath);
-		} catch (error) {
-			if (!isMissingPathError(error)) {
-				errors.push(new Error('Could not remove the temporary save file', { cause: error }));
-			}
-		}
+	async #cleanupSession(session, { closeHandle = true, removeTemporary = true } = {}) {
+		const errors = await cleanupTemporarySaveFile(session, this.#unlink, { closeHandle, removeTemporary });
 		this.#cleanupErrors.push(...errors);
 		this.#ownerState(session.owner).cleanupErrors.push(...errors);
 		if (!errors.length) this.#releaseReservation(session.reservation);
