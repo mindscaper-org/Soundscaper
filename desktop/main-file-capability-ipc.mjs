@@ -16,6 +16,7 @@ import { acceptsFile, validateFileChoice, validateSaveChoice } from './validatio
  * @property {(id: string, options: {owner: object; allowProjectSavePicker?: true}) => Promise<OriginalFileDescriptor | null>} prepare
  * @property {(id: string, options: {owner: object}) => boolean} release
  * @property {(path: string, options: {owner: object; copySourceId?: string}) => Promise<OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}>} registerProjectSave
+ * @property {(path: string, options: {owner: object}) => Promise<OriginalFileDescriptor>} registerProjectCopy
  * @property {(readId: string, options: {owner: object}) => Promise<string>} protectCopySource
  */
 
@@ -88,6 +89,9 @@ export function registerFileCapabilityIpc({
 		if (copySourceId && (choice.purpose !== 'project-copy' || !originalFiles)) throw new TypeError('A protected project-copy destination is required.');
 		const register = async (path) => {
 			if (copySourceId && originalFiles) return originalFiles.registerProjectSave(path, { owner, copySourceId });
+			if (originalFiles && choice.purpose === 'project-copy' && acceptedProjectSuffix(path)) {
+				return originalFiles.registerProjectCopy(path, { owner });
+			}
 			if (choice.purpose === 'audacity-recovery') await readCapabilities.assertRecoveryOutputPath(path, { owner });
 			return originalFiles && choice.purpose === 'project' && acceptedProjectSuffix(path)
 				? originalFiles.registerProjectSave(path, { owner }) : saveTargets.registerPath(path, { owner, purpose: choice.purpose,

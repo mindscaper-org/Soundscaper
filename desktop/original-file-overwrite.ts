@@ -20,7 +20,7 @@ type TargetStore = {
 	registerPath(path: string, options: {
 		owner: Owner; purpose: string;
 		beforeCommit(): Promise<void>;
-		afterCommit(published: Identity): Promise<void>;
+		afterCommit?(published: Identity): Promise<void>;
 	}): OriginalFile;
 };
 interface Options {
@@ -142,25 +142,12 @@ export class OriginalFileOverwriteStore {
 
 	/** A save-picker destination becomes reusable authority only after publication. */
 	async registerProjectSave(path: string, { owner, copySourceId }: { owner: Owner; copySourceId?: string }): Promise<OriginalFile & { originalFile: OriginalFile }> {
-		this.#assertOwner(owner);
-		if (!isProject(path)) throw new TypeError('A Scape project destination is required');
-		if (copySourceId) await this.#assertCopyDestination(copySourceId, path, owner);
-		const expected = await pickedProjectDestination(path);
-		this.#assertOwner(owner);
+		const beforeCommit = await this.#projectDestinationCheck(path, owner, copySourceId);
 		if ([...this.#entries.values()].filter(entry => entry.owner === owner).length >= this.#maximumCount) throw new RangeError('Project file permission limit reached');
 		const id = randomBytes(24).toString('hex');
 		const name = this.#cleanDisplayName(basename(path));
 		const target = this.#targets.registerPath(path, {
-			owner, purpose: 'project', beforeCommit: async () => {
-				if (copySourceId) await this.#assertCopyDestination(copySourceId, path, owner);
-				this.#assertOwner(owner);
-				const current = await pickedProjectDestination(path);
-				this.#assertOwner(owner);
-				if (current.directory.dev !== expected.directory.dev || current.directory.ino !== expected.directory.ino
-					|| !sameIdentity(current.file, expected.file)) {
-					throw Object.assign(new Error('The selected project save destination changed.'), { code: 'PROJECT_SAVE_DESTINATION_CHANGED' });
-				}
-			},
+			owner, purpose: 'project', beforeCommit,
 			afterCommit: async (published) => {
 				this.#assertOwner(owner);
 				const details = await lstat(path, { bigint: true });
@@ -170,6 +157,29 @@ export class OriginalFileOverwriteStore {
 			},
 		});
 		return Object.freeze({ ...target, originalFile: Object.freeze({ id, name }) });
+	}
+
+	async registerProjectCopy(path: string, { owner }: { owner: Owner }): Promise<OriginalFile> {
+		const beforeCommit = await this.#projectDestinationCheck(path, owner);
+		return this.#targets.registerPath(path, { owner, purpose: 'project-copy', beforeCommit });
+	}
+
+	async #projectDestinationCheck(path: string, owner: Owner, copySourceId?: string): Promise<() => Promise<void>> {
+		this.#assertOwner(owner);
+		if (!isProject(path)) throw new TypeError('A Scape project destination is required');
+		if (copySourceId) await this.#assertCopyDestination(copySourceId, path, owner);
+		const expected = await pickedProjectDestination(path);
+		this.#assertOwner(owner);
+		return async () => {
+			if (copySourceId) await this.#assertCopyDestination(copySourceId, path, owner);
+			this.#assertOwner(owner);
+			const current = await pickedProjectDestination(path);
+			this.#assertOwner(owner);
+			if (current.directory.dev !== expected.directory.dev || current.directory.ino !== expected.directory.ino
+				|| !sameIdentity(current.file, expected.file)) {
+				throw Object.assign(new Error('The selected project save destination changed.'), { code: 'PROJECT_SAVE_DESTINATION_CHANGED' });
+			}
+		};
 	}
 
 	projectReference(id: string, { owner }: { owner: Owner }): Readonly<{ path: string; identity: Record<string, string> }> {
