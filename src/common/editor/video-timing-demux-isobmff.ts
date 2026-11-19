@@ -16,9 +16,9 @@
  * when. A stream-copy trim leaves the samples it skipped in `mdat` and says so
  * only here, and an initial empty edit delays the whole track; a media element
  * and FFmpeg both apply the edit, so timing read without it describes a file
- * nobody plays. An edit list this cannot apply exactly — a rate change, a
- * boundary inside a frame, more than one presented segment — is refused instead,
- * so the probe list falls through rather than publish timing that is not true.
+ * nobody plays. An edit ending inside its final picture limits how long that
+ * picture is shown. A rate change, an opening inside a frame, or more than one
+ * presented segment still falls through to another probe.
  */
 
 import {
@@ -178,18 +178,18 @@ function resolvePresentation(
 		composition[index]! >= origin && (edit.endTicks === null || composition[index]! < edit.endTicks)
 	));
 	if (presented.length === 0) return null;
-	// The edit has to name whole frames. A boundary that falls inside one leaves a
-	// picture this cannot place, and guessing is how two backends come to disagree.
+	// A partial opening picture does not have an unambiguous presentation start.
 	if (start !== null && composition[presented[0]!]! !== start) return null;
 	const presentationTicks = presented.map((index) => composition[index]! - origin + edit.shiftTicks);
 	for (let index = 1; index < presentationTicks.length; index += 1) {
 		if (presentationTicks[index]! <= presentationTicks[index - 1]!) return null;
 	}
-	// The frame presented last owns the final duration, whatever its decode order.
+	// The frame presented last owns the final duration, bounded by the edit end.
 	const last = presented.at(-1)!;
-	const finalFrameDurationTicks = decodeDurations[last]!;
+	const codedDuration = decodeDurations[last]!;
+	const untilEditEnd = edit.endTicks === null ? codedDuration : edit.endTicks - composition[last]!;
+	const finalFrameDurationTicks = untilEditEnd < codedDuration ? untilEditEnd : codedDuration;
 	if (finalFrameDurationTicks <= 0n) return null;
-	if (edit.endTicks !== null && composition[last]! + finalFrameDurationTicks > edit.endTicks) return null;
 	return Object.freeze({
 		timescale,
 		presentationTicks: Object.freeze(presentationTicks),

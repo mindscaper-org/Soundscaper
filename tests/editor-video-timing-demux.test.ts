@@ -4,7 +4,9 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { fragmentedMp4TimingProbeMedia, videoTimingProbeMedia } from './browser/fixtures/video-timing-probe-media.js';
+import {
+	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, videoTimingProbeMedia,
+} from './browser/fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './browser/fixtures/video-source-geometry-media.js';
 import {
 	encodeVideoTimingAsset,
@@ -31,6 +33,16 @@ test('the container probe reads exact fragmented MP4 timing from a Chromium reco
 	assert.equal(result.timing.finalFrameDurationTicks, fixture.finalFrameDurationTicks);
 	assert.deepEqual(result.nominalRate, fixture.nominalRate);
 	assert.equal(result.characteristics.videoCodec, 'h264');
+});
+
+test('the container probe admits a stream-copy MP4 trim that shortens its final frame', async () => {
+	const fixture = endEditedMp4TimingProbeMedia;
+	const result = exactTiming(await probeVideoTiming(blobFor(fixture), { probes: [createContainerVideoTimingProbe()] }));
+	assert.equal(result.timing.timescale, fixture.timescale);
+	assert.deepEqual(result.timing.presentationTicks, fixture.presentationTicks);
+	assert.equal(result.timing.finalFrameDurationTicks, fixture.finalFrameDurationTicks);
+	assert.equal(result.timing.endTicks, 9000n);
+	assert.equal(createHash('sha256').update(encodeVideoTimingAsset(result.timing)).digest('hex'), fixture.timingSha256);
 });
 
 test('Matroska header reads include their short timing fields without separate body I/O', async () => {

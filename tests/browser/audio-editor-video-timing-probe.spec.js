@@ -3,7 +3,9 @@ import { writeFile } from 'node:fs/promises';
 import { test } from './audio-editor-test-fixtures.js';
 
 import { validateVideoTimingAssetBytes } from '../../src/common/editor/video-timing-asset.ts';
-import { fragmentedMp4TimingProbeMedia, videoTimingProbeMedia } from './fixtures/video-timing-probe-media.js';
+import {
+	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, videoTimingProbeMedia,
+} from './fixtures/video-timing-probe-media.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
 import {
@@ -16,10 +18,10 @@ import {
 } from './helpers/durable-media-storage-capability.js';
 
 const DATABASE_NAME = FRAMESCAPER_DATABASE_NAME;
-const TIMING_MEDIA = [...videoTimingProbeMedia, fragmentedMp4TimingProbeMedia];
+const TIMING_MEDIA = [...videoTimingProbeMedia, fragmentedMp4TimingProbeMedia, endEditedMp4TimingProbeMedia];
 
 test.describe('WP-0.3 browser timing-probe qualification', () => {
-	test('imports and persists exact CFR, irregular WebM and fragmented MP4 timings', async ({
+	test('imports and persists exact CFR, WebM, fragmented MP4 and trimmed MP4 timings', async ({
 		page,
 	}, testInfo) => {
 		test.setTimeout(60_000);
