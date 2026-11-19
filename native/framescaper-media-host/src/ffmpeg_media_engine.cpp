@@ -33,6 +33,7 @@ extern "C" {
 #include <csignal>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -327,7 +328,8 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 		if (codec == nullptr) throw media_failure("proxy-codec-unavailable", "The pinned ProRes encoder is unavailable.", 78);
 		encoder = avcodec_alloc_context3(codec);
 		if (encoder == nullptr) throw media_failure("encode-allocation", "The ProRes encoder cannot be allocated.");
-		const auto input_time_base = source.format->streams[source.stream_index]->time_base;
+		auto* input_stream = source.format->streams[source.stream_index];
+		const auto input_time_base = input_stream->time_base;
 		if (input_time_base.num <= 0 || input_time_base.den <= 0) {
 			throw media_failure("proxy-timing", "The original lacks an exact presentation timebase.", 78);
 		}
@@ -335,7 +337,8 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 		encoder->height = static_cast<int>(job.proxy_height);
 		encoder->pix_fmt = AV_PIX_FMT_YUV422P10LE;
 		encoder->time_base = input_time_base;
-		encoder->framerate = av_guess_frame_rate(source.format, source.format->streams[source.stream_index], nullptr);
+		encoder->framerate = av_guess_frame_rate(source.format, input_stream, nullptr);
+		encoder->sample_aspect_ratio = av_guess_sample_aspect_ratio(source.format, input_stream, nullptr);
 		encoder->color_primaries = source.codec->color_primaries;
 		encoder->color_trc = source.codec->color_trc;
 		encoder->colorspace = source.codec->colorspace;
@@ -349,7 +352,17 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 		auto* stream = avformat_new_stream(output, nullptr);
 		if (stream == nullptr) throw media_failure("encode-allocation", "The MOV stream cannot be allocated.");
 		stream->time_base = encoder->time_base;
+		stream->sample_aspect_ratio = encoder->sample_aspect_ratio;
 		require_ffmpeg(avcodec_parameters_from_context(stream->codecpar, encoder), "Copy ProRes stream parameters");
+		const auto* input_parameters = input_stream->codecpar;
+		const auto* display_matrix = av_packet_side_data_get(input_parameters->coded_side_data,
+			input_parameters->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX);
+		if (display_matrix != nullptr && display_matrix->size == 9U * sizeof(std::int32_t)) {
+			auto* output_matrix = av_packet_side_data_new(&stream->codecpar->coded_side_data,
+				&stream->codecpar->nb_coded_side_data, AV_PKT_DATA_DISPLAYMATRIX, display_matrix->size, 0);
+			if (output_matrix == nullptr) throw media_failure("encode-allocation", "The MOV display matrix cannot be allocated.");
+			std::memcpy(output_matrix->data, display_matrix->data, display_matrix->size);
+		}
 		auto* io_buffer = static_cast<unsigned char*>(av_malloc(64U * 1024U));
 		if (io_buffer == nullptr) throw media_failure("encode-allocation", "The MOV output buffer cannot be allocated.");
 		io = avio_alloc_context(io_buffer, 64U * 1024U, 1, &destination, nullptr, mux_write, mux_seek);
