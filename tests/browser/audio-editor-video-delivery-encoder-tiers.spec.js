@@ -2,12 +2,10 @@
 
 import { expect } from '@playwright/test';
 import { test } from './audio-editor-test-fixtures.js';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { transform } from 'esbuild';
+import { bundleSourceModuleRoutes } from './helpers/source-module-routes.ts';
 test.use({ browserCoverage: false });
 const ROOT = '/__video-delivery-encoder-tiers__';
-const ENTRY_MODULES = ['video-delivery-encoder-tier.ts', 'platform-video-delivery-encoder.ts'];
+const ENTRY_MODULES = ['video-delivery-encoder-tier', 'platform-video-delivery-encoder', 'video-webcodecs-producer'];
 /** 29.97, stated as the rational a decimal would quietly round away. */
 const FRAME_RATE = { num: 30_000, den: 1_001 };
 const CANVAS = { width: 64, height: 64 };
@@ -23,7 +21,7 @@ test('an eligible Chromium delivery chooses its browser-native encoder explicitl
 	await page.goto(`${ROOT}/index.html`);
 	const result = await page.evaluate(async ([root, rate, canvas]) => {
 		const tierModule = await import(
-			`${root}/src/common/editor/video-delivery-encoder-tier.ts`
+			`${root}/src/common/editor/video-delivery-encoder-tier.js`
 		);
 		const decision = await tierModule.resolveVideoDeliveryEncoderTier({
 			format: 'mp4',
@@ -54,7 +52,7 @@ test('absent and ineligible browser encoders are explicit unavailable errors', a
 	await page.goto(`${ROOT}/index.html`);
 	const result = await page.evaluate(async ([root, rate, canvas]) => {
 		const tierModule = await import(
-			`${root}/src/common/editor/video-delivery-encoder-tier.ts`
+			`${root}/src/common/editor/video-delivery-encoder-tier.js`
 		);
 		const request = {
 			format: 'mp4',
@@ -105,9 +103,9 @@ test('desktop delivery uses real WebCodecs without an external FFmpeg provider',
 	await page.goto(`${ROOT}/index.html`);
 	const result = await page.evaluate(async ([root, rate, canvas]) => {
 		const { resolvePlatformVideoDeliveryEncoder, resolveDesktopRendererVideoExportCapabilities } = await import(
-			`${root}/src/common/editor/platform-video-delivery-encoder.ts`
+			`${root}/src/common/editor/platform-video-delivery-encoder.js`
 		);
-		const { produceVideoWebCodecsChunks } = await import(`${root}/src/common/editor/video-webcodecs-producer.ts`);
+		const { produceVideoWebCodecsChunks } = await import(`${root}/src/common/editor/video-webcodecs-producer.js`);
 		const fileService = { isDesktop: true };
 		const capabilities = await resolveDesktopRendererVideoExportCapabilities(fileService);
 		const decision = await resolvePlatformVideoDeliveryEncoder(fileService, {
@@ -139,7 +137,9 @@ function isFfmpegRuntimeRequest(value) {
 }
 
 async function installRoutes(page) {
-	const routes = await transpileEditorModules();
+	const sourceRoot = new URL('../../src/', import.meta.url);
+	const entries = ENTRY_MODULES.map(name => new URL(`common/editor/${name}.ts`, sourceRoot));
+	const routes = await bundleSourceModuleRoutes(sourceRoot, `${ROOT}/src`, entries);
 	await page.route(`**${ROOT}/**`, async (route) => {
 		const pathname = new URL(route.request().url()).pathname;
 		if (pathname === `${ROOT}/index.html`) {
@@ -155,42 +155,4 @@ async function installRoutes(page) {
 			? { status: 404, body: `Unknown fixture path ${pathname}` }
 			: { status: 200, ...descriptor });
 	});
-}
-
-async function transpileEditorModules() {
-	const sourceRoot = new URL('../../src/', import.meta.url);
-	const pending = ENTRY_MODULES.map((name) => new URL(`common/editor/${name}`, sourceRoot));
-	const discovered = new Map();
-	while (pending.length > 0) {
-		const url = pending.pop();
-		if (discovered.has(url.href)) continue;
-		const filename = fileURLToPath(url);
-		const source = await readFile(url, 'utf8');
-		const transformed = await transform(source, {
-			sourcefile: filename,
-			loader: filename.endsWith('.ts') ? 'ts' : 'js',
-			format: 'esm',
-			target: 'es2022',
-			sourcemap: 'inline',
-		});
-		discovered.set(url.href, transformed.code);
-		for (const match of source.matchAll(/(?:from\s+|import\s*\()(['"])(\.\.?\/[^'"]+)\1/gu)) {
-			const dependency = new URL(match[2], url);
-			if (!dependency.pathname.startsWith(sourceRoot.pathname)) continue;
-			if (dependency.pathname.endsWith('.js')) {
-				const typed = new URL(dependency.href.replace(/\.js$/u, '.ts'));
-				try { await readFile(typed, 'utf8'); pending.push(typed); continue; } catch { /* JavaScript owns it. */ }
-			}
-			pending.push(dependency);
-		}
-	}
-	const routes = new Map();
-	for (const [href, code] of discovered) {
-		const relative = new URL(href).pathname.slice(sourceRoot.pathname.length);
-		const path = `${ROOT}/src/${relative}`;
-		const descriptor = { body: code, contentType: 'text/javascript' };
-		routes.set(path, descriptor);
-		if (path.endsWith('.ts')) routes.set(path.replace(/\.ts$/u, '.js'), descriptor);
-	}
-	return routes;
 }
