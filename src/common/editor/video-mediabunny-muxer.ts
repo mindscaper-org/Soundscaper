@@ -216,10 +216,15 @@ function createMediabunnySession(request: VideoMediabunnyMuxRequest): VideoMedia
 		closeVideo: () => videoSource.close(),
 		async finalize() {
 			await output.finalize();
-			if (!(target.buffer instanceof ArrayBuffer)) {
+			const bytes = target.buffer;
+			if (!(bytes instanceof ArrayBuffer)) {
 				throw new Error('Mediabunny finalized without a buffer target.');
 			}
-			return target.buffer;
+			if (request.audio?.codec === 'opus') {
+				const { repairDoubledWebmOpusCodecDelay } = await import('./video-keyframe-video-container.ts');
+				repairDoubledWebmOpusCodecDelay(new Uint8Array(bytes));
+			}
+			return bytes;
 		},
 		cancel: () => output.cancel(),
 	});

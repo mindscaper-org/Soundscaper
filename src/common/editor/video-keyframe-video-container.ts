@@ -8,6 +8,10 @@ const WEBM_SEGMENT = 0x18538067;
 const WEBM_DOCTYPE = 0x4282;
 const WEBM_TRACKS = 0x1654ae6b;
 const WEBM_CLUSTER = 0x1f43b675;
+const WEBM_TRACK_ENTRY = 0xae;
+const WEBM_CODEC_ID = 0x86;
+const WEBM_CODEC_PRIVATE = 0x63a2;
+const WEBM_CODEC_DELAY = 0x56aa;
 
 /** Verify finite container structure only; this is not codec or decoder validation. */
 export function assertFiniteVideoKeyframeContainer(
@@ -56,11 +60,26 @@ function assertFiniteMp4(bytes: Uint8Array): void {
 }
 
 function assertFiniteWebm(bytes: Uint8Array): void {
+	const count = countWebmElements();
+	const segment = finiteWebmSegment(bytes, count);
+	let hasTracks = false;
+	let hasCluster = false;
+	forEachEbmlChild(bytes, segment, count, (child) => {
+		if (child.id === WEBM_TRACKS && child.payloadBytes > 0) hasTracks = true;
+		if (child.id === WEBM_CLUSTER && child.payloadBytes > 0) hasCluster = true;
+	});
+	if (!hasTracks || !hasCluster) invalidWebm();
+}
+
+function countWebmElements(): () => void {
 	let elements = 0;
-	const count = (): void => {
+	return () => {
 		elements += 1;
 		if (elements > MAXIMUM_CONTAINER_ELEMENTS) invalidWebm();
 	};
+}
+
+function finiteWebmSegment(bytes: Uint8Array, count: () => void): EbmlElement {
 	const header = ebmlElement(bytes, 0, bytes.byteLength, count);
 	if (header.id !== WEBM_EBML || header.payloadBytes === 0) invalidWebm();
 	let hasWebmDocType = false;
@@ -73,13 +92,44 @@ function assertFiniteWebm(bytes: Uint8Array): void {
 	if (!hasWebmDocType) invalidWebm();
 	const segment = ebmlElement(bytes, header.end, bytes.byteLength, count);
 	if (segment.id !== WEBM_SEGMENT || segment.end !== bytes.byteLength) invalidWebm();
-	let hasTracks = false;
-	let hasCluster = false;
+	return segment;
+}
+
+/** The generated WebM's block clock already starts at zero. Correct only the doubled Opus pre-skip declaration. */
+export function repairDoubledWebmOpusCodecDelay(bytes: Uint8Array): void {
+	const count = countWebmElements();
+	const segment = finiteWebmSegment(bytes, count);
 	forEachEbmlChild(bytes, segment, count, (child) => {
-		if (child.id === WEBM_TRACKS && child.payloadBytes > 0) hasTracks = true;
-		if (child.id === WEBM_CLUSTER && child.payloadBytes > 0) hasCluster = true;
+		if (child.id === WEBM_CLUSTER) return false;
+		if (child.id === WEBM_TRACKS) {
+			forEachEbmlChild(bytes, child, count, (track) => {
+				if (track.id === WEBM_TRACK_ENTRY) repairOpusTrackDelay(bytes, track, count);
+			});
+			return false;
+		}
 	});
-	if (!hasTracks || !hasCluster) invalidWebm();
+}
+
+function repairOpusTrackDelay(bytes: Uint8Array, track: EbmlElement, count: () => void): void {
+	let isOpus = false;
+	let header: EbmlElement | undefined;
+	let delay: EbmlElement | undefined;
+	forEachEbmlChild(bytes, track, count, (field) => {
+		if (field.id === WEBM_CODEC_ID) isOpus = field.payloadBytes === 6 && ascii(bytes, field.payloadOffset, 6) === 'A_OPUS';
+		else if (field.id === WEBM_CODEC_PRIVATE) header = field;
+		else if (field.id === WEBM_CODEC_DELAY) delay = field;
+	});
+	if (!isOpus || !header || header.payloadBytes < 19 || ascii(bytes, header.payloadOffset, 8) !== 'OpusHead'
+		|| !delay || delay.payloadBytes < 1 || delay.payloadBytes > 8) return;
+	const preSkip = readByte(bytes, header.payloadOffset + 10, invalidWebm)
+		+ 256 * readByte(bytes, header.payloadOffset + 11, invalidWebm);
+	const nanoseconds = preSkip * 1_000_000_000 / 48_000;
+	if (preSkip === 0 || safeBigEndianInteger(bytes, delay.payloadOffset, delay.payloadBytes, invalidWebm) !== Math.round(2 * nanoseconds)) return;
+	let value = Math.round(nanoseconds);
+	for (let index = delay.end - 1; index >= delay.payloadOffset; index--) {
+		bytes[index] = value % 256;
+		value = Math.floor(value / 256);
+	}
 }
 
 interface EbmlElement {
@@ -113,12 +163,12 @@ function forEachEbmlChild(
 	bytes: Uint8Array,
 	parent: EbmlElement,
 	count: () => void,
-	visit: (child: EbmlElement) => void,
+	visit: (child: EbmlElement) => false | void,
 ): void {
 	let offset = parent.payloadOffset;
 	while (offset < parent.end) {
 		const child = ebmlElement(bytes, offset, parent.end, count);
-		visit(child);
+		if (visit(child) === false) return;
 		offset = child.end;
 	}
 	if (offset !== parent.end) invalidWebm();

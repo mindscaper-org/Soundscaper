@@ -13,7 +13,7 @@ import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
-	test('WebM audio retains the last authored Opus programme samples', async ({ page }) => {
+	test('WebM audio retains the authored Opus start and tail', async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
 		await importFiles(editor, [{ name: 'Audio through the last picture.mp4', mimeType: 'video/mp4', buffer: nativeVideoAudioTailFixture(2) }]);
@@ -30,15 +30,27 @@ test.describe('video container exporters', () => {
 			expect(await track.getCodec()).toBe('opus');
 			const { description } = await track.getDecoderConfig();
 			const header = Buffer.from(description);
+			expect(header.toString('ascii', 0, 8)).toBe('OpusHead');
 			const preSkip = header.readUInt16LE(10);
+			const firstTime = await track.getFirstTimestamp();
+			expect(Math.abs(firstTime + preSkip / 48_000)).toBeLessThanOrEqual(.0005 + Number.EPSILON);
 			let samples = -preSkip;
+			let index = 0;
 			for await (const packet of new EncodedPacketSink(track).packets()) {
 				expect(packet.duration).toBeCloseTo(.02, 3);
+				expect(packet.timestamp).toBeCloseTo(firstTime + index * .02, 3);
 				samples += 960;
+				index++;
 			}
 			expect(samples).toBeGreaterThanOrEqual(96_000);
 			expect(samples).toBeLessThan(96_960);
 		} finally { input.dispose(); }
+		const tailPeak = await page.evaluate(async data => {
+			const context = new OfflineAudioContext(1, 1, 48000);
+			const audio = await context.decodeAudioData(Uint8Array.from(data).buffer);
+			return audio.getChannelData(0).slice(95_760, 96_000).reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0);
+		}, Array.from(bytes));
+		expect(tailPeak).toBeGreaterThan(.05);
 	});
 	for (const [index, variant] of ['classic', 'fragmented', 'hybrid'].entries()) {
 		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page }) => {
