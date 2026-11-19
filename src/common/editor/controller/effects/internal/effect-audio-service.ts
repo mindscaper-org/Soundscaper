@@ -300,11 +300,6 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 
 	async function applySpectralSelection(requestedGainDb: unknown): Promise<true | null> {
 		if (runtime.editingBlocked()) return null;
-		const {
-			inspectSpectralEditChannels,
-			MAXIMUM_SPECTRAL_EDIT_USEFUL_BINARY_BYTES,
-			planSpectralEditWorkflowAdmission,
-		} = await loadDeferredSpectralEditAdmission();
 		const project = runtime.getProject();
 		if (!hasCoreEditingProjectAuthority(project)) throw createLocalizedError(Error, runtime.copy, 'v2Required');
 		const selection = runtime.activeSelection();
@@ -317,23 +312,30 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 		if (gainDb !== -Infinity && (!Number.isFinite(gainDb) || gainDb > 120 || gainDb < -120)) {
 			throw createLocalizedError(RangeError, runtime.copy, 'spectralGainInvalid');
 		}
-		const admission = planSpectralEditWorkflowAdmission({
-			targets: targets.map((target) => ({
-				channelCount: target.channelCount,
-				frameCount: target.durationFrames,
-				selectionFrameCount: target.durationFrames,
-				windowSize: Number(target.track.spectrogram?.windowSize) || 2_048,
-			})),
-			maximumUsefulBinaryBytes: Math.min(
-				runtime.memoryLimitBytes,
-				MAXIMUM_SPECTRAL_EDIT_USEFUL_BINARY_BYTES,
-			),
-		});
 		const ownership = beginOwnership(runtime, SPECTRAL_EFFECT_TASK);
+		const assertTarget = (): void => {
+			assertOwnership(runtime, ownership);
+			if (runtime.getProject() !== project) throw new DOMException('The project changed while the spectral edit was being prepared.', 'AbortError');
+		};
 		let processing = false;
 		try {
+			const {
+				inspectSpectralEditChannels,
+				MAXIMUM_SPECTRAL_EDIT_USEFUL_BINARY_BYTES,
+				planSpectralEditWorkflowAdmission,
+			} = await loadDeferredSpectralEditAdmission();
+			assertTarget();
+			const admission = planSpectralEditWorkflowAdmission({
+				targets: targets.map((target) => ({
+					channelCount: target.channelCount,
+					frameCount: target.durationFrames,
+					selectionFrameCount: target.durationFrames,
+					windowSize: Number(target.track.spectrogram?.windowSize) || 2_048,
+				})),
+				maximumUsefulBinaryBytes: Math.min(runtime.memoryLimitBytes, MAXIMUM_SPECTRAL_EDIT_USEFUL_BINARY_BYTES),
+			});
 			await runtime.preflightStorage(admission.finalRetainedCompletedOutputBytes, 'effect');
-			assertOwnership(runtime, ownership);
+			assertTarget();
 			processing = true;
 			beginProcessing(runtime, runtime.copy.spectralProcessing ? 'spectralProcessing' : 'audacityProcessing');
 			const results: Array<{ target: EffectTarget; channels: Float32Array[] }> = [];
@@ -342,7 +344,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 				const channels = await renderDryTrackRange(
 					target.track.id, target.startFrame, target.endFrame, target.channelCount, target.clipIds ?? null,
 				);
-				assertOwnership(runtime, ownership);
+				assertTarget();
 				inspectSpectralEditChannels(channels, {
 					label: 'Spectral edit dry-render input',
 					expectedChannelCount: phase.channelCount,
@@ -357,7 +359,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 					windowSize: phase.windowSize,
 					gainDb,
 				});
-				assertOwnership(runtime, ownership);
+				assertTarget();
 				inspectSpectralEditChannels(processed, {
 					label: 'Spectral edit result',
 					expectedChannelCount: phase.channelCount,
@@ -366,7 +368,7 @@ export function createEffectAudioService<Buffer = EffectAudioBuffer>(runtime: Ef
 				results.push({ target, channels: processed });
 			}
 			await runtime.persistAudacityEffectResults(results, null, {
-				assertCurrent: () => assertOwnership(runtime, ownership),
+				assertCurrent: assertTarget,
 				effectName: gainDb === -Infinity ? publishedCopyFor(runtime.copy).spectralDelete : publishedCopyFor(runtime.copy).spectralAmplify,
 				selectionDetails: runtime.audacityEffectSelectionDetails(selection, targets),
 			});

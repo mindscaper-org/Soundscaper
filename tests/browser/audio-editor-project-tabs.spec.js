@@ -16,6 +16,7 @@ import {
 	openNestedCommandMenu,
 	waitForProjectActivation,
 } from './audio-editor-test-helpers.js';
+import { exportSamples } from './helpers/round2-audio-export.js';
 
 async function renameProject(page, editor, title) {
 	await chooseNestedCommandAction(page, editor, 'File', ['Project management', 'Rename project']);
@@ -232,6 +233,73 @@ test('reopened projects keep track visualization scoped to their tabs and histor
 		await download.delete();
 	}
 });
+
+test('Spectral Delete from a reopened project cannot edit a different tab after module loading', async ({ page }, result) => {
+	test.setTimeout(45_000);
+	let entered = false;
+	let release;
+	const held = new Promise(resolve => { release = resolve; });
+	await page.route(/\/spectral-edit-admission-[^/]+\.js$/u, async route => {
+		entered = true;
+		await held;
+		await route.continue();
+	});
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	await renameProject(page, editor, 'Source recording');
+	await importFiles(editor, [toneA]);
+	const downloading = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const download = await downloading;
+	const archivePath = result.outputPath(download.suggestedFilename());
+	try {
+		await download.saveAs(archivePath);
+		await chooseFileAction(page, editor, 'New');
+		await waitForProjectActivation(editor);
+		await renameProject(page, editor, 'Destination recording');
+		await importFiles(editor, [toneB]);
+		await selectSpectralBand(page, editor, '500', '800');
+		const original = rms(await exportSamples(page, editor));
+		expect(original).toBeGreaterThan(0.1);
+
+		const choosing = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await choosing).setFiles(archivePath);
+		await expect(editor.getByRole('tab', { name: 'Source recording', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await waitForProjectActivation(editor);
+		await selectSpectralBand(page, editor, '250', '400');
+		await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral delete']);
+		await expect.poll(() => entered).toBe(true);
+		const effectProgress = page.getByRole('progressbar', { name: 'Processing spectral selection locally' });
+		await expect(effectProgress).toBeVisible();
+		await chooseNestedCommandAction(page, editor, 'Window', ['Destination recording']);
+		await waitForProjectActivation(editor);
+		await expect(editor.getByRole('slider', { name: 'Spectral selection center-frequency handle', exact: true })).toBeVisible();
+		release();
+		await expect(effectProgress).toBeHidden({ timeout: 20_000 });
+		const current = rms(await exportSamples(page, editor));
+		expect(current).toBeCloseTo(original, 6);
+	} finally {
+		release();
+		await rm(archivePath, { force: true });
+		await download.delete();
+	}
+});
+
+function rms(samples) {
+	return Math.sqrt(samples.reduce((sum, sample) => sum + sample ** 2, 0) / samples.length);
+}
+
+async function selectSpectralBand(page, editor, lower, upper) {
+	await editor.getByRole('button', { name: 'Spectrogram', exact: true }).click();
+	await chooseCommandAction(page, editor, 'Select', 'Select all');
+	await chooseNestedCommandAction(page, editor, 'Effect', ['Spectral editing', 'Spectral box select']);
+	const dialog = page.getByRole('dialog', { name: 'Spectral selection', exact: true });
+	await dialog.getByRole('textbox', { name: /^Minimum frequency \(Hz\)/u }).fill(lower);
+	await dialog.getByRole('textbox', { name: /^Maximum frequency \(Hz\)/u }).fill(upper);
+	await dialog.getByRole('button', { name: 'Select range', exact: true }).click();
+	await expect(dialog).toBeHidden();
+}
 
 test('switching projects restores the playhead and zoom of each tab', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
