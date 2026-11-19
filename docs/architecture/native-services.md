@@ -147,6 +147,8 @@ A device candidate belongs to the backend that enumerated it. Fallback walks an
 ordered caller-supplied candidate list and reports each refusal and the granted
 candidate. An absent backend may advance the list; refusal of a requested format
 or mode does not silently turn into a different request.
+For ASIO, a rate outside the driver's advertised list is refused before
+opening a stream can retune the configured clock.
 
 Real-time audio uses a directly transferred `MessagePort` between the helper and
 the `AudioWorklet`. Electron's utility port copies PCM typed arrays through

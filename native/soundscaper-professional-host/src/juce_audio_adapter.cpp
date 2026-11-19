@@ -275,6 +275,15 @@ soundscaper_pro_audio_result openJuceAudio(
 		text(result.detail, "The requested opaque device handle is unavailable.");
 		return result;
 	}
+	if (backend == "asio") {
+		const auto rates = device->getAvailableSampleRates();
+		// JUCE otherwise substitutes its first available rate and retunes the device before returning.
+		if (!rates.isEmpty() && !rates.contains(request.sample_rate)) {
+			result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
+			text(result.detail, "The ASIO device does not support the requested sample rate.");
+			return result;
+		}
+	}
 	juce::BigInteger inputs;
 	juce::BigInteger outputs;
 	if (request.direction == 0u || request.direction == 2u) inputs.setRange(0, static_cast<int>(request.channel_count), true);
