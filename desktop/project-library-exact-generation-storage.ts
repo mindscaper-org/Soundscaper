@@ -54,6 +54,7 @@ export interface FramescaperDesktopExactBodyDescriptor {
 		| 'video-original' | 'video-proxy' | 'video-timing'
 		| 'framescaper-still' | 'framescaper-freeze-render'
 		| 'framescaper-cube-lut' | 'framescaper-motion-analysis'
+		| 'framescaper-image-asset'
 		| 'image-sequence-inventory' | 'image-sequence-source-pack'
 		| 'assistance-transcript' | 'assistance-tts-script';
 	readonly encoding: string;
@@ -104,7 +105,7 @@ export async function readFramescaperDesktopExactProjectBundle(
 	paths: Readonly<FramescaperDesktopProjectLibraryPaths>,
 	row: FramescaperDesktopExactStoredProjectRow,
 	configuredBodies: (configuration: FramescaperDesktopProjectLibraryExactGenerationConfiguration,
-		project: unknown, projectSha256: string, value: unknown) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[],
+		project: unknown, projectSha256: string, value: unknown, stored: boolean) => readonly Readonly<FramescaperDesktopExactBodyDescriptor>[],
 ): Promise<unknown> {
 	const project = framescaperDesktopExactProjectRow(row, configuration.schemaFamily ?? 'framescaper', configuration.schemaVersion);
 	const document = await readFile(join(paths.projectsRoot, text(row.document_file, 'document file')), 'utf8');
@@ -115,7 +116,7 @@ export async function readFramescaperDesktopExactProjectBundle(
 	configuration.validateProject(parsed);
 	return Object.freeze({
 		metadataRevision: metadataRevision(database), project, document,
-		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown),
+		bodies: configuredBodies(configuration, parsed, project.sha256, JSON.parse(text(row.bodies_json, 'body inventory')) as unknown, true),
 	});
 }
 
@@ -310,8 +311,11 @@ export function framescaperDesktopExactMediaPath(
 				: body.kind === 'framescaper-cube-lut' ? '.cube'
 					: body.kind === 'framescaper-motion-analysis' ? '.json'
 						: body.kind === 'image-sequence-inventory' ? '.inventory.json'
-							: body.kind === 'image-sequence-source-pack' ? '.sequence-pack' : '.image';
-	return join(paths.managedMediaRoot, body.kind, body.sha256.slice(0, 2), `${body.sha256}${extension}`);
+							: body.kind === 'image-sequence-source-pack' ? '.sequence-pack'
+								: body.kind === 'framescaper-image-asset' ? '.frame-pack' : '.image';
+	// Timeline-image keys identify distinct sources even when their frame packs match.
+	const stem = body.kind === 'framescaper-image-asset' ? `${sha256(body.storageKey)}-${body.sha256}` : body.sha256;
+	return join(paths.managedMediaRoot, body.kind, body.sha256.slice(0, 2), `${stem}${extension}`);
 }
 
 export function assertFramescaperDesktopExactExpectedProject(

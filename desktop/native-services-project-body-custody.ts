@@ -7,6 +7,7 @@ import { nativeMediaPlanVideoTimingAssetInputs } from '../src/common/editor/nati
 import type { NativeQueueInputFingerprintV1 } from '../src/common/editor/native-queue-record.ts';
 import {
 	validateFramescaperDesktopBodyDescriptor,
+	FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND,
 	type FramescaperDesktopBodyDescriptor,
 } from '../src/framescaper/desktop-project-library-body-contract.ts';
 
@@ -18,7 +19,8 @@ export type FramescaperNativeProjectMediaBody = FramescaperDesktopBodyDescriptor
 /** Admit the baseline body inventory without narrowing it to an older video-only subset. */
 export function framescaperNativeProjectBody(value: unknown): Readonly<FramescaperNativeProjectMediaBody> {
 	const row = record(value, 'baseline native project body');
-	if (row.kind === 'image-sequence-inventory' || row.kind === 'image-sequence-source-pack') {
+	if (row.kind === 'image-sequence-inventory' || row.kind === 'image-sequence-source-pack'
+		|| row.kind === FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND) {
 		return validateFramescaperDesktopBodyDescriptor(value);
 	}
 	if (!(BASE_KINDS as readonly unknown[]).includes(row.kind)

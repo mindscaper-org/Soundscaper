@@ -7,6 +7,7 @@ import {
 	ASSISTANCE_TTS_SCRIPT_STORAGE_KEY_PREFIX_V1,
 	type AssistanceAssetReferenceV1,
 } from '../common/editor/assistance/assistance-asset-reference-v1.ts';
+import { FRAMESCAPER_IMAGE_ASSET_ENCODING, FRAMESCAPER_IMAGE_ASSET_MIME_TYPE, normalizeFramescaperImageSourceV1, type FramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
 import type { VideoTimingAssetReference } from '../common/editor/video-timing-asset.ts';
 import {
 	validateFramescaperDesktopCoreBodies,
@@ -26,10 +27,12 @@ export const FRAMESCAPER_DESKTOP_ASSISTANCE_BODY_KIND = 'assistance-transcript' 
 export const FRAMESCAPER_DESKTOP_ASSISTANCE_BODY_ENCODING = 'assistance-transcript-v1' as const;
 export const FRAMESCAPER_DESKTOP_TTS_SCRIPT_BODY_KIND = 'assistance-tts-script' as const;
 export const FRAMESCAPER_DESKTOP_TTS_SCRIPT_BODY_ENCODING = 'canonical-json-v1' as const;
+export const FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND = 'framescaper-image-asset' as const;
 
 export const FRAMESCAPER_DESKTOP_EXTENSION_BODY_KINDS = Object.freeze([
 	'framescaper-still', 'framescaper-freeze-render',
 	'framescaper-cube-lut', 'framescaper-motion-analysis',
+	FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND,
 	'image-sequence-inventory', 'image-sequence-source-pack',
 	FRAMESCAPER_DESKTOP_ASSISTANCE_BODY_KIND,
 	FRAMESCAPER_DESKTOP_TTS_SCRIPT_BODY_KIND,
@@ -70,6 +73,7 @@ export interface FramescaperDesktopAssistanceBodyReference {
 export interface FramescaperDesktopExtensionBodyReference {
 	readonly archiveReference: FramescaperScapeAssetReference | null;
 	readonly professionalReference: FramescaperProfessionalMediaArchiveAsset | null;
+	readonly timelineImage?: FramescaperImageSourceV1;
 	readonly kind: FramescaperDesktopExtensionBodyKind;
 	readonly encoding: string;
 	readonly storageKey: string;
@@ -133,6 +137,7 @@ export function validateFramescaperDesktopBodies(
 	project: FramescaperProject,
 	projectSha256: string,
 	value: unknown,
+	allowLegacyImages = false,
 ): readonly Readonly<FramescaperDesktopBodyDescriptor>[] {
 	digest(projectSha256, 'project');
 	const supplied = denseArray(value).map(validateFramescaperDesktopBodyDescriptor);
@@ -149,7 +154,10 @@ export function validateFramescaperDesktopBodies(
 		byKey.set(identity, descriptor);
 	}
 	const extension: FramescaperDesktopBodyDescriptor[] = [];
+	// Older catalogs stored the document but never listed any timeline image bodies.
+	const legacyImageInventory = allowLegacyImages && !extensionSupplied.some(({ kind }) => kind === FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND);
 	for (const reference of collectFramescaperDesktopExtensionBodyReferences(project)) {
+		if (legacyImageInventory && reference.kind === FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND) continue;
 		const descriptor = byKey.get(bodyKey(reference));
 		if (!descriptor) throw new Error(`baseline desktop ${reference.kind} body is missing.`);
 		assertDescriptorMatches(reference, descriptor);
@@ -180,7 +188,20 @@ export function collectFramescaperDesktopExtensionBodyReferences(
 		.map(professionalExtensionReference);
 	const assistance = collectFramescaperDesktopAssistanceBodyReferences(project)
 		.map(({ descriptor }) => assistanceExtensionReference(descriptor));
-	return Object.freeze([...finishing, ...professional, ...assistance]);
+	const images = project.sources.filter(({ kind }) => kind === 'image').map(timelineImageExtensionReference);
+	return Object.freeze([...finishing, ...professional, ...assistance, ...images]);
+}
+
+function timelineImageExtensionReference(value: unknown): Readonly<FramescaperDesktopExtensionBodyReference> {
+	const timelineImage = normalizeFramescaperImageSourceV1(value);
+	return Object.freeze({
+		archiveReference: null, professionalReference: null, timing: null, timelineImage,
+		kind: FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND,
+		encoding: FRAMESCAPER_IMAGE_ASSET_ENCODING,
+		storageKey: timelineImage.storageKey, mimeType: timelineImage.mimeType, name: timelineImage.name,
+		byteLength: timelineImage.assetByteLength, maximumBytes: timelineImage.assetByteLength,
+		sha256: timelineImage.contentSha256,
+	});
 }
 
 export function collectFramescaperDesktopAssistanceBodyReferences(
@@ -298,6 +319,7 @@ function assertKindEncoding(kind: FramescaperDesktopBodyKind, encoding: string):
 		'framescaper-freeze-render': 'freeze-render-v1',
 		'framescaper-cube-lut': 'cube-lut-v1',
 		'framescaper-motion-analysis': 'motion-analysis-json-v1',
+		[FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND]: FRAMESCAPER_IMAGE_ASSET_ENCODING,
 		'image-sequence-inventory': 'framescaper-image-sequence-inventory-v1',
 		'image-sequence-source-pack': 'framescaper-image-sequence-source-pack-v1',
 		'assistance-transcript': FRAMESCAPER_DESKTOP_ASSISTANCE_BODY_ENCODING,
@@ -307,6 +329,9 @@ function assertKindEncoding(kind: FramescaperDesktopBodyKind, encoding: string):
 }
 
 function assertRoleBound(value: FramescaperDesktopBodyDescriptor): void {
+	if (value.kind === FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND && value.mimeType !== FRAMESCAPER_IMAGE_ASSET_MIME_TYPE) {
+		throw new RangeError('Framescaper desktop timeline image body has an unsupported media type.');
+	}
 	if ((value.kind === 'framescaper-still' || value.kind === 'framescaper-freeze-render')
 		&& !IMAGE_MIME.test(value.mimeType)) {
 		throw new RangeError(`baseline desktop ${value.kind} exceeds its image role bound.`);

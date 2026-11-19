@@ -322,7 +322,7 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 				}
 				finished = true;
 				assertPublicationCurrent(request);
-				const result = validateBundle(this.#profile, rawResult, projectId);
+				const result = validateBundle(this.#profile, rawResult, projectId, false);
 				if (JSON.stringify(result.project) !== JSON.stringify(project)) {
 					throw new Error('Framescaper publication readback changed the project.');
 				}
@@ -392,7 +392,7 @@ class Renderer implements FramescaperDesktopProjectLibraryRenderer {
 				},
 			});
 			return reconcileCommitted('duplicate', options.id, async () => {
-				const snapshot = validateBundle(this.#profile, result, options.id);
+				const snapshot = validateBundle(this.#profile, result, options.id, false);
 				await acquireFramescaperDesktopBodies(
 					snapshot.project,
 					snapshot.bundle.project.sha256,
@@ -469,6 +469,7 @@ function validateBundle(
 	profile: EditorProjectRuntimeProfile,
 	value: unknown,
 	expectedProjectId: string,
+	allowLegacyImages = true,
 ): Readonly<{ bundle: Readonly<Bundle>; project: FramescaperProject }> {
 	const raw = exactRecord(value, BUNDLE_FIELDS, 'Framescaper desktop bundle');
 	const row = projectRow(raw.project, expectedProjectId);
@@ -481,7 +482,7 @@ function validateBundle(
 	if (project.id !== row.projectId || project.title !== row.name || project.revision !== row.projectRevision) {
 		throw new Error('The Framescaper desktop project disagrees with its descriptor.');
 	}
-	const bodies = validateFramescaperDesktopBodies(project, row.sha256, raw.bodies);
+	const bodies = validateFramescaperDesktopBodies(project, row.sha256, raw.bodies, allowLegacyImages);
 	return Object.freeze({
 		bundle: Object.freeze({
 			metadataRevision: nonNegative(raw.metadataRevision, 'metadata revision'),

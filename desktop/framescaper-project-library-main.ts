@@ -46,9 +46,9 @@ const CONFIGURATION = Object.freeze({
 	validateOwner: validateFramescaperDesktopProjectLibraryOwner,
 	validateProject: (value: unknown) => validateFramescaperDesktopCurrentProject(value),
 	validateBodyDescriptor: (value: unknown) => validateFramescaperDesktopBodyDescriptor(value),
-	validateBodies: (project: unknown, projectSha256: string, value: unknown) => (
+	validateBodies: (project: unknown, projectSha256: string, value: unknown, stored: boolean) => (
 		validateFramescaperDesktopBodies(
-			validateFramescaperDesktopCurrentProject(project), projectSha256, value,
+			validateFramescaperDesktopCurrentProject(project), projectSha256, value, stored,
 		)
 	),
 });

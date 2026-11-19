@@ -27,6 +27,7 @@ import {
 } from './desktop-project-library-core-body-transfer.ts';
 import {
 	collectFramescaperDesktopExtensionBodyReferences,
+	FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND,
 	framescaperDesktopCoreBodyProject,
 	validateFramescaperDesktopBodies,
 	type FramescaperDesktopBodyDescriptor,
@@ -112,7 +113,7 @@ export async function prepareFramescaperDesktopPublicationBodies(
 		const metadata = trustedMetadata(descriptor,
 			await store.getMediaAssetMetadata(descriptor.storageKey));
 		const blob = selectBody(descriptor, normalizedBase.length + extension.length)
-			? await loadVerifiedBlob(store, transferReference(descriptor, project), metadata, signal) : null;
+			? await loadVerifiedBlob(store, transferReference(descriptor, project, reference), metadata, signal) : null;
 		const current = trustedMetadata(descriptor,
 			await store.getMediaAssetMetadata(descriptor.storageKey));
 		if (metadataIdentity(current) !== metadataIdentity(metadata)) {
@@ -181,9 +182,10 @@ export async function acquireFramescaperDesktopBodies(
 	store: FramescaperDesktopCoreBodyStore,
 	signal?: AbortSignal,
 ): Promise<void> {
-	const bodies = validateFramescaperDesktopBodies(project, projectSha256, bodiesValue);
+	const bodies = validateFramescaperDesktopBodies(project, projectSha256, bodiesValue, true);
 	assertAggregateBytes(bodies);
-	const references = new Map(bodies.map((body) => [bodyKey(body), transferReference(body, project)]));
+	const extensions = new Map(collectFramescaperDesktopExtensionBodyReferences(project).map(reference => [bodyKey(reference), reference]));
+	const references = new Map(bodies.map(body => [bodyKey(body), transferReference(body, project, extensions.get(bodyKey(body)) ?? null)]));
 	const missing = new Set<string>();
 	for (const body of bodies) {
 		throwIfScapeAborted(signal);
@@ -231,6 +233,10 @@ export async function acquireFramescaperDesktopBodies(
 				activeWriter = null;
 				publications.push(publication);
 				assertPublication(publication, body);
+				if (reference.extension?.timelineImage) {
+					const metadata = trustedMetadata(body, publication.metadata);
+					await loadVerifiedBlob(store, reference, metadata, signal);
+				}
 			}
 		}
 	} catch (error) {
@@ -267,9 +273,8 @@ async function extensionDescriptor(
 function transferReference(
 	descriptor: Readonly<FramescaperDesktopBodyDescriptor>,
 	project: FramescaperProject,
+	extension: Readonly<FramescaperDesktopExtensionBodyReference> | null,
 ): Readonly<TransferReference> {
-	const extension = collectFramescaperDesktopExtensionBodyReferences(project)
-		.find((candidate) => bodyKey(candidate) === bodyKey(descriptor)) ?? null;
 	if (descriptor.kind.startsWith('framescaper-') && !extension) {
 		throw new Error(`baseline desktop ${descriptor.kind} lost its project reference.`);
 	}
@@ -312,6 +317,10 @@ async function loadVerifiedBlob(
 ): Promise<Blob> {
 	throwIfScapeAborted(signal);
 	const blob = canonicalMediaContentBlob(await store.loadMediaAsset(reference.descriptor.storageKey, { signal }));
+	if (reference.extension?.timelineImage) {
+		const { validateFramescaperImageAssetBodyTimelineImage } = await import('./editor-scape-asset-plan-timeline-image.ts');
+		return validateFramescaperImageAssetBodyTimelineImage(reference.extension.timelineImage, blob, signal);
+	}
 	if (blob.size !== metadata.size || await digestMediaContent(blob, { signal }) !== metadata.sha256) {
 		throw new Error(`Managed baseline ${reference.descriptor.kind} body failed immutable verification.`);
 	}
@@ -376,6 +385,7 @@ function assertPublication(
 }
 
 function storageKind(kind: FramescaperDesktopBodyDescriptor['kind']): string {
+	if (kind === FRAMESCAPER_DESKTOP_TIMELINE_IMAGE_BODY_KIND) return 'timeline-image';
 	if (kind === 'framescaper-still') return 'still';
 	if (kind === 'framescaper-freeze-render') return 'freeze-render';
 	if (kind === 'framescaper-cube-lut') return 'cube-lut';

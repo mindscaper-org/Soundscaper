@@ -2,10 +2,10 @@
 
 import { trustedMediaContentSha256 } from '../common/editor/storage/media-content-provenance.ts';
 import type { StorageRecord } from '../common/editor/storage/media-records.ts';
-import type { FramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
+import { FRAMESCAPER_IMAGE_ASSET_ENCODING, type FramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
 
 export const FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE = 'timeline-image' as const;
-export const FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE = 'framescaper-image-asset-v1' as const;
+export const FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE = FRAMESCAPER_IMAGE_ASSET_ENCODING;
 
 /** Check the exact staged image row inside its owning publication transaction. */
 export function requireStagedTimelineImageBody(value: unknown, source: FramescaperImageSourceV1): StorageRecord {
