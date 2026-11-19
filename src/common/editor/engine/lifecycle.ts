@@ -309,7 +309,7 @@ async getAudioContext({ resume = true, sampleRate } = {}) {
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (sampleRate !== undefined) await prepareRealtimeSampleRate(this, sampleRate);
 		const context = await this[ENGINE_GET_CONTEXT]();
-		if (sampleRate !== undefined && context.sampleRate !== sampleRate) throw new RangeError(`Audio context cannot capture at ${sampleRate} Hz.`);
+		if (sampleRate != null && context.sampleRate !== sampleRate) throw new RangeError(`Audio context cannot capture at ${sampleRate} Hz.`);
 		this[ENGINE_ASSERT_ACTIVE]();
 		if (resume) await context.resume?.();
 		this[ENGINE_ASSERT_ACTIVE]();

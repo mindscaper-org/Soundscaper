@@ -5,6 +5,33 @@ import { bootEditor, importFiles } from './audio-editor-test-helpers.js';
 import { installNativeInputPeer } from './helpers/native-input-peer.js';
 import { installNativeOutputPeer, NATIVE_OUTPUT_PEER_WEBKIT_REASON } from './helpers/native-output-peer.js';
 
+test('Electron playback returns to the project clock after leaving a low-rate WASAPI route', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page, { backend: 'wasapi' });
+	const editor = await bootEditor(page, '/embed/en/');
+	await importFiles(editor, [createWavFixture({ name: 'Project clock.wav', sampleRate: 48_000,
+		frequency: 8_000, duration: 4, channelCount: 1 })]);
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	const host = setup.getByRole('combobox', { name: 'Host', exact: true });
+	await host.selectOption('wasapi');
+	const rate = setup.getByRole('combobox', { name: 'Recording sample rate', exact: true });
+	await rate.selectOption('8000');
+	await expect(rate).toHaveValue('8000');
+	await expect(host).toBeEnabled();
+	const playbackRate = () => page.evaluate(() => window.__nativeInputPeer.contexts.filter(context => context.state !== 'closed').at(-1)?.sampleRate);
+	await expect.poll(playbackRate).toBe(8_000);
+	await host.selectOption('electron');
+	await expect(rate).toHaveCount(0);
+	await expect(host).toBeEnabled();
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Play', exact: true }).click();
+	try {
+		await expect(editor.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+		await expect.poll(playbackRate).toBe(48_000);
+	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
+});
+
 test('losing a separate native microphone leaves speaker playback running', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page);

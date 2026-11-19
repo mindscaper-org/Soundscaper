@@ -71,7 +71,7 @@ export function isSoundscaperAudioHostController(value: unknown): value is Sound
 export function createSoundscaperAudioHostRuntime(options: Readonly<{
 	controller: SoundscaperAudioHostController;
 	bridge: SoundscaperNativeServicesBridge;
-	engine: Readonly<{ getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number }>): Promise<AudioContext> }>;
+	engine: Readonly<{ getAudioContext(options?: Readonly<{ resume?: boolean; sampleRate?: number | null }>): Promise<AudioContext> }>;
 }>): SoundscaperAudioHostRuntime {
 	const { controller, bridge } = options;
 	const listeners = new Set<() => void>();
@@ -267,6 +267,9 @@ export function createSoundscaperAudioHostRuntime(options: Readonly<{
 			await audioHostOperation('startup', () => bridge.setNativeAudioHelperEnabled(false));
 			assertActive();
 			await setInventory(host, null);
+			if (isNativeAudioStreamingBackend(previousHost)) {
+				await audioHostOperation('rate-mismatch', () => options.engine.getAudioContext({ resume: false, sampleRate: null }));
+			}
 			if (previousHost !== 'electron' || !preferences().inputAccess) await audioHostOperation('startup', () => controller.actions.audioDevices.requestAccess());
 			assertActive();
 			connectedKey = preferenceKey();
