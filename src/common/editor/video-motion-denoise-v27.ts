@@ -214,8 +214,7 @@ function neighborValue(
 
 function frameValue(value: unknown, name: string): GrayVideoFrameV1 {
 	if (!value || typeof value !== 'object') throw new TypeError(`${name} must be a gray frame.`);
-	const frame = value as Partial<GrayVideoFrameV1>;
-	return createGrayVideoFrameV1({ width: frame.width, height: frame.height, samples: frame.samples });
+	return createGrayVideoFrameV1(value as GrayVideoFrameV1);
 }
 
 function pixel(frame: GrayVideoFrameV1, x: number, y: number): number {

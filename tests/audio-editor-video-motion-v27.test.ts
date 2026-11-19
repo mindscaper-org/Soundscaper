@@ -291,6 +291,34 @@ test('temporal denoise admits GPU-first output and computes CPU only after accel
 	assert.deepEqual(invalidGeometry, cpu);
 });
 
+test('temporal denoise shares owned planes and snapshots unowned input', async () => {
+	const current = translatedDot(0, 0);
+	const cachedNeighbor = translatedDot(1, 0);
+	const mutableNeighbor = { ...cachedNeighbor, samples: [...cachedNeighbor.samples] };
+	const transformToCurrent = {
+		scale: 1, rotationRadians: 0, translateX: 0, translateY: 0, inlierCount: 4, meanError: 0,
+	};
+	let admitted: readonly unknown[] = [];
+	const result = await processTemporalDenoiseV1({
+		current, neighbors: [cachedNeighbor, mutableNeighbor].map(frame => ({ frame, transformToCurrent })),
+		strength: 0.5,
+		accelerator: {
+			kind: 'webgl2',
+			async temporalDenoise(request) {
+				const mutableInput = request.neighbors[1]!.frame;
+				mutableNeighbor.samples[0] = 1;
+				admitted = [request.current, request.neighbors[0]!.frame, mutableInput, mutableInput.samples[0]];
+				return cachedNeighbor;
+			},
+		},
+	});
+	assert.equal(admitted[0], current);
+	assert.equal(admitted[1], cachedNeighbor);
+	assert.notEqual(admitted[2], mutableNeighbor);
+	assert.equal(admitted[3], 0);
+	assert.equal(result, cachedNeighbor);
+});
+
 test('CPU temporal denoise prepares affine coefficients once and preserves the scalar result', async () => {
 	const current = translatedDot(0, 0);
 	const neighbor = translatedDot(1, -1);
