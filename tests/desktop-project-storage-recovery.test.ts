@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { watch } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { promisify } from 'node:util';
 import { OriginalFileOverwriteStore } from '../desktop/original-file-overwrite.ts';
 import { exactOriginalFileIdentity } from '../desktop/original-file-identity.ts';
 import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
@@ -249,6 +251,54 @@ test('startup registers a private stage before copying a temporary library into 
 		assert.equal((await readdir(location)).some(name => name.startsWith('relocation-')), false);
 	} finally { clearTimeout(timeout); watcher.close(); }
 });
+
+test('Windows startup reopens the current library when a pending selection becomes unwritable', {
+	skip: process.platform !== 'win32',
+}, async context => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-storage-acl-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const active = join(root, 'active'), selected = join(root, 'selected');
+	const catalogDirectory = join('Soundscaper', 'project-library', 'v1');
+	const configuration = join(root, 'settings.json');
+	const source = join(active, catalogDirectory, 'library.sqlite3');
+	await mkdir(join(active, catalogDirectory), { recursive: true });
+	await writeFile(source, 'active catalog');
+	const storage = () => new TemporaryProjectStorage(configuration, active, 'Soundscaper');
+	await storage().select(selected);
+	const pending = await readFile(configuration, 'utf8');
+
+	try {
+		await setWindowsWriteDenial(selected, true);
+		assert.equal(await storage().prepare(), active);
+		assert.equal(await readFile(configuration, 'utf8'), pending);
+		assert.equal(await readFile(source, 'utf8'), 'active catalog');
+		const started = JSON.stringify({ ...(JSON.parse(pending) as object), moveStarted: true });
+		await writeFile(configuration, started);
+		await assert.rejects(storage().prepare(), /reconnect the selected temporary data folder/iu);
+		await writeFile(configuration, pending);
+	} finally { await setWindowsWriteDenial(selected, false); }
+
+	assert.equal(await storage().prepare(), selected);
+	assert.equal(await readFile(join(selected, catalogDirectory, 'library.sqlite3'), 'utf8'), 'active catalog');
+	assert.deepEqual((await readdir(selected)).sort(), ['.soundscaper-temporary-library', 'Soundscaper']);
+});
+
+async function setWindowsWriteDenial(path: string, deny: boolean): Promise<void> {
+	const systemRoot = process.env.SystemRoot;
+	assert.ok(systemRoot);
+	const powershell = join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+	const update = deny ? '$acl.AddAccessRule($rule)' : '$acl.RemoveAccessRuleSpecific($rule)';
+	await promisify(execFile)(powershell, ['-NoProfile', '-NonInteractive', '-Command', `
+$ErrorActionPreference = 'Stop'
+$path = $env:SCAPE_TEST_STORAGE_ACL_DIRECTORY
+$user = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl = Get-Acl -LiteralPath $path
+$rights = [System.Security.AccessControl.FileSystemRights]::CreateFiles -bor [System.Security.AccessControl.FileSystemRights]::CreateDirectories
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new($user, $rights, 'ContainerInherit, ObjectInherit', 'None', 'Deny')
+${update}
+Set-Acl -LiteralPath $path -AclObject $acl
+`], { env: { ...process.env, SCAPE_TEST_STORAGE_ACL_DIRECTORY: path }, timeout: 10_000, windowsHide: true });
+}
 
 test('restart clears a registered copy stage after the library source was retired', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'scape-storage-relocation-receipt-'));

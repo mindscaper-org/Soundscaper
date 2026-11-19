@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, rmdir, writeFile, access, lstat, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rmdir, writeFile, access, lstat, open, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { clearDesktopStorageCopyStage } from './desktop-storage-copy-stage.ts';
@@ -228,8 +228,16 @@ async function availableTemporaryFolder(path: string): Promise<string | null> {
 	}
 }
 async function temporaryFolderIsWritable(path: string): Promise<boolean> {
-	try { await access(path, constants.W_OK); return true; }
-	catch (error) {
+	try {
+		if (process.platform === 'win32') {
+			// Windows access(W_OK) does not check the directory's ACL.
+			const { UV_FS_O_TEMPORARY } = constants as typeof constants & { readonly UV_FS_O_TEMPORARY: number };
+			const probe = await open(join(path, `.scape-write-check-${randomBytes(16).toString('hex')}`),
+				constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | UV_FS_O_TEMPORARY, 0o600);
+			await probe.close();
+		} else await access(path, constants.W_OK);
+		return true;
+	} catch (error) {
 		const code = (error as NodeJS.ErrnoException).code;
 		if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS' || code === 'ENOENT' || code === 'ENOTDIR') return false;
 		throw error;

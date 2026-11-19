@@ -252,6 +252,8 @@ selection or its location becomes unsupported, startup cancels that choice,
 reports the cause, and opens the current library.
 If the selected directory is missing, unwritable, or locked before migration
 starts, startup continues with the current library and keeps the pending move.
+Windows tests this by opening a delete-on-close file under the selected root,
+so its directory access controls are applied before a move is recorded.
 Once the move may have started, startup requires the destination to be available
 because the old location may contain only part of the library.
 On Linux and Windows, a hard-link-capable destination can publish completed
