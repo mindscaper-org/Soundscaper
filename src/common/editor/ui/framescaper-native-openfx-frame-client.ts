@@ -17,7 +17,7 @@ const SHA256 = /^[a-f\d]{64}$/u;
 const TIMEOUT_MS = 30_000;
 
 export interface FramescaperOpenFxRendererMessagePort {
-	postMessage(message: unknown, transfer?: Transferable[]): void;
+	postMessage(message: unknown): void;
 	start(): void;
 	close(): void;
 	onmessage: ((event: MessageEvent<unknown>) => void) | null;
@@ -189,11 +189,12 @@ async function sendInput(
 ): Promise<void> {
 	let sequence = 0;
 	for (let offset = 0; offset < bytes.byteLength; offset += MAXIMUM_CHUNK_BYTES) {
+		// Electron clones this chunk across the renderer/main port.
 		const chunk = bytes.slice(offset, offset + MAXIMUM_CHUNK_BYTES);
 		port.postMessage(Object.freeze({
 			dataPlaneVersion: 1, type: 'chunk', streamId: binding.streamId,
 			sequence, offset, bytes: chunk,
-		}), [chunk.buffer]);
+		}));
 		const ack = closed(await message(port, signal), [
 			'dataPlaneVersion', 'type', 'streamId', 'sequence', 'receivedBytes',
 		], 'OpenFX frame acknowledgement');

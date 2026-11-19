@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { MessageChannel } from 'node:worker_threads';
 
 import {
@@ -78,10 +78,7 @@ test('the pathless OpenFX frame port carries only digest-bound RGBA with one-in-
 			return { mode: 'render', rgba: { width: 2, height: 2, pixels: output },
 				backend: 'cpu', retriedOnCpu: true, reportsDegradation: true };
 		} },
-		createMessageChannel: () => {
-			const channel = new MessageChannel();
-			return { hostPort: channel.port1 as never, helperPort: channel.port2 as never };
-		},
+		createMessageChannel: () => frameMessageChannel(context),
 		mintOpaqueId: () => 'ab'.repeat(20),
 	});
 	context.after(() => broker.dispose());
@@ -179,10 +176,7 @@ test('a zero-input Generator uses a closed null ingress binding and bounded outp
 			return { mode: 'render', rgba: frame(9), backend: 'cpu', retriedOnCpu: false,
 				reportsDegradation: false };
 		} },
-		createMessageChannel: () => {
-			const channel = new MessageChannel();
-			return { hostPort: channel.port1 as never, helperPort: channel.port2 as never };
-		},
+		createMessageChannel: () => frameMessageChannel(context),
 		mintOpaqueId: () => 'ef'.repeat(20),
 	});
 	context.after(() => broker.dispose());
@@ -202,6 +196,7 @@ test('a zero-input Generator uses a closed null ingress binding and bounded outp
 		requestedBackend: 'cpu', inputs: [], standardParameters: {}, signal: new AbortController().signal,
 	});
 	assert.equal(result.mode, 'render');
+	if (result.mode === 'render') assert.deepEqual(result.rgba.pixels, frame(9).pixels);
 	assert.equal((controlValue as { inputBinding: unknown }).inputBinding, null);
 	assert.deepEqual((controlValue as { inputs: unknown[] }).inputs, []);
 });
@@ -248,6 +243,18 @@ test('renderer close aborts main execution after ingress, including a zero-input
 	await aborted;
 	assert.equal(mainAborted, true);
 });
+
+function frameMessageChannel(context: TestContext) {
+	const { port1, port2 } = new MessageChannel();
+	for (const port of [port1, port2]) {
+		const postMessage = port.postMessage.bind(port);
+		context.mock.method(port, 'postMessage', (value: unknown, transfer?: readonly unknown[]) => {
+			assert.equal(transfer?.length ?? 0, 0, 'frame data messages carry bytes in the payload');
+			postMessage(value);
+		});
+	}
+	return { hostPort: port1 as never, helperPort: port2 as never };
+}
 
 function control() {
 	const pixels = new Uint8Array(16);
