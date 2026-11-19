@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
@@ -19,6 +22,17 @@ test('file association arguments accept only unique Scape and Audacity project p
 	);
 	assert.deepEqual(paths, ['/projects/old.aup3', '/projects/demo.aup4', '/projects/movie.scape']);
 	assert.deepEqual(extractAup4Paths(['old.aup3', 'movie.scape'], '/projects'), ['/projects/old.aup3', '/projects/movie.scape']);
+});
+
+test('desktop launch opens a relative project whose name starts with a dash after the option terminator', async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-option-terminator-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const filename = '-first-pass.sscape';
+	const project = join(directory, filename);
+	await writeFile(project, 'project bytes');
+	const paths = extractProjectPaths(['soundscaper', '--switch.sscape', '--', filename], directory);
+	assert.deepEqual(paths, [project]);
+	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
 });
 
 test('pending project dispatch stays serial and retries its visible head for a replacement renderer', async () => {

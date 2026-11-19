@@ -101,8 +101,14 @@ export async function redispatchPendingProjectsAfterReadRelease(queue, releasePr
 
 export function extractProjectPaths(argv, workingDirectory = process.cwd()) {
 	const paths = [];
+	let positionalOnly = false;
 	for (const argument of Array.isArray(argv) ? argv : []) {
-		if (typeof argument !== 'string' || argument.startsWith('-')) continue;
+		if (typeof argument !== 'string') continue;
+		if (argument === '--') {
+			positionalOnly = true;
+			continue;
+		}
+		if (!positionalOnly && argument.startsWith('-')) continue;
 		let candidate = argument;
 		if (candidate.startsWith('file://')) {
 			try {
