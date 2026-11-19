@@ -74,9 +74,9 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		await remember(project.id);
 		if (previous?.originalFile && previous.originalFile.id !== target.originalFile?.id) await d.release?.(previous.originalFile);
 	}
-	async function saved(project: Project, target: ProjectFileTarget): Promise<void> {
+	async function saved(project: Project, target: ProjectFileTarget, baseline = fingerprint(project)): Promise<void> {
 		const previous = entries.get(project.id);
-		entries.set(project.id, { ...previous, ...target, baseline: fingerprint(project) });
+		entries.set(project.id, { ...previous, ...target, baseline });
 		await remember(project.id);
 		if (previous?.originalFile && target.originalFile && previous.originalFile.id !== target.originalFile.id) await d.release?.(previous.originalFile);
 	}
@@ -110,9 +110,11 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		await load(project);
 		const entry = entries.get(project.id);
 		if (!entry) return false;
-		if (!explicit && !await hasChanges(project)) return true;
 		const hasTarget = Boolean(entry.originalFile || entry.fileHandle);
 		if (!hasTarget && !explicit) return true;
+		const previousBaseline = explicit ? null : await entry.baseline;
+		const nextBaseline = previousBaseline === null ? undefined : fingerprint(project);
+		if (nextBaseline && await nextBaseline === previousBaseline) return true;
 		const lease = d.getProject()?.id === project.id ? undefined : await d.acquireInactiveWrite?.(project.id);
 		if (lease === null) return false;
 		const ownsDestination = () => !disposed && entries.get(project.id) === entry;
@@ -131,7 +133,7 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 			const result = await d.write(project, target ?? undefined, assertWritable);
 			if (result.cancelled === true) return false;
 			if (ownsDestination() && d.getOpenProjectIds().includes(project.id)) {
-				await saved(project, result as ProjectFileTarget);
+				await saved(project, result as ProjectFileTarget, nextBaseline);
 			} else await releaseCopyTarget(result);
 			return true;
 		} finally { if (lease) await releaseProjectFileWriteLease(lease); }

@@ -72,6 +72,21 @@ test('automatic file saving is opt in on desktop and uses a retained destination
 	f.setAuto(true); f.edit(); f.timers.at(-1)!(); await f.service.drain();
 	assert.equal(f.writes.length, 1); assert.equal(await f.service.hasChanges(f.getProject()), false);
 });
+test('automatic file saving reuses the content fingerprint that admitted the exact write', async t => {
+	const persisted: string[] = [];
+	const f = fixture(true, undefined, (_id, _target, baseline) => { persisted.push(baseline); });
+	await f.service.opened(f.getProject(), { fileHandle: { createWritable() {} } });
+	const digest = crypto.subtle.digest.bind(crypto.subtle);
+	const observed = t.mock.method(crypto.subtle, 'digest', digest);
+	f.setAuto(true);
+	f.edit();
+	await f.runPendingTimers();
+	assert.equal(f.writes.length, 1);
+	assert.equal(observed.mock.callCount(), 1);
+	assert.equal(persisted.length, 2);
+	assert.notEqual(persisted[1], persisted[0]);
+	assert.equal(await f.service.hasChanges(f.getProject()), false);
+});
 test('automatic file saving without a destination leaves internal autosave retries to their owner', async () => {
 	const f = fixture(false); f.service.observe(); f.edit();
 	f.timers.at(-1)!(); await f.service.drain();
