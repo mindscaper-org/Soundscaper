@@ -9,6 +9,7 @@ interface RoutedEvent {
 	readonly order: number;
 	readonly event: MidiFileEvent;
 	readonly destination?: MidiImportDestination;
+	readonly selectPort?: boolean;
 }
 
 /** Keep separately authored patch and channel controls with their unique playable owner. */
@@ -36,8 +37,10 @@ export function routeMidiImportControls(tracks: readonly MidiFileTrack[]): reado
 			const channelSetup = [0xa0, 0xb0, 0xc0, 0xd0, 0xe0].includes(type);
 			const key = midiImportDestinationKey(destination);
 			const owner = channelSetup ? owners.get(`${event.status & 0x0f}:${key}`) : undefined;
-			if (owner === undefined || owner === null || owner === index || midiImportDestinationKey(destinationAt[owner]!(event.frame)) !== key) retained.push(event);
-			else incoming[owner]!.push({ source: index, order, event, destination });
+			if (owner == null || owner === index) { retained.push(event); continue; }
+			const target = destinationAt[owner]!(event.frame);
+			if (!sameDevice(target, destination)) retained.push(event);
+			else incoming[owner]!.push({ source: index, order, event, destination, selectPort: target.port !== destination.port });
 		}
 		return retained.length === track.events.length ? track : { ...track, events: retained };
 	});
@@ -53,16 +56,31 @@ function mergedEvents(track: MidiFileTrack, index: number, incoming: readonly Ro
 	const output: MidiFileEvent[] = [], delayed: RoutedEvent[] = [];
 	let destination: MidiImportDestination = { port: 0 };
 	for (const entry of entries) {
-		if (entry.destination && midiImportDestinationKey(destination) !== midiImportDestinationKey(entry.destination)) {
+		if (!canWrite(entry, destination)) {
 			delayed.push(entry); continue;
 		}
-		output.push(entry.event);
+		writeEvent(output, entry, destination.port);
 		destination = midiImportSelector(destination, entry.event);
 		// Every incoming event belongs to this owner's one stable namespace.
-		if (delayed.length && midiImportDestinationKey(destination) === midiImportDestinationKey(delayed[0]!.destination!)) {
-			for (const pending of delayed) output.push(pending.event);
+		if (delayed.length && canWrite(delayed[0]!, destination)) {
+			for (const pending of delayed) writeEvent(output, pending, destination.port);
 			delayed.length = 0;
 		}
 	}
 	return output;
+}
+
+function sameDevice(left: MidiImportDestination, right: MidiImportDestination): boolean {
+	return left.device === right.device || JSON.stringify(left.device) === JSON.stringify(right.device);
+}
+
+function canWrite(entry: RoutedEvent, destination: MidiImportDestination): boolean {
+	return !entry.destination || (entry.selectPort || entry.destination.port === destination.port) && sameDevice(entry.destination, destination);
+}
+
+function writeEvent(output: MidiFileEvent[], entry: RoutedEvent, activePort: number): void {
+	const port = entry.destination?.port;
+	if (port === undefined || port === activePort) { output.push(entry.event); return; }
+	const selector = { frame: entry.event.frame, status: 255, metaType: 0x21 };
+	output.push({ ...selector, data: [port] }, entry.event, { ...selector, data: [activePort] });
 }

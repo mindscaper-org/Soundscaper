@@ -54,3 +54,30 @@ test('a note-bearing donor cannot send its expression to another MIDI port', () 
 	];
 	assert.deepEqual(routeMidiImportControls(tracks), tracks);
 });
+
+test('an SMF channel control reaches its port before the note track selects it', async () => {
+	const f = midiServiceFixture();
+	const port = (frame: number, id: number) => ({ frame, status: 255, metaType: 33, data: [id] });
+	const control = { frame: 200, status: 177, data: [7, 0] };
+	const local = { frame: 400, status: 177, data: [7, 100] };
+	const input = writeMidiFile({ sampleRate: 8000, tempos: [], signatures: [], tracks: [
+		{ name: 'Port setup', notes: [], events: [port(0, 2), control] },
+		{ name: 'Melody', notes: [{ ...note, startFrame: 800, midiPort: 2 }], events: [local, port(800, 2)] },
+	] });
+	const document = parseMidiFile(input, { sampleRate: 8000 });
+	await f.service.importDocument(document);
+	const clip = f.project().clips.find(candidate => candidate.title === 'Melody');
+	assert.ok(clip);
+	const samples = f.pcm.get(String(clip.sourceId));
+	assert.ok(samples);
+	assert.ok(samples[0]!.slice(1000, 3000).every(value => value === 0), 'the early port-2 volume change must mute the melody');
+	const melody = routeMidiImportControls(document.tracks).find(track => track.name === 'Melody');
+	assert.deepEqual(melody?.events, [port(200, 2), control, port(200, 0), local, port(800, 2)]);
+	await f.service.exportFile('midi');
+	const exported = parseMidiFile(f.saves[0]?.bytes as Uint8Array, { sampleRate: 8000 });
+	const reopened = midiServiceFixture();
+	await reopened.service.importDocument(exported);
+	const reopenedClip = reopened.project().clips.find(candidate => candidate.title === 'Melody');
+	assert.ok(reopenedClip);
+	assert.deepEqual(reopened.pcm.get(String(reopenedClip.sourceId)), samples);
+});
