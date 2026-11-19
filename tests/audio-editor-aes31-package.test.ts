@@ -6,9 +6,13 @@ import { BlobWriter, TextReader, Uint8ArrayReader, ZipWriter } from '@zip.js/zip
 import { readAdlPackage, writeAdlPackage } from '../src/common/editor/aes31-package.ts';
 import { createAdlExport } from '../src/common/editor/aes31-export.ts';
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
+import type { NativeProjectFile } from '../src/common/editor/controller/document/native-project-types.ts';
+import type { DeliveryReportItem } from '../src/common/editor/delivery-report.ts';
 import { createFixture } from './helpers/native-project-service-fixture.ts';
+import { sesxDesktopHardwareFixture } from './helpers/sesx-desktop-hardware-fixture.ts';
 import type { AudioClipLeaf } from '../src/common/editor/project-media-types.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
+import { withDesktopProjectReadDescriptor } from '../src/common/editor/ui/workspace/desktop-project-file-routing.ts';
 
 const text = readFileSync(new URL('./fixtures/aes31/voice.adl', import.meta.url), 'utf8');
 async function archive(entries: readonly (readonly [string, string | Uint8Array])[]) {
@@ -27,6 +31,33 @@ test('ADL ZIP import restores edits and selected PCM without external path autho
 	assert.ok(source.kind === 'audio'); assert.equal(source.channelCount, 1);
 	assert.equal((result.project.clips[0] as AudioClipLeaf).timelineStartFrame, 7);
 	assert.equal(result.report.items.some(item => item.disposition === 'missing'), false);
+});
+
+test('desktop File Open keeps an ADL package edit offline when its media is absent', async context => {
+	const wave = new Uint8Array(encodeWav([new Float32Array(96_000).fill(.125), new Float32Array(96_000).fill(.5)],
+		{ sampleRate: 48_000, float: true }));
+	const blob = await archive([['edit.adl', text]]);
+	const hardware = await sesxDesktopHardwareFixture(new Uint8Array(await blob.arrayBuffer()), wave, {
+		fileName: 'session.adl.zip', extraFiles: [{ path: 'voice.wav', bytes: wave }],
+	});
+	context.after(hardware.close);
+	let counter = 0;
+	const fixture = createFixture({ createStableId: prefix => `${prefix}-${++counter}`, fileService: hardware.fileService });
+	fixture.runtime.store.beginSourceWrite = async () => assert.fail('The package did not grant access to the adjacent WAV');
+	const service = createNativeProjectService(fixture.runtime);
+	const [descriptor] = await hardware.fileService.chooseFiles({ purpose: 'project' });
+	assert.ok(descriptor);
+	const result = await withDesktopProjectReadDescriptor(hardware.fileService, descriptor, {
+		openMaterialized: file => {
+			assert.ok('name' in file && file.name === 'session.adl.zip');
+			return service.openInterchange(file as NativeProjectFile);
+		},
+		openScape: () => assert.fail('An ADL package is not a Scape archive'),
+	});
+	assert.ok(result);
+	assert.equal((result.project.clips[0] as AudioClipLeaf).timelineStartFrame, 7);
+	assert.ok(result.report.items.some((item: DeliveryReportItem) => item.disposition === 'missing'));
+	assert.deepEqual(hardware.releasedReads, [descriptor.id]);
 });
 
 test('ADL packages reject traversal and ambiguous decision lists, and preserve missing media', async () => {

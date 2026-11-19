@@ -33,7 +33,9 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		const operation = helpers.beginProjectTask('timeline-interchange-open');
 		const signal = operation.task.signal;
 		const assertCurrent = () => helpers.assertOwnership(operation.task, operation.projectToken);
-		const sessionReadId = desktopReadCapabilityIdFor(file);
+		const adlPackage = /\.adl\.zip$/iu.test(file.name);
+		// Selecting a ZIP grants the archive itself with no adjacent-media session.
+		const sessionReadId = adlPackage ? undefined : desktopReadCapabilityIdFor(file);
 		const persisted: string[] = [];
 		const finalizers: TimelineInterchangeFinalizer[] = [];
 		let imported: NativeProjectDocument | null = null;
@@ -43,10 +45,10 @@ export function createTimelineInterchangeService(runtime: NativeProjectServiceRu
 		try {
 			setLocalizedStatus(runtime.setStatus, runtime.copy, 'importing');
 			const protools = /\.pt[fxs]$/iu.test(file.name);
-			const binary = protools || /\.(?:omfi?|aaf|scraftz|adl\.zip)$/iu.test(file.name);
+			const binary = protools || adlPackage || /\.(?:omfi?|aaf|scraftz)$/iu.test(file.name);
 			if (file.size > (protools ? PROTOOLS_MAXIMUM_BYTES : binary ? MAXIMUM_BINARY_BYTES : MAXIMUM_TEXT_BYTES)) throw new RangeError('The interchange document exceeds its import size limit.');
 			if (/\.scraftz$/iu.test(file.name)) bundle = await (await import('../../../../soundcraft-bundle.ts')).openSoundcraftBundle(file, signal);
-			const document = bundle ? bundle.document : /\.adl\.zip$/iu.test(file.name)
+			const document = bundle ? bundle.document : adlPackage
 				? await (await import('../../../../aes31-package.ts')).readAdlPackage(file, signal)
 				: /\.aaf$/iu.test(file.name)
 				? (await import('../../../../aaf-import.ts')).parseAafDocument(new Uint8Array(await file.arrayBuffer()))

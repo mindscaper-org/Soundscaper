@@ -34,7 +34,7 @@ interface SessionIpcOptions {
 const registerSessionIpc = registerFileCapabilityIpc as unknown as (options: SessionIpcOptions) => void;
 
 /** Only OS dialog/IPC transport are modeled; host capabilities, media grants and reads are real. */
-export async function sesxDesktopHardwareFixture(xml: string | ((directory: string) => string), wave: Uint8Array,
+export async function sesxDesktopHardwareFixture(document: string | Uint8Array | ((directory: string) => string), wave: Uint8Array,
 	options: Readonly<{ fileName?: string; extraFiles?: readonly Readonly<{ path: string; bytes: Uint8Array }>[] }> = {}) {
 	const directory = await mkdtemp(join(tmpdir(), 'sesx-controller-custody-'));
 	const sessionPath = join(directory, options.fileName ?? 'Selection.sesx');
@@ -55,7 +55,7 @@ export async function sesxDesktopHardwareFixture(xml: string | ((directory: stri
 		await rm(directory, { recursive: true, force: true });
 	};
 	try {
-		await writeFile(sessionPath, typeof xml === 'string' ? xml : xml(directory)); await writeFile(join(directory, 'Stereo.wav'), wave);
+		await writeFile(sessionPath, typeof document === 'function' ? document(directory) : document); await writeFile(join(directory, 'Stereo.wav'), wave);
 		for (const file of options.extraFiles ?? []) {
 			const path = join(directory, file.path); await mkdir(dirname(path), { recursive: true }); await writeFile(path, file.bytes);
 		}
