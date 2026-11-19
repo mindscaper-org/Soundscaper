@@ -83,29 +83,42 @@ bool startsAsioWithBatchedProducer(uint32_t producerFrames, bool delayed)
 	return started;
 }
 
-bool recoversOneLateAsioPeriod()
+bool recoversOneLateOutputPeriod(uint32_t packetFrames, uint32_t deviceFrames)
 {
-	constexpr uint32_t period = 4u;
-	soundscaper::AudioFrameRing ring(2u, 3u * period);
-	std::array<float, period> left{}, right{};
+	soundscaper::AudioFrameRing ring(2u, 3u * deviceFrames + packetFrames);
+	std::vector<float> sourceLeft(packetFrames), sourceRight(packetFrames);
+	std::vector<float> left(deviceFrames), right(deviceFrames);
 	float *targets[] = { left.data(), right.data() };
-	const float *sources[] = { left.data(), right.data() };
+	const float *sources[] = { sourceLeft.data(), sourceRight.data() };
+	uint32_t written = 0;
 	bool missed = false;
-	const auto read = [&] { return soundscaper::readAsioOutputPeriod(ring, targets, 2u, period, missed); };
-	const auto push = [&](float value) {
-		left.fill(value);
-		right.fill(-value);
-		return ring.push(sources, 2u, period);
+	const auto read = [&] { return soundscaper::readDeviceOutputPeriod(ring, targets, 2u, deviceFrames, missed); };
+	const auto writeThrough = [&](uint32_t endFrame) {
+		while (written < endFrame) {
+			for (uint32_t frame = 0; frame < packetFrames; ++frame) {
+				sourceLeft[frame] = static_cast<float>(written + frame + 1u);
+				sourceRight[frame] = -sourceLeft[frame];
+			}
+			if (!ring.push(sources, 2u, packetFrames)) return false;
+			written += packetFrames;
+		}
+		return true;
 	};
-	const auto equals = [&](float value) {
-		return std::all_of(left.begin(), left.end(), [=](float sample) { return sample == value; })
-			&& std::all_of(right.begin(), right.end(), [=](float sample) { return sample == -value; });
+	const auto presents = [&](uint32_t startFrame) {
+		for (uint32_t frame = 0; frame < deviceFrames; ++frame) {
+			const auto expected = static_cast<float>(startFrame + frame + 1u);
+			if (left[frame] != expected || right[frame] != -expected) return false;
+		}
+		return true;
 	};
-	return push(1.0f) && read() && equals(1.0f)
-		&& read() && equals(0.0f)
-		&& push(2.0f) && push(3.0f) && read() && equals(3.0f)
-		&& read() && equals(0.0f)
-		&& push(4.0f) && !read() && ring.availableFrames() == 0u;
+	const auto silent = [](const std::vector<float> &plane) {
+		return std::all_of(plane.begin(), plane.end(), [](float sample) { return sample == 0.0f; });
+	};
+	return writeThrough(deviceFrames) && read() && presents(0u)
+		&& read() && missed && silent(left) && silent(right)
+		&& writeThrough(3u * deviceFrames) && read() && !missed && presents(2u * deviceFrames)
+		&& read() && missed && silent(left) && silent(right)
+		&& writeThrough(4u * deviceFrames) && !read() && ring.availableFrames() == written - 4u * deviceFrames;
 }
 
 }
@@ -120,8 +133,8 @@ int main()
 		std::cerr << "ASIO playback exhausted its startup reserve with batched render packets.\n";
 		return 1;
 	}
-	if (!recoversOneLateAsioPeriod()) {
-		std::cerr << "ASIO playback replayed a late block, or failed to detect sustained starvation.\n";
+	if (!recoversOneLateOutputPeriod(4u, 4u) || !recoversOneLateOutputPeriod(256u, 480u)) {
+		std::cerr << "Native playback replayed a late block, or failed to detect sustained starvation.\n";
 		return 1;
 	}
 	return 0;

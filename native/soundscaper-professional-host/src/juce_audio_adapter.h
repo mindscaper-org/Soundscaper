@@ -28,9 +28,9 @@ constexpr uint32_t jucePlaybackStartFrames(std::string_view backend,
 	return backend == "asio" ? 3u * transportFrames : transportFrames;
 }
 
-// ASIO's callback and transport periods match exactly. After a missed
-// deadline the next block is stale, so discard it before playing again.
-inline bool readAsioOutputPeriod(AudioFrameRing &output, float *const *planes,
+// Discard one missed device interval before rendering the next one. Its frame
+// count comes from the device callback, independent of the transport packets.
+inline bool readDeviceOutputPeriod(AudioFrameRing &output, float *const *planes,
 	uint32_t channels, uint32_t frames, bool &missedPrevious)
 {
 	if (missedPrevious && !output.pop(nullptr, 0u, frames)) return false;

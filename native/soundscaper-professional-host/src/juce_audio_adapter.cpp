@@ -102,8 +102,8 @@ private:
 			playbackStarted = playbackStarted || output.availableFrames() >= playbackStartFrames;
 			if (playbackStarted) {
 				const auto channels = static_cast<uint32_t>(outputChannels);
-				const bool delivered = asio
-					? readAsioOutputPeriod(output, outputs, channels, deviceFrames, missedPlaybackPeriod)
+				const bool delivered = (asio || sharedWasapi)
+					? readDeviceOutputPeriod(output, outputs, channels, deviceFrames, missedPlaybackPeriod)
 					: output.pop(outputs, channels, deviceFrames);
 				if (delivered) return;
 				failed.store(true, std::memory_order_release);
