@@ -342,6 +342,7 @@ void drain_encoder(AVCodecContext* encoder, AVStream* stream, AVFormatContext* o
 		encoder->color_range = source.codec->color_range;
 		encoder->chroma_sample_location = source.codec->chroma_sample_location;
 		encoder->profile = AV_PROFILE_PRORES_PROXY;
+		encoder->flags |= AV_CODEC_FLAG_FRAME_DURATION;
 		if ((output->oformat->flags & AVFMT_GLOBALHEADER) != 0) encoder->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 		require_ffmpeg(av_opt_set(encoder->priv_data, "profile", "proxy", 0), "Select the ProRes Proxy profile");
 		require_ffmpeg(avcodec_open2(encoder, codec, nullptr), "Open the CPU ProRes encoder");
