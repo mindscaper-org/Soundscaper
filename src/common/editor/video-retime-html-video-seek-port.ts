@@ -51,6 +51,7 @@ interface VideoSourceIdentity {
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 const MAXIMUM_TIMEOUT_MS = 30_000;
+const MAXIMUM_RETRY_INSET_SECONDS = .001;
 
 export class VideoRetimeFrameIntervalMismatch extends RangeError {
 	constructor() {
@@ -160,7 +161,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 		return new Promise<Readonly<{ readonly mediaTime: number }>>((resolve, reject) => {
 			const seek = createActiveSeek(request, resolve, reject);
 			active = seek;
-			let retriedAtIntervalStart = false;
+			let retriedEarlier = false;
 			const requestPresentedFrame = (): void => {
 				const mayPrecedeTargetAssignment = !seek.seekIssued;
 				const frameCallbackId = requestFrame((_now, metadata) => {
@@ -168,12 +169,14 @@ export function createVideoRetimeHtmlVideoSeekPort(
 					const mediaTime = authoredCallbackTime(metadata.mediaTime, request);
 					if (!mediaTimeInRequestedInterval(mediaTime, request)) {
 						// WebKit can snap an interior seek forward to the following
-						// frame. Retry once at the interval start after the seek drains;
-						// the replacement callback must authenticate the same interval.
-						if (seek.seekIssued && !retriedAtIntervalStart
+						// frame, and an exact start seek can paint the previous picture.
+						// Retry earlier inside the same interval after the seek drains.
+						if (seek.seekIssued && !retriedEarlier
 							&& mediaTime >= request.intervalEndSeconds
 							&& targetSeconds > request.intervalStartSeconds) {
-							retriedAtIntervalStart = true;
+							retriedEarlier = true;
+							const start = request.intervalStartSeconds;
+							const retryTarget = start + Math.min(MAXIMUM_RETRY_INSET_SECONDS, (targetSeconds - start) / 2);
 							cancelFrame(frameCallbackId);
 							seek.frameCallbackId = null;
 							const retry = (): void => {
@@ -181,7 +184,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 								try {
 									assertCurrent();
 									requestPresentedFrame();
-									video.currentTime = request.intervalStartSeconds;
+									video.currentTime = retryTarget;
 								} catch (error) {
 									requestFailure(seek, errorValue(error, 'The retime preview boundary seek failed.'));
 								}

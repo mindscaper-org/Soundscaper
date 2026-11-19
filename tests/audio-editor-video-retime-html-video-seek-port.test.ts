@@ -80,7 +80,7 @@ test('the same rounded timestamp cannot authenticate the previous picture', asyn
 	const { video, result } = fixture(context, .2, 7 / 30, .21);
 	video.presentFrame(.233333);
 	video.drain();
-	assert.deepEqual(video.seeks, [.21, .2]);
+	assert.deepEqual(video.seeks, [.21, .201]);
 	video.presentFrame(.2);
 	video.drain();
 	assert.deepEqual(await result, { value: { mediaTime: .2 } });
@@ -97,7 +97,7 @@ test('a truncated following boundary cannot authenticate the preceding picture a
 	const { video, result } = fixture(context, 0, 2 / 30, 1 / 30);
 	video.presentFrame(.133333);
 	video.drain();
-	assert.deepEqual(video.seeks, [1 / 30, 0]);
+	assert.deepEqual(video.seeks, [1 / 30, .001]);
 	video.presentFrame(.066666);
 	video.drain();
 	const outcome = await result;
@@ -120,7 +120,7 @@ test('a forward-snapped paused frame retries only after the initial seek drains'
 	video.dispatchEvent(new Event('seeked'));
 	assert.deepEqual(video.seeks, [0.085], 'a stale seeked event cannot overlap the active seek');
 	video.drain();
-	assert.deepEqual(video.seeks, [0.085, 0.04], 'seeked must recover without another spontaneous paused-frame callback');
+	assert.deepEqual(video.seeks, [0.085, 0.041], 'seeked must recover without another spontaneous paused-frame callback');
 	video.presentFrame(0.04);
 	video.drain();
 	assert.deepEqual(await result, { value: { mediaTime: 0.04 } });
@@ -131,14 +131,25 @@ test('a boundary retry still rejects an out-of-interval decoded frame', async (c
 	const { video, result } = fixture(context);
 	video.presentFrame(0.13);
 	video.drain();
-	assert.deepEqual(video.seeks, [0.085, 0.04]);
+	assert.deepEqual(video.seeks, [0.085, 0.041]);
 	video.presentFrame(0.13);
 	video.drain();
 	const outcome = await result;
 	assert.ok('error' in outcome && outcome.error instanceof RangeError);
 	assert.match(outcome.error.message, /outside.*half-open/iu);
-	assert.deepEqual(video.seeks, [0.085, 0.04], 'an invalid boundary presentation never retries indefinitely');
+	assert.deepEqual(video.seeks, [0.085, 0.041], 'an invalid boundary presentation never retries indefinitely');
 	assert.equal(video.callbacks.size, 0);
+});
+
+test('retrying a short frame goes earlier without touching its exact start', async (context) => {
+	const { video, result } = fixture(context, .04, .0408, .0404);
+	video.presentFrame(.0408);
+	video.drain();
+	assert.equal(video.seeks.length, 2);
+	assert.ok(video.seeks[1]! > .04 && video.seeks[1]! < .0404);
+	video.presentFrame(.04);
+	video.drain();
+	assert.deepEqual(await result, { value: { mediaTime: .04 } });
 });
 
 test('cancelling a deferred boundary retry drains without issuing another seek', async (context) => {

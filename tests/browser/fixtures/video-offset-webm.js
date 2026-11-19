@@ -30,3 +30,14 @@ const BASE64 = [
 export function offsetVideoWebmFixture() {
 	return { name: 'Offset picture clock.webm', mimeType: 'video/webm', buffer: Buffer.from(BASE64, 'base64') };
 }
+
+export function zeroOriginVideoWebmFixture() {
+	const fixture = offsetVideoWebmFixture();
+	const { buffer } = fixture;
+	// Fixed metadata fields in the pinned FFmpeg fixture, with packet offsets unchanged.
+	buffer.writeDoubleBE(1000, 256);
+	for (const offset of [483, 1372, 1390, 1409, 1428]) {
+		buffer.writeUInt16BE(buffer.readUInt16BE(offset) - 320, offset);
+	}
+	return { ...fixture, name: 'Variable picture durations.webm' };
+}
