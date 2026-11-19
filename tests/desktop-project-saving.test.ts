@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, readFile, writeFile, rm, rename, stat } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, writeFile, rm, rename, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
@@ -58,6 +58,71 @@ test('a missing pending temporary folder leaves the active library in place unti
 	await rename(unavailable, selected);
 	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
 	assert.equal(await readFile(join(selected, libraryPath, 'library.sqlite'), 'utf8'), 'working project data');
+});
+
+test('a fresh temporary folder selection can be deferred before any library exists', async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-temporary-folder-fresh-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
+	const unavailable = join(root, 'disconnected');
+	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
+	await rename(selected, unavailable);
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), original);
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false });
+	await rename(unavailable, selected);
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false });
+});
+
+for (const moveStarted of [true, undefined]) test(`a disconnected destination cannot reopen a split project library (${moveStarted ?? 'legacy'})`, async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-temporary-folder-split-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
+	const libraryPath = join('Soundscaper', 'project-library', 'v1');
+	const source = join(original, libraryPath), destination = join(selected, libraryPath);
+	await mkdir(source, { recursive: true });
+	await mkdir(destination, { recursive: true });
+	await writeFile(join(source, 'unmoved.media'), 'project audio');
+	await writeFile(join(source, 'library.sqlite'), 'project catalog');
+	await rename(join(source, 'library.sqlite'), join(destination, 'library.sqlite'));
+	await writeFile(config, JSON.stringify({ active: original, selected, moveStarted }));
+	const unavailable = join(root, 'disconnected');
+	await rename(selected, unavailable);
+
+	await assert.rejects(new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), /reconnect/iu);
+	await assert.rejects(stat(join(source, 'library.sqlite')), { code: 'ENOENT' });
+	assert.equal(await readFile(join(source, 'unmoved.media'), 'utf8'), 'project audio');
+	assert.equal(await readFile(join(unavailable, libraryPath, 'library.sqlite'), 'utf8'), 'project catalog');
+
+	await rename(unavailable, selected);
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
+	assert.equal(await readFile(join(destination, 'library.sqlite'), 'utf8'), 'project catalog');
+	assert.equal(await readFile(join(destination, 'unmoved.media'), 'utf8'), 'project audio');
+});
+
+test('starting a move records it before the destination can refuse filesystem writes', {
+	skip: process.platform === 'win32' || process.getuid?.() === 0,
+}, async t => {
+	const root = await mkdtemp(join(tmpdir(), 'scape-temporary-folder-write-refusal-'));
+	t.after(() => rm(root, { recursive: true, force: true }));
+	const config = join(root, 'settings.json'), original = join(root, 'default'), selected = join(root, 'chosen');
+	const libraryPath = join('Soundscaper', 'project-library', 'v1');
+	const source = join(original, libraryPath);
+	await mkdir(source, { recursive: true });
+	await writeFile(join(source, 'library.sqlite'), 'project catalog');
+	await new TemporaryProjectStorage(config, original, 'Soundscaper').select(selected);
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: false });
+
+	await chmod(selected, 0o500);
+	try {
+		await assert.rejects(new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), /EACCES|EPERM/iu);
+		assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: original, selected, moveStarted: true });
+		assert.equal(await readFile(join(source, 'library.sqlite'), 'utf8'), 'project catalog');
+	} finally { await chmod(selected, 0o700); }
+
+	assert.equal(await new TemporaryProjectStorage(config, original, 'Soundscaper').prepare(), selected);
+	assert.deepEqual(JSON.parse(await readFile(config, 'utf8')), { active: selected, selected, moveStarted: false });
+	assert.equal(await readFile(join(selected, libraryPath, 'library.sqlite'), 'utf8'), 'project catalog');
 });
 
 test('a picked project destination becomes repeatable only after commit and survives restart', async t => {

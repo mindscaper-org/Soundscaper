@@ -6,9 +6,17 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries } from './desktop-storage-migration.ts';
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
+export class TemporaryProjectStorageUnavailableError extends Error {
+	constructor() {
+		super('Reconnect the selected temporary data folder to finish moving the project library, then start the app again.');
+		this.name = 'TemporaryProjectStorageUnavailableError';
+	}
+}
+
 export class TemporaryProjectStorage {
 	#active: string;
 	#selected: string;
+	#moveStarted = false;
 	#selectionTail = Promise.resolve();
 	constructor(readonly configurationPath: string, readonly defaultRoot: string, readonly appName: string) {
 		this.#active = this.#selected = defaultRoot;
@@ -18,18 +26,29 @@ export class TemporaryProjectStorage {
 			const value: unknown = JSON.parse(await readFile(this.configurationPath, 'utf8'));
 			if (value && typeof value === 'object' && 'active' in value && 'selected' in value) {
 				this.#active = folder(value.active); this.#selected = folder(value.selected);
+				// An older pending selection may already have moved some files.
+				this.#moveStarted = this.#active !== this.#selected
+					&& (!('moveStarted' in value) || value.moveStarted !== false);
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
 		const active = assertLocalDesktopStorage(this.#active);
 		if (this.#active !== this.#selected) {
 			const selected = await availableMigrationFolder(this.#selected);
-			if (selected === null) return this.#active;
+			if (selected === null) {
+				if (this.#moveStarted) throw new TemporaryProjectStorageUnavailableError();
+				return this.#active;
+			}
 			await migrateDesktopStorageEntries([{
 				source: join(active, this.appName, 'project-library', 'v1'),
 				destination: join(selected, this.appName, 'project-library', 'v1'),
-			}]);
-			await this.#persist(this.#selected, this.#selected);
+			}], { beforeMove: async () => {
+				if (this.#moveStarted) return;
+				await this.#persist(this.#active, this.#selected, true);
+				this.#moveStarted = true;
+			} });
+			await this.#persist(this.#selected, this.#selected, false);
 			this.#active = this.#selected;
+			this.#moveStarted = false;
 		}
 		return this.#active;
 	}
@@ -48,14 +67,15 @@ export class TemporaryProjectStorage {
 		await checkDesktopStorageMigrationDestination({ source, destination });
 		await mkdir(selected, { recursive: true, mode: 0o700 });
 		await access(selected, constants.W_OK);
-		await this.#persist(this.#active, selected);
+		await this.#persist(this.#active, selected, false);
 		this.#selected = selected;
+		this.#moveStarted = false;
 		return this.status();
 	}
-	async #persist(active: string, selected: string): Promise<void> {
+	async #persist(active: string, selected: string, moveStarted: boolean): Promise<void> {
 		await mkdir(dirname(this.configurationPath), { recursive: true, mode: 0o700 });
 		const temporary = `${this.configurationPath}.tmp`;
-		await writeFile(temporary, JSON.stringify({ active, selected }), { mode: 0o600 });
+		await writeFile(temporary, JSON.stringify({ active, selected, moveStarted }), { mode: 0o600, flush: true });
 		await rename(temporary, this.configurationPath);
 	}
 }

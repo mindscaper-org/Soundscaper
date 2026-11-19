@@ -244,8 +244,10 @@ project limit defaults to ten and prunes oldest closed copies under their
 project locks and exact-current deletion. Open projects can exceed the limit.
 The native folder picker checks for existing destination conflicts before saving
 a temporary root selection. The closed library moves on the next startup, with
-another conflict check before migration. If the selected directory disappears,
-startup continues with the current library and retries the move on a later launch.
+another conflict check before migration. If the selected directory disappears
+before migration starts, startup continues with the current library. Startup
+requires a disconnected destination to return once the move may have started,
+because the old location may contain only part of the library.
 
 Desktop working storage is admitted before database open, profile startup, and
 temporary-folder selection or migration. Canonical paths must be on a positively

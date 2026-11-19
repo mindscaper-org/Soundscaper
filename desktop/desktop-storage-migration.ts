@@ -18,6 +18,7 @@ interface MigrationOperations {
 	readonly rename: typeof rename;
 	readonly copyFile: typeof copyFile;
 	readonly unlink: typeof unlink;
+	readonly beforeMove?: () => Promise<void>;
 }
 
 const OPERATIONS: MigrationOperations = Object.freeze({ rename, copyFile, unlink });
@@ -32,6 +33,7 @@ export async function migrateDesktopStorageEntries(
 	operations: Partial<MigrationOperations> = {},
 ): Promise<void> {
 	const pending = await preflightEntries(entries, 'migration');
+	if (pending.length > 0) await operations.beforeMove?.();
 	const io = { ...OPERATIONS, ...operations };
 	for (const entry of pending) {
 		try { await migrate(entry.source, entry.destination, io); }
