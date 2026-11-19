@@ -8,6 +8,7 @@ import {
 	endEditedMp4TimingProbeMedia, fragmentedMp4TimingProbeMedia, sourceMonitorFragmentedMedia, videoTimingProbeMedia,
 } from './fixtures/video-timing-probe-media.js';
 import { videoOnlyFragmentedAvcFixture } from './fixtures/video-only-fragmented-avc.js';
+import { classicProgrammeBoundaryFixture } from './fixtures/video-classic-programme-boundary.js';
 import { bootEditor, chooseFileAction, importFiles, waitForProjectActivation } from './audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from './helpers/browser-product-test-url.js';
 import { openFramescaperSourcePropertiesFromBin } from './helpers/framescaper-source-properties.js';
@@ -152,12 +153,20 @@ test('Programme seeks render the authored pictures beyond the first hybrid MP4 r
 });
 
 test('Programme seeks show authored pictures in a video-only MP4 with reordered fragments', async ({ page }) => {
+	await expectProgrammeLabels(page, videoOnlyFragmentedAvcFixture(), [[3, 3], [12, 12], [20, 20], [26, 25], [12, 12]]);
+});
+
+test('Programme presents the new picture at its exact classic VFR boundary', async ({ page }) => {
+	await expectProgrammeLabels(page, classicProgrammeBoundaryFixture(), [[24, 24], [25, 25], [24, 24], [25, 25]]);
+});
+
+async function expectProgrammeLabels(page, fixture, labels) {
 	const editor = await bootEditor(page, '/framescaper/embed/en/');
-	await importFiles(editor, [videoOnlyFragmentedAvcFixture()]);
+	await importFiles(editor, [fixture]);
 	const preview = editor.locator('[data-video-preview]');
 	await expect(preview).toHaveAttribute('data-video-preview-renderer', 'ready');
 	const picture = preview.locator('[data-video-preview-canvas]');
-	for (const [ordinal, label] of [[3, 3], [12, 12], [20, 20], [26, 25], [12, 12]]) {
+	for (const [ordinal, label] of labels) {
 		await seekFramescaperTimecode(page, editor, `00:00:00:${String(ordinal).padStart(2, '0')}`);
 		await expect(preview).toHaveAttribute('data-video-preview-evaluated-timeline-sample', String(ordinal * 1600));
 		await expect.poll(async () => page.evaluate(async png => {
@@ -174,7 +183,7 @@ test('Programme seeks show authored pictures in a video-only MP4 with reordered 
 			} finally { bitmap.close(); }
 		}, (await picture.screenshot()).toString('base64'))).toBe(label);
 	}
-});
+}
 
 async function persistedTimingEvidence(page) {
 	return page.evaluate(async ({ databaseName, opfsDirectoryName, sourceNames }) => {
