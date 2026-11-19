@@ -7,15 +7,17 @@ interface ConfigurableAudioTrack {
 
 /** Some native Opus decoders advertise support but retain the header's lookahead. */
 export async function preferContainerOpusPreSkipDecoder(track: ConfigurableAudioTrack, signal?: AbortSignal,
-	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean; source?: Blob }> = {}): Promise<void> {
+	options: Readonly<{ opusTimestampsIncludePreSkip?: boolean; source?: Blob }> = {}): Promise<boolean> {
 	const config = await track.getDecoderConfig();
 	signal?.throwIfAborted();
-	if (!config || !hasReviewedContainerOpusPreSkip(config)) return;
+	if (!config || !hasReviewedContainerOpusPreSkip(config)) return false;
 	const { preferReviewedAudioImportDecoder } = await import('./browser-reviewed-streamed-audio-decoders.ts');
 	const opusTimestampOffsetSeconds = options.source && track.id !== undefined && !options.opusTimestampsIncludePreSkip
 		? await (await import('./matroska-opus-end-padding.ts')).readMatroskaRoundedCodecDelay(options.source, track.id, signal) : 0;
 	signal?.throwIfAborted();
-	if (preferReviewedAudioImportDecoder('opus', config, { ...options, opusTimestampOffsetSeconds })) track.getDecoderConfig = () => Promise.resolve(config);
+	if (!preferReviewedAudioImportDecoder('opus', config, { ...options, opusTimestampOffsetSeconds })) return false;
+	track.getDecoderConfig = () => Promise.resolve(config);
+	return true;
 }
 
 /** The existing reviewed ABI owns mapping-family0 mono/stereo only; retain other native profiles. */

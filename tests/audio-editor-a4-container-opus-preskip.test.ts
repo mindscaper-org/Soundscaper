@@ -29,6 +29,27 @@ test('bounded video audio uses proven Opus pre-skip rather than a native support
 	} finally { globalThis.AudioDecoder = originalDecoder; globalThis.fetch = originalFetch; }
 });
 
+test('bounded extraction retains reviewed Opus beyond the picture and removes its exact end padding', async () => {
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = async (url) => { assert.ok(url instanceof URL); return new Response(Uint8Array.from(await readFile(url))); };
+	try {
+		const file = opusPaddingAvFixture();
+		const decoded = await decodeBrowserContainerAudio(file, { durationSeconds: .04, matroskaOpusProgrammeSampleRate: 48_000 });
+		assert.equal(decoded.frameCount, 4464);
+		assert.equal(decoded.programmeFrameCount, 4464);
+		const pcm = decoded.channels[0]!;
+		const reference = await decodeBrowserContainerAudio(file, { durationSeconds: .3 });
+		assert.deepEqual(pcm, reference.channels[0]!.slice(0, 4464));
+		assert.ok(pcm.subarray(3200).some(value => Math.abs(value) > .1));
+
+		const picture = await decodeBrowserContainerAudio(file, {
+			durationSeconds: .04, maximumOutputBytes: 48_000, matroskaOpusProgrammeSampleRate: 96_000,
+		});
+		assert.equal(picture.programmeFrameCount, undefined);
+		assert.deepEqual(picture.channels[0], pcm.slice(0, 1920));
+	} finally { globalThis.fetch = originalFetch; }
+});
+
 test('native surround Opus keeps its existing decoder rather than entering the stereo-only reviewed ABI', async () => {
 	const originalDecoder = globalThis.AudioDecoder, originalFetch = globalThis.fetch;
 	let nativeOpened = 0;

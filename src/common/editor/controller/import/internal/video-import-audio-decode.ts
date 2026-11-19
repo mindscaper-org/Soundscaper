@@ -5,7 +5,7 @@ import {
 	decodeBrowserContainerAudio,
 	type BrowserContainerAudioDecodeOptions,
 } from '../../../browser-container-audio-decode.ts';
-import { secondsToSampleFrame } from '../../../timeline-time.ts';
+import { scaleSampleFrame, secondsToSampleFrame } from '../../../timeline-time.ts';
 import { throwIfAborted } from '../../../video-timing-demux-reader.ts';
 import { readContainerVideoSourceCharacteristics } from '../../../video-container-characteristics.ts';
 import { placeImportedVideoAudio, readVideoContainerAudioTiming } from './video-import-audio-timing.ts';
@@ -18,6 +18,7 @@ export interface ImportedVideoPlanarAudio {
 	readonly channels: readonly Float32Array[];
 	readonly numberOfChannels?: never;
 	readonly sampleRate: number;
+	readonly programmeFrameCount?: number;
 }
 
 export interface ImportedVideoAudioBuffer {
@@ -139,9 +140,15 @@ export async function decodeImportedVideoAudio(
 			try {
 				const decodedAudio = await (options.decodeContainerAudio ?? decodeBrowserContainerAudio)(options.file, {
 					signal: options.signal, durationSeconds,
+					...(packetDecodePreferred ? { matroskaOpusProgrammeSampleRate: options.projectSampleRate } : {}),
 				});
 				throwIfAborted(options.signal);
 				assertDecodedVideoAudioWorkload(decodedAudio, budgetDurationSeconds, options.projectSampleRate);
+				if ('programmeFrameCount' in decodedAudio && decodedAudio.programmeFrameCount !== undefined) {
+					programme = { programmeFrameCount: scaleSampleFrame(
+						decodedAudio.programmeFrameCount, decodedAudio.sampleRate, options.projectSampleRate, 'point',
+					) };
+				}
 				return Object.freeze({
 					decodedAudio,
 					declaredAudioSampleRate, ...programme,
