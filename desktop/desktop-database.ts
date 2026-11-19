@@ -1,16 +1,20 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { DatabaseSync, type DatabaseSyncOptions } from 'node:sqlite';
-import { lstatSync, mkdirSync } from 'node:fs';
+import { lstatSync, mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { assertLocalDesktopStorage } from './local-storage-safety.ts';
+import { assertDesktopStoragePathSyntax, assertLocalDesktopStorage } from './local-storage-safety.ts';
 
 /** Inspect sidecars before SQLite can read/replay them, including on a missing main file. */
 export function openLocalDesktopDatabase(path: string, options: DatabaseSyncOptions = {}): DatabaseSync {
 	if (path === ':memory:') return new DatabaseSync(path, options);
-	assertLocalDesktopStorage(path);
-	mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+	assertDesktopStoragePathSyntax(path);
+	const directory = dirname(path);
+	if (!statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
+		assertLocalDesktopStorage(path);
+		mkdirSync(directory, { recursive: true, mode: 0o700 });
+	}
 	assertLocalDesktopStorage(path);
 	try {
 		const entry = lstatSync(path);

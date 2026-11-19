@@ -21,12 +21,17 @@ export class UnsupportedDesktopStorageLocationError extends Error {
 	}
 }
 
-/** Check both spellings before any writes and return the physical storage path. */
-export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}): string {
+/** Reject unsupported path spellings before any filesystem access. */
+export function assertDesktopStoragePathSyntax(path: string): void {
 	if (/^(?:\\\\|\/\/)/u.test(path)) throw new UnsupportedDesktopStorageLocationError();
 	if (typeof path !== 'string' || path.includes('\0') || !isAbsolute(path)) {
 		throw new TypeError('Working database storage requires an absolute filesystem path.');
 	}
+}
+
+/** Check both spellings before any writes and return the physical storage path. */
+export function assertLocalDesktopStorage(path: string, probe: StorageProbe = {}): string {
+	assertDesktopStoragePathSyntax(path);
 	const selected = resolve(path);
 	const { path: physical, existingPath } = physicalStorageLocation(selected);
 	const roots = synchronizedRoots(probe.environment ?? process.env, probe.homePath ?? homedir());

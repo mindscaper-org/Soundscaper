@@ -253,8 +253,9 @@ requires a disconnected destination to return once the move may have started,
 because the old location may contain only part of the library.
 
 Desktop working storage is admitted before database open, profile startup, and
-temporary-folder selection or migration. Canonical paths must be on a positively
-identified local volume and outside recognized cloud-sync roots. Linux admits
+temporary-folder selection or migration. The database opener also checks storage
+before creating a missing parent directory. Canonical paths must be on a
+positively identified local volume and outside recognized cloud-sync roots. Linux admits
 known local filesystem types; Windows probes drive type (including mapped
 drives), and macOS queries the volume's local-resource flag. Unknown locality
 fails closed. Symlinks are resolved for directory admission. Provider path
