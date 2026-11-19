@@ -117,9 +117,12 @@ export function createSaveDiskAdmission(stat, statfs) {
 	return {
 		async check(directory, reservation) {
 			const device = await saveDiskDevice(stat, directory);
-			let admittedBytes = reservation.admittedSize;
+			// Take the pending-byte snapshot before statfs samples the free blocks.
+			let remainingBytes = reservation.admittedSize;
 			for (const [previous, previousDevice] of destinations) {
-				if (device === null || previousDevice === null || previousDevice === device) admittedBytes += previous.admittedSize;
+				if (device === null || previousDevice === null || previousDevice === device) {
+					remainingBytes += previous.admittedSize - previous.written;
+				}
 			}
 			destinations.set(reservation, device);
 			let details;
@@ -134,7 +137,7 @@ export function createSaveDiskAdmission(stat, statfs) {
 			} catch (error) {
 				throw new Error('Filesystem capacity information is invalid', { cause: error });
 			}
-			if (availableBytes < BigInt(admittedBytes)) {
+			if (availableBytes < BigInt(remainingBytes)) {
 				throw new RangeError('Available disk space is below the aggregate admitted save capacity');
 			}
 		},

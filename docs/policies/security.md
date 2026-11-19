@@ -1042,11 +1042,13 @@ admitted-byte budget alone. Count and byte reservations remain synchronous, and
 ordinary concurrent admitted-byte accounting stays enforced. A fail-closed
 bigint `statfs` available-space check completes before staging open. Concurrent
 staging on distinct identified filesystem devices is charged separately for disk
-admission, with unidentified destinations counted conservatively. The check is
-point-in-time admission, not an operating-system reservation; charges release
-only after no staging was acquired, an acknowledged cleanup, or a completed
-commit, and a staging cleanup failure leaves them charged. A chunk or
-final-prefix write that fails with ENOSPC or EDQUOT is a qualified typed
+admission, with unidentified destinations counted conservatively. The disk check
+charges the declared bytes that have yet to be acknowledged by staging writes.
+The product-wide admitted-byte limit still includes the entire declared size.
+The check is point-in-time admission, not an operating-system reservation;
+charges release only after no staging was acquired, an acknowledged cleanup, or
+a completed commit, and a staging cleanup failure leaves them charged. A chunk
+or final-prefix write that fails with ENOSPC or EDQUOT is a qualified typed
 refusal: the staged temporary file is discarded, the session's admitted count
 and bytes release, and the committed target file survives, while a commit-time
 space failure cleans staging and names the exhausted destination. Other write
