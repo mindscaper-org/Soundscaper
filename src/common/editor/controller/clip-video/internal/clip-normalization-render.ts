@@ -42,7 +42,8 @@ export async function renderClipNormalizationAudio(
 	try {
 		if (!('renderMix' in engine) || typeof engine.renderMix !== 'function') throw new Error('Clip normalization requires an offline audio engine.');
 		let nativeBuffer = buffer as AudioBuffer | null;
-		if (buffer && 'getAudioContext' in engine && typeof engine.getAudioContext === 'function') {
+		const isNativeBuffer = typeof globalThis.AudioBuffer === 'function' && buffer instanceof globalThis.AudioBuffer;
+		if (buffer && !isNativeBuffer && 'getAudioContext' in engine && typeof engine.getAudioContext === 'function') {
 			const audioEngine = engine as typeof engine & Pick<EnginePublicApi, 'getAudioContext'>;
 			const context = await audioEngine.getAudioContext({ resume: false });
 			signal.throwIfAborted();

@@ -2,8 +2,11 @@
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { chooseClipMediaSetting, readClipGain } from './audio-editor-clip-settings-test-helpers.js';
-import { bootEditor, clipByName, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties } from './audio-editor-test-helpers.js';
+import { expectClipTimeFrames, setClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { bootEditor, clipByName, closeClipProperties, disableNativeSavePicker, importFiles, openClipProperties,
+	showClipTimingFields } from './audio-editor-test-helpers.js';
 import { exportSamples } from './helpers/round2-audio-export.js';
+import { nativeG711OddWavFixture } from '../helpers/native-g711-odd-wav-fixture.ts';
 
 test('clip peak normalization reaches its stated target with an authored envelope', async ({ page }) => {
 	await disableNativeSavePicker(page);
@@ -32,4 +35,27 @@ test('clip peak normalization reaches its stated target with an authored envelop
 	const after = await exportSamples(page, editor);
 	const peak = after.reduce((maximum, sample) => Math.max(maximum, Math.abs(sample)), 0);
 	expect(20 * Math.log10(peak)).toBeCloseTo(-1, 1);
+});
+
+test('normalizing a short clip reuses its resident native source buffer', async ({ page }) => {
+	await page.addInitScript(() => {
+		const create = BaseAudioContext.prototype.createBuffer;
+		globalThis.__normalizationBufferFrames = [];
+		BaseAudioContext.prototype.createBuffer = function (channels, frames, rate) {
+			globalThis.__normalizationBufferFrames.push(frames);
+			return create.call(this, channels, frames, rate);
+		};
+	});
+	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+	const { file } = nativeG711OddWavFixture('alaw', 4800);
+	await importFiles(editor, { name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
+	const properties = await openClipProperties(page, editor, clipByName(editor, file.name));
+	await showClipTimingFields(properties);
+	await setClipTimeFrames(properties, 'durationFrame', 2400);
+	await expectClipTimeFrames(properties, 'durationFrame', 2400);
+	const before = await readClipGain(properties);
+	await page.evaluate(() => { globalThis.__normalizationBufferFrames.length = 0; });
+	await chooseClipMediaSetting(properties, 'Normalize to −1 dBFS');
+	await expect.poll(() => readClipGain(properties)).not.toBe(before);
+	expect(await page.evaluate(() => globalThis.__normalizationBufferFrames)).not.toContain(4800);
 });
