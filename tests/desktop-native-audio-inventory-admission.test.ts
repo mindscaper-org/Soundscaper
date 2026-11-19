@@ -42,10 +42,11 @@ test('a WASAPI input and output can share the endpoint name used to open them', 
 	assert.deepEqual(validateHelperAudioDeviceInventoryResult({ backend: 'wasapi', status: 'available', detail: '', devices }).devices, devices);
 });
 
-test('the backend default endpoint survives inventory admission with a different alphabetic first choice', async () => {
+test('backend defaults and directional channel counts survive inventory admission', async () => {
 	const devices = [
-		{ handle: 'DELL Display Audio', label: 'DELL Display Audio', direction: 'output' },
-		{ handle: 'Focusrite USB Audio', label: 'Focusrite USB Audio', direction: 'output', isDefault: true },
+		{ handle: 'DELL Display Audio', label: 'DELL Display Audio', direction: 'output', channelCount: 2 },
+		{ handle: 'Focusrite USB Audio', label: 'Focusrite USB Audio', direction: 'output', channelCount: 2, isDefault: true },
+		{ handle: 'Focusrite USB Audio', label: 'Focusrite USB Audio', direction: 'input', channelCount: 8, isDefault: true },
 	];
 	const runner = createNativeDeviceJobRunner({
 		addonPath: '/unused', addonSha256: 'f'.repeat(64), hash: () => createHash('sha256'),

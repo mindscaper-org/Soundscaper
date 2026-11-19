@@ -2,6 +2,7 @@
 
 #include "juce_audio_adapter.h"
 #include "audio_frame_ring.h"
+#include "wasapi_channel_inventory.h"
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
@@ -213,6 +214,7 @@ soundscaper_pro_status enumerateJuceAudio(const std::string &backend, std::strin
 	for (const bool input : { false, true }) {
 		const auto names = type->getDeviceNames(input);
 		const auto defaultIndex = type->getDefaultDeviceIndex(input);
+		const auto widths = backend == "wasapi" ? wasapiInventoryChannels(names, input) : std::vector<int>{};
 		for (int index = 0; index < names.size(); ++index) {
 			const auto name = escaped(names[index].toStdString());
 			if (!first) output << ",";
@@ -220,6 +222,8 @@ soundscaper_pro_status enumerateJuceAudio(const std::string &backend, std::strin
 			output << "{\"handle\":\"" << name << "\",\"label\":\"" << name
 				<< "\",\"direction\":\"" << (input ? "input" : "output") << "\"";
 			if (index == defaultIndex) output << ",\"isDefault\":true";
+			const auto width = widths.empty() ? 0 : widths[static_cast<std::size_t>(index)];
+			if (width > 0) output << ",\"channelCount\":" << width;
 			output << "}";
 		}
 	}
@@ -271,6 +275,13 @@ soundscaper_pro_audio_result openJuceAudio(
 	if (error.isNotEmpty()) {
 		result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
 		text(result.detail, error.toStdString());
+		return result;
+	}
+	if ((!inputs.isZero() && device->getActiveInputChannels() != inputs)
+		|| (!outputs.isZero() && device->getActiveOutputChannels() != outputs)) {
+		device->close();
+		result.status = SOUNDSCAPER_PRO_FORMAT_REFUSED;
+		text(result.detail, "The device did not activate the requested audio channels.");
 		return result;
 	}
 	const auto callbackFrames = device->getCurrentBufferSizeSamples();
