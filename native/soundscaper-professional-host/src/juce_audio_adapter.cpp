@@ -38,10 +38,10 @@ void text(char *destination, const std::string &value)
 class Session final : public JuceAudioSession, private juce::AudioIODeviceCallback {
 public:
 	Session(std::unique_ptr<juce::AudioIODevice> opened,
-		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi)
+		const soundscaper_pro_audio_request &request, uint32_t callbackFrames, bool useSharedWasapi, uint32_t startFrames)
 		: device(std::move(opened)), channelCount(request.channel_count), frameCount(request.period_frames),
 		deviceFrames(callbackFrames), sampleRate(request.sample_rate), sharedWasapi(useSharedWasapi),
-		playbackStartFrames(useSharedWasapi ? 2u * callbackFrames + request.period_frames : request.period_frames),
+		playbackStartFrames(startFrames),
 		captureEnabled(request.direction == 0u || request.direction == 2u),
 		playbackEnabled(request.direction == 1u || request.direction == 2u),
 		input(captureEnabled ? channelCount : 0u, queueFrames()),
@@ -295,8 +295,9 @@ soundscaper_pro_audio_result openJuceAudio(
 		text(result.detail, "The device substituted a sample rate or period.");
 		return result;
 	}
-	session = std::make_unique<Session>(
-		std::move(device), request, static_cast<uint32_t>(callbackFrames), sharedWasapi);
+	const auto deviceFrames = static_cast<uint32_t>(callbackFrames);
+	session = std::make_unique<Session>(std::move(device), request, deviceFrames, sharedWasapi,
+		jucePlaybackStartFrames(backend, sharedWasapi, request.period_frames, deviceFrames));
 	result.status = SOUNDSCAPER_PRO_OK;
 	result.sample_rate = request.sample_rate;
 	result.period_frames = request.period_frames;

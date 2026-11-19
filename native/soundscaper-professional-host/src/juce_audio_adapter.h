@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace soundscaper {
 
@@ -16,6 +17,14 @@ public:
 	virtual soundscaper_pro_status read(float **planes, uint32_t channels, uint32_t frames) = 0;
 	virtual soundscaper_pro_status write(const float *const *planes, uint32_t channels, uint32_t frames) = 0;
 };
+
+constexpr uint32_t jucePlaybackStartFrames(std::string_view backend,
+	bool sharedWasapi, uint32_t transportFrames, uint32_t callbackFrames)
+{
+	if (sharedWasapi) return 2u * callbackFrames + transportFrames;
+	// Reserve two periods beyond the first render while Web Audio delivers its next packet burst.
+	return backend == "asio" ? 3u * transportFrames : transportFrames;
+}
 
 soundscaper_pro_status enumerateJuceAudio(
 	const std::string &backend, std::string &json);
