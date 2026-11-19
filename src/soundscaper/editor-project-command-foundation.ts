@@ -81,15 +81,8 @@ export function applySoundscaperProjectFoundationCommand(
 	}
 	draft.revision = revision;
 	draft.updatedAt = timestamp(options.now);
-	stripAudioFreezeRequirements(draft);
-	draft.featureRequirements = reconcileProjectOwnedFeatureRequirements(
-		draft,
-		draft.featureRequirements as never,
-	);
-	draft.featureRequirements = reconcileSoundscaperProjectFeatureRequirements(
-		draft,
-		draft.featureRequirements as never,
-	);
+	// The completed command tree reconciles features before the revision stamp.
+	draft.featureRequirements = applied.featureRequirements;
 	validateSoundscaperProject(draft);
 	transaction.assertPersistedResult(draft);
 	return draft as SoundscaperProject;
@@ -207,10 +200,6 @@ function elevateInheritedCommandResult(
 		commanded,
 		command,
 		reconcileLanesAfterInheritedCommand(previous.automationLanes, commanded),
-	);
-	commanded.featureRequirements = reconcileProjectOwnedFeatureRequirements(
-		commanded,
-		commanded.featureRequirements as never,
 	);
 	return finalizeIntermediate(commanded, validateResult);
 }

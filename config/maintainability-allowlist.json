@@ -107,7 +107,6 @@
 		"src/framescaper/selected-finishing-exact-frame-execution.ts": 568,
 		"src/soundscaper/desktop-project-library-renderer.ts": 582,
 		"src/soundscaper/editor-automation-session.ts": 556,
-		"src/soundscaper/editor-project-command-foundation.ts": 555,
 		"tests/audio-editor-app-helpers.test.ts": 571,
 		"tests/audio-editor-assistance-workflow-contract.test.ts": 556,
 		"tests/audio-editor-audio-warp-clip-editing.test.ts": 582,
