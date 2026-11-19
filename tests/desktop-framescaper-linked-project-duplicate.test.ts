@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { openAsBlob } from 'node:fs';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -124,6 +124,92 @@ test('Framescaper desktop Duplicate keeps a project-local linked WAV after delet
 			assert.deepEqual(new Uint8Array(await uncertainCopy.blob.arrayBuffer()), encoded);
 		} finally { await restarted.close(); }
 	} finally { await closeLocators(); }
+});
+
+test('Framescaper Link WAV reopens the exact native path when its display name is trimmed', async context => {
+	const previousAudioContext = globalThis.AudioContext;
+	globalThis.AudioContext = MockAudioContext as unknown as typeof AudioContext;
+	context.after(() => { globalThis.AudioContext = previousAudioContext; });
+	const directory = await mkdtemp(join(tmpdir(), 'framescaper-linked-audio-display-name-'));
+	context.after(async () => rm(directory, { recursive: true, force: true }));
+	const archive = await writeProjectArchive(directory);
+	const selected = join(directory, '  recording.wav');
+	const samples = Float32Array.from({ length: 4_096 }, (_, index) => (index % 97 - 48) / 256);
+	const encoded = encodeWav([samples], { sampleRate: 48_000, float: true, dither: 'none' });
+	const sibling = encodeWav([new Float32Array(samples.length).fill(.5)], { sampleRate: 48_000, float: true, dither: 'none' });
+	assert.ok(encoded instanceof Uint8Array && sibling instanceof Uint8Array);
+	await writeFile(selected, encoded);
+	await writeFile(join(directory, 'recording.wav'), sibling);
+	const indexedDB = createInstrumentedIndexedDB();
+	const initial = await open();
+	let locatorId: string;
+	try {
+		const { controller, fileService } = initial;
+		await controller.actions.project.openScapeFile(archive, () => assert.fail('Expected a new project.'));
+		await importLinkedProjectBinChoice({
+			getProjectSessionKey: () => editorProjectEditSessionKey(controller, controller.project?.id),
+			choose: fileService.chooseLinkedAudioOriginal,
+			release: fileService.releaseLinkedAudioOriginal,
+			importFile: (file, options) => controller.actions.project.importFiles([file], options),
+		}, 'audio');
+		const [source] = controller.project?.sources ?? [];
+		assert.ok(source?.kind === 'audio');
+		const locator = await initial.environment.store.getLinkedOriginalBinding('linked-archive', source.id);
+		assert.ok(locator?.kind === 'audio');
+		locatorId = locator.locatorId;
+	} finally { await initial.close(); }
+
+	const registry = new FileDesktopLinkedVideoLocatorRegistry(join(directory, 'linked-originals.json'));
+	const [record] = await registry.read();
+	assert.ok(record);
+	assert.equal(record.name, 'recording.wav');
+	assert.equal(record.path, selected);
+	assert.equal(record.locatorId, locatorId);
+	const identity = await stat(selected);
+	assert.deepEqual([record.identity.dev, record.identity.ino], [identity.dev, identity.ino]);
+	const restarted = await open();
+	try {
+		await restarted.controller.actions.project.openById('linked-archive');
+		const [source] = restarted.controller.project?.sources ?? [];
+		assert.ok(source?.kind === 'audio');
+		const resolved = await restarted.environment.store.resolveLinkedAudioOriginal('linked-archive', source);
+		assert.ok(resolved);
+		assert.equal(resolved.binding.locatorId, locatorId);
+		assert.deepEqual(new Uint8Array(await resolved.blob.arrayBuffer()), encoded);
+		const chunk = await restarted.environment.store.readSourceChunk(source.storageKey, 0);
+		assert.deepEqual(chunk.channels[0], samples);
+	} finally { await restarted.close(); }
+
+	async function open() {
+		const native = linkedFileService(directory, selected);
+		try {
+			const { fileService } = native;
+			const session = await startFramescaperDesktopProjectSession(directory, {
+				openEnvironment: () => createFramescaperEditorProjectEnvironment({ storeOptions: {
+					indexedDB, preferOpfs: false, storageManager: { estimate: async () => ({ usage: 0, quota: 4 * 1024 ** 3 }) },
+					linkedOriginalPort: fileService.linkedOriginalPort,
+					linkedVideoOriginalPort: fileService.linkedVideoOriginalPort,
+				} }), presentation: { locale: 'en', fileService },
+			});
+			return { ...session, fileService, async close() { try { await session.close(); } finally { await native.close(); } } };
+		} catch (error) { await native.close(); throw error; }
+	}
+});
+
+test('the desktop linked-video chooser reads a selected WebM behind a trimmed display name', async context => {
+	const directory = await mkdtemp(join(tmpdir(), 'framescaper-linked-video-display-name-'));
+	context.after(async () => rm(directory, { recursive: true, force: true }));
+	const path = join(directory, '  interview.webm');
+	const bytes = await readFile(new URL('./electron/local-assistance-models/fixtures/editor-workflows.webm', import.meta.url));
+	await writeFile(path, bytes);
+	await writeFile(join(directory, 'interview.webm'), new Uint8Array([0]));
+	const { fileService, close } = linkedFileService(directory, path);
+	try {
+		const choice = await fileService.chooseLinkedVideoOriginal();
+		assert.ok(choice);
+		assert.equal(choice.name, 'interview.webm');
+		assert.deepEqual(Buffer.from(await choice.file.arrayBuffer()), bytes);
+	} finally { await close(); }
 });
 
 async function writeProjectArchive(directory: string) {
