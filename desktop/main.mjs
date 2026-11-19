@@ -30,7 +30,7 @@ import {
 	UPDATE_TAG_PREFIX,
 } from './constants.js';
 import { configureDesktopStorage } from './project-library-runtime/desktop/desktop-storage-bootstrap.js';
-import { DesktopApplicationShutdown, resolveDesktopProjectLibraryAppData } from './project-library-runtime/desktop/application-lifecycle.js';
+import { DesktopApplicationShutdown, desktopStartupOptionArguments, resolveDesktopProjectLibraryAppData } from './project-library-runtime/desktop/application-lifecycle.js';
 import { registerAssistanceSemanticSearchMainIpc } from './project-library-runtime/desktop/assistance-semantic-search-main-ipc.js'; import { registerAssistance } from './assistance-registration.mjs'; import { exitAfterCoverageCheckpoint } from './coverage-checkpoint-exit.mjs';
 import { disposeDesktopCaptureSecurity, registerDesktopCaptureSecurity, revokeDesktopCaptureOwner } from './framescaper-capture-registration.mjs';
 import { createFramescaperNativeServicesElectronPorts } from './framescaper-native-services-electron-ports.mjs';
@@ -79,7 +79,8 @@ import {
 	validateLocale,
 } from './validation.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SOAK_DEBUG_ENABLED = PRODUCT_ID === 'soundscaper' && soakDebugProcessMetricsEnabled(process.argv); const dialog = createSoakDebugDialog(electronDialog, SOAK_DEBUG_ENABLED ? process.argv : []); const checkpointSoakMainCoverage = createSoakDebugMainCoverageCheckpoint(takeCoverage); const exitWithCoverage = (code) => exitAfterCoverageCheckpoint({ checkpoint: takeCoverage, exit: (exitCode) => app.exit(exitCode), reportError: (error) => console.error('Desktop V8 coverage checkpoint failed:', cleanError(error)) }, code);
+const startupOptionArguments = desktopStartupOptionArguments(process.argv);
+const SOAK_DEBUG_ENABLED = PRODUCT_ID === 'soundscaper' && soakDebugProcessMetricsEnabled(startupOptionArguments); const dialog = createSoakDebugDialog(electronDialog, SOAK_DEBUG_ENABLED ? startupOptionArguments : []); const checkpointSoakMainCoverage = createSoakDebugMainCoverageCheckpoint(takeCoverage); const exitWithCoverage = (code) => exitAfterCoverageCheckpoint({ checkpoint: takeCoverage, exit: (exitCode) => app.exit(exitCode), reportError: (error) => console.error('Desktop V8 coverage checkpoint failed:', cleanError(error)) }, code);
 const readCapabilities = new ReadCapabilityStore({ confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'loading') });
 const saveTargets = new SaveTargetStore(); const originalFiles = new OriginalFileOverwriteStore({ reads: readCapabilities, targets: saveTargets, acceptsFile, cleanDisplayName: cleanReadCapabilityDisplayName, maximumCount: MAX_READ_CAPABILITIES_PER_OWNER });
 const saves = new AtomicSaveManager({ targets: saveTargets, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)) });
@@ -144,7 +145,7 @@ const applicationShutdown = new DesktopApplicationShutdown({
 	},
 });
 const desktopSmokeProbe = createDesktopSmokeProbe({
-	argv: process.argv,
+	argv: startupOptionArguments,
 	appName: APP_NAME,
 	appOrigin: APP_ORIGIN,
 	productId: PRODUCT_ID,
@@ -153,7 +154,7 @@ const desktopSmokeProbe = createDesktopSmokeProbe({
 	projectLibrarySnapshot: () => projectLibraryRuntime?.snapshot(),
 });
 app.setName(APP_NAME);
-const desktopStorage = configureDesktopStorage({ app, appName: APP_NAME, platform: process.platform, environment: process.env, argv: process.argv });
+const desktopStorage = configureDesktopStorage({ app, appName: APP_NAME, platform: process.platform, environment: process.env, argv: startupOptionArguments });
 app.commandLine.appendSwitch('enable-gpu');
 app.enableSandbox();
 registerAppScheme(protocol);
@@ -190,18 +191,18 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function startApplication() {
-	await desktopStorage.migrate(); await app.whenReady(); if (await desktopSmokeProbe.professionalNativeUtilitySmoke({ argv: process.argv, packaged: app.isPackaged, productId: PRODUCT_ID, userDataPath: app.getPath('userData'), nativePayloadLocation: Object.freeze({ applicationRoot: dirname(__dirname), packaged: app.isPackaged, resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch }), utilityProcess, helperPath: resolve(__dirname, 'soundscaper-professional-native-utility-smoke-helper.js'), log: console.log })) { await exitApplication(0); return; }
+	await desktopStorage.migrate(); await app.whenReady(); if (await desktopSmokeProbe.professionalNativeUtilitySmoke({ argv: startupOptionArguments, packaged: app.isPackaged, productId: PRODUCT_ID, userDataPath: app.getPath('userData'), nativePayloadLocation: Object.freeze({ applicationRoot: dirname(__dirname), packaged: app.isPackaged, resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch }), utilityProcess, helperPath: resolve(__dirname, 'soundscaper-professional-native-utility-smoke-helper.js'), log: console.log })) { await exitApplication(0); return; }
 	linkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });
 	await linkedVideoLocators.ready();
 	if (applicationShutdown.requested) return;
-	temporaryProjectStorage = new TemporaryProjectStorage(resolve(desktopStorage.configRoot, 'temporary-project-storage.json'), resolveDesktopProjectLibraryAppData({ applicationDataPath: desktopStorage.projectLibraryAppData, argv: process.argv }), APP_NAME);
+	temporaryProjectStorage = new TemporaryProjectStorage(resolve(desktopStorage.configRoot, 'temporary-project-storage.json'), resolveDesktopProjectLibraryAppData({ applicationDataPath: desktopStorage.projectLibraryAppData, argv: startupOptionArguments }), APP_NAME);
 	const temporaryProjectAppData = await temporaryProjectStorage.prepare();
 	projectFileAssociations = new ProjectFileAssociations(resolve(desktopStorage.configRoot, 'project-file-associations.json'), originalFiles); await projectFileAssociations.load();
 	const libraryStartup = startDesktopProjectLibraryProductRuntime({
 		productId: PRODUCT_ID, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)),
 		appDataPath: resolveDesktopProjectLibraryAppData({
 			applicationDataPath: temporaryProjectAppData,
-			argv: process.argv,
+			argv: startupOptionArguments,
 		}),
 		processId: process.pid,
 		instanceId: randomUUID(),
@@ -252,7 +253,7 @@ async function startApplication() {
 		onPreferences: () => sendToRenderer(IPC.menuCommand, { command: 'preferences' }),
 	});
 	await createWindow();
-	nightlyTestsWindow = await createDesktopNightlyTestsWindow({ argv: process.argv, BrowserWindow, icon: desktopWindowOptions({ rendererRoot: resources.renderer, productId: PRODUCT_ID }).icon });
+	nightlyTestsWindow = await createDesktopNightlyTestsWindow({ argv: startupOptionArguments, BrowserWindow, icon: desktopWindowOptions({ rendererRoot: resources.renderer, productId: PRODUCT_ID }).icon });
 	nightlyTestsWindow?.once('closed', () => { nightlyTestsWindow = null; });
 	void updates.startup().catch((error) => console.error('Desktop update failed:', cleanError(error)));
 
@@ -381,7 +382,7 @@ async function registerIpcHandlers(desktopSession) {
 		currentOwnerFor: (webContents) => rendererSaveOwnership.currentOwnerFor(webContents),
 		observeWebVcrDisplaySecurityWitness: (value) => desktopSmokeProbe.observeWebVcrDisplaySecurityWitness(value),
 		platform: process.platform, productId: PRODUCT_ID, webVcrEnabled: FRAMESCAPER_WEB_VCR_ENABLED && managedPolicy.allows('WebVcrAllowed'),
-		systemVersion: process.getSystemVersion?.() ?? '', webVcrSmokeTrust: framescaperWebVcrSmokeTrust(process.argv, { packaged: app.isPackaged, productId: PRODUCT_ID }), windowFor: () => mainWindow,
+		systemVersion: process.getSystemVersion?.() ?? '', webVcrSmokeTrust: framescaperWebVcrSmokeTrust(startupOptionArguments, { packaged: app.isPackaged, productId: PRODUCT_ID }), windowFor: () => mainWindow,
 	});
 	projectLibraryIpc = projectLibraryRuntime.registerRendererBridge({
 		desktopRoot: __dirname,

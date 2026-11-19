@@ -6,6 +6,7 @@ import { readDesktopPreloadSource } from './helpers/desktop-preload-source.mjs';
 import test from 'node:test';
 import vm from 'node:vm';
 
+import { desktopStartupOptionArguments, resolveDesktopProjectLibraryAppData } from '../desktop/application-lifecycle.ts';
 import { PendingProjectQueue, createPendingProjectDelivery, extractAup4Paths, extractProjectPaths } from '../desktop/file-associations.js';
 import {
 	acceptsFile,
@@ -31,6 +32,23 @@ test('desktop launch opens a relative project whose name starts with a dash afte
 	const project = join(directory, filename);
 	await writeFile(project, 'project bytes');
 	const paths = extractProjectPaths(['soundscaper', '--switch.sscape', '--', filename], directory);
+	assert.deepEqual(paths, [project]);
+	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
+});
+
+test('a project filename after the option terminator does not activate nightly startup options', async t => {
+	const directory = await mkdtemp(join(tmpdir(), 'scape-launch-option-filename-'));
+	t.after(() => rm(directory, { recursive: true, force: true }));
+	const filename = '--soundscaper-nightly-tests-base-url=project.sscape';
+	const project = join(directory, filename);
+	const library = join(directory, 'library');
+	const argv = ['soundscaper', '--lang=en', '--', filename];
+	await writeFile(project, 'project bytes');
+
+	const optionArgv = desktopStartupOptionArguments(argv);
+	assert.deepEqual(optionArgv, ['soundscaper', '--lang=en']);
+	assert.equal(resolveDesktopProjectLibraryAppData({ applicationDataPath: library, argv: optionArgv }), library);
+	const paths = extractProjectPaths(argv, directory);
 	assert.deepEqual(paths, [project]);
 	assert.equal(await readFile(paths[0], 'utf8'), 'project bytes');
 });
