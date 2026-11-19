@@ -90,7 +90,7 @@ test('every shielded consumer surface crosses a registered runtime projection bo
 });
 
 test('every exported project entry point in the video consumer modules is registered', async () => {
-	for (const file of ['src/common/editor/video-timeline.js', 'src/common/editor/video-export.js']) {
+	for (const file of ['src/common/editor/video-timeline.js', 'src/common/editor/video-export.js', 'src/common/editor/video-source-time.ts']) {
 		const source = await parsedSource(file);
 		const discovered = source.statements
 			.filter(isFunctionDeclaration)
