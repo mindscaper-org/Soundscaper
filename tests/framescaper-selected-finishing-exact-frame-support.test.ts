@@ -125,6 +125,7 @@ interface CanvasCalls {
 	readonly cleared: number[][];
 	readonly drawn: unknown[];
 	readonly sizes: Readonly<{ width: number; height: number }>[];
+	readonly readbacks: ArrayBuffer[];
 	contextOptions: unknown;
 }
 
@@ -133,7 +134,7 @@ function canvasDocument(config: Readonly<{
 	readonly fill?: number;
 	readonly onDraw?: () => void;
 }> = {}) {
-	const calls: CanvasCalls = { cleared: [], drawn: [], sizes: [], contextOptions: null };
+	const calls: CanvasCalls = { cleared: [], drawn: [], sizes: [], readbacks: [], contextOptions: null };
 	const document = {
 		createElement(name: string) {
 			assert.equal(name, 'canvas', 'readback allocates a canvas and nothing else');
@@ -152,11 +153,12 @@ function canvasDocument(config: Readonly<{
 							config.onDraw?.();
 						},
 						getImageData(_x: number, _y: number, width: number, height: number) {
-							const data = new Uint8ClampedArray(width * height * 4);
+							const data = new Uint8ClampedArray(width * height * 4 + 4).subarray(4);
 							for (let offset = 0; offset < data.length; offset += 4) {
 								data[offset] = config.fill ?? 3;
 								data[offset + 3] = 255;
 							}
+							calls.readbacks.push(data.buffer);
 							return { data };
 						},
 					};
@@ -316,7 +318,7 @@ test('a linear grade applies gain to already-decoded pixels without decoding the
 		[200, 200, 200, 128], 'an empty grade stack leaves linear pixels untouched');
 });
 
-test('a browser capture sizes its canvas from the media, clears it, and returns the readback pixels', async () => {
+test('a browser capture sizes a fresh canvas from the media and keeps the owned readback buffer', async () => {
 	const { document, calls } = canvasDocument({ fill: 21 });
 	const restore = installDocument(document);
 	const drawable = { tag: 'drawable' };
@@ -325,14 +327,12 @@ test('a browser capture sizes its canvas from the media, clears it, and returns 
 	try {
 		const captured = await captureBrowserFrame({ video }, live);
 		const fallback = await captureBrowserFrame({ video: { videoWidth: 1, videoHeight: 1 } }, live);
-
 		assert.deepEqual({ width: captured.width, height: captured.height }, { width: 3, height: 2 });
 		assert.equal(captured.pixels.length, 3 * 2 * 4);
 		assert.deepEqual([...captured.pixels.slice(0, 4)], [21, 0, 0, 255]);
-		assert.ok(Object.isFrozen(captured), 'a captured frame is published frozen');
-		assert.deepEqual(calls.cleared[0], [0, 0, 3, 2], 'the canvas is cleared over its whole extent');
-		assert.deepEqual(calls.sizes, [{ width: 3, height: 2 }, { width: 1, height: 1 }],
-			'each canvas is resized to its own media before the draw, not after it');
+		assert.equal(captured.pixels.buffer, calls.readbacks[0]);
+		assert.ok(Object.isFrozen(captured) && calls.cleared.length === 0);
+		assert.deepEqual(calls.sizes, [{ width: 3, height: 2 }, { width: 1, height: 1 }]);
 		assert.deepEqual(calls.contextOptions, { alpha: true, willReadFrequently: true });
 		assert.equal(calls.drawn[0], drawable, 'the declared drawable is what gets drawn');
 		assert.deepEqual(calls.drawn[1], { videoWidth: 1, videoHeight: 1 },

@@ -365,8 +365,8 @@ export async function createFramescaperSelectedExactFrameExecutionFinishing(opti
 				!adjustmentEffects.has(stableId(effect.id, 'Selected finishing media effect ID'))
 			));
 			const { clipId, clip, sourceId, sourceFrame, outerCell } = resolveSelectedFinishingMediaEntry({ clips, sourceIdByNodeId }, entry);
-			const raw = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
-			let frame = checkedFrame(raw, 'Selected finishing captured media frame');
+			let frame = maskCaptures.get(entry) ?? await captureFrame(entry, signal);
+			if (options.captureFrame || effects.length > 0) frame = checkedFrame(frame, 'Selected finishing captured media frame');
 			if (effects.length > 0) frame = checkedFrame(
 				await applyEffects(frame, effects, signal), 'Selected finishing effected media frame',
 			);
