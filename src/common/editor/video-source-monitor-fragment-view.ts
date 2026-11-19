@@ -3,16 +3,23 @@
 import { createIsoBoxReader } from './iso-box-reader.ts';
 import { demuxIsobmffVideoTiming } from './video-timing-demux-isobmff.ts';
 import { createVideoTimingDemuxReader } from './video-timing-demux-reader.ts';
-import type { RuntimeVideoTimingIndex } from './video-source-time.ts';
-
-const MAXIMUM_VIEW_BYTES = 32 * 1024 * 1024;
+export const MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES = 32 * 1024 * 1024;
 const MAXIMUM_MUXER_TIMESCALE = 1_000_000;
 
+export interface FragmentPlaybackClock {
+	readonly timescale: number;
+	readonly frameCount: number;
+	readonly finalFrameDurationTicks: bigint;
+	presentationTick(ordinal: number): bigint | undefined;
+}
+
 /** A local, picture-only playback view where browsers disagree on the original fragment clock. */
-export async function prepareSourceMonitorFragmentView(
-	file: Blob, timing: RuntimeVideoTimingIndex, signal: AbortSignal,
+export async function prepareFragmentPlaybackView(
+	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal,
+	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean }> = {},
 ): Promise<Blob | null> {
-	if (file.size > MAXIMUM_VIEW_BYTES || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
+	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
+	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
 	const { read, boxes, trackId } = createIsoBoxReader(file, signal);
 	const roots = await boxes(0, file.size);
 	if (!roots.some(box => box.type === 'moof')) return null;
@@ -51,6 +58,12 @@ export async function prepareSourceMonitorFragmentView(
 			if (!descriptions || !sizes) return null;
 			const stsd = await read(descriptions.start, 16, descriptions.end);
 			if (stsd.getUint32(4) !== 1 || stsd.getUint32(12) !== 0x61766331) return null; // avc1
+			if (options.standardSampleEntry) {
+				// Preserve configurations represented by the packet muxer. Keep the original
+				// decoder path for extra presentation metadata such as clap or ICC profiles.
+				const extensions = await boxes(descriptions.start + 16 + 78, descriptions.end);
+				if (extensions.some(box => !['avcC', 'pasp', 'btrt'].includes(box.type))) return null;
+			}
 			const offset = sizes.start + 8;
 			initialSampleCount = (await read(offset, 4, sizes.end)).getUint32(0);
 			if (initialSampleCount) {
@@ -70,26 +83,29 @@ export async function prepareSourceMonitorFragmentView(
 		const target = new BufferTarget();
 		output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
 		const source = new EncodedVideoPacketSource('avc');
-		output.addVideoTrack(source, { frameRate: timing.timescale, rotation: await track.getRotation() });
+		output.addVideoTrack(source, {
+			frameRate: timing.timescale,
+			transformationMatrix: await track.getTransformationMatrix(),
+		});
 		await output.start();
 		let count = 0, bytes = 0;
 		for (const leg of fragmentTrack ? [track, fragmentTrack] : [track]) {
 			for await (const packet of new EncodedPacketSink(leg).packets()) {
 				signal.throwIfAborted();
 				bytes += packet.byteLength;
-				if (++count > timing.frameCount || bytes > MAXIMUM_VIEW_BYTES) return null;
+				if (++count > timing.frameCount || bytes > maximumBytes) return null;
 				await source.add(packet.clone({ timestamp: packet.timestamp - origin }), { decoderConfig: config });
 			}
 			if (fragmentTrack && leg === track && count !== initialSampleCount) return null;
 		}
 		if (count !== timing.frameCount) return null;
 		await output.finalize();
-		if (!target.buffer || target.buffer.byteLength > MAXIMUM_VIEW_BYTES) return null;
+		if (!target.buffer || target.buffer.byteLength > maximumBytes) return null;
 		const view = new Blob([target.buffer], { type: 'video/mp4' });
 		const index = await demuxIsobmffVideoTiming(createVideoTimingDemuxReader(view, { signal }), { signal });
 		if (!index || index.timescale !== timing.timescale || index.finalFrameDurationTicks !== timing.finalFrameDurationTicks
 			|| index.presentationTicks.length !== timing.frameCount
-			|| index.presentationTicks.some((tick, ordinal) => tick !== timing.presentationTicks[ordinal])) return null;
+			|| index.presentationTicks.some((tick, ordinal) => tick !== timing.presentationTick(ordinal))) return null;
 		return view;
 	} finally {
 		signal.removeEventListener('abort', dispose);

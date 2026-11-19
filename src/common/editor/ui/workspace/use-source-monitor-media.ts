@@ -23,9 +23,12 @@ export function useSourceMonitorMedia(visual: SourceMonitorVisual | null) {
 		let objectUrl: string | null = null;
 		async function prepare(current: NonNullable<typeof request>) {
 			try {
-				const { prepareSourceMonitorFragmentView } = await import('../../video-source-monitor-fragment-view.ts');
+				const { prepareFragmentPlaybackView } = await import('../../video-source-monitor-fragment-view.ts');
 				abort.signal.throwIfAborted();
-				const view = await prepareSourceMonitorFragmentView(current.blob, current.timing, abort.signal);
+				const view = await prepareFragmentPlaybackView(current.blob, {
+					...current.timing,
+					presentationTick: ordinal => current.timing.presentationTicks[ordinal],
+				}, abort.signal);
 				if (!abort.signal.aborted && view) objectUrl = URL.createObjectURL(view);
 			} catch { /* Retain the original browser playback path for other ISO profiles. */ }
 			if (!abort.signal.aborted) setPrepared({ request: current, url: objectUrl });

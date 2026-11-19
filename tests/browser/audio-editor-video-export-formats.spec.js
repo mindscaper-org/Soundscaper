@@ -12,33 +12,35 @@ import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-medi
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
-	test('classic VFR AVC with fractional frame timestamps delivers every picture cell', async ({ page, browserName }) => {
-		test.skip(browserName !== 'chromium', 'The fractional rVFC boundary witness is qualified on Chromium.');
-		await disableNativeSavePicker(page);
-		const editor = await bootEditor(page, '/framescaper/embed/en/');
-		const [file] = sourceMonitorFragmentedMedia();
-		await importFiles(editor, [file]);
-		await expect(editor).toHaveAttribute('data-clip-count', '2');
-		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
-		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
-		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
-		const link = dialog.locator('[data-export-download]');
-		const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
-		await expect(link.or(error).first()).toBeVisible({ timeout: 25_000 });
-		await expect(link).toBeVisible();
-		const input = new Input({ source: new BufferSource(await readDownloadBytes(page, link)), formats: [WEBM] });
-		try {
-			const track = await input.getPrimaryVideoTrack();
-			expect(track).not.toBeNull();
-			let pictures = 0;
-			for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true })) {
-				expect(packet.timestamp).toBeCloseTo(pictures * 29 / 660, 3);
-				pictures++;
-			}
-			expect(pictures).toBe(22);
-			expect(await input.getAudioTracks()).toHaveLength(1);
-		} finally { input.dispose(); }
-	});
+	for (const [index, variant] of ['classic', 'fragmented', 'hybrid'].entries()) {
+		test(`${variant} VFR AVC with fractional frame timestamps delivers every picture cell`, async ({ page, browserName }) => {
+			test.skip(browserName === 'webkit', 'WebKit reports a coded epoch for this exact AVC delivery fixture.');
+			await disableNativeSavePicker(page);
+			const editor = await bootEditor(page, '/framescaper/embed/en/');
+			const file = sourceMonitorFragmentedMedia()[index];
+			await importFiles(editor, [file]);
+			await expect(editor).toHaveAttribute('data-clip-count', '2');
+			const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+			await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+			await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+			const link = dialog.locator('[data-export-download]');
+			const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
+			await expect(link.or(error).first()).toBeVisible({ timeout: 25_000 });
+			await expect(link).toBeVisible();
+			const input = new Input({ source: new BufferSource(await readDownloadBytes(page, link)), formats: [WEBM] });
+			try {
+				const track = await input.getPrimaryVideoTrack();
+				expect(track).not.toBeNull();
+				let pictures = 0;
+				for await (const packet of new EncodedPacketSink(track).packets(undefined, undefined, { metadataOnly: true })) {
+					expect(packet.timestamp).toBeCloseTo(pictures * 29 / 660, 3);
+					pictures++;
+				}
+				expect(pictures).toBe(22);
+				expect(await input.getAudioTracks()).toHaveLength(1);
+			} finally { input.dispose(); }
+		});
+	}
 
 	for (const [label, extension, mimeType, source, dimensions] of [
 		['MP4 video', 'mp4', 'video/mp4', videoRetimePreviewMedia.file,

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { BlobSource, EncodedPacketSink, Input, MP4 } from 'mediabunny';
-import { prepareSourceMonitorFragmentView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
+import { prepareFragmentPlaybackView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
 import { sourceMonitorFragmentedMedia } from './browser/fixtures/video-timing-probe-media.js';
 
@@ -26,19 +26,20 @@ test('Source Monitor fragment views retain all authored timings and original enc
 	const [classic, ...fragmented] = files;
 	assert.ok(classic);
 	const { presentationTicks, finalFrameDurationTicks, timescale } = await demuxVideoTiming(classic);
-	const timing = { presentationTicks, finalFrameDurationTicks, timescale,
-		frameCount: presentationTicks.length, endTicks: presentationTicks.at(-1)! + finalFrameDurationTicks };
+	const timing = { finalFrameDurationTicks, timescale, frameCount: presentationTicks.length,
+		presentationTick: (ordinal: number) => presentationTicks[ordinal] };
 	const signal = new AbortController().signal;
-	assert.equal(await prepareSourceMonitorFragmentView(classic, timing, signal), null);
+	assert.equal(await prepareFragmentPlaybackView(classic, timing, signal), null);
 	const expected = await pictureBodies(classic);
 	assert.equal(expected.length, 22);
 	for (const file of fragmented) {
-		const view = await prepareSourceMonitorFragmentView(file, timing, signal);
+		const view = await prepareFragmentPlaybackView(file, timing, signal, { standardSampleEntry: true });
 		assert.ok(view);
 		const candidate = await demuxVideoTiming(view);
 		assert.deepEqual(candidate.presentationTicks, presentationTicks);
 		assert.equal(candidate.finalFrameDurationTicks, finalFrameDurationTicks);
 		assert.deepEqual(await pictureBodies(view), expected);
-		assert.equal(await prepareSourceMonitorFragmentView(file, { ...timing, frameCount: 21 }, signal), null);
+		assert.equal(await prepareFragmentPlaybackView(file, { ...timing, frameCount: 21 }, signal), null);
+		assert.equal(await prepareFragmentPlaybackView(file, timing, signal, { maximumBytes: 1024 }), null);
 	}
 });

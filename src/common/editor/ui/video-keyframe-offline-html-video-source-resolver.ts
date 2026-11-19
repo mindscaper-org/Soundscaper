@@ -60,6 +60,9 @@ export interface VideoKeyframeOfflineHtmlVideoSourceResolverOptions {
 	readonly timeoutMs?: number;
 	readonly document?: Pick<Document, 'body' | 'createElement'>;
 	readonly url?: Pick<typeof URL, 'createObjectURL' | 'revokeObjectURL'>;
+	readonly prepareDecoderSource?: (
+		asset: VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot, signal: AbortSignal,
+	) => Promise<Blob | null>;
 	readonly createSeekPort?: (
 		video: OfflineHtmlVideoElement,
 		options: VideoRetimeHtmlVideoSeekPortOptions,
@@ -102,6 +105,7 @@ interface NormalizedOptions {
 	readonly document: OfflineHtmlVideoDocument;
 	readonly url: OfflineObjectUrlPort;
 	readonly createSeekPort: NonNullable<VideoKeyframeOfflineHtmlVideoSourceResolverOptions['createSeekPort']>;
+	readonly prepareDecoderSource: VideoKeyframeOfflineHtmlVideoSourceResolverOptions['prepareDecoderSource'];
 }
 
 const DEFAULT_TIMEOUT_MS = 5_000;
@@ -182,13 +186,17 @@ export function createVideoKeyframeOfflineHtmlVideoSourceResolver(
 		signal: AbortSignal,
 	): Promise<SourceLifecycle> {
 		throwIfAborted(signal);
+		const decoderSource = options.prepareDecoderSource
+			? await options.prepareDecoderSource(asset, signal) ?? asset.blob
+			: asset.blob;
+		throwIfAborted(signal);
 		const video = options.document.createElement('video');
 		if (!video || typeof video !== 'object') throw new Error('Browser video decoding is unavailable.');
 		video.preload = 'auto';
 		video.muted = true;
 		video.playsInline = true;
 		video.autoplay = false;
-		const objectUrl = options.url.createObjectURL(asset.blob);
+		const objectUrl = options.url.createObjectURL(decoderSource);
 		if (typeof objectUrl !== 'string' || objectUrl.length < 1) {
 			throw new Error('The browser did not create an offline video object URL.');
 		}
@@ -330,7 +338,7 @@ export function createVideoKeyframeOfflineHtmlVideoSourceResolver(
 
 function snapshotOptions(value: unknown): NormalizedOptions {
 	const record = closedRecord(value, 'offline HTML video source resolver options', ['sources'], [
-		'timeoutMs', 'document', 'url', 'createSeekPort',
+		'timeoutMs', 'document', 'url', 'createSeekPort', 'prepareDecoderSource',
 	]);
 	const assets = admitVideoKeyframeOfflineHtmlVideoSourceAssets(record.sources);
 	const timeoutMs = record.timeoutMs === undefined ? DEFAULT_TIMEOUT_MS : boundedTimeout(record.timeoutMs);
@@ -369,12 +377,16 @@ function snapshotOptions(value: unknown): NormalizedOptions {
 	if (typeof createSeekPort !== 'function') {
 		throw new TypeError('Offline HTML video seek-port creation must be a function.');
 	}
+	if (record.prepareDecoderSource !== undefined && typeof record.prepareDecoderSource !== 'function') {
+		throw new TypeError('Offline HTML video decoder source preparation must be a function.');
+	}
 	return Object.freeze({
 		assets,
 		timeoutMs,
 		document: Object.freeze({ createElement: createVideo, append: appendVideo }),
 		url,
 		createSeekPort: createSeekPort as NormalizedOptions['createSeekPort'],
+		prepareDecoderSource: record.prepareDecoderSource as NormalizedOptions['prepareDecoderSource'],
 	});
 }
 
