@@ -72,6 +72,7 @@ interface ScanState {
 
 interface MatroskaVideoTiming extends VideoTimingDemuxTrack {
 	readonly ticksPerTimecode: bigint;
+	readonly originTimecode: bigint;
 }
 
 /**
@@ -117,6 +118,7 @@ export async function demuxMatroskaVideoTiming(
 	return Object.freeze({
 		timescale: Number(NANOSECONDS_PER_SECOND / tickNs),
 		ticksPerTimecode,
+		originTimecode: origin,
 		presentationTicks: Object.freeze(presentationTicks),
 		finalFrameDurationTicks: finalDurationNs / tickNs,
 	});

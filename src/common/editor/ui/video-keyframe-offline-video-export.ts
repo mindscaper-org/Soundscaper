@@ -55,7 +55,7 @@ import {
 	type VideoKeyframeOfflineWebCodecsDecision,
 } from './video-keyframe-offline-video-export-encoder.ts';
 import { runVideoKeyframeOfflineVideoResources } from './video-keyframe-offline-video-export-runner.ts';
-import { createOfflineFragmentPlayback } from './video-keyframe-offline-fragment-playback.ts';
+import { createOfflinePicturePlayback } from './video-keyframe-offline-picture-playback.ts';
 
 interface OfflineCanvas extends HTMLCanvasElement {
 	width: number;
@@ -247,7 +247,7 @@ async function executeOfflineVideo<Output>(
 	const result = await runVideoKeyframeOfflineVideoResources(
 		() => dependencies.createResolver(Object.freeze({
 			sources: assets,
-			prepareDecoderSource: createOfflineFragmentPlayback(request.timingBySourceId),
+			prepareDecoderSource: createOfflinePicturePlayback(request.timingBySourceId),
 			...(request.sourceTimeoutMs === undefined ? {} : { timeoutMs: request.sourceTimeoutMs }),
 		})),
 		(resolver) => {

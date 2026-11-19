@@ -11,7 +11,10 @@ interface Element {
 }
 interface Integer { readonly value: bigint; readonly width: number; }
 interface Profile { readonly info: Element; readonly origin: bigint; }
+interface ClockPatch { readonly offset: number; readonly bytes: Uint8Array<ArrayBuffer>; }
 const SEGMENT = 0x1853_8067, INFO = 0x1549_a966, CLUSTER = 0x1f43_b675;
+const TRACKS = 0x1654_ae6b, CUES = 0x1c53_bb6b, CRC = 0xbf, VOID = 0xec;
+const MAXIMUM_CLOCK_ELEMENTS = 8192;
 
 /** A decoder-only view: original storage, capabilities and encoded packets remain unchanged. */
 export async function prepareVideoWebmDecoderSource(
@@ -32,6 +35,11 @@ export async function prepareVideoWebmDecoderSource(
 		throwIfAborted(options.signal);
 		return source.slice(0, segment.end, input.type);
 	}
+	if (segment && !segment.unknown && segment.end === source.size) {
+		const view = await rebaseFiniteVideoClock(reader, source, segment, options).catch(() => null);
+		throwIfAborted(options.signal);
+		return view ?? input;
+	}
 	const profile = await liveProfile(reader, segment);
 	if (!profile) return input;
 	const timing = await demuxMatroskaVideoTiming(reader, options);
@@ -49,6 +57,133 @@ export async function prepareVideoWebmDecoderSource(
 	const size = encodeSize(info.end - info.body + encodedDuration.length, info.sizeWidth);
 	return new Blob([source.slice(0, info.sizeOffset), size, source.slice(info.body, info.end),
 		encodedDuration, source.slice(info.end)], { type: input.type });
+}
+
+/** Translate only the absolute clock fields of a sized, video-only WebM. */
+async function rebaseFiniteVideoClock(
+	reader: VideoTimingDemuxReader, source: Blob, segment: Element, options: VideoTimingDemuxReaderOptions,
+): Promise<Blob | null> {
+	let info: Element | undefined, tracks: Element | undefined, cues: Element | undefined;
+	const clusterTimes: Element[] = [];
+	for (let offset = segment.body, count = 0; offset < segment.end;) {
+		const child = await element(reader, offset, segment.end);
+		if (!child || child.unknown || ++count > MAXIMUM_CLOCK_ELEMENTS) return null;
+		offset = child.end;
+		switch (child.id) {
+			case INFO: if (info) return null; info = child; break;
+			case TRACKS: if (tracks) return null; tracks = child; break;
+			case CUES: if (cues) return null; cues = child; break;
+			case CLUSTER: {
+				if (clusterTimes.length === 0) {
+					// Inspect the first field before traversing packets in a healthy zero-clock file.
+					const first = await element(reader, child.body, child.end);
+					if (!first || first.unknown || first.id !== 0xe7
+						|| !await clockInteger(reader, first)) return null;
+					if (!tracks || !await onlyVideoTrack(reader, tracks)) return null;
+				}
+				const time = uniqueField(await sizedClockElements(reader, child), 0xe7);
+				if (!time) return null;
+				clusterTimes.push(time);
+				break;
+			}
+			case 0x114d_9b74: // SeekHead records byte positions, which stay unchanged.
+			case 0x1254_c367: // Tags preserve the original author metadata.
+			case VOID: break;
+			default: return null;
+		}
+	}
+	if (!info || clusterTimes.length === 0) return null;
+	const duration = uniqueField(await sizedClockElements(reader, info), 0x4489);
+	if (!duration || ![4, 8].includes(duration.end - duration.body)) return null;
+	const timing = await demuxMatroskaVideoTiming(reader, options);
+	if (!timing) return null;
+	const origin = timing.originTimecode;
+	if (origin <= 0n || origin > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+	const bytes = Uint8Array.from(await reader.read(duration.body, duration.end - duration.body));
+	const float = new DataView(bytes.buffer);
+	const declaredEnd = bytes.length === 4 ? float.getFloat32(0) : float.getFloat64(0);
+	const elapsed = declaredEnd - Number(origin);
+	const pictureEndTicks = timing.presentationTicks.at(-1)! + timing.finalFrameDurationTicks;
+	const pictureEnd = Number(pictureEndTicks) / Number(timing.ticksPerTimecode);
+	const rebasedError = Math.abs(elapsed - pictureEnd);
+	// A writer may have declared a relative span already. Only rebase an absolute
+	// end corroborated by the packet clock, allowing one container-unit rounding.
+	if (!Number.isFinite(elapsed) || elapsed <= 0 || rebasedError > 1
+		|| rebasedError >= Math.abs(declaredEnd - pictureEnd)) return null;
+	if (bytes.length === 4) {
+		float.setFloat32(0, elapsed);
+		if (float.getFloat32(0) !== elapsed) return null;
+	} else float.setFloat64(0, elapsed);
+	const times = clusterTimes;
+	if (cues) {
+		const points = await sizedClockElements(reader, cues);
+		if (!points) return null;
+		for (const point of points) {
+			if (point.id === VOID) continue;
+			if (point.id !== 0xbb) return null;
+			const fields = await sizedClockElements(reader, point);
+			const time = uniqueField(fields, 0xb3);
+			const position = uniqueField(fields, 0xb7);
+			if (!time || !position) return null;
+			const parameters = await sizedClockElements(reader, position);
+			// A nested CueReference could carry another absolute time.
+			if (!parameters || parameters.some(parameter => parameter.id === 0xdb)) return null;
+			times.push(time);
+		}
+	}
+	const patches: ClockPatch[] = [{ offset: duration.body, bytes }];
+	for (const time of times) {
+		const value = await clockInteger(reader, time);
+		if (value === null || value < origin) return null;
+		const bytes = new Uint8Array(time.end - time.body);
+		let rebased = value - origin;
+		for (let index = bytes.length - 1; index >= 0; index--) {
+			bytes[index] = Number(rebased & 255n);
+			rebased >>= 8n;
+		}
+		patches.push({ offset: time.body, bytes });
+	}
+	patches.sort((left, right) => left.offset - right.offset);
+	const parts: BlobPart[] = [];
+	let offset = 0;
+	for (const patch of patches) {
+		parts.push(source.slice(offset, patch.offset), patch.bytes);
+		offset = patch.offset + patch.bytes.length;
+	}
+	parts.push(source.slice(offset));
+	return new Blob(parts, { type: source.type });
+}
+
+async function onlyVideoTrack(reader: VideoTimingDemuxReader, tracks: Element): Promise<boolean> {
+	const entries = await sizedClockElements(reader, tracks);
+	if (entries?.length !== 1 || entries[0]!.id !== 0xae) return false;
+	const fields = await sizedClockElements(reader, entries[0]!);
+	const type = uniqueField(fields, 0x83);
+	// Additional track-local clock terms would require their own authority.
+	return Boolean(type && !fields?.some(field => [0x56aa, 0x2331_4f, 0x537f].includes(field.id))
+		&& await clockInteger(reader, type) === 1n);
+}
+
+async function sizedClockElements(reader: VideoTimingDemuxReader, parent: Element): Promise<Element[] | null> {
+	const fields: Element[] = [];
+	for (let offset = parent.body; offset < parent.end;) {
+		const field = await element(reader, offset, parent.end);
+		if (!field || field.unknown || field.id === CRC || fields.length >= MAXIMUM_CLOCK_ELEMENTS) return null;
+		fields.push(field);
+		offset = field.end;
+	}
+	return fields;
+}
+
+function uniqueField(fields: readonly Element[] | null, id: number): Element | null {
+	const matches = fields?.filter(field => field.id === id);
+	return matches?.length === 1 ? matches[0]! : null;
+}
+
+async function clockInteger(reader: VideoTimingDemuxReader, field: Element): Promise<bigint | null> {
+	const width = field.end - field.body;
+	return width >= 1 && width <= 8
+		? bigEndianUnsigned(await reader.read(field.body, width), 0, width) : null;
 }
 
 function isWebm(input: Blob): boolean {

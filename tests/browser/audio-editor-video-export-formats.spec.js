@@ -10,10 +10,33 @@ import { videoRetimePreviewMedia } from './fixtures/video-retime-preview-media.j
 import { createDeterministicSilentVideoFixture } from './fixtures/deterministic-av-media.js';
 import { sourceMonitorFragmentedMedia } from './fixtures/video-timing-probe-media.js';
 import { videoSourceGeometryMedia } from './fixtures/video-source-geometry-media.js';
+import { offsetVideoWebmFixture } from './fixtures/video-offset-webm.js';
 import { nativeVideoAudioTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
 
 test.describe('video container exporters', () => {
 	registerAudioEditorHooks();
+	test('a video-only WebM with a positive packet origin exports its full picture clock', async ({ page }) => {
+		await disableNativeSavePicker(page);
+		const editor = await bootEditor(page, '/framescaper/embed/en/');
+		await importFiles(editor, [offsetVideoWebmFixture()]);
+		await expect(editor).toHaveAttribute('data-clip-count', '1');
+		const dialog = await openExportDialog(page, editor, { label: 'Export video' });
+		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'WebM video');
+		await dialog.getByRole('button', { name: 'Export', exact: true }).click();
+		const link = dialog.locator('[data-export-download]');
+		const error = page.locator('[data-editor-toast="workspace-error"], [data-editor-toast="workspace-status-error"]');
+		await expect(link.or(error).first()).toBeVisible({ timeout: 25_000 });
+		await expect(link).toBeVisible();
+		const input = new Input({ source: new BufferSource(await readDownloadBytes(page, link)), formats: [WEBM] });
+		try {
+			const track = await input.getPrimaryVideoTrack();
+			expect(track).not.toBeNull();
+			expect(await track.getFirstTimestamp()).toBe(0);
+			expect(await track.computeDuration()).toBeCloseTo(1, 2);
+			expect(await input.getAudioTracks()).toHaveLength(0);
+		} finally { input.dispose(); }
+	});
+
 	test('WebM audio retains the authored Opus start and tail', async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
