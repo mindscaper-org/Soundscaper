@@ -151,6 +151,18 @@ test.describe('beta MIDI editing and shared transport', () => {
 		await expect(pitch).toHaveValue('67');
 	});
 
+	test('the note start field shows the authored frame after rounding a sub-sample edit', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [noteFile]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 1 });
+		const start = noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true });
+		await expect(start).toHaveValue('0');
+		await start.fill('0.000001');
+		await start.press('Enter');
+		await expect(start).toHaveValue('0');
+	});
+
 	test('an auxiliary mouse button leaves the active MIDI note drag in control', async ({ page }) => {
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/embed/en/');

@@ -251,6 +251,7 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 			event.preventDefault(); event.stopPropagation(); preview(Math.min(127, (octave + 1) * 12 + KEY_PITCHES[key]!));
 		}
 	};
+	const sampleAlignedSeconds = (seconds: number, minimumFrames: number) => Math.max(minimumFrames, Math.round(seconds * sampleRate)) / sampleRate;
 
 	return <div ref={panelRef} className="kw-audio-editor__piano-roll" aria-label={copy.pianoRoll} onKeyDown={keyDown}>
 		<div ref={controlsRef} className="kw-audio-editor__piano-roll-controls">
@@ -273,8 +274,10 @@ function PianoRollEditor({ controller, snapshot, copy: inputCopy, blocked, run, 
 				<label><EditorControlLabel>{copy.pitch}</EditorControlLabel><MidiNoteNumberField key={`pitch:${activeNote?.id}`} min={0} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.pitch ?? ''}
 					onCommit={value => editSelected({ pitch: value })} /></label>
 				<label><EditorControlLabel>{copy.start}</EditorControlLabel><MidiNoteNumberField key={`start:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.startFrame / sampleRate : ''}
+					normalize={value => sampleAlignedSeconds(value, 0)}
 					onCommit={value => editSelected({ startFrame: Math.round(value * sampleRate) })} /></label>
 				<label><EditorControlLabel>{copy.duration}</EditorControlLabel><MidiNoteNumberField key={`duration:${activeNote?.id}`} min={0} step={0.001} disabled={disabled || !activeNote} value={activeNote ? activeNote.durationFrames / sampleRate : ''}
+					normalize={value => sampleAlignedSeconds(value, 1)}
 					onCommit={value => editSelected({ durationFrames: Math.max(1, Math.round(value * sampleRate)) })} /></label>
 				<label><EditorControlLabel>{copy.velocity}</EditorControlLabel><MidiNoteNumberField key={`velocity:${activeNote?.id}`} min={1} max={127} step={1} disabled={disabled || !activeNote} value={activeNote?.velocity ?? ''}
 					onCommit={value => editSelected({ velocity: value })} /></label>
