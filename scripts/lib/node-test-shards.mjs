@@ -32,11 +32,12 @@ const PRODUCTS = Object.freeze([
 // renderer thread is blocked. Running it beside hundreds of CPU-heavy test
 // processes instead measures host scheduler starvation and can trip the
 // production deadline before either worker receives its first block.
-const ISOLATED_NODE_TEST_NAMES = new Set([
+const ISOLATED_NODE_TEST_NAMES = [
 	'desktop-parallel-stack-protocol.test.ts',
 	// Chromium startup can abort under the shared batch's process/memory pressure.
 	'desktop-nightly-tests-progress-archive.test.ts',
-]);
+	'desktop-cpu-profiling-panel.test.ts',
+];
 
 export function listNodeTestFiles(repositoryRoot) {
 	const testDirectory = resolve(repositoryRoot, 'tests');
@@ -89,14 +90,15 @@ export function selectNodeTestFiles(repositoryRoot, { shard = null } = {}) {
 
 export function partitionNodeTestExecutionBatches(testFiles) {
 	const parallel = [];
-	const isolated = [];
+	const isolated = new Map(ISOLATED_NODE_TEST_NAMES.map((name) => [name, []]));
 	for (const testFile of testFiles) {
-		(ISOLATED_NODE_TEST_NAMES.has(basename(testFile)) ? isolated : parallel).push(testFile);
+		const batch = isolated.get(basename(testFile)) ?? parallel;
+		batch.push(testFile);
 	}
 	// Start real-time probes on the clean runner. A completed high-concurrency
 	// batch can leave short-lived child-process and scheduler pressure behind.
 	return [
-		...isolated.map((testFile) => [testFile]),
+		...[...isolated.values()].flat().map((testFile) => [testFile]),
 		...(parallel.length > 0 ? [parallel] : []),
 	];
 }
