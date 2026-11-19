@@ -147,8 +147,18 @@ export function createClipPropertyService(
 		const clip = findTimePitchClip(project, clipId);
 		if (!clip) return undefined;
 		if (action === 'reverse') {
+			const loop = readClipLoop(clip);
+			const changes: Record<string, unknown> = { reversed: !clip.reversed };
+			if (loop) {
+				const remainingFrames = loop.periodFrames - loop.offsetFrames;
+				// Reversed playback starts at the old end of the audible span.
+				const phase = (remainingFrames - clip.durationFrames % loop.periodFrames) % loop.periodFrames;
+				const offsetFrames = phase < 0 ? phase + loop.periodFrames : phase;
+				if (clip.durationFrames <= remainingFrames) changes.loop = false;
+				else if (offsetFrames !== loop.offsetFrames) changes.loop = { periodFrames: loop.periodFrames, offsetFrames };
+			}
 			return dependencies.commit({
-				type: 'clip/update', clipId: clip.id, changes: { reversed: !clip.reversed },
+				type: 'clip/update', clipId: clip.id, changes,
 			}, { selectClipId: clip.id });
 		}
 		if (action === 'invert') {
