@@ -54,6 +54,21 @@ test('only instrumented Chromium receives extra render and persistence time', as
 	}
 });
 
+test('the CI virtual display is used by Firefox alone', async () => {
+	const previous = process.env.SCAPE_FIREFOX_HEADED;
+	try {
+		delete process.env.SCAPE_FIREFOX_HEADED;
+		const { default: ordinary } = await import('../playwright.config.mjs?firefox-ordinary');
+		assert.equal(ordinary.projects.find(({ name }) => name === 'firefox').use.headless, true);
+		process.env.SCAPE_FIREFOX_HEADED = '1';
+		const { default: displayed } = await import('../playwright.config.mjs?firefox-display');
+		assert.deepEqual(displayed.projects.map(({ use }) => use.headless), [undefined, false, undefined]);
+	} finally {
+		if (previous === undefined) delete process.env.SCAPE_FIREFOX_HEADED;
+		else process.env.SCAPE_FIREFOX_HEADED = previous;
+	}
+});
+
 test('Playwright runs the maintained evergreen browser-engine matrix', async () => {
 	delete process.env.CI;
 	const { default: config } = await import('../playwright.config.mjs?browser-matrix');
@@ -265,6 +280,7 @@ test('Firefox CI audio helpers configure a null sink/source and reject a stalled
 	assert.match(pulseSetup, /set-default-source[^\n]+\.monitor/u);
 	assert.match(pulseSetup, /GITHUB_ENV/u);
 	assert.match(clockProbe, /firefox\.launch/u);
+	assert.match(clockProbe, /headless: process\.env\.SCAPE_FIREFOX_HEADED !== '1'/u);
 	assert.match(clockProbe, /new AudioContext/u);
 	assert.match(clockProbe, /currentTime/u);
 	assert.match(clockProbe, /withTimeout/u);

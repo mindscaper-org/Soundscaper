@@ -53,7 +53,10 @@ export default defineConfig({
 			// Explicit realtime assertions and per-test budgets retain their bounds.
 			...(browserCoverage ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 		},
-		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox' } },
+		{
+			name: 'firefox',
+			use: { ...devices['Desktop Firefox'], browserName: 'firefox', headless: process.env.SCAPE_FIREFOX_HEADED !== '1' },
+		},
 		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
 	],
 });

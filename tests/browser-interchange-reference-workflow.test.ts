@@ -21,7 +21,7 @@ for (const jobName of ['browser', 'firefox']) {
 		))) assert.ok(step.includes(REQUIRED), 'only selected reader consumers need Python, downloads, and extraction');
 		assert.match(job, /uses: actions\/setup-python@[a-f0-9]{40}/u);
 		assert.match(job, /python-version: '3\.12'/u);
-		assert.ok(job.search(/run: npm run test:browser:built/u) > provision);
+		assert.ok(job.search(/run: (?:xvfb-run --auto-servernum )?npm run test:browser:built\b/u) > provision);
 	});
 }
 
