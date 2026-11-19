@@ -193,16 +193,16 @@ export function soundscaperMainSource(sourceValue) {
 		"\t\t{ name: 'desktop MCP', run: () => desktopMcp?.dispose() },\n\t\t{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() },",
 		'Soundscaper MCP shutdown');
 	source = replaceOnce(source,
-		'cleanup: async () => { rendererReady = false; await rendererOwnershipCleanup.drain(webContents); },',
-		'cleanup: async () => { rendererReady = false; await desktopMcp?.revoke(); await rendererOwnershipCleanup.drain(webContents); },',
+		'cleanup: async () => { retireRendererCloseRequest(webContents); await rendererOwnershipCleanup.drain(webContents); },',
+		'cleanup: async () => { retireRendererCloseRequest(webContents); await desktopMcp?.revoke(); await rendererOwnershipCleanup.drain(webContents); },',
 		'Soundscaper MCP renderer recovery');
 	source = replaceOnce(source,
 		'if (revokedOwner) rendererOwnershipCleanup.start(revokedOwner);',
 		'if (revokedOwner) { void desktopMcp?.revoke(); rendererOwnershipCleanup.start(revokedOwner); }',
 		'Soundscaper MCP renderer replacement');
 	source = replaceOnce(source,
-		'function revokeRendererSaveOwner(webContents) {\n\trendererReady = false;',
-		'function revokeRendererSaveOwner(webContents) {\n\trendererReady = false;\n\tvoid desktopMcp?.revoke();',
+		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);',
+		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);\n\tvoid desktopMcp?.revoke();',
 		'Soundscaper MCP renderer revocation');
 	source = replaceOnce(source,
 		"\tregisterHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });",
