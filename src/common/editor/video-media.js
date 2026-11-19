@@ -1,6 +1,7 @@
 import {
 	assertVideoPreviewEncodedBytes,
 	planVideoPreviewCapture,
+	planVideoRenderPixelCapture,
 } from './video-preview-capture-admission.ts';
 import { mountVideoFrameCaptureElement, releaseVideoFrameCaptureElement } from './video-frame-capture-element.ts';
 import { seekVideoFrameForCapture } from './video-frame-capture-seek.ts';
@@ -106,9 +107,13 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		return captureWithOutput(timestampSeconds, captureOptions, readCapturedFramePixels);
 	}
 
-	async function captureWithOutput(timestampSeconds, captureOptions, readFrame) {
+	function captureRenderPixels(timestampSeconds, captureOptions = {}) {
+		return captureWithOutput(timestampSeconds, captureOptions, readCapturedFramePixels, planVideoRenderPixelCapture);
+	}
+
+	async function captureWithOutput(timestampSeconds, captureOptions, readFrame, planCapture = planVideoPreviewCapture) {
 		if (disposed) throw new Error('The video frame extractor is closed.');
-		const capturePlan = planVideoPreviewCapture({
+		const capturePlan = planCapture({
 			sourceWidth: width,
 			sourceHeight: height,
 		}, {
@@ -201,7 +206,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		});
 	}
 
-	return Object.freeze({ metadata, capture, capturePixels, dispose });
+	return Object.freeze({ metadata, capture, capturePixels, captureRenderPixels, dispose });
 }
 
 async function encodeCapturedFrame(canvas, _context, { capturePlan, mimeType, quality, signal }) {

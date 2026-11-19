@@ -28,6 +28,8 @@ type FrameDecoderFactoryFinishing = (
 	options: Readonly<{ readonly signal: AbortSignal }>,
 ) => PromiseLike<FrameDecoderFinishing> | FrameDecoderFinishing;
 
+type CaptureResolution = 'preview' | 'render';
+
 export interface FramescaperVideoFrameAddressFinishing {
 	resolve(request: Readonly<{
 		readonly sourceId: string;
@@ -47,6 +49,7 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 	readonly timingViewsBySourceId: ReadonlyMap<string, VideoSourceTimingView>;
 	readonly createDecoder?: FrameDecoderFactoryFinishing;
 	readonly maximumCacheBytes?: number;
+	readonly resolution?: CaptureResolution;
 }>): FramescaperVideoFrameAddressFinishing {
 	if (!(options?.sources instanceof Map) || !(options.timingViewsBySourceId instanceof Map)) {
 		throw new TypeError('Selected finishing frame addressing requires source and timing maps.');
@@ -57,7 +60,10 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 		|| [...sources].some(([id, body]) => !stableId(id) || !(body instanceof Blob) || !timing.has(id))) {
 		throw new RangeError('Selected finishing frame-address source authority is inconsistent.');
 	}
-	const createDecoder = options.createDecoder ?? defaultDecoder;
+	const resolution = options.resolution ?? 'preview';
+	const createDecoder: FrameDecoderFactoryFinishing = options.createDecoder ?? (
+		(body, decoderOptions) => defaultDecoder(body, decoderOptions, resolution)
+	);
 	if (typeof createDecoder !== 'function') throw new TypeError('A finishing frame decoder factory is required.');
 	const maximumCacheBytes = options.maximumCacheBytes === undefined
 		? DEFAULT_MAXIMUM_CACHE_BYTES
@@ -166,19 +172,22 @@ export function createFramescaperVideoFrameAddressFinishing(options: Readonly<{
 async function defaultDecoder(
 	body: Blob,
 	options: Readonly<{ readonly signal: AbortSignal }>,
+	resolution: CaptureResolution,
 ): Promise<FrameDecoderFinishing> {
 	const module = await import('../common/editor/video-media.js');
 	const extractor = await module.createAudioEditorVideoFrameExtractor(body, options) as Readonly<{
 		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<UnifiedExactRenderRgbaFrameV13>;
+		captureRenderPixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<UnifiedExactRenderRgbaFrameV13>;
 		dispose(): unknown;
 	}>;
+	const capturePixels = resolution === 'render' ? extractor.captureRenderPixels : extractor.capturePixels;
 	return Object.freeze({
 		capture(request: Parameters<FrameDecoderFinishing['capture']>[0]) {
-			return extractor.capturePixels(request.timestampSeconds, {
-				// This extractor owns a bounded analysis raster. resolve() retains the
-				// returned geometry and performs the requested output resize explicitly.
-				maximumWidth: Math.max(2, Math.min(request.width, VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH)),
-				maximumHeight: Math.max(2, Math.min(request.height, VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT)),
+			return capturePixels(request.timestampSeconds, {
+				maximumWidth: Math.max(2, resolution === 'render' ? request.width
+					: Math.min(request.width, VIDEO_PREVIEW_CAPTURE_MAXIMUM_WIDTH)),
+				maximumHeight: Math.max(2, resolution === 'render' ? request.height
+					: Math.min(request.height, VIDEO_PREVIEW_CAPTURE_MAXIMUM_HEIGHT)),
 				alpha: true, signal: request.signal,
 			});
 		},

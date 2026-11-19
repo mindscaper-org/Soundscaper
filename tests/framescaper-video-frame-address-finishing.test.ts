@@ -113,7 +113,7 @@ test('decoder creation finishing after disposal cannot reopen frame addressing',
 	assert.equal(disposals, 1);
 });
 
-test('the default decoder admits full-size temporal frame requests without a still-image round trip', async () => {
+for (const resolution of ['preview', 'render'] as const) test(`the default decoder captures ${resolution} temporal pixels without a still-image round trip`, async () => {
 	const originals = new Map<string, PropertyDescriptor | undefined>();
 	for (const name of ['document', 'createImageBitmap']) {
 		originals.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
@@ -151,6 +151,7 @@ test('the default decoder admits full-size temporal frame requests without a sti
 		},
 	});
 	const addressing = createFramescaperVideoFrameAddressFinishing({
+		resolution,
 		sources: new Map([['video-source', new Blob(['video'], { type: 'video/mp4' })]]),
 		timingViewsBySourceId: new Map([[
 			'video-source', { kind: 'cfr' as const, rate: { num: 30, den: 1 }, frameCount: 1 },
@@ -162,7 +163,8 @@ test('the default decoder admits full-size temporal frame requests without a sti
 			signal: new AbortController().signal,
 		});
 		assert.deepEqual({ width: frame.width, height: frame.height }, { width: 1_280, height: 720 });
-		assert.deepEqual({ width: capturedWidth, height: capturedHeight }, { width: 640, height: 360 });
+		assert.deepEqual({ width: capturedWidth, height: capturedHeight },
+			resolution === 'preview' ? { width: 640, height: 360 } : { width: 1_280, height: 720 });
 	} finally {
 		await addressing.dispose();
 		for (const [name, descriptor] of originals) {

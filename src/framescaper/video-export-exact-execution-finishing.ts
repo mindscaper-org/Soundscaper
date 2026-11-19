@@ -77,7 +77,7 @@ export async function createFramescaperVideoExportExactExecutionFinishing(option
 		signal: options.request.signal, assertCurrent: options.request.assertCurrent,
 	});
 	const sourceFrames = createFramescaperVideoFrameAddressFinishing({
-		sources: options.request.videoBlobs, timingViewsBySourceId,
+		sources: options.request.videoBlobs, timingViewsBySourceId, resolution: 'render',
 	});
 	let exact: Awaited<ReturnType<typeof createFramescaperSelectedExactFrameExecutionFinishing>>;
 	try {
