@@ -9,6 +9,7 @@ export interface ControllerEffect extends Readonly<Record<string, unknown>> {
 	readonly type?: string;
 	readonly enabled?: boolean;
 	readonly bypassed?: boolean;
+	readonly params?: Readonly<Record<string, unknown>>;
 	readonly context?: Readonly<Record<string, unknown>> | null;
 }
 

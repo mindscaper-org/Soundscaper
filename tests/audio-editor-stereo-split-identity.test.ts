@@ -13,10 +13,11 @@ import type { TrackTransformServiceDependencies } from '../src/common/editor/con
 import { findControllerSource, type ControllerProject } from '../src/common/editor/controller/track-audio/track-domain-types.ts';
 
 function fixture(playlists = false, panAutomation = false, channelCount = 2, rack?: Readonly<{
-	readonly scope: 'clip' | 'track'; readonly enabled?: boolean; readonly mix?: number;
+	readonly scope: 'clip' | 'track'; readonly enabled?: boolean; readonly type?: 'reverb' | 'noise-gate';
+	readonly params?: Readonly<Record<string, unknown>>;
 }>) {
-	const effects = rack ? [createEffect('reverb', { id: 'room', enabled: rack.enabled ?? true,
-		params: { mix: rack.mix ?? .5 } })] : [];
+	const effects = rack ? [createEffect(rack.type ?? 'reverb', { id: 'processor', enabled: rack.enabled ?? true,
+		params: rack.params ?? {} })] : [];
 	let project = createSoundscaperProject({ sources: [{ id: 'source', storageKey: 'source', frameCount: 100, sampleRate: 48000, channelCount }],
 		clips: [{ id: 'clip', sourceId: 'source', durationFrames: 100, effects: rack?.scope === 'clip' ? effects : [] },
 			...(channelCount === 1 ? [{ id: 'partner-clip', sourceId: 'source', durationFrames: 100 }] : [])],
@@ -84,12 +85,29 @@ for (const scope of ['clip', 'track'] as const) test(`stereo split preserves an 
 	assert.equal(f.getPreflights(), 0);
 });
 
-for (const rack of [{ enabled: false }, { mix: 0 }] as const) test(`stereo split accepts an inactive Reverb: ${JSON.stringify(rack)}`, async () => {
+for (const rack of [{ enabled: false }, { params: { mix: 0 } }] as const) test(`stereo split accepts an inactive Reverb: ${JSON.stringify(rack)}`, async () => {
 	const f = fixture(false, false, 2, { scope: 'clip', ...rack });
 	await f.service.splitStereoTrack('detector');
 	assert.equal(f.getPreflights(), 1);
 	assert.equal(f.getProject().clips.length, 2);
 });
+
+for (const scope of ['clip', 'track'] as const) test(`a linked ${scope} Noise gate stops stereo split before storage preflight`, async () => {
+	const f = fixture(false, false, 2, { scope, type: 'noise-gate', params: { threshold: -20, rangeDb: -60 } });
+	const before = f.getProject();
+	await assert.rejects(f.service.splitStereoTrack('detector'), /Mix & Render.*Stereo output/u);
+	assert.equal(f.getProject(), before);
+	assert.equal(f.getPreflights(), 0);
+});
+
+for (const rack of [{ params: { stereoLink: 'independent' } }, { params: { rangeDb: 0 } }, { enabled: false }] as const) {
+	test(`stereo split admits a gate without active channel coupling: ${JSON.stringify(rack)}`, async () => {
+		const f = fixture(false, false, 2, { scope: 'clip', type: 'noise-gate', ...rack });
+		await f.service.splitStereoTrack('detector');
+		assert.equal(f.getPreflights(), 1);
+		assert.equal(f.getProject().clips.length, 2);
+	});
+}
 
 
 test('stereo split clears its former pan automation without removing other tracks’ lanes', async () => {
