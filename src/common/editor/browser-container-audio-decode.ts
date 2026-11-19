@@ -35,6 +35,8 @@ export interface BrowserContainerAudioDecodeSession {
 	readonly channelCount: number;
 	readonly endPaddingFrames?: number;
 	readonly programmeCapacitySeconds?: number;
+	/** End of a contiguous authored presentation edit, relative to picture zero. */
+	readonly presentationEndFrame?: number;
 	samples(endTimestamp?: number): AsyncIterable<BrowserContainerAudioSample>;
 	dispose(): void;
 }
@@ -80,7 +82,8 @@ export async function decodeBrowserContainerAudio(
 		validateSession(session);
 		const durationSeconds = positiveDuration(options.durationSeconds);
 		const pictureFrameCount = Math.ceil(durationSeconds * session.sampleRate);
-		const programmeCapacity = Math.ceil((session.programmeCapacitySeconds ?? 0) * session.sampleRate);
+		const programmeCapacity = session.presentationEndFrame
+			?? Math.ceil((session.programmeCapacitySeconds ?? 0) * session.sampleRate);
 		const projectRate = options.programmeSampleRate;
 		const retainProgramme = projectRate !== undefined
 			&& Number.isSafeInteger(programmeCapacity) && programmeCapacity > pictureFrameCount
@@ -100,8 +103,13 @@ export async function decodeBrowserContainerAudio(
 		let copiedFrames = 0;
 		let decodedEndFrame = 0, completed = true;
 		const padding = session.endPaddingFrames ?? 0;
+		const presentationEndFrame = session.presentationEndFrame ?? Infinity;
+		let endTimestamp = padding || retainProgramme ? undefined : session.timelineOrigin + durationSeconds;
+		if (session.presentationEndFrame !== undefined) {
+			endTimestamp = session.timelineOrigin + Math.min(targetFrameCount, presentationEndFrame) / session.sampleRate;
+		}
 		try {
-			for await (const sample of session.samples(padding || retainProgramme ? undefined : session.timelineOrigin + durationSeconds)) {
+			for await (const sample of session.samples(endTimestamp)) {
 				try {
 					throwIfAborted(options.signal);
 					validateSample(sample, session.sampleRate, session.channelCount);
@@ -111,8 +119,9 @@ export async function decodeBrowserContainerAudio(
 					if (!Number.isSafeInteger(rawStartFrame)) {
 						throw new RangeError('The container audio timestamp is outside the safe frame range.');
 					}
+					if (rawStartFrame >= presentationEndFrame) break;
 					if ((padding || retainProgramme) && rawStartFrame >= targetFrameCount) { completed = false; break; }
-					decodedEndFrame = rawStartFrame + sample.numberOfFrames;
+					decodedEndFrame = Math.min(rawStartFrame + sample.numberOfFrames, presentationEndFrame);
 					if (!Number.isSafeInteger(decodedEndFrame)) throw new RangeError('The container audio ending exceeds the safe frame range.');
 					if (retainProgramme && decodedEndFrame > targetFrameCount) completed = false;
 					let frameOffset = Math.max(0, -rawStartFrame);
@@ -124,7 +133,7 @@ export async function decodeBrowserContainerAudio(
 					frameOffset += overlapFrames;
 					startFrame += overlapFrames;
 					const frameCount = Math.min(
-						sample.numberOfFrames - frameOffset,
+						decodedEndFrame - rawStartFrame - frameOffset,
 						targetFrameCount - startFrame,
 					);
 					if (frameCount <= 0) continue;
@@ -215,12 +224,12 @@ async function openMediabunnySession(
 		throwIfAborted(signal);
 		const codec = await track?.getCodec();
 		const format = codec === 'opus' || retainProgramme ? await input.getFormat() : null;
-		let reviewedMatroskaOpus = false;
+		const isoTimeline = format === MP4 || format === QTFF;
+		let reviewedOpus = false;
 		if (track && codec === 'opus') {
-			const reviewed = await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
-				source: blob, opusTimestampsIncludePreSkip: format === MP4 || format === QTFF,
+			reviewedOpus = await (await import('./browser-container-opus-decoder.ts')).preferContainerOpusPreSkipDecoder(track, signal, {
+				source: blob, opusTimestampsIncludePreSkip: isoTimeline,
 			});
-			reviewedMatroskaOpus = reviewed && (format === MATROSKA || format === WEBM);
 		}
 		if (!track || !await track.canDecode()) {
 			throw new Error('The video container has no browser-decodable primary audio track.');
@@ -231,10 +240,13 @@ async function openMediabunnySession(
 			track.getNumberOfChannels(),
 		]);
 		throwIfAborted(signal);
-		const endPaddingFrames = sampleRate === 48_000 && codec === 'opus'
+		const matroska = format === MATROSKA || format === WEBM;
+		const endPaddingFrames = matroska && sampleRate === 48_000 && codec === 'opus'
 			? await (await import('./matroska-opus-end-padding.ts')).readMatroskaOpusEndPadding(blob, track.id, signal) : 0;
 		let programmeCapacitySeconds: number | undefined;
-		if (retainProgramme && reviewedMatroskaOpus) {
+		let presentationEndFrame: number | undefined;
+		const reviewedIsoOpus = reviewedOpus && isoTimeline;
+		if (retainProgramme && reviewedOpus && matroska) {
 			try {
 				const [end, resolution] = await Promise.all([track.computeDuration(), track.getTimeResolution()]);
 				// A final Matroska packet can declare duration zero. Use the estimate
@@ -243,22 +255,28 @@ async function openMediabunnySession(
 					programmeCapacitySeconds = Math.max(0, end - timelineOrigin) + MAXIMUM_OPUS_PACKET_SECONDS + 1 / resolution;
 				}
 			} catch { throwIfAborted(signal); }
-		} else if (retainProgramme && format === QTFF && isQuickTimeS16Pcm(codec) && channelCount <= 2) {
+		} else if (reviewedIsoOpus || retainProgramme && format === QTFF && isQuickTimeS16Pcm(codec) && channelCount <= 2) {
 			try {
 				const { readIsoAudioPresentationEnd } = await import('./iso-audio-presentation-edit.ts');
-				const [audioTracks, videoTracks, end, editEnd] = await Promise.all([
-					input.getAudioTracks(), input.getVideoTracks(), track.computeDuration(),
+				const [audioTracks, videoTracks, editEnd] = await Promise.all([
+					input.getAudioTracks(), input.getVideoTracks(),
 					readIsoAudioPresentationEnd(blob, track.id, signal),
 				]);
-				if (audioTracks.length === 1 && videoTracks.length === 1 && Number.isFinite(end)) {
-					programmeCapacitySeconds = Math.max(0, Math.min(end, editEnd ?? end) - timelineOrigin);
+				if (audioTracks.length === 1 && videoTracks.length === 1 && (!reviewedIsoOpus || editEnd !== null)) {
+					const end = await track.computeDuration();
+					const duration = Math.max(0, Math.min(end, editEnd ?? end) - timelineOrigin);
+					if (reviewedIsoOpus && Number.isFinite(end)) {
+						const frame = Math.round(duration * sampleRate);
+						if (Number.isSafeInteger(frame)) presentationEndFrame = frame;
+					} else if (Number.isFinite(end)) programmeCapacitySeconds = duration;
 				}
 			} catch { throwIfAborted(signal); }
 		}
 		throwIfAborted(signal);
 		const sink = new AudioSampleSink(track);
 		return Object.freeze({
-			timelineOrigin, sampleRate, channelCount, ...(endPaddingFrames ? { endPaddingFrames } : {}), programmeCapacitySeconds,
+			timelineOrigin, sampleRate, channelCount, programmeCapacitySeconds, presentationEndFrame,
+			...(endPaddingFrames ? { endPaddingFrames } : {}),
 			samples: (endTimestamp?: number) => sink.samples(undefined, endTimestamp),
 			dispose: () => input.dispose(),
 		});

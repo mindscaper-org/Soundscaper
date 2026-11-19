@@ -388,3 +388,48 @@ export function quickTimePcmTailFixture(): Buffer<ArrayBuffer> {
 	assert.equal(createHash('sha256').update(body).digest('hex'), 'e470e00cac20f9031a32633597c5119ca793746d63a8aaf95b9c8a0c40a94eac');
 	return body;
 }
+
+// FFmpeg 6.1.1, color=blue:s=64x48:r=25:d=.08/.16 and 733 Hz/48 kHz/.12 s sine.
+// libx264 baseline/ultrafast/zerolatency, libopus mono at 24 kbit/s, MP4 faststart.
+// Both contain identical Opus packets. The edit presents 5,760 of 6,408 decoded frames.
+const ISO_OPUS_TAIL = {
+	2: { sha256: 'f5ca0447a5ac08667293cdaf705daee1f77b1ff7a1d4014d7e1b80ddfc9d66e5', compressed: [
+		'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',
+	] },
+	4: { sha256: '68f9965781fc6ae1456e7227e4ee09528d29b5ea1284dc308931a0e43860155c', compressed: [
+		'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',
+	] },
+} as const;
+
+export function isoOpusTailFixture(pictureFrames: 2 | 4): Buffer<ArrayBuffer> {
+	const { sha256, compressed } = ISO_OPUS_TAIL[pictureFrames];
+	const body = gunzipSync(Buffer.from(compressed.join(''), 'base64'));
+	assert.equal(createHash('sha256').update(body).digest('hex'), sha256);
+	return body;
+}
