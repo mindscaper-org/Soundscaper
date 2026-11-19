@@ -10,10 +10,11 @@ import { ScapeAudioChunkBudget } from './scape-expanded-byte-budget.ts';
 import { SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from './scape-archive-video.ts';
 import { EXTERNAL_MEDIA_ENCODING } from './desktop-external-media.ts';
 import { ScapeProjectReopenConflictError } from './scape-project-canonical-inspection.ts';
+import type { MediaAssetMetadataOptions } from './storage/media-repository.ts';
 import { isStoredPcmReadDamage } from './storage/source-read-recovery.ts';
 
 type ReopenAssetStore = Parameters<typeof scapeAudioSourceStream>[0] & Readonly<{
-	getMediaAssetMetadata?(key: string): PromiseLike<unknown>;
+	getMediaAssetMetadata?(key: string, options?: MediaAssetMetadataOptions): PromiseLike<unknown>;
 }>;
 
 /** Verify reused archive bodies with the ordinary bounds, without staging or replacing local media. */
@@ -69,7 +70,8 @@ export async function verifyScapeReopenAssets(
 		verifyScapeExtractedAsset(asset, hex(digest.digest()), size, asset.entry);
 		if (store && asset.kind === 'video') {
 			const source = sourceById.get(asset.sourceId);
-			const metadata = await awaitScapeOperation(store.getMediaAssetMetadata?.(source?.storageKey || asset.sourceId), signal);
+			const metadata = await awaitScapeOperation(store.getMediaAssetMetadata?.(source?.storageKey || asset.sourceId,
+				asset.encoding === 'original' ? { signal, verifyOpfsBodySize: true } : undefined), signal);
 			if (!metadata || typeof metadata !== 'object' || !('sha256' in metadata) || !('size' in metadata)
 				|| metadata.sha256 !== asset.sha256 || metadata.size !== asset.size) throw new ScapeProjectReopenConflictError();
 		}

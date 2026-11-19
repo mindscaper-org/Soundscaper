@@ -8,7 +8,7 @@ import { ScapeExpandedByteBudget } from '../src/common/scape/expanded-byte-budge
 import type { ScapeArchiveEntry, ScapeAssetDescriptor } from '../src/common/scape/archive-envelope.ts';
 
 function asset(name: string, bytes: Uint8Array) {
-	const descriptor: ScapeAssetDescriptor = { sourceId: name, kind: 'video', encoding: 'video-original-v1', entry: name,
+	const descriptor: ScapeAssetDescriptor = { sourceId: name, kind: 'video', encoding: 'original', entry: name,
 		size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
 	const entry: ScapeArchiveEntry = { filename: name, directory: false, encrypted: false, compressionMethod: 0,
 		compressedSize: bytes.length, uncompressedSize: bytes.length,
@@ -54,7 +54,11 @@ test('reused video must also match the local immutable body digest and size', as
 	const sources = [{ id: 'picture', storageKey: 'stored-picture' }];
 	const store = {
 		async *readSourceChunks() { yield []; },
-		async getMediaAssetMetadata(key: string) { assert.equal(key, 'stored-picture'); return { sha256: descriptor.sha256, size: 3 }; },
+		async getMediaAssetMetadata(key: string, options?: { verifyOpfsBodySize?: boolean }) {
+			assert.equal(key, 'stored-picture');
+			assert.equal(options?.verifyOpfsBodySize, true);
+			return { sha256: descriptor.sha256, size: 3 };
+		},
 	};
 	await verifyScapeReopenAssets(entries, [descriptor], sources, new ScapeExpandedByteBudget(6), undefined, store);
 	await assert.rejects(verifyScapeReopenAssets(entries, [descriptor], sources, new ScapeExpandedByteBudget(6), undefined,

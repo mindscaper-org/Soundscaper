@@ -232,9 +232,9 @@ export class AudioEditorProjectStore {
 	async loadMediaAsset(sourceId, options = {}) {
 		return this.mediaRepository.loadAsset(sourceId, options);
 	}
-
-	async getMediaAssetMetadata(sourceId) {
-		return this.mediaRepository.getAssetMetadata(sourceId);
+	/** @param {string} sourceId @param {import('./storage/media-repository.ts').MediaAssetMetadataOptions} [options] */
+	async getMediaAssetMetadata(sourceId, options = {}) {
+		return this.mediaRepository.getAssetMetadata(sourceId, options);
 	}
 
 	async bindLinkedAudioOriginal(projectId, source, locatorId, options = {}) {

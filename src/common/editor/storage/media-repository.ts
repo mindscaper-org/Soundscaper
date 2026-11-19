@@ -49,6 +49,12 @@ interface MediaWriteOptions {
 	readonly signal?: AbortSignal;
 }
 
+export interface MediaAssetMetadataOptions {
+	readonly signal?: AbortSignal;
+	/** Corroborate an OPFS metadata row without materializing or hashing its body. */
+	readonly verifyOpfsBodySize?: boolean;
+}
+
 interface MediaRepositoryOptions {
 	readonly confirmFileSizeWarning?: FileSizeWarningConfirmation;
 	readonly cacheLimits?: Readonly<Pick<
@@ -181,8 +187,14 @@ export class MediaRepository {
 		return this.#assetLoads.load(sourceId, options);
 	}
 
-	async getAssetMetadata(sourceId: string): Promise<Record<string, unknown> | null> {
+	async getAssetMetadata(sourceId: string, options: MediaAssetMetadataOptions = {}): Promise<Record<string, unknown> | null> {
+		throwIfAborted(options.signal);
 		const record = await this.assetRecord(sourceId);
+		throwIfAborted(options.signal);
+		if (record?.storage === 'opfs' && options.verifyOpfsBodySize) {
+			if (typeof record.path !== 'string' || !record.path || !Number.isSafeInteger(record.size)) return null;
+			if (await this.#opfs.binaryFileSize(record.path, options.signal) !== record.size) return null;
+		}
 		return record ? mediaAssetMetadata(record) : null;
 	}
 
