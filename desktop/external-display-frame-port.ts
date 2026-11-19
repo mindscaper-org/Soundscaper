@@ -121,10 +121,14 @@ async function acceptFrame(
 	if (controller.externalDisplaySessionIdentity() !== session) {
 		throw new Error('The external-display session changed while its frame was transferred.');
 	}
-	const projection = controller.presentExternalDisplay(Object.freeze({
+	const projection = await controller.presentExternalDisplay(Object.freeze({
 		...request.frame,
 		rgba,
 	} satisfies FramescaperExternalDisplayFrame));
+	signal.throwIfAborted();
+	if (controller.externalDisplaySessionIdentity() !== session) {
+		throw new Error('The external-display session changed before its frame was presented.');
+	}
 	port.postMessage(Object.freeze({
 		dataPlaneVersion: HELPER_DATA_PLANE_VERSION,
 		type: 'result',

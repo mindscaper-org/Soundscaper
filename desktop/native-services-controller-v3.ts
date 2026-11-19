@@ -331,9 +331,9 @@ export class FramescaperNativeServicesControllerV3 {
 		return this.#track(this.#requireLifecycle().setExternalDisplay(request));
 	}
 
-	presentExternalDisplay(value: unknown): FramescaperNativeExternalDisplayProjection {
+	presentExternalDisplay(value: unknown): Promise<FramescaperNativeExternalDisplayProjection> {
 		this.#authorizeCapability(NATIVE_MEDIA_CAPABILITY_IDS.externalDisplay, 'external display');
-		return this.#requireLifecycle().presentExternalDisplay(value);
+		return this.#track(this.#requireLifecycle().presentExternalDisplay(value));
 	}
 
 	beginShutdown(): void { this.#closing = true; }

@@ -11,6 +11,7 @@ import { SESSION_PARTITION } from './constants.js';
 const SINK_CONNECT_CHANNEL = 'framescaper:external-display:v1:connect';
 const SINK_CLOSE_CHANNEL = 'framescaper:external-display:v1:close';
 const FRAME_CHANNEL = 'framescaper:external-display:v1:frame';
+const SINK_FRAME_TIMEOUT_MS = 15_000;
 const SINK_HTML = join(import.meta.dirname, 'external-display-sink.html');
 const SINK_PRELOAD = join(import.meta.dirname, 'external-display-sink-preload.cjs');
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -109,6 +110,14 @@ function createWindow(options, reportError) {
 	let port = null;
 	let pending = null;
 	let closed = false;
+	const finishFrame = (error) => {
+		if (pending === null) return;
+		const { timeout, resolve, reject } = pending;
+		pending = null;
+		clearTimeout(timeout);
+		if (error) reject(error);
+		else resolve();
+	};
 	const closeListener = (event, value) => {
 		if (event.sender !== window.webContents || !value || typeof value !== 'object'
 			|| Object.keys(value).length !== 1
@@ -123,6 +132,7 @@ function createWindow(options, reportError) {
 	});
 	window.once('closed', () => {
 		closed = true;
+		finishFrame(new Error('The external-display sink closed before presenting its frame.'));
 		ipcMain.removeListener(SINK_CLOSE_CHANNEL, closeListener);
 		port?.close();
 		port = null;
@@ -142,8 +152,9 @@ function createWindow(options, reportError) {
 						|| !SHA256.test(data.sha256)) {
 						throw new Error('The external-display sink returned an invalid acknowledgement.');
 					}
-					pending = null;
+					finishFrame(null);
 				} catch (error) {
+					finishFrame(error);
 					reportError(error);
 					window.close();
 				}
@@ -162,9 +173,15 @@ function createWindow(options, reportError) {
 			if (channel !== FRAME_CHANNEL || port === null || pending !== null) {
 				throw new Error('The external-display sink is unavailable or applying backpressure.');
 			}
-			pending = Object.freeze({ sequence: payload.sequence, sha256: payload.rgbaSha256 });
+			const { promise, resolve, reject } = Promise.withResolvers();
+			const timeout = setTimeout(() => {
+				finishFrame(new Error('The external-display sink did not acknowledge its frame.'));
+				window.close();
+			}, SINK_FRAME_TIMEOUT_MS).unref();
+			pending = { sequence: payload.sequence, sha256: payload.rgbaSha256, timeout, resolve, reject };
 			try { port.postMessage(Object.freeze({ version: 1, type: 'frame', ...payload })); }
-			catch (error) { pending = null; throw error; }
+			catch (error) { finishFrame(error); }
+			return promise;
 		},
 		onClosed: (listener) => window.once('closed', listener),
 	});

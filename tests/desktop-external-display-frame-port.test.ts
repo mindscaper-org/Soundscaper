@@ -16,14 +16,18 @@ import {
 } from '../desktop/helper-data-plane.ts';
 import type { FramescaperNativeServicesControllerV3 } from '../desktop/native-services-controller-v3.ts';
 
-test('the renderer transfers one digest-bound evaluated RGBA frame with backpressure', async () => {
+test('the digest-bound render transfer remains in flight until the sink presents the frame', async () => {
 	const handlers = new Map<string, (event: unknown, value?: unknown) => void>();
 	const presented: unknown[] = [];
+	const received = Promise.withResolvers<void>();
+	const painted = Promise.withResolvers<void>();
 	const controller = {
 		externalDisplaySessionIdentity: () => presented,
 		externalDisplays: () => ({ displays: [], activeDisplayId: 'display-2' }),
-		presentExternalDisplay: (frame: unknown) => {
+		presentExternalDisplay: async (frame: unknown) => {
 			presented.push(frame);
+			received.resolve();
+			await painted.promise;
 			return { displays: [], activeDisplayId: 'display-2' };
 		},
 	} as unknown as FramescaperNativeServicesControllerV3;
@@ -38,6 +42,9 @@ test('the renderer transfers one digest-bound evaluated RGBA frame with backpres
 	const binding = frameBinding(bytes.byteLength, sha256);
 	const sender = new HelperDataPlaneSender(binding);
 	const channel = new MessageChannel();
+	const resultPackets: unknown[] = [];
+	const postMessage = channel.port1.postMessage.bind(channel.port1);
+	channel.port1.postMessage = (message: unknown) => { resultPackets.push(message); postMessage(message); };
 	const response = new Promise<unknown>((resolve, reject) => {
 		channel.port2.on('message', (message: unknown) => {
 			try {
@@ -60,17 +67,24 @@ test('the renderer transfers one digest-bound evaluated RGBA frame with backpres
 		},
 	);
 	channel.port2.postMessage(sender.createChunk(bytes));
-	assert.deepEqual(await response, {
-		dataPlaneVersion: 1, type: 'result', streamId: binding.streamId,
-		projection: { displays: [], activeDisplayId: 'display-2' },
-	});
-	assert.equal(presented.length, 1);
-	assert.deepEqual(presented[0], {
-		sequence: 4, evaluationFingerprint: 'cd'.repeat(32), width: 2, height: 1,
-		dynamicRange: 'sdr', rgbaSha256: sha256, rgba: bytes,
-	});
-	channel.port2.close();
-	registration.dispose();
+	try {
+		await received.promise;
+		assert.equal(resultPackets.length, 1, 'only the input chunk has been acknowledged');
+		painted.resolve();
+		assert.deepEqual(await response, {
+			dataPlaneVersion: 1, type: 'result', streamId: binding.streamId,
+			projection: { displays: [], activeDisplayId: 'display-2' },
+		});
+		assert.equal(presented.length, 1);
+		assert.deepEqual(presented[0], {
+			sequence: 4, evaluationFingerprint: 'cd'.repeat(32), width: 2, height: 1,
+			dynamicRange: 'sdr', rgbaSha256: sha256, rgba: bytes,
+		});
+	} finally {
+		painted.resolve();
+		channel.port2.close();
+		registration.dispose();
+	}
 	assert.equal(handlers.size, 0);
 });
 

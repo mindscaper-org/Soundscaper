@@ -79,7 +79,7 @@ export interface FramescaperNativeExternalDisplayPort {
 	readonly sessionIdentity: () => object | null;
 	readonly open: (display: FramescaperExternalDisplay) => Promise<void>;
 	readonly stop: () => void;
-	readonly present: (frame: FramescaperExternalDisplayFrame) => void;
+	readonly present: (frame: FramescaperExternalDisplayFrame) => void | Promise<void>;
 	readonly dispose?: () => void;
 }
 
@@ -430,10 +430,10 @@ export class FramescaperNativeServicesLifecycleV3 {
 		return this.externalDisplays();
 	}
 
-	presentExternalDisplay(value: unknown): FramescaperNativeExternalDisplayProjection {
+	async presentExternalDisplay(value: unknown): Promise<FramescaperNativeExternalDisplayProjection> {
 		const external = this.#externalDisplay;
 		if (!external) throw unavailable('present an external-display frame');
-		external.present(value as FramescaperExternalDisplayFrame);
+		await external.present(value as FramescaperExternalDisplayFrame);
 		return this.externalDisplays();
 	}
 }

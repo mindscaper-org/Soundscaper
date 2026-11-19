@@ -57,7 +57,7 @@ export interface FramescaperExternalDisplayWindow {
 	readonly close: () => void;
 	readonly isDestroyed: () => boolean;
 	readonly setBounds: (bounds: FramescaperExternalDisplayBounds) => void;
-	readonly send: (channel: string, payload: unknown) => void;
+	readonly send: (channel: string, payload: unknown) => void | Promise<void>;
 	readonly onClosed?: (listener: () => void) => void;
 }
 
@@ -155,7 +155,7 @@ export class FramescaperExternalDisplayController {
 		}
 	}
 
-	present(frameValue: FramescaperExternalDisplayFrame): void {
+	present(frameValue: FramescaperExternalDisplayFrame): void | Promise<void> {
 		const window = this.#window;
 		if (window === null || this.#display === null || this.#dynamicRange === null || window.isDestroyed()) {
 			throw new Error('No external display session is active.');
@@ -166,7 +166,7 @@ export class FramescaperExternalDisplayController {
 		}
 		const dynamicRange = this.#dynamicRange === 'hdr' && frame.dynamicRange === 'hdr' ? 'hdr' : 'sdr';
 		this.#lastSequence = frame.sequence;
-		window.send(FRAME_CHANNEL, Object.freeze({
+		return window.send(FRAME_CHANNEL, Object.freeze({
 			...frame,
 			dynamicRange,
 		}));
