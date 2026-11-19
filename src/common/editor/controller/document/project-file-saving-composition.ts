@@ -25,7 +25,7 @@ export interface ProjectFileSavingRuntime {
 export interface ProjectFileSavingPort {
 	readonly isDesktop: boolean;
 	releaseOriginalFile?(id: string): PromiseLike<unknown> | unknown;
-	prepareOriginalOverwrite?(id: string): PromiseLike<unknown> | unknown;
+	prepareOriginalOverwrite?(id: string, allowProjectSavePicker?: boolean): PromiseLike<unknown> | unknown;
 	confirmProjectSave?(request: Record<string, string>): PromiseLike<unknown> | unknown;
 	restoreProjectFile?(id: string): PromiseLike<unknown> | unknown;
 	rememberProjectFile?(request: Readonly<{ projectId: string; originalId: string | null; baseline: string }>): PromiseLike<unknown> | unknown;
@@ -47,7 +47,7 @@ export function bindProjectFileSaving(d: Readonly<{
 		getPreferences: runtime?.getPreferences ?? (() => normalizeSavingPreferences(undefined, d.fileService.isDesktop)),
 		acquireInactiveWrite: runtime?.acquireInactiveWrite,
 		activate: id => runtime?.activate(id), discard: id => runtime?.discard(id), flushInternal: d.flush, write: d.write,
-		prepareOriginal: original => d.fileService.prepareOriginalOverwrite?.(original.id),
+		prepareOriginal: (original, allowProjectSavePicker) => d.fileService.prepareOriginalOverwrite?.(original.id, allowProjectSavePicker),
 		ask: async project => {
 			const copy = d.copy as Readonly<Record<string, string>>;
 			const title = String(project.title ?? '');

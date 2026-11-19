@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import test from 'node:test';
 import { IPC } from '../desktop/constants.js';
 import { ReadCapabilityStore } from '../desktop/file-capabilities.js';
+import { registerFileCapabilityIpc } from '../desktop/main-file-capability-ipc.mjs';
 import { OriginalFileOverwriteStore } from '../desktop/original-file-overwrite.ts';
 import { ProjectFileAssociations } from '../desktop/project-file-associations.ts';
 import { registerProjectSavingIpc } from '../desktop/project-saving-main-ipc.ts';
@@ -131,10 +132,13 @@ test('file-saving observations and close checks do not clone session undo histor
 	assert.equal(materialized('undoStack'), false, 'close checks can read present documents independently');
 });
 
-test('replacing a project from a read-only Scape clears the old writable destination after restart', async t => {
+test('Save uses a new destination after a read-only Scape reopen or an external replacement', async t => {
 	const folder = await mkdtemp(join(tmpdir(), 'scape-replaced-file-binding-'));
 	const writablePath = join(folder, 'First draft.sscape'), readOnlyPath = join(folder, 'Reference draft.sscape');
 	const destination = join(folder, 'New edit.sscape'), registryPath = join(folder, 'associations.json');
+	const fallback = join(folder, 'Saved from close.sscape');
+	let savePath: string | null = destination;
+	let closeResponse = 2, pickCount = 0;
 	const exportStore = createSoundscaperEphemeralProjectStore(), scapeProjectRuntime = createSoundscaperScapeNativeRuntime();
 	const indexedDB = createInstrumentedIndexedDB();
 	const reads = new ReadCapabilityStore(), targets = new SaveTargetStore(), saves = new AtomicSaveManager({ targets } as never);
@@ -178,6 +182,29 @@ test('replacing a project from a read-only Scape clears the old writable destina
 		const saved = await scapeProjectRuntime.inspectScapeProject(new Blob([await readFile(destination)]), null,
 			{ signal: new AbortController().signal }, { retain() {} });
 		assert.equal(saved.title, 'New edit');
+
+		const replacement = join(folder, 'Replacement.sscape');
+		const independent = written.get(writablePath)!;
+		await writeFile(replacement, independent);
+		await rename(replacement, destination);
+		await next.controller.actions.project.rename('Edited after external replacement');
+
+		await next.controller.actions.preferences.update({ saving: { autoSaving: true } });
+		const picksBeforeClose = pickCount;
+		assert.equal(await next.controller.actions.project.prepareClose(), false);
+		assert.equal(pickCount, picksBeforeClose, 'autosave never opens the destination picker');
+		await next.controller.actions.preferences.update({ saving: { autoSaving: false } });
+
+		savePath = null;
+		closeResponse = 0;
+		assert.equal(await next.controller.actions.project.prepareClose(), false, 'cancel keeps the project open');
+		assert.deepEqual(await readFile(destination), independent);
+		savePath = fallback;
+		assert.equal(await next.controller.actions.project.prepareClose(), true);
+		assert.deepEqual(await readFile(destination), independent, 'Save never overwrites an independent replacement');
+		const rescued = await scapeProjectRuntime.inspectScapeProject(new Blob([await readFile(fallback)]), null,
+			{ signal: new AbortController().signal }, { retain() {} });
+		assert.equal(rescued.title, 'Edited after external replacement');
 	} finally { await next.controller.dispose(); }
 
 	async function launch() {
@@ -185,21 +212,24 @@ test('replacing a project from a read-only Scape clears the old writable destina
 		const store = createSoundscaperProjectStore({ indexedDB, preferOpfs: false });
 		await registry.load();
 		const handlers = new Map<string, (event: unknown, value: unknown) => unknown>();
+		const handle = (channel: string, handler: (event: unknown, value: unknown) => unknown) => { handlers.set(channel, handler); };
 		registerProjectSavingIpc({ channels: IPC, ownerFor: () => owner, files: registry,
-			handle: (channel, handler) => { handlers.set(channel, handler); }, storage: {} as TemporaryProjectStorage,
-			chooseFolder: async () => null, prompt: async () => ({ response: 2 }) });
+			handle, storage: {} as TemporaryProjectStorage,
+			chooseFolder: async () => null, prompt: async () => ({ response: closeResponse }) });
+		registerFileCapabilityIpc({ channels: IPC, ownerFor: () => owner, handle,
+			desktopSmokeProbe: { resolveSavePath: () => null }, dialog: { async showSaveDialog() {
+				pickCount++;
+				return savePath === null ? { canceled: true } : { filePath: savePath, canceled: false };
+			} },
+			opaqueId: String, pendingOpenProjects: { dispatch() {} }, readCapabilities: reads, saveTargets: targets, saves, originalFiles: originals,
+			windowFor: () => null });
+		const invoke = async (channel: string, request?: unknown) => handlers.get(channel)!(null, request);
 		const preload = createProjectSavingPreload({
-			invoke: async (channel, request) => handlers.get(channel)!(null, request), send: () => undefined,
+			invoke, send: () => undefined,
 		}, { opaqueId: String, original: value => value, boolean: Boolean });
+		const fileOperations = ['chooseSaveTarget', 'beginWrite', 'writeChunk', 'patchFinalPrefix', 'finishWrite', 'abortWrite'] as const;
 		const fileService = createAudioEditorFileService({ bridge: {
-			...preload, prepareOriginalOverwrite: (id: string) => originals.prepare(id, { owner }),
-			releaseOriginalFile: (id: string) => originals.release(id, { owner }),
-			chooseSaveTarget: () => originals.registerProjectSave(destination, { owner }),
-			beginWrite: (request: { targetId: string; maximumSize?: number; size?: number; finalPrefixByteLength?: number }) => saves.begin({ ...request, owner }),
-			writeChunk: (request: { writeId: string; offset: number; bytes: Uint8Array }) => saves.writeChunk({ ...request, owner }),
-			patchFinalPrefix: (request: { writeId: string; bytes: Uint8Array }) => saves.patchFinalPrefix({ ...request, owner }),
-			finishWrite: (writeId: string) => saves.finish(writeId, { owner }),
-			abortWrite: (writeId: string) => saves.abort(writeId, { owner }),
+			...preload, ...Object.fromEntries(fileOperations.map(name => [name, (value: unknown) => invoke(IPC[name], value)])),
 		} });
 		const runtime = createSoundscaperProjectRuntimeSelection();
 		const controller = createAudioEditorController(null, { headless: true, productId: 'soundscaper', copy: COPY, locale: 'en',

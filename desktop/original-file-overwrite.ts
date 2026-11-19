@@ -72,10 +72,22 @@ export class OriginalFileOverwriteStore {
 		}
 	}
 
-	async prepare(id: string, { owner }: { owner: Owner }): Promise<OriginalFile> {
+	async prepare(id: string, options: { owner: Owner }): Promise<OriginalFile>;
+	async prepare(id: string, options: { owner: Owner; allowProjectSavePicker: true }): Promise<OriginalFile | null>;
+	async prepare(id: string, { owner, allowProjectSavePicker = false }: {
+		owner: Owner; allowProjectSavePicker?: boolean;
+	}): Promise<OriginalFile | null> {
+		this.#assertOwner(owner);
+		if (allowProjectSavePicker && !this.#entries.has(id)) return null;
 		const entry = this.#entry(id, owner);
+		if (allowProjectSavePicker && !isProject(entry.path)) throw new TypeError('A Scape project original is required');
 		const expected = entry.identity;
-		await this.#assertCurrent(entry, expected);
+		try { await this.#assertCurrent(entry, expected); }
+		catch (error) {
+			if (!allowProjectSavePicker) throw error;
+			this.#assertOwner(owner);
+			return null;
+		}
 		return this.#targets.registerPath(entry.path, {
 			owner, purpose: isProject(entry.path) ? 'project' : this.#acceptsFile('video', entry.path) ? 'video' : 'audio',
 			beforeCommit: () => this.#assertCurrent(entry, expected),

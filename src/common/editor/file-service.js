@@ -69,7 +69,7 @@ export function createAudioEditorFileService(options = {}) {
 		browserProjectPickerAvailable: !isDesktop && typeof scope.showOpenFilePicker === 'function',
 		chooseBrowserProjectFiles: async () => (await import('./browser-project-files.ts')).chooseBrowserProjectFiles(scope),
 		originalOverwriteAvailable: typeof bridge?.prepareOriginalOverwrite === 'function',
-		prepareOriginalOverwrite: async (id) => { const target = await bridge?.prepareOriginalOverwrite?.(id); return target ? Object.freeze({ ...target, originalOverwrite: true, originalFile: { id, name: target.name } }) : null; },
+		prepareOriginalOverwrite: async (id, allowProjectSavePicker = false) => { const target = await bridge?.prepareOriginalOverwrite?.(id, allowProjectSavePicker); return target ? Object.freeze({ ...target, originalOverwrite: true, originalFile: { id, name: target.name } }) : null; },
 		releaseSaveTarget: (target) => bridge?.releaseSaveTarget?.(target?.id),
 		releaseOriginalFile: (id) => bridge?.releaseOriginalFile?.(id),
 		externalMediaResolver: externalMediaFiles.resolve, captureExternalMediaFile: (file) => externalMediaFiles.capture(file),

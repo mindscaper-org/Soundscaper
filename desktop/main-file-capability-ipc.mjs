@@ -12,7 +12,7 @@ import { acceptsFile, validateFileChoice, validateSaveChoice } from './validatio
 /**
  * @typedef {object} OriginalFileCapabilityService
  * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor | null>} registerRead
- * @property {(id: string, options: {owner: object}) => Promise<OriginalFileDescriptor>} prepare
+ * @property {(id: string, options: {owner: object; allowProjectSavePicker?: true}) => Promise<OriginalFileDescriptor | null>} prepare
  * @property {(id: string, options: {owner: object}) => boolean} release
  * @property {(path: string, options: {owner: object}) => Promise<OriginalFileDescriptor & {originalFile: OriginalFileDescriptor}>} registerProjectSave
  */
@@ -124,7 +124,14 @@ export function registerFileCapabilityIpc({
 	handle(channels.chooseSaveTarget, (event, value) => chooseSaveTarget(event, value));
 	handle(channels.releaseSaveTarget, (event, id) => saveTargets.release(opaqueId(id, 48), { owner: ownerFor(event) }));
 	if (originalFiles) {
-		handle(channels.prepareOriginalOverwrite, (event, id) => originalFiles.prepare(opaqueId(id, 48), { owner: ownerFor(event) }));
+		handle(channels.prepareOriginalOverwrite, (event, value) => {
+			const owner = ownerFor(event);
+			if (value && typeof value === 'object' && Reflect.ownKeys(value).length === 2
+				&& Object.hasOwn(value, 'id') && Object.hasOwn(value, 'allowProjectSavePicker') && value.allowProjectSavePicker === true) {
+				return originalFiles.prepare(opaqueId(value.id, 48), { owner, allowProjectSavePicker: true });
+			}
+			return originalFiles.prepare(opaqueId(value, 48), { owner });
+		});
 		handle(channels.releaseOriginalFile, (event, id) => originalFiles.release(opaqueId(id, 48), { owner: ownerFor(event) }));
 	}
 	handle(channels.beginWrite, (event, value) => saves.begin({

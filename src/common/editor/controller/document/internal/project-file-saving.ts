@@ -21,7 +21,7 @@ interface Dependencies<Project extends FileSavingProject> {
 	readonly activate: (id: string) => Awaitable<unknown>;
 	readonly flushInternal: () => Awaitable<unknown>;
 	readonly write: (project: Project, target: unknown, assertWritable: () => void) => Promise<Readonly<Record<string, unknown>>>;
-	readonly prepareOriginal: (original: ProjectFileReference) => Awaitable<unknown>;
+	readonly prepareOriginal: (original: ProjectFileReference, allowProjectSavePicker: boolean) => Awaitable<unknown>;
 	readonly ask: (project: Project) => Promise<SaveDecision>;
 	readonly discard: (id: string) => Awaitable<unknown>;
 	readonly restore?: (id: string) => Promise<(ProjectFileTarget & { baseline: string }) | null>;
@@ -124,10 +124,11 @@ export function createProjectFileSaving<Project extends FileSavingProject>(d: De
 		};
 		try {
 			assertWritable();
-			const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile) : entry.fileHandle;
-			if (hasTarget && !target) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
+			const allowProjectSavePicker = explicit && Boolean(entry.originalFile);
+			const target = entry.originalFile ? await d.prepareOriginal(entry.originalFile, allowProjectSavePicker) : entry.fileHandle;
+			if (hasTarget && !target && !allowProjectSavePicker) throw new Error('The original project file is unavailable. Export a project file to choose a new destination.');
 			assertWritable();
-			const result = await d.write(project, target, assertWritable);
+			const result = await d.write(project, target ?? undefined, assertWritable);
 			if (result.cancelled === true) return false;
 			if (ownsDestination() && d.getOpenProjectIds().includes(project.id)) {
 				await saved(project, result as ProjectFileTarget);
