@@ -15,12 +15,13 @@ import {
 	type HelperDataPlaneBinding,
 } from '../desktop/helper-data-plane.ts';
 import type { FramescaperNativeServicesControllerV3 } from '../desktop/native-services-controller-v3.ts';
+import { deferred } from './helpers/async-test-control.ts';
 
 test('the digest-bound render transfer remains in flight until the sink presents the frame', async () => {
 	const handlers = new Map<string, (event: unknown, value?: unknown) => void>();
 	const presented: unknown[] = [];
-	const received = Promise.withResolvers<void>();
-	const painted = Promise.withResolvers<void>();
+	const received = deferred<void>();
+	const painted = deferred<void>();
 	const controller = {
 		externalDisplaySessionIdentity: () => presented,
 		externalDisplays: () => ({ displays: [], activeDisplayId: 'display-2' }),
