@@ -15,6 +15,7 @@ import {
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts';
 import { createSoundscaperDesktopProjectLibraryTransferBodies } from
 	'../desktop/soundscaper-project-library-transfer-contract.ts';
+import { TemporaryProjectStorage } from '../desktop/temporary-project-storage.ts';
 import {
 	createAudioClip,
 	createAudioSource,
@@ -88,6 +89,42 @@ test('a migrated SQLite library reopens with its exact catalog, project and froz
 		offset: 0,
 		length: body.byteLength,
 	}), pcm);
+});
+
+test('a disconnected active temporary folder preserves its migrated SQLite catalog', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-library-active-disconnected-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const defaultRoot = join(root, 'default'), activeRoot = join(root, 'selected'), offlineRoot = join(root, 'disconnected');
+	const configuration = join(root, 'settings.json');
+	const temporaryStorage = () => new TemporaryProjectStorage(configuration, defaultRoot, 'Soundscaper');
+	await assert.rejects(lstat(defaultRoot), { code: 'ENOENT' });
+	const original = await start(await temporaryStorage().prepare(), 'original-library');
+	const project = createSoundscaperProject({ id: 'custom-folder-project', title: 'Local work' });
+	try {
+		const session = original.openSession(createSoundscaperDesktopProjectLibraryHandshake());
+		const publicationId = 'a'.repeat(48);
+		await session.beginPublication({ publicationId, expectedMetadataRevision: 0, expectedProject: null, project, bodies: [] });
+		await session.finishPublication({ publicationId });
+		await session.close();
+	} finally { await original.close(); }
+	await temporaryStorage().select(activeRoot);
+	const catalog = await catalogOnStartup('migrated-library');
+	assert.deepEqual(catalog.projects.map(row => row.id), [project.id]);
+	await rename(activeRoot, offlineRoot);
+
+	await assert.rejects(catalogOnStartup('disconnected-library'), /reconnect the current temporary data folder/iu);
+	await assert.rejects(lstat(activeRoot), { code: 'ENOENT' });
+
+	await rename(offlineRoot, activeRoot);
+	assert.deepEqual(await catalogOnStartup('reconnected-library'), catalog);
+
+	async function catalogOnStartup(instanceId: string) {
+		const host = await start(await temporaryStorage().prepare(), instanceId);
+		try {
+			const session = host.openSession(createSoundscaperDesktopProjectLibraryHandshake());
+			try { return await session.listProjects(); } finally { await session.close(); }
+		} finally { await host.close(); }
+	}
 });
 
 function start(appDataPath: string, instanceId: string): Promise<SoundscaperDesktopProjectLibraryMain> {

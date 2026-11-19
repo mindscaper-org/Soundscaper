@@ -7,8 +7,9 @@ import { checkDesktopStorageMigrationDestination, migrateDesktopStorageEntries }
 import { assertLocalDesktopStorage } from './local-storage-safety.ts';
 
 export class TemporaryProjectStorageUnavailableError extends Error {
-	constructor() {
-		super('Reconnect the selected temporary data folder to finish moving the project library, then start the app again.');
+	constructor(folder: 'active' | 'selected') {
+		super(folder === 'active' ? 'Reconnect the current temporary data folder, then start the app again.'
+			: 'Reconnect the selected temporary data folder to finish moving the project library, then start the app again.');
 		this.name = 'TemporaryProjectStorageUnavailableError';
 	}
 }
@@ -31,11 +32,13 @@ export class TemporaryProjectStorage {
 					&& (!('moveStarted' in value) || value.moveStarted !== false);
 			}
 		} catch (error) { if (!(error instanceof SyntaxError) && (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-		const active = assertLocalDesktopStorage(this.#active);
+		const active = this.#active === resolve(this.defaultRoot)
+			? assertLocalDesktopStorage(this.#active) : await availableTemporaryFolder(this.#active);
+		if (active === null) throw new TemporaryProjectStorageUnavailableError('active');
 		if (this.#active !== this.#selected) {
-			const selected = await availableMigrationFolder(this.#selected);
+			const selected = await availableTemporaryFolder(this.#selected);
 			if (selected === null) {
-				if (this.#moveStarted) throw new TemporaryProjectStorageUnavailableError();
+				if (this.#moveStarted) throw new TemporaryProjectStorageUnavailableError('selected');
 				return this.#active;
 			}
 			await migrateDesktopStorageEntries([{
@@ -79,7 +82,7 @@ export class TemporaryProjectStorage {
 		await rename(temporary, this.configurationPath);
 	}
 }
-async function availableMigrationFolder(path: string): Promise<string | null> {
+async function availableTemporaryFolder(path: string): Promise<string | null> {
 	try {
 		const selected = assertLocalDesktopStorage(path);
 		return (await stat(selected)).isDirectory() ? selected : null;
