@@ -39,8 +39,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	useEffect(() => {
 		const media = videoRef.current;
 		if (!media || playing || !Number.isFinite(view.mediaSeconds)) return;
-		// Seeking the last frame's midpoint would turn natural end into a paused
-		// final-frame seek, so native Play could no longer restart the source.
+		// Preserve the native ended state so Play can restart the source.
 		if (media.ended && view.positionFrame === view.sourceFrameCount - 1) return;
 		if (Math.abs((Number(media.currentTime) || 0) - view.mediaSeconds) > 1e-3) {
 			try {

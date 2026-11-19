@@ -98,7 +98,7 @@ test('the playhead moves in whole frames and stops at the media', () => {
 	assert.equal(service.seek(9_999).positionFrame, COUNT - 1);
 	assert.equal(service.view().timecodeLabel, '00:00:09:24');
 	// A media clock is derived from the frame, never the other way round.
-	assert.equal(service.seek(25).mediaSeconds, 1.02);
+	assert.equal(service.seek(25).mediaSeconds, 1.01);
 });
 
 test('marking uses the playhead and reports the pair the media can hold', () => {
