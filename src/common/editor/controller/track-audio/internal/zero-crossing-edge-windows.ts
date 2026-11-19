@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { getProjectClips } from '../../../engine/buffer-math.ts';
+import { getTrackClips } from '../../../engine/clip-schedule-geometry.ts';
 import { projectEffectRacks } from '../../../engine/project-effects.ts';
 import type { EngineProject } from '../../../engine/types.ts';
 import type { RenderedAudio } from '../../../rendered-audio-channels.ts';
@@ -15,15 +17,15 @@ export async function renderZeroCrossingEdges<Project extends SelectionViewProje
 	selection: Range, radius: number, range: Range,
 ): Promise<Range | null> {
 	const edges = [selection.startFrame, selection.endFrame];
+	const captures = trackIds.map(trackId => zeroCrossingRenderProject(runtime.cloneProject(project), trackId));
 	let windows: Range[] = [range];
-	if (dryProject(project)) {
+	if (captures.every(capture => dryCapture(capture.project, capture.trackId))) {
 		windows = edges.map(frame => {
 			const target = Math.max(range.startFrame, Math.min(range.endFrame - 1, frame));
 			return { startFrame: Math.max(range.startFrame, target - radius - 1), endFrame: Math.min(range.endFrame, target + radius + 1) };
 		});
 		if (windows[0]!.endFrame >= windows[1]!.startFrame) windows = [range];
 	}
-	const captures = trackIds.map(trackId => zeroCrossingRenderProject(runtime.cloneProject(project), trackId));
 	const snapped = [...edges];
 	for (const window of windows) {
 		if (runtime.getProject() !== project) return null;
@@ -43,10 +45,14 @@ export async function renderZeroCrossingEdges<Project extends SelectionViewProje
 	return { startFrame: snapped[0]!, endFrame: snapped[1]! };
 }
 
-function dryProject(value: SelectionViewProject): boolean {
+function dryCapture(value: SelectionViewProject, trackId?: string): boolean {
 	const project = value as unknown as EngineProject;
 	if (project.mixer?.groups?.length || project.mixer?.sends?.length || project.mixer?.cues?.length) return false;
-	if (project.tracks?.some(track => 'audioFreeze' in track && track.audioFreeze != null)) return false;
-	if (project.clips?.some(clip => clip.warpMap != null || (clip.speedRatio ?? 1) !== 1 || (clip.pitchCents ?? 0) !== 0 || clip.linkPitchAndTempo || clip.stretchToTempo)) return false;
-	return [...projectEffectRacks(project)].every(rack => !rack.effectsActive || rack.effects.every(effect => effect.enabled === false || effect.bypassed === true));
+	const tracks = (project.tracks ?? []).filter(track => trackId == null || track.id === trackId);
+	if (tracks.some(track => 'audioFreeze' in track && track.audioFreeze != null)) return false;
+	const clipsById = new Map(getProjectClips(project).map(clip => [String(clip.id), clip]));
+	const clips = tracks.flatMap(track => getTrackClips(track, clipsById));
+	if (clips.some(clip => clip.warpMap != null || (clip.speedRatio ?? 1) !== 1 || (clip.pitchCents ?? 0) !== 0 || clip.linkPitchAndTempo || clip.stretchToTempo)) return false;
+	// The capture renders only these track and clip racks with master processing disabled.
+	return [...projectEffectRacks({ tracks, clips })].every(rack => !rack.effectsActive || rack.effects.every(effect => effect.enabled === false || effect.bypassed === true));
 }

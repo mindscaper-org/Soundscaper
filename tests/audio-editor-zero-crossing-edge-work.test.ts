@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
+import { createEffect } from '../src/common/editor/effects.js';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { findNearestAudioZeroCrossing } from '../src/common/editor/zero-crossing.js';
@@ -9,14 +10,20 @@ import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.j
 import { createMemoryStore } from './helpers/audio-editor-memory-store-baseline.js';
 import { audioBuffer, COPY, createAudioEditorController, createMemoryEngine } from './helpers/audio-editor-controller-harness.js';
 
-async function fixture(context: TestContext, samples: Float32Array) {
+async function fixture(context: TestContext, samples: Float32Array, unrelatedRack?: 'track' | 'clip' | 'master') {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const runtime = createSoundscaperProjectRuntimeSelection();
 	const store = createMemoryStore();
 	store.audioSources.set('source', [samples]);
+	const delay = createEffect('delay', { id: 'other-delay', params: { time: .1, feedback: 0, mix: .5 } });
+	const clip = { id: 'clip', sourceId: 'source', durationFrames: samples.length, sourceDurationFrames: samples.length };
 	const project = createSoundscaperProject({ sources: [{ id: 'source', storageKey: 'source', sampleRate: 48_000, channelCount: 1, frameCount: samples.length }],
-		clips: [{ id: 'clip', sourceId: 'source', durationFrames: samples.length, sourceDurationFrames: samples.length }],
-		tracks: [{ id: 'track', clipIds: ['clip'], effects: [], effectsActive: false }] });
+		clips: [clip, ...(unrelatedRack === 'track' || unrelatedRack === 'clip'
+			? [{ ...clip, id: 'other-clip', ...(unrelatedRack === 'clip' ? { effects: [delay], effectsActive: true } : {}) }] : [])],
+		tracks: [{ id: 'track', clipIds: ['clip'], effects: [], effectsActive: false },
+			...(unrelatedRack === 'track' || unrelatedRack === 'clip' ? [{ id: 'other-track', clipIds: ['other-clip'],
+				...(unrelatedRack === 'track' ? { effects: [delay], effectsActive: true } : {}) }] : [])],
+		...(unrelatedRack === 'master' ? { master: { effects: [delay], effectsActive: true } } : {}) });
 	const ranges: Array<{ startFrame: number; endFrame: number }> = [];
 	const controller = createAudioEditorController(null, { headless: true, locale: 'en', copy: COPY, projectRuntime: runtime,
 		sessionController: runtime.createSessionController(), store: store as unknown as Options['store'],
@@ -50,4 +57,14 @@ test('zero crossing search admits both outer edges of its sample radius', async 
 	await controller.actions.timeline.zeroCross();
 	assert.equal(controller.project?.selection.startFrame, 15_520);
 	assert.equal(controller.project?.selection.endFrame, 32_480);
+});
+
+for (const rack of ['track', 'clip', 'master'] as const) test(`a dry selection renders edge neighborhoods with an unrelated ${rack} rack`, async context => {
+	const samples = Float32Array.from({ length: 200_000 }, (_, frame) => (frame % 123 < 60 ? .25 : -.25));
+	const { controller, ranges } = await fixture(context, samples, rack);
+	controller.actions.timeline.setExactSelection(1_000, 199_000, { trackIds: ['track'] });
+	await controller.actions.timeline.zeroCross();
+	assert.deepEqual(ranges.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [[519, 1481], [198519, 199481]]);
+	assert.equal(controller.project?.selection.startFrame, 984);
+	assert.equal(controller.project?.selection.endFrame, 199_014);
 });
