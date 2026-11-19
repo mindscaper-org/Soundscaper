@@ -61,3 +61,24 @@ test('reused video must also match the local immutable body digest and size', as
 		{ ...store, getMediaAssetMetadata: () => Promise.resolve({ sha256: '0'.repeat(64), size: 3 }) }),
 	{ name: 'ScapeProjectReopenConflictError' });
 });
+
+test('valid archive PCM offers a separate copy when its local body is missing, preserving storage faults', async () => {
+	const bytes = new Uint8Array(8);
+	const view = new DataView(bytes.buffer);
+	view.setUint32(0, 1, true);
+	view.setFloat32(4, .25, true);
+	const { descriptor, entry } = asset('audio', bytes);
+	const entries = new Map([[entry.filename, entry]]);
+	const assets: ScapeAssetDescriptor[] = [{ ...descriptor, kind: 'audio', encoding: 'audio-f32le-chunks-v1' }];
+	const sources = [{ id: 'audio', storageKey: 'local-audio', frameCount: 1, chunkFrames: 1, channelCount: 1 }];
+	const verify = (failure: Error) => verifyScapeReopenAssets(entries, assets, sources, new ScapeExpandedByteBudget(8), undefined, {
+		async *readSourceChunks(key: string) {
+			assert.equal(key, 'local-audio');
+			yield await Promise.reject<readonly Float32Array[]>(failure);
+		},
+	});
+	const missing = new Error('The requested local audio source is missing.', { cause: new DOMException('Missing', 'NotFoundError') });
+	await assert.rejects(verify(missing), { name: 'ScapeProjectReopenConflictError' });
+	const denied = new DOMException('Storage access denied', 'NotAllowedError');
+	await assert.rejects(verify(denied), error => error === denied);
+});

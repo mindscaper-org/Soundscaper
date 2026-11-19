@@ -10,6 +10,7 @@ import { ScapeAudioChunkBudget } from './scape-expanded-byte-budget.ts';
 import { SCAPE_VIDEO_MAXIMUM_CHUNK_BYTES } from './scape-archive-video.ts';
 import { EXTERNAL_MEDIA_ENCODING } from './desktop-external-media.ts';
 import { ScapeProjectReopenConflictError } from './scape-project-canonical-inspection.ts';
+import { isStoredPcmReadDamage } from './storage/source-read-recovery.ts';
 
 type ReopenAssetStore = Parameters<typeof scapeAudioSourceStream>[0] & Readonly<{
 	getMediaAssetMetadata?(key: string): PromiseLike<unknown>;
@@ -39,8 +40,14 @@ export async function verifyScapeReopenAssets(
 			verifyScapeExtractedAsset(asset, extracted.digest, extracted.size, asset.entry);
 			if (store) {
 				const localDigest = createDigest();
-				await scapeAudioSourceStream(store, source as ScapeAudioSource, localDigest, () => undefined, signal)
-					.pipeTo(new WritableStream<Uint8Array>(), { signal });
+				try {
+					await scapeAudioSourceStream(store, source as ScapeAudioSource, localDigest, () => undefined, signal)
+						.pipeTo(new WritableStream<Uint8Array>(), { signal });
+				} catch (error) {
+					throwIfScapeAborted(signal);
+					if (!isStoredPcmReadDamage(error)) throw error;
+					throw new ScapeProjectReopenConflictError();
+				}
 				if (hex(localDigest.digest()) !== asset.sha256) throw new ScapeProjectReopenConflictError();
 			}
 			continue;
