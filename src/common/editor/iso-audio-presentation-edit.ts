@@ -1,41 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-interface Box { readonly type: string; readonly offset: number; readonly start: number; readonly end: number }
-const MAXIMUM_HEADERS = 8192;
-const MAXIMUM_EDITS = 1024;
+import { createIsoBoxReader, type IsoBox } from './iso-box-reader.ts';
 
-function createIsoBoxReader(file: Blob, signal?: AbortSignal) {
-	let headers = 0;
-	const read = async (start: number, length: number, end: number): Promise<DataView<ArrayBuffer>> => {
-		signal?.throwIfAborted();
-		if (start < 0 || length < 1 || length > 32 || start + length > end || end > file.size) invalid();
-		const bytes = await file.slice(start, start + length).arrayBuffer();
-		signal?.throwIfAborted();
-		if (bytes.byteLength !== length) invalid();
-		return new DataView(bytes);
-	};
-	const boxes = async (start: number, end: number): Promise<readonly Box[]> => {
-		const result: Box[] = [];
-		for (let offset = start; offset < end;) {
-			if (++headers > MAXIMUM_HEADERS) invalid();
-			const view = await read(offset, 8, end);
-			const type = String.fromCharCode(...Array.from({ length: 4 }, (_, index) => view.getUint8(index + 4)));
-			let size = view.getUint32(0), width = 8;
-			if (size === 1) { size = safeInteger((await read(offset + 8, 8, end)).getBigUint64(0)); width = 16; }
-			else if (size === 0) size = end - offset;
-			if (!Number.isSafeInteger(size) || size < width || offset + size > end) invalid();
-			result.push({ type, offset, start: offset + width, end: offset + size });
-			offset += size;
-		}
-		return result;
-	};
-	const trackId = async (header: Box): Promise<number> => {
-		const version = (await read(header.start, 1, header.end)).getUint8(0);
-		if (version > 1) invalid();
-		return (await read(header.start + (version === 1 ? 20 : 12), 4, header.end)).getUint32(0);
-	};
-	return { read, boxes, trackId };
-}
+const MAXIMUM_EDITS = 1024;
 
 /** A contiguous presentation edit bounds the imported programme, not its retained media. */
 export async function readIsoAudioPresentationEnd(file: Blob, trackId: number, signal?: AbortSignal): Promise<number | null> {
@@ -43,7 +10,7 @@ export async function readIsoAudioPresentationEnd(file: Blob, trackId: number, s
 	const movie = (await boxes(0, file.size)).find(box => box.type === 'moov');
 	if (!movie) return null;
 	const children = await boxes(movie.start, movie.end);
-	let selected: Box | undefined;
+	let selected: IsoBox | undefined;
 	for (const track of children.filter(box => box.type === 'trak')) {
 		const fields = await boxes(track.start, track.end);
 		const header = fields.find(box => box.type === 'tkhd');

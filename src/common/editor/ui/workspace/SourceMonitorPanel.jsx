@@ -4,6 +4,7 @@ import { cancelVideoPreviewMediaSeek, seekVideoPreviewMedia } from '../../contro
 import { resolveVideoDisplayGeometry } from '../../video-display-geometry.ts';
 import '../audio-editor-design-system/23-source-monitor.css';
 import EditorControlLabel from '../EditorControlLabel.tsx';
+import { useSourceMonitorMedia } from './use-source-monitor-media.ts';
 
 /**
  * The source monitor: one video source shown on its own frame grid.
@@ -21,8 +22,8 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 	const [playing, setPlaying] = useState(false);
 	const [decodedSize, setDecodedSize] = useState(null);
 	const view = controller.actions.video.sourceMonitor.view();
-	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId) : null;
-	const mediaUrl = visual?.available === false ? null : visual?.mediaUrl || null;
+	const visual = view.sourceId ? controller.actions.video.getSourceVisualData(view.sourceId, { sourceMonitor: true }) : null;
+	const { mediaUrl, pending } = useSourceMonitorMedia(visual);
 	const disabled = blocked || snapshot.readOnly;
 	const setVideoRef = useCallback((media) => {
 		if (videoRef.current !== media) cancelVideoPreviewMediaSeek(videoRef.current);
@@ -142,7 +143,7 @@ export default function SourceMonitorPanel({ controller, snapshot, copy, run, bl
 						stop();
 					})}
 				/>
-				: <p className="kw-audio-editor__panel-empty" role="status">{copy.videoPreviewUnavailable}</p>}
+				: <p className="kw-audio-editor__panel-empty" role="status">{pending ? copy.loading : copy.videoPreviewUnavailable}</p>}
 		</div>
 		<p className="kw-audio-editor__source-monitor-readout">
 			<output aria-label={copy.sourceMonitorPosition} data-source-monitor-timecode={view.timecodeLabel}>

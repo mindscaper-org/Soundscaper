@@ -126,6 +126,7 @@ export interface ProjectVideoPreviewMediaRequest {
 
 export interface VideoVisualRecord {
 	readonly visual: Readonly<VideoVisual>;
+	readonly sourceMonitorBlob?: Blob;
 	readonly objectUrls: readonly string[];
 	readonly linkedPlaybackLease: LinkedVideoPlaybackLease | null;
 }
@@ -152,6 +153,7 @@ export interface ClipVisualData {
 
 export interface VideoSourceVisualData {
 	readonly source: ProjectVisualSource;
+	readonly sourceMonitorBlob?: Blob;
 	readonly available: boolean;
 	readonly mediaUrl: string | null;
 	readonly posterUrl: string | null;
@@ -183,7 +185,7 @@ export interface ProjectVisualService {
 	synchronizeVideoSources(): Promise<boolean>;
 	getClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
 	getProjectBinClipVisualData(clipId: string): Readonly<ClipVisualData> | null;
-	getVideoSourceVisualData(sourceId: string): Readonly<VideoSourceVisualData> | null;
+	getVideoSourceVisualData(sourceId: string, options?: Readonly<{ sourceMonitor?: boolean }>): Readonly<VideoSourceVisualData> | null;
 	activateVideoSource(
 		source: ProjectVisualSource,
 		options?: Readonly<{ signal?: AbortSignal }>,

@@ -164,13 +164,15 @@ export function createProjectVisualService(
 		return window;
 	}
 
-	function getVideoSourceVisualData(sourceId: string): Readonly<VideoSourceVisualData> | null {
+	function getVideoSourceVisualData(sourceId: string, options?: Readonly<{ sourceMonitor?: boolean }>): Readonly<VideoSourceVisualData> | null {
 		const project = dependencies.getProject();
 		const source = project ? findSource(project, sourceId) : null;
 		if (!source || source.kind !== 'video') return null;
-		const visual = videoVisuals.get(source.id)?.visual;
+		const record = videoVisuals.get(source.id);
+		const visual = record?.visual;
 		return Object.freeze({
 			source,
+			...(options?.sourceMonitor && record?.sourceMonitorBlob ? { sourceMonitorBlob: record.sourceMonitorBlob } : {}),
 			available: !dependencies.missingSourceIds.has(source.id) || visual?.mediaKind === 'proxy',
 			mediaUrl: visual?.mediaUrl ?? null,
 			posterUrl: visual?.posterUrl ?? null,
@@ -334,6 +336,7 @@ export function createProjectVisualService(
 			else unregisterVideoTimingIndex(source.id);
 			videoVisuals.set(source.id, Object.freeze({
 				visual,
+				...(!productMedia && mediaBlob instanceof Blob ? { sourceMonitorBlob: mediaBlob } : {}),
 				objectUrls: Object.freeze([...ownedUrls]),
 				linkedPlaybackLease,
 			}));
