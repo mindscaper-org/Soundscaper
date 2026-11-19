@@ -35,6 +35,7 @@ interface PreparedSession {
 }
 
 const ROUTES = new WeakMap<BaseAudioContext, Readonly<{ node: AudioNode; channelCount: number }>>();
+const GUARDED_OUTPUTS = new WeakMap<BaseAudioContext, GainNode | null>();
 const OUTPUT_FAILURES = new WeakMap<BaseAudioContext, Error>();
 const routeListeners = new Set<(context: BaseAudioContext) => void>();
 
@@ -48,9 +49,35 @@ function publishOutputRoute(context: BaseAudioContext): void {
 	for (const listener of routeListeners) listener(context);
 }
 
-/** Live project graphs consult this only for output/duplex sessions. */
+/** Keep an already selected native output private through replacement or refusal. */
+export function guardSoundscaperNativeAudioOutput(context: BaseAudioContext): void {
+	if (!GUARDED_OUTPUTS.has(context)) GUARDED_OUTPUTS.set(context, null);
+}
+
+/** An explicit Electron selection also releases any graph built during a failed replacement. */
+export function selectSoundscaperBrowserAudioOutput(context: BaseAudioContext): void {
+	const mute = GUARDED_OUTPUTS.get(context);
+	GUARDED_OUTPUTS.delete(context);
+	if (mute) mute.gain.value = 1;
+}
+
+/** Source auditions require a bound output before borrowing its context. */
+export function soundscaperBoundNativeAudioDestination(context: BaseAudioContext): AudioNode | null {
+	return ROUTES.get(context)?.node ?? null;
+}
+
+/** During replacement keep the playback graph running through a silent sink. */
 export function soundscaperNativeAudioDestination(context: BaseAudioContext, fallback: AudioNode): AudioNode {
-	return ROUTES.get(context)?.node ?? fallback;
+	const route = soundscaperBoundNativeAudioDestination(context);
+	if (route) return route;
+	const guarded = GUARDED_OUTPUTS.get(context);
+	if (guarded === undefined) return fallback;
+	if (guarded) return guarded;
+	const mute = context.createGain();
+	mute.gain.value = 0;
+	mute.connect(fallback);
+	GUARDED_OUTPUTS.set(context, mute);
+	return mute;
 }
 
 /** The attached output request owns physical width; intermediary GainNodes do not. */
@@ -115,6 +142,8 @@ export function createSoundscaperNativeAudioRenderer(options: Readonly<{
 			session.attachment.resolve();
 			if (session.direction !== 'input') {
 				ROUTES.set(session.context, Object.freeze({ node: session.node, channelCount: session.channelCount }));
+				GUARDED_OUTPUTS.get(session.context)?.disconnect();
+				GUARDED_OUTPUTS.delete(session.context);
 				publishOutputRoute(session.context);
 				void restartIfPlaying(options.engine).catch(() => undefined);
 			}

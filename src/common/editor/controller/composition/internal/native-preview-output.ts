@@ -4,7 +4,7 @@ import { raceAbortableRead } from '../../../../foundation/abort-race.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts';
 import type { EngineAudioContext } from '../../../engine/public-api.ts';
 import type { EngineRealtimeContextLease } from '../../../engine/realtime-context-custody.ts';
-import { observeSoundscaperNativeAudioOutputs, soundscaperNativeAudioDestination, soundscaperNativeAudioOutputFailure } from '../../../soundscaper-native-audio-renderer.ts';
+import { observeSoundscaperNativeAudioOutputs, soundscaperBoundNativeAudioDestination, soundscaperNativeAudioOutputFailure } from '../../../soundscaper-native-audio-renderer.ts';
 
 export interface NativePreviewEngine {
 	getAudioContext?(options: Readonly<{ resume: boolean }>): Promise<EngineAudioContext>;
@@ -49,8 +49,8 @@ export function createNativePreviewOutput<Engine extends NativePreviewEngine>(
 				const context = await raceAbortableRead(getMainContext, signal, 'immediate');
 				const failure = soundscaperNativeAudioOutputFailure(context);
 				if (failure) throw createLocalizedError(Error, {}, 'audioHostDeviceLost', undefined, { fallback: failure.message });
-				const output = soundscaperNativeAudioDestination(context, context.destination);
-				if (context.state !== 'closed' && output !== context.destination) {
+				const output = soundscaperBoundNativeAudioDestination(context);
+				if (context.state !== 'closed' && output) {
 					if (current !== context || destination !== output) {
 						releaseContextListener();
 						current = context; destination = output;

@@ -153,6 +153,10 @@ Audio Setup saves a native sample rate after the selected routes open and
 bind at that rate. If opening fails, it restores the previous Web Audio rate
 and reopens the previously connected routes. A separately opened route can
 recover even if another device has disconnected.
+While an already selected native output is being replaced, playback keeps
+its timeline position and uses silence until a native output is bound again.
+A replacement refusal leaves the browser output muted until the user
+selects Electron or a native route binds successfully.
 
 Real-time audio uses a directly transferred `MessagePort` between the helper and
 the `AudioWorklet`. Electron's utility port copies PCM typed arrays through

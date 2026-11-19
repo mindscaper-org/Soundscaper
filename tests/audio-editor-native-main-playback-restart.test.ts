@@ -5,7 +5,10 @@ import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { createAudioEditorEngine } from '../src/common/editor/engine/runtime-class.ts';
 import { createAudioPreviewProject } from '../src/common/editor/engine/audio-preview-project.ts';
-import { createSoundscaperNativeAudioRenderer } from '../src/common/editor/soundscaper-native-audio-renderer.ts';
+import {
+	createSoundscaperNativeAudioRenderer, guardSoundscaperNativeAudioOutput, selectSoundscaperBrowserAudioOutput,
+	soundscaperBoundNativeAudioDestination, soundscaperNativeAudioDestination,
+} from '../src/common/editor/soundscaper-native-audio-renderer.ts';
 import type { EngineAudioContext } from '../src/common/editor/engine/public-api.ts';
 import { MockAudioBuffer, MockAudioContext } from './helpers/mock-audio-context.js';
 
@@ -83,6 +86,37 @@ for (const during of [false, true]) for (const state of ['paused', 'stopped'] as
 	} finally { await f.dispose(); }
 });
 
+for (const browserSelected of [false, true]) test(`a pending replacement guards output until a route binds or Electron is selected, electron=${browserSelected}`, async () => {
+	const f = fixture();
+	const context = f.context as unknown as AudioContext;
+	try {
+		await f.attach();
+		const first = soundscaperBoundNativeAudioDestination(context);
+		assert.ok(first);
+		await f.engine.play();
+		guardSoundscaperNativeAudioOutput(context);
+		assert.equal(soundscaperNativeAudioDestination(context, context.destination), first);
+		await f.detach();
+		const held = soundscaperNativeAudioDestination(context, context.destination) as GainNode;
+		assert.notEqual(held, context.destination);
+		assert.equal(held.gain.value, 0);
+		assert.equal(soundscaperBoundNativeAudioDestination(context), null);
+		guardSoundscaperNativeAudioOutput(context);
+		assert.equal(soundscaperNativeAudioDestination(context, context.destination), held, 'a superseding replacement keeps the same silent graph');
+		if (browserSelected) {
+			selectSoundscaperBrowserAudioOutput(context);
+			assert.equal(held.gain.value, 1, 'the current graph resumes through the explicitly selected Electron output');
+			assert.equal(soundscaperNativeAudioDestination(context, context.destination), context.destination);
+		} else {
+			await f.attach('replacement');
+			assert.notEqual(soundscaperNativeAudioDestination(context, context.destination), held);
+			await f.detach();
+			assert.equal(soundscaperNativeAudioDestination(context, context.destination), context.destination);
+		}
+		assert.equal(f.engine.getState().state, 'playing');
+	} finally { await f.dispose(); }
+});
+
 function fixture(reversed = false) {
 	const context = new MockAudioContext(); context.currentTime = 37;
 	// The established Web Audio test double supplies the engine's browser-resource boundary.
@@ -115,7 +149,7 @@ function fixture(reversed = false) {
 		} }, ports: [{ close() {} }] }));
 		await renderer.waitForPort(id); await setImmediate();
 	}
-	return { engine, context, attach,
+	return { engine, context, attach, detach: () => renderer.release(current),
 		replace: async () => { await renderer.release(current); await attach('replacement'); },
 		dispose: async () => { engine.stop(); await renderer.dispose(); await engine.dispose(); },
 	};

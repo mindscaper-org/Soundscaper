@@ -90,6 +90,95 @@ test('native playback keeps the same device clock while paused and resumes audio
 	} finally { await editor.getByRole('button', { name: 'Stop', exact: true }).click(); }
 });
 
+for (const refuse of [false, true]) {
+	test(`native refresh keeps project audio off the browser output, refusal=${refuse}`, async ({ page, browserName }) => {
+		test.skip(browserName !== 'chromium', 'The control uses Chromium’s silent AudioContext sink.');
+		await installNativeOutputPeer(page, { backend: 'wasapi' });
+		await page.addInitScript(refuse => {
+			const bridge = window.soundscaperDesktop.v1, open = bridge.openNativeAudioSession;
+			const release = new Promise(resolve => { window.__releaseNativeOutputRefresh = resolve; });
+			bridge.openNativeAudioSession = async request => {
+				if (request.direction === 'output' && window.__observeNativeRefresh) {
+					window.__nativeOutputRefreshPending = true;
+					await release;
+					if (refuse) return { status: 'refused', code: 'device-unavailable', message: 'Chosen native speakers are disconnected.' };
+				}
+				return open(request);
+			};
+			const setSinkId = AudioContext.prototype.setSinkId;
+			AudioContext.prototype.setSinkId = function() { return setSinkId.call(this, { type: 'none' }); };
+			window.AudioContext = new Proxy(window.AudioContext, {
+				construct(Context, [options], target) {
+					const context = Reflect.construct(Context, [{ ...options, sinkId: { type: 'none' } }], target);
+					window.__browserOutputContext = context;
+					return context;
+				},
+			});
+			const connect = AudioNode.prototype.connect;
+			const analysers = new Map();
+			AudioNode.prototype.connect = function(destination, ...ports) {
+				const context = this.context;
+				if (destination !== context.destination || context instanceof OfflineAudioContext) return connect.call(this, destination, ...ports);
+				let analyser = analysers.get(context);
+				if (!analyser) {
+					analyser = context.createAnalyser();
+					analysers.set(context, analyser);
+				}
+				connect.call(this, analyser, ports[0] ?? 0);
+				return connect.call(this, destination, ...ports);
+			};
+			window.__browserOutputPeak = () => {
+				let peak = 0;
+				for (const [context, analyser] of analysers) {
+					if (context.state === 'closed') continue;
+					const values = new Float32Array(analyser.fftSize);
+					analyser.getFloatTimeDomainData(values);
+					for (const value of values) peak = Math.max(peak, Math.abs(value));
+				}
+				return peak;
+			};
+		}, refuse);
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [createWavFixture({ name: 'Selected native speakers.wav', frequency: 440, duration: 12 })]);
+		const settings = editor.getByRole('button', { name: 'Audio setup', exact: true });
+		const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+		const host = setup.getByRole('combobox', { name: 'Host', exact: true });
+		await settings.click(); await host.selectOption('wasapi'); await expect(host).toBeEnabled();
+		await expect(setup.getByRole('alert')).toHaveCount(0);
+		await page.keyboard.press('Escape');
+		const position = async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'));
+		const nativePeak = () => page.evaluate(() => Math.max(0, ...window.__nativeOutput.channelRms));
+		const browserPeak = () => page.evaluate(() => window.__browserOutputPeak());
+		await editor.getByRole('button', { name: 'Play', exact: true }).click();
+		await expect.poll(() => page.evaluate(() => window.__browserOutputContext?.sinkId?.type)).toBe('none');
+		await expect.poll(nativePeak).toBeGreaterThan(.05);
+		const initialSession = await page.evaluate(() => window.__nativeOutput.sessionId);
+		await settings.click();
+		await page.evaluate(() => { window.__observeNativeRefresh = true; });
+		await setup.getByRole('button', { name: 'Refresh devices', exact: true }).click();
+		await expect.poll(() => page.evaluate(() => window.__nativeOutputRefreshPending)).toBe(true);
+		const pendingPosition = await position();
+		await expect.poll(position).toBeGreaterThan(pendingPosition + 12_000);
+		expect(await browserPeak()).toBeLessThan(.001);
+		await page.evaluate(() => window.__releaseNativeOutputRefresh());
+		await expect(host).toBeEnabled();
+		if (refuse) {
+			await expect(setup.getByRole('alert')).toBeVisible();
+			const failedPosition = await position();
+			await expect.poll(position).toBeGreaterThan(failedPosition + 12_000);
+			expect(await browserPeak()).toBeLessThan(.001);
+		} else {
+			await expect.poll(() => page.evaluate(() => window.__nativeOutput.sessionId)).not.toBe(initialSession);
+			await expect.poll(nativePeak).toBeGreaterThan(.05);
+		}
+		await host.selectOption('electron');
+		await expect(host).toBeEnabled();
+		await expect.poll(browserPeak).toBeGreaterThan(.05);
+		await page.keyboard.press('Escape');
+		await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	});
+}
+
 for (const [rate, refresh] of [[2, false], [1, true], [2, true]]) {
 	test(`native ${rate}x timeline playback retains its actual pitch through device refresh=${refresh}`, async ({ page, browserName }) => {
 		test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
