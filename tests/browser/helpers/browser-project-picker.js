@@ -8,7 +8,7 @@ export function createFileActionChooser(chooseCommandAction) {
 }
 
 /** Make Chromium's native picker observable through Playwright's filechooser event. */
-async function prepareBrowserProjectPicker(page, editor) {
+export async function prepareBrowserProjectPicker(page, editor) {
 	const accept = await editor.locator('[data-aup4-input]').getAttribute('accept');
 	await page.evaluate((accept) => {
 		const picker = globalThis.showOpenFilePicker;

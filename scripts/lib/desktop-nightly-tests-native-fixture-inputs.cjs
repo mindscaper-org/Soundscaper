@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 const externalDisplaySources = require('./desktop-nightly-tests-external-display-inputs.cjs');
+const lightscaperSources = require('./desktop-nightly-tests-lightscaper-inputs.cjs');
 const keyingSourceInputs = require('./desktop-nightly-tests-keying-source-inputs.cjs');
 
 // Browser fixtures bundle or inspect these maintained sources with their exact
 // project-library-runtime aliases; no generated desktop runtime is required.
 module.exports = Object.freeze([
 	...externalDisplaySources,
+	...lightscaperSources,
 	...keyingSourceInputs,
 	'desktop/assistance-onnx-gpu-closure.ts',
 	'desktop/assistance-acceleration-entrypoints.ts',
@@ -54,6 +56,7 @@ module.exports = Object.freeze([
 	'src/common/editor/project-sample-rate.ts',
 	'src/common/editor/resample-geometry.ts',
 	'vendor/audacity-design-system/components/src/component-copy.ts',
+	'vendor/audacity-design-system/components/src/TimeCode/time-code-musical-context.ts',
 	'vendor/audacity-design-system/components/src/Icon/icon-codes.ts',
 	'tests/helpers/audio-format-import-cases.ts',
 	'tests/helpers/aaf-multiple-descriptor-fixture.ts',

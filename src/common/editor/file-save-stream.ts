@@ -200,6 +200,7 @@ function createPreparedDirectSave(options: Readonly<{
 	let committed: DirectSavedFile | null = null;
 	let commitPromise: Promise<DirectSavedFile> | null = null;
 	let abortPromise: Promise<void> | null = null;
+	const cleanupFailures = new WeakSet<object>();
 	let abortRequested = false;
 	let abortReason: unknown;
 	let listening = false;
@@ -344,17 +345,23 @@ function createPreparedDirectSave(options: Readonly<{
 		if (!backend) return;
 		detachAbort();
 		abortPromise ??= backend.abort(abortReason);
-		await abortPromise;
+		try { await abortPromise; }
+		catch (error) {
+			if (typeof reason === 'object' && reason !== null && cleanupFailures.has(reason)) throw reason;
+			throw error;
+		}
 	}
 
 	async function abortAfterFailure(primary: unknown): Promise<never> {
 		try {
 			await requestAbort(primary);
 		} catch (cleanupError) {
-			throw new AggregateError(
+			const failure = new AggregateError(
 				[primary, cleanupError],
 				'The direct save and destination cleanup both failed.',
+				{ cause: primary },
 			);
+			cleanupFailures.add(failure); throw failure;
 		}
 		throw primary;
 	}

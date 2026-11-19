@@ -179,7 +179,7 @@ test('a revision-pruning failure does not stale the autosave baseline after an I
 	assert.equal(conflicts, 0);
 	assert.equal(reported.length, 1);
 	assert.ok(reported[0] instanceof ProjectCommittedMaintenanceError);
-	assert.match(String(reported[0].cause), /IndexedDB transaction failed/iu);
+	assert.equal(reported[0].cause, maintenanceFailure);
 
 	current = third;
 	await saves.flushProject();

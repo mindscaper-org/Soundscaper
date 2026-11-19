@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from '../audio-editor-test-fixtures.js';
+import { waitForEditor } from '../audio-editor-test-helpers.js';
 import { resolveBrowserProductTestUrl } from '../helpers/browser-product-test-url.js';
 
 const FRAMESCAPER_ORIGIN = new URL(resolveBrowserProductTestUrl('/framescaper/')).origin;
@@ -12,6 +13,7 @@ test.use({ serviceWorkers: 'allow' });
 test('the authenticated Framescaper site installs and activates its production service worker', async ({ page }) => {
 	await page.goto(`${FRAMESCAPER_ORIGIN}/en/`);
 	await expect(page.locator('html')).toHaveAttribute('data-product', 'framescaper');
+	await waitForEditor(page);
 	const registration = await page.evaluate(async () => {
 		const ready = await navigator.serviceWorker.ready;
 		if (!ready.active) throw new Error('Framescaper service worker has no active registration.');

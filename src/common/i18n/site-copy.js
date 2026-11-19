@@ -3,6 +3,11 @@
 import { SITE_SIDEBAR_COPY_BY_LOCALE } from './site-sidebar-copy.js';
 
 const SITE_COPY_ENTRIES = Object.freeze([
+	['lightscaperTitle', 'Lightscaper'],
+	['lightscaperMetaDescription', 'A local-first photo library and non-destructive develop editor.'],
+	['photoEditor', 'Photo editor'],
+	['workspacePhoto', 'Photo library'],
+	['productEditors', 'Editors'],
 	['framescaperEyebrow', 'Local video editing'],
 	['framescaperTitle', 'Framescaper'],
 	['framescaperIntro', 'Edit video and sound nondestructively, combine layers and effects, and export the finished video.'],

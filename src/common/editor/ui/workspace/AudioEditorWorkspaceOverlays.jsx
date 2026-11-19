@@ -12,7 +12,10 @@ import { lazyEditorModule } from '../../../offline/lazy-module.tsx';
 import EditorSurfaceBoundary from '../EditorSurfaceBoundary.jsx';
 import WorkspaceEffectWindows from './WorkspaceEffectWindows.tsx';
 import WorkspaceAudioAnalysisOverlays from './WorkspaceAudioAnalysisOverlays.tsx';
+import WorkspaceExportOverlay from './WorkspaceExportOverlay.jsx';
 import { recoverySurfaceAfterClose } from '../recovery-surface-close.ts';
+import WebDesktopFeatureOverlay from './WebDesktopFeatureOverlay.tsx';
+import LazyInspectorFallback from './LazyInspectorFallback.tsx';
 const AudioEditorMacroManagerDialog = lazyEditorModule(() => import('../inspector/AudioEditorMacroManagerDialog.jsx'));
 const SOUNDSCAPER_BUILD = typeof __SCAPE_PRODUCT__ === 'undefined'
 	|| __SCAPE_PRODUCT__ === 'soundscaper';
@@ -36,7 +39,10 @@ const FramescaperVisualInspectorDialog = FRAMESCAPER_BUILD
 	? lazyEditorModule(() => import('../dialogs/FramescaperVisualInspectorDialog.tsx')) : null;
 const FramescaperSelectedVisualAuthoringDialog = FRAMESCAPER_BUILD
 	? lazyEditorModule(() => import('../dialogs/FramescaperSelectedVisualAuthoringDialog.tsx')) : null;
-const ExportDialog = lazyEditorModule(() => import('../inspector/ExportDialog.jsx'));
+const FramescaperImageDevelopOwnerSurfaceV1 = FRAMESCAPER_BUILD
+	? lazyEditorModule(() => import('../dialogs/FramescaperImageDevelopOwnerSurfaceV1.tsx')) : null;
+const FramescaperImageHdrMergeOwnerSurfaceCurrentV1 = FRAMESCAPER_BUILD
+	? lazyEditorModule(() => import('../dialogs/FramescaperImageHdrMergeOwnerSurfaceCurrentV1.tsx')) : null;
 const DeliveryQueueDialog = lazyEditorModule(() => import('../inspector/DeliveryQueueDialog.jsx'));
 const LabelExportDialog = lazyEditorModule(() => import('../inspector/LabelExportDialog.jsx'));
 const SelectionEffectsDialog = lazyEditorModule(() => import('../inspector/SelectionEffectsDialog.jsx'));
@@ -59,16 +65,11 @@ const LocalDiagnosticsDialog = lazyEditorModule(() => import('../dialogs/LocalDi
 const TimecodeSyncDialog = SOUNDSCAPER_BUILD ? lazyEditorModule(() => import('../dialogs/TimecodeSyncDialog.tsx')) : null;
 const PrivacyPolicyDialog = lazyEditorModule(() => import('../dialogs/PrivacyPolicyDialog.tsx'));
 const AboutDialog = lazyEditorModule(() => import('../dialogs/AboutDialog.tsx'));
-const WebDesktopFeatureDialog = lazyEditorModule(() => import('./WebDesktopFeatureDialog.tsx'));
-
-function LazyInspectorFallback({ copy }) {
-	return <span className="kw-audio-editor-sr-only" role="status" aria-live="polite">{copy.loading}</span>;
-}
 
 export default function AudioEditorWorkspaceOverlays({ model }) {
 	const [batchMacro, setBatchMacro] = React.useState(null);
 	const {
-		activeSurface, surfaceRequestId, clipExportRequest,
+		activeSurface, surfaceRequestId,
 		applicationMenus,
 		aboutLabel,
 		capabilities,
@@ -165,9 +166,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
-			{!fileService.isDesktop && activeSurface === 'web-desktop-feature' && <React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
-				<WebDesktopFeatureDialog copy={copy} productId={productId} onClose={() => setActiveSurface(null)} />
-			</React.Suspense>}
+			{!fileService.isDesktop && activeSurface === 'web-desktop-feature' && <WebDesktopFeatureOverlay copy={copy} productId={productId} onClose={() => setActiveSurface(null)} />}
 			{activeSurface === 'privacy-policy' && (
 				<div data-editor-surface="privacy-policy">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
@@ -317,6 +316,17 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					</React.Suspense>
 				</div>
 			)}
+			{selectedFramescaperProject && ['image-develop-repairs', 'image-develop-masks', 'image-develop-brush'].includes(activeSurface) && (
+				<div data-editor-surface={activeSurface}><React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
+					<FramescaperImageDevelopOwnerSurfaceV1 controller={controller} locale={locale}
+						kind={activeSurface === 'image-develop-repairs' ? 'repairs' : activeSurface === 'image-develop-brush' ? 'brush' : 'masks'} disabled={editBlocked || snapshot.readOnly === true}
+						onClose={() => setActiveSurface(null)} />
+				</React.Suspense></div>
+			)}
+			{selectedFramescaperProject && activeSurface === 'image-hdr-merge' && (
+				<div data-editor-surface="image-hdr-merge"><FramescaperImageHdrMergeOwnerSurfaceCurrentV1 controller={controller} locale={locale}
+					disabled={editBlocked || snapshot.readOnly === true} onClose={() => setActiveSurface(null)} /></div>
+			)}
 			{capabilities.audioEffects && activeSurface === 'selection-effect' && (
 				<div data-editor-surface="selection-effect">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
@@ -444,24 +454,7 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 					/>
 				</div>
 			)}
-			{(activeSurface === 'export' || activeSurface === 'export-selection') && (
-				<div data-editor-surface="export">
-					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>
-						<ExportDialog
-							key={activeSurface === 'export-selection' ? surfaceRequestId : undefined}
-							isOpen
-							clipExportRequest={activeSurface === 'export-selection' ? clipExportRequest : null}
-							controller={controller}
-							snapshot={snapshot}
-							copy={copy}
-							productId={productId}
-							fileService={fileService}
-							locale={locale}
-							onClose={() => setActiveSurface(null)}
-						/>
-					</React.Suspense>
-				</div>
-			)}
+			<WorkspaceExportOverlay model={model} />
 			{activeSurface === 'delivery-queue' && (
 				<div data-editor-surface="delivery-queue">
 					<React.Suspense fallback={<LazyInspectorFallback copy={copy} />}>

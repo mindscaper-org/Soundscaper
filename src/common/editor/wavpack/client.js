@@ -80,26 +80,39 @@ export class WavPackCodecClient {
 
 	#enqueue(type, message, options) {
 		if (this.closed) return Promise.reject(new Error('WavPack codec client is closed.'));
-		if (options.signal?.aborted) return Promise.reject(abortError());
+		const signal = options.signal;
+		let cancellation;
+		const createCancellationError = () => {
+			const error = abortError();
+			cancellation = { error, reason: signal?.reason };
+			return error;
+		};
+		if (signal?.aborted) {
+			const error = createCancellationError();
+			return Promise.reject(cancellation.reason === undefined ? error : cancellation.reason);
+		}
 		const source = exactArrayBuffer(message.payload);
 		const payload = options.transferInput === true ? source : source.slice(0);
 		const id = createWorkerRequestId('wavpack', nextRequestId++);
 		const pending = this.requests.request({
 			id,
 			context: { type, message: { ...message, payload } },
-			signal: options.signal,
+			signal,
 			timeoutMs: options.timeoutMs,
 			// The deadline measures worker inactivity, so it starts at dispatch
 			// rather than here; a request must not expire for waiting its turn.
 			armOnRequest: false,
-			abortError,
+			abortError: createCancellationError,
 			timeoutError: inactivityError,
 			onAbort: () => this.#retire(id),
 			onTimeout: () => this.#retire(id),
 		});
 		(options.priority === 'migration' ? this.migrationQueue : this.foregroundQueue).push(id);
 		this.#dispatch();
-		return pending;
+		return pending.catch((error) => {
+			if (cancellation && error === cancellation.error && cancellation.reason !== undefined) throw cancellation.reason;
+			throw error;
+		});
 	}
 
 	#dispatch() {

@@ -20,6 +20,7 @@ function documents() {
 				candidate: { version: 'Soundscaper-rc.2026.Oct.28.a', tagPrefix: 'Soundscaper' }, stable: { version: 'Soundscaper.2026.Oct.28.a', tagPrefix: 'Soundscaper' } },
 			framescaper: { productId: 'framescaper', applicationVersionChannel: 'candidate', releaseChannel: 'deferred',
 				candidate: { version: 'Framescaper-rc.2026.Oct.28.a', tagPrefix: 'Framescaper' }, stable: { version: 'Framescaper.2026.Oct.28.a', tagPrefix: 'Framescaper' } },
+			lightscaper: {'productId': 'lightscaper', 'applicationVersionChannel': 'candidate', 'releaseChannel': 'deferred', 'candidate': {'version': '0.1.0-beta.1', 'tagPrefix': 'lightscaper-v'}, 'stable': {'version': '1.0.0', 'tagPrefix': 'lightscaper-v'}},
 		} },
 		packageMetadata: { name: 'soundscaper', version: '2026.1028.2', releaseVersion: 'Soundscaper-rc.2026.Oct.28.a', private: true },
 		packageLock: { name: 'soundscaper', version: '2026.1028.2', lockfileVersion: 3, packages: { '': { name: 'soundscaper', version: '2026.1028.2' } } },

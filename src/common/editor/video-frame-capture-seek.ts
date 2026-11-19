@@ -3,6 +3,7 @@
 interface CaptureVideo extends EventTarget {
 	currentTime: number;
 	readonly seeking?: boolean;
+	readonly ownerDocument?: { readonly defaultView: { readonly performance: Pick<Performance, 'now'> } | null };
 	requestVideoFrameCallback?: (callback: VideoFrameRequestCallback) => number;
 	cancelVideoFrameCallback?: (id: number) => void;
 }
@@ -15,7 +16,7 @@ interface CaptureSeekOptions {
 }
 const PRESENTATION_RETRY_DELAY_MS = 75;
 
-/** A seek event may precede submission of the decoded pixels to the compositor. */
+/** A seek and its submitted frame may be delivered in either event order. */
 export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number, options: CaptureSeekOptions): Promise<void> {
 	const { signal } = options;
 	const aborted = (): DOMException => new DOMException('The operation was aborted.', 'AbortError');
@@ -25,6 +26,8 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		let seeked = false;
 		let presented = typeof video.requestVideoFrameCallback !== 'function';
 		let callbackId: number | undefined;
+		const clock = video.ownerDocument?.defaultView?.performance ?? globalThis.performance;
+		let seekRequestedAt = Infinity;
 		let retryTimestamp = options.retryTimestamp;
 		let retryTimer: ReturnType<typeof setTimeout> | undefined;
 		const finish = (error?: Error): void => {
@@ -50,11 +53,13 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		const onAbort = (): void => { finish(aborted()); };
 		const onFrame: VideoFrameRequestCallback = (_now, metadata) => {
 			callbackId = undefined;
-			// A queued picture can arrive on either side of seeked. An indexed seek
-			// must match the requested picture until capture is ready.
-			if ((options.isRequestedFrame || video.seeking) && (!Number.isFinite(metadata.mediaTime)
-				|| !(options.isRequestedFrame?.(metadata.mediaTime)
-					?? Math.abs(metadata.mediaTime - timestamp) <= 0.000001))) {
+			// A submission must be fresh in its own window. A queued picture
+			// on either side of seeked must still match an indexed seek.
+			const requiresMatchingMediaTime = options.isRequestedFrame !== undefined || video.seeking;
+			if (metadata.presentationTime < seekRequestedAt
+				|| (requiresMatchingMediaTime && (!Number.isFinite(metadata.mediaTime)
+					|| !(options.isRequestedFrame?.(metadata.mediaTime)
+						?? Math.abs(metadata.mediaTime - timestamp) <= 0.000001)))) {
 				callbackId = video.requestVideoFrameCallback?.(onFrame); return;
 			}
 			presented = true; finish();
@@ -62,6 +67,7 @@ export function seekVideoFrameForCapture(video: CaptureVideo, timestamp: number,
 		const issueSeek = (target: number): void => {
 			try {
 				callbackId = video.requestVideoFrameCallback?.(onFrame);
+				seekRequestedAt = clock.now();
 				video.currentTime = target;
 			} catch (error) { finish(error instanceof Error ? error : new Error(String(error))); }
 		};

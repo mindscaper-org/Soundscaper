@@ -1,0 +1,91 @@
+{
+	"schemaVersion": 1,
+	"id": "lightscaper-photo-native-current-v1",
+	"targets": [
+		{
+			"id": "linux-x64",
+			"status": "ci-generated"
+		},
+		{
+			"id": "linux-arm64",
+			"status": "ci-generated"
+		},
+		{
+			"id": "mac-arm64",
+			"status": "ci-generated"
+		},
+		{
+			"id": "win-x64",
+			"status": "ci-generated"
+		},
+		{
+			"id": "win-arm64",
+			"status": "ci-generated"
+		}
+	],
+	"files": [
+		".github/workflows/lightscaper-photo-native-build.yml",
+		"LICENSE",
+		"config/lightscaper-libraw-runtime-manifest.json",
+		"desktop/lightscaper-native-photo-application-current-v1.ts",
+		"desktop/lightscaper-native-photo-artifact-files-current-v1.ts",
+		"desktop/lightscaper-native-photo-granted-filesystem-codec-current-v1.ts",
+		"desktop/lightscaper-native-photo-granted-filesystem-process-current-v1.ts",
+		"desktop/lightscaper-native-photo-granted-filesystem-signal-current-v1.ts",
+		"desktop/lightscaper-native-photo-payload-current-v1.ts",
+		"desktop/lightscaper-native-photo-prepared-child-current-v1.ts",
+		"desktop/lightscaper-native-photo-raw-contract-current-v1.ts",
+		"desktop/lightscaper-native-photo-raw-process-current-v1.ts",
+		"desktop/native-child-enforcement-handshake.ts",
+		"desktop/native-child-launcher-environment.ts",
+		"desktop/native-child-raw-stdio-current-v1.ts",
+		"desktop/soundscaper-professional-linux-system-libraries.ts",
+		"native/common/granted_file_reader.hpp",
+		"native/common/granted_file_reader_posix.cpp",
+		"native/common/granted_file_reader_windows.cpp",
+		"native/common/sha256.cpp",
+		"native/common/sha256.hpp",
+		"native/lightscaper-granted-filesystem-current-v1/include/granted_filesystem_protocol.hpp",
+		"native/lightscaper-granted-filesystem-current-v1/src/main.cpp",
+		"native/lightscaper-granted-filesystem-current-v1/src/protocol.cpp",
+		"native/lightscaper-photo-native-current-v1/CMakeLists.txt",
+		"native/lightscaper-photo-native-current-v1/profiles/linux-broker-v1.json",
+		"native/lightscaper-photo-native-current-v1/profiles/linux-v1.json",
+		"native/lightscaper-photo-native-current-v1/profiles/macos-broker-v1.json",
+		"native/lightscaper-photo-native-current-v1/profiles/windows-broker-v1.json",
+		"native/lightscaper-photo-native-current-v1/profiles/windows-v1.json",
+		"native/lightscaper-photo-native-current-v1/source-manifest.json",
+		"native/lightscaper-photo-native-current-v1/src/photo_linux_bootstrap.c",
+		"native/lightscaper-photo-native-current-v1/src/photo_linux_launcher.c",
+		"native/lightscaper-photo-native-current-v1/src/photo_macos_bootstrap.hpp",
+		"native/lightscaper-photo-native-current-v1/src/photo_macos_bootstrap.mm",
+		"native/lightscaper-photo-native-current-v1/src/photo_macos_launcher.mm",
+		"native/lightscaper-photo-native-current-v1/src/photo_windows_image.hpp",
+		"native/lightscaper-photo-native-current-v1/src/photo_windows_launcher.cpp",
+		"native/lightscaper-photo-native-current-v1/tests/isolation_canary.cpp",
+		"native/lightscaper-raw-engine-current-v1/CMakeLists.txt",
+		"native/lightscaper-raw-engine-current-v1/include/raw_engine.hpp",
+		"native/lightscaper-raw-engine-current-v1/include/raw_process_contract.hpp",
+		"native/lightscaper-raw-engine-current-v1/src/raw_engine.cpp",
+		"native/lightscaper-raw-engine-current-v1/src/raw_preview.cpp",
+		"native/lightscaper-raw-engine-current-v1/src/raw_process.cpp",
+		"native/lightscaper-raw-engine-current-v1/src/raw_recovery.cpp",
+		"native/milestone-5-native-isolation-launcher/profiles/macos-v1.sb",
+		"native/milestone-5-native-isolation-launcher/src/macos_launcher.mm",
+		"scripts/build-lightscaper-photo-native-current-v1.mjs",
+		"scripts/lib/lightscaper-photo-native-artifacts-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-build-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-dependencies-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-seal-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-selftest-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-source-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-stage-current-v1.ts",
+		"scripts/lib/lightscaper-photo-native-tool-current-v1.ts",
+		"scripts/lib/soundscaper-native-binary-architecture.mjs",
+		"scripts/lib/soundscaper-professional-native-build-result-contract.mjs",
+		"scripts/lib/soundscaper-professional-native-dependency-inspection.mjs",
+		"scripts/provision-lightscaper-photo-native-source-current-v1.mjs",
+		"scripts/stage-lightscaper-photo-native-current-v1.mjs",
+		"src/lightscaper/desktop-photo-native-artifacts-current-v1.ts"
+	]
+}

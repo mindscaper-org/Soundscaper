@@ -2,6 +2,8 @@
 
 import { applyPreparedManagedSdrGradeStackLinearChannelsV1, type PreparedManagedSdrGradeStackV1 } from './video-color-management-v27.ts';
 
+const CHECK = AbortSignal.prototype.throwIfAborted;
+
 /** Straight linear working channels stay normalized floats until final encoding. */
 export interface UnifiedExactLinearSourceFrame {
 	readonly width: number;
@@ -21,32 +23,13 @@ export function gradeUnifiedExactLinearSourceFrame(
 	const palette = scale === 255 && prepared.grades.length === 0 && frame.pixels.length >= 1024
 		? Float32Array.from({ length: 256 }, (_, byte) => applyPreparedManagedSdrGradeStackLinearChannelsV1(
 			prepared, byte / 255, byte / 255, byte / 255, 1)[0]) : null;
-	if (palette) {
-		const source: unknown = Object.getOwnPropertyDescriptor(frame, 'pixels')?.value;
-		const width: unknown = Object.getOwnPropertyDescriptor(frame, 'width')?.value;
-		if (source instanceof Uint8Array && typeof width === 'number' && Number.isSafeInteger(width)
-			&& width > 0 && pixels.length % (width * 4) === 0 && source.length === pixels.length) {
-			const rowLength = width * 4;
-			for (let start = 0; start < pixels.length; start += rowLength) {
-				throwIfGradingAborted(signal);
-				const end = start + rowLength;
-				for (let offset = start; offset < end; offset += 4) {
-					pixels[offset] = palette[source[offset]!]!;
-					pixels[offset + 1] = palette[source[offset + 1]!]!;
-					pixels[offset + 2] = palette[source[offset + 2]!]!;
-					pixels[offset + 3] = opacityByByte[source[offset + 3]!]!;
-				}
-			}
-			return Object.freeze({ width, height: frame.height, pixels });
-		}
-	}
 	for (let offset = 0; offset < pixels.length; offset += 4) {
-		if (offset % (frame.width * 4) === 0) throwIfGradingAborted(signal);
+		if (offset % (frame.width * 4) === 0 && signal !== undefined) Reflect.apply(CHECK, signal, []);
 		if (palette) {
 			pixels[offset] = palette[frame.pixels[offset]!]!;
 			pixels[offset + 1] = palette[frame.pixels[offset + 1]!]!;
 			pixels[offset + 2] = palette[frame.pixels[offset + 2]!]!;
-			pixels[offset + 3] = frame.pixels[offset + 3]! / 255;
+			pixels[offset + 3] = opacityByByte[frame.pixels[offset + 3]!]!;
 			continue;
 		}
 		const value = applyPreparedManagedSdrGradeStackLinearChannelsV1(prepared,
@@ -55,10 +38,6 @@ export function gradeUnifiedExactLinearSourceFrame(
 		pixels.set(value, offset);
 	}
 	return Object.freeze({ width: frame.width, height: frame.height, pixels });
-}
-
-function throwIfGradingAborted(signal?: AbortSignal): void {
-	if (signal?.aborted) throw signal.reason ?? new DOMException('Exact linear grading was aborted.', 'AbortError');
 }
 
 /** Retain the explicit byte boundary used by native/effect adapters. */

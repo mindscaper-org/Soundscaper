@@ -23,6 +23,7 @@ function fixture(browser: boolean, toolingBrowser: boolean) {
 		cpSync(join(repository, 'scripts', file), join(root, 'scripts', file));
 	}
 	write('package.json', '{"type":"module"}');
+	write('src/common/product-identities.js', readFileSync(join(repository, 'src/common/product-identities.js'), 'utf8'));
 	write('.gitignore', 'node_modules/\ncoverage/\n.wrangler/\nactivity.log\n');
 	write('.c8rc.json', JSON.stringify({ all: true, extension: ['.js'], include: ['src/**/*.js'], exclude: [] }));
 	write('config/coverage-gates.json', readFileSync(join(repository, 'config/coverage-gates.json'), 'utf8'));

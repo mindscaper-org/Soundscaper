@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { transformSync } from 'esbuild';
 
 import { chunkGroupForModulePath, chunkGroups, workerChunkGroups } from '../scripts/lib/build-chunk-groups.mjs';
+import { dynamicRelativeImports, staticRelativeDependencies } from './helpers/eager-chunk-group-crossings.ts';
 
 test('session snapshot model and archive inventory stay with eager owners', () => {
 	for (const [path, owner] of [
@@ -49,6 +52,58 @@ test('optional editor ownership is independent of path separator', () => {
 	}
 });
 
+test('container decode and metadata preparation retain their exact deferred owners', () => {
+	for (const [leaf, owner] of [
+		['video-webm-decoder-source.ts', 'editor-optional-execution'],
+		['browser-container-opus-decoder.ts', 'editor-optional-execution'],
+		['opaque-iso-audio-import-identity.ts', 'editor-import-admission'],
+		['ogg-flac-metadata-read-view.ts', 'editor-import-admission'],
+		['iso-audio-presentation-edit.ts', 'editor-import-admission'],
+		['aiff-imported-metadata.ts', 'editor-import-admission'],
+	] as const) {
+		const path = `src/common/editor/${leaf}`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), owner, path);
+			for (const foreign of [path + '.foreign', path.replace(/\.ts$/u, '-future.ts'), path.replace('editor/', 'editor/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), owner, foreign);
+			}
+		}
+	}
+});
+
+test('action runtime registries belong to controller state without acquiring views or runtime dependencies', () => {
+	for (const leaf of ['framescaper-candidate-authoring-actions', 'framescaper-native-project-actions']) {
+		const path = `src/common/editor/ui/${leaf}.ts`;
+		for (const separator of ['/', '\\']) {
+			assert.equal(chunkGroupForModulePath(path.replaceAll('/', separator)), 'editor-controller-core', path);
+			for (const foreign of [path + '.foreign', `${path}x`, path.replace(/\.ts$/u, '-future.ts'), path.replace('ui/', 'ui/internal/')]) {
+				assert.notEqual(chunkGroupForModulePath(foreign.replaceAll('/', separator)), 'editor-controller-core', foreign);
+			}
+		}
+		const source = transformSync(readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'), { loader: 'ts', format: 'esm' }).code;
+		assert.deepEqual(staticRelativeDependencies(source), [], path);
+		assert.deepEqual(dynamicRelativeImports(source), [], path);
+		assert.doesNotMatch(source, /^import\s|\bimport\s*\(|^export\s+[^;]*\bfrom\s*['"]/mu, path);
+	}
+});
+
+test('the maintained timeline subtree retains its owner and deferred tools', () => {
+	for (const [leaf, owner] of [
+		['AudioEditorTimeline.jsx', 'editor-timeline'],
+		['timeline/AudioEditorTimeline.tsx', 'editor-timeline'],
+		['timeline/video-filmstrip-cell-model.ts', 'editor-timeline'],
+		['timeline/waveform-canvas-renderer.js', 'editor-timeline'],
+		['timeline/useTimelineViewportModel.js', 'editor-timeline'],
+		['timeline/frequency-waveform-renderer.ts', 'editor-frequency-waveform'],
+		['timeline/split-tool-shortcut.ts', 'editor-optional-split-tool'],
+	] as const) {
+		const path = `src/common/editor/ui/${leaf}`;
+		for (const variant of [path, path.replaceAll('/', '\\')]) {
+			assert.equal(chunkGroupForModulePath(variant), owner, variant);
+		}
+	}
+});
+
 test('regular effect contracts and copy stay shared instead of following a product bootstrap', () => {
 	for (const [path, owner] of [
 		['src/common/editor/first-party-effects/standard/definition.ts', 'editor-effect-contracts'],
@@ -87,6 +142,9 @@ test('workers give effect definitions and the complete canonical copy registry a
 	assert.ok(group);
 	assert.ok(group.test instanceof RegExp);
 	for (const path of [
+		'src/common/editor/audacity-effects/manifest.js',
+		'src/common/editor/first-party-effects/parametric-eq/definition.js',
+		'src/common/editor/first-party-effects/bitcrusher/definition.js',
 		'src/common/editor/first-party-effects/standard/definition.ts',
 		'src/common/editor/first-party-effects/standard/filters-definition.ts',
 		'src/common/editor/first-party-effects/standard/filters-coefficients.ts',

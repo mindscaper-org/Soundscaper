@@ -23,11 +23,11 @@ test('product release lines select declared versions and active channels', () =>
 	for (const [productId, product] of Object.entries(RELEASE_LINES.products)) {
 		const channel = product.applicationVersionChannel;
 		assert.equal(resolveProductApplicationVersion(productId, RELEASE_LINES), product[channel].version);
-		assert.equal(product.candidate.tagPrefix, productId === 'soundscaper' ? 'Soundscaper' : 'Framescaper');
+		assert.equal(product.candidate.tagPrefix, { soundscaper: 'Soundscaper', framescaper: 'Framescaper', lightscaper: 'lightscaper-v' }[productId]);
 		assert.equal(product.stable.tagPrefix, product.candidate.tagPrefix);
 		for (const releaseChannel of ['candidate', 'stable']) {
 			const tag = expectedProductReleaseTag(productId, RELEASE_LINES, releaseChannel);
-			assert.equal(tag, product[releaseChannel].version);
+			assert.equal(tag, productId === 'lightscaper' ? product[releaseChannel].tagPrefix + product[releaseChannel].version : product[releaseChannel].version);
 			if (product.releaseChannel !== releaseChannel) {
 				assert.throws(() => resolveProductReleaseTag(tag, RELEASE_LINES), /not active|deferred/iu);
 			} else {
@@ -39,6 +39,19 @@ test('product release lines select declared versions and active channels', () =>
 	}
 });
 
+test('Lightscaper has a versioned web build while release publication remains deferred', () => {
+	assert.equal(resolveProductApplicationVersion('lightscaper', RELEASE_LINES), '0.1.0-beta.1');
+	assert.equal(RELEASE_LINES.products.lightscaper.releaseChannel, 'deferred');
+	assert.equal(expectedProductReleaseTag('lightscaper', RELEASE_LINES), 'lightscaper-v0.1.0-beta.1');
+	assert.throws(
+		() => resolveProductReleaseTag('lightscaper-v0.1.0-beta.1', RELEASE_LINES),
+		/lightscaper release channel is deferred/iu,
+	);
+	const changed = structuredClone(RELEASE_LINES);
+	changed.products.lightscaper.candidate.tagPrefix = 'framescaper-v';
+	assert.throws(() => validateProductReleaseLines(changed), /release tag ownership is invalid/iu);
+});
+
 function fixtureReleaseLines() {
 	const lines = structuredClone(RELEASE_LINES);
 	lines.schemaVersion = 2;
@@ -48,7 +61,7 @@ function fixtureReleaseLines() {
 		product.candidate.version = '1.0.0-rc.1';
 		product.stable.version = '1.0.0';
 		product.candidate.tagPrefix = `${product.productId}-v`;
-		product.stable.tagPrefix = product.productId === 'soundscaper' ? 'v' : 'framescaper-v';
+		product.stable.tagPrefix = product.productId === 'soundscaper' ? 'v' : product.candidate.tagPrefix;
 	}
 	return lines;
 }

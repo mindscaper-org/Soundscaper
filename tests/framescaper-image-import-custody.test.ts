@@ -6,7 +6,8 @@ import test, { type TestContext } from 'node:test';
 import { canonicalMediaContentBlob } from '../src/common/media/content-digest.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { openFramescaperImageFramePackV1 } from '../src/common/editor/timeline-image-frame-pack-v1.ts';
-import type { FramescaperImageSourceV1 } from '../src/common/editor/timeline-image-model.ts';
+import type { FramescaperImageSourceCurrentV1 } from '../src/common/editor/timeline-image-model-current-v1.ts';
+import { framescaperImagePackSourceCurrentV1 } from '../src/common/editor/timeline-image-pack-source-current-v1.ts';
 import { createProjectStore, type AudioEditorProjectStore } from '../src/common/editor/storage.js';
 import { framescaperCandidateAuthoringActionRuntimeFor } from '../src/common/editor/ui/framescaper-candidate-authoring-actions.ts';
 import { createFramescaperAudioEditorController } from '../src/framescaper/editor-controller.ts';
@@ -78,10 +79,10 @@ for (const fixture of fixtures) test(`decoded ${fixture.name} retains original, 
 	} finally { await controller.dispose(); await recipient.close(); await environment.close(); }
 });
 
-async function assertBody(store: AudioEditorProjectStore, source: FramescaperImageSourceV1, fixture: Fixture): Promise<void> {
+async function assertBody(store: AudioEditorProjectStore, source: FramescaperImageSourceCurrentV1, fixture: Fixture): Promise<void> {
 	const blob = canonicalMediaContentBlob(await store.loadMediaAsset(source.storageKey));
 	assert.equal(blob.size, source.assetByteLength);
-	const reader = await openFramescaperImageFramePackV1({ source, read: async (offset, length) => new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer()) });
+	const reader = await openFramescaperImageFramePackV1({ source: framescaperImagePackSourceCurrentV1(source), read: async (offset, length) => new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer()) });
 	assert.deepEqual(Buffer.from(await reader.readOriginal()), fixture.bytes);
 	for (const [index, pixel] of fixture.frames.entries()) {
 		assert.deepEqual(await reader.readFrame(index), Uint8Array.from({ length: fixture.size ** 2 * 4 }, (_, offset) => pixel[offset % 4]!));

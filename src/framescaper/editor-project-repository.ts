@@ -7,17 +7,16 @@ import type {
 	ProjectRepositoryPort,
 	ProjectRevision,
 } from '../common/editor/storage/project-repository.ts';
-import { normalizeFramescaperImageSourceV1 } from '../common/editor/timeline-image-model.ts';
 import {
 	cloneFramescaperProject,
 	loadFramescaperProject,
 	type FramescaperProject,
 } from './editor-project.ts';
 import { assertFramescaperProjectRuntimeProfile } from './editor-project-runtime-profile.ts';
+import type { FramescaperScapeImageProjectPublication } from './editor-scape-image-project-publication.ts';
 import { compactFramescaperProjectSourceMetadata } from './editor-project-source-compaction.ts';
-import { clipboardImageAttachmentAuthorized, immutableImageBodyAuthority } from './editor-session-clipboard-image-attachments.ts';
+import { clipboardImageAttachmentAuthorized } from './editor-session-clipboard-image-attachments.ts';
 import { framescaperProxyDetachAuthorized } from './editor-session-video-proxy-detach.ts';
-import { requireStagedTimelineImageBody } from './editor-timeline-image-staged-body.ts';
 
 const REQUIRED_METHODS = Object.freeze([
 	'createIfAbsent', 'createForScapeImportIfAbsent', 'save', 'saveIfCurrent',
@@ -29,13 +28,16 @@ const REQUIRED_METHODS = Object.freeze([
 export class FramescaperProjectRepository implements ProjectRepositoryPort {
 	readonly #profile: unknown;
 	readonly #delegate: ProjectRepositoryPort;
-	readonly #attachmentPort?: object;
+	readonly #scapeImages: FramescaperScapeImageProjectPublication | undefined;
+	readonly #attachmentPort: object | undefined;
 
-	constructor(profile: unknown, delegateValue: ProjectRepositoryPort | unknown, attachmentPort?: object) {
+	constructor(profile: unknown, delegateValue: ProjectRepositoryPort | unknown,
+		scapeImages?: FramescaperScapeImageProjectPublication, attachmentPort?: object) {
 		assertFramescaperProjectRuntimeProfile(profile);
 		assertDelegate(delegateValue);
 		this.#profile = profile;
 		this.#delegate = delegateValue;
+		this.#scapeImages = scapeImages;
 		this.#attachmentPort = attachmentPort;
 	}
 
@@ -47,15 +49,12 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 
 	async createForScapeImportIfAbsent(projectValue: ProjectDocument): Promise<ProjectDocument | null> {
 		const project = this.#exact(projectValue);
-		assertNoProxyAttachments(project, 'Scape import');
-		const snapshot = this.#publication(project);
-		const images = new Map<string, (row: unknown) => void>();
-		for (const candidate of snapshot.sources) {
-			if (candidate.kind !== 'image') continue;
-			const image = normalizeFramescaperImageSourceV1(candidate);
-			images.set(image.storageKey, row => { requireStagedTimelineImageBody(row, image); });
+		if (imageAuthority(project).size !== 0 && this.#scapeImages) {
+			if (proxyAuthority(project).size !== 0) throw new Error('A proxy-attached Framescaper Scape import requires atomic preservation publication.');
+			return this.#scapeImages.create(project);
 		}
-		return this.#optionalExact(await this.#delegate.createForScapeImportIfAbsent!(snapshot, images.size ? images : undefined));
+		assertNoBodyAttachments(project, 'Scape import');
+		return this.#optionalExact(await this.#delegate.createForScapeImportIfAbsent!(this.#publication(project)));
 	}
 
 	async save(
@@ -67,6 +66,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		if (currentValue === null) throw new Error('Ordinary Framescaper save cannot create a project.');
 		const current = this.#exact(currentValue);
 		assertSameBodyAttachments(current, project, this.#attachmentPort);
+		await this.#prepareSave(project);
 		const saved = await this.#delegate.saveIfCurrent!(current, this.#publication(project), postCommit);
 		if (saved === null) throw new Error('The Framescaper project changed before save.');
 		return this.#exact(saved);
@@ -83,6 +83,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 			throw new Error('Framescaper compare-and-swap cannot change project identity.');
 		}
 		assertSameBodyAttachments(expected, project, this.#attachmentPort);
+		await this.#prepareSave(project);
 		return this.#optionalExact(await this.#delegate.saveIfCurrent!(expected, this.#publication(project), postCommit));
 	}
 
@@ -100,6 +101,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 		const project = this.#exact(projectValue);
 		if (expected.id !== project.id) throw new Error('Framescaper compare-and-swap cannot change project identity.');
 		assertSameBodyAttachments(expected, project, this.#attachmentPort, true);
+		await this.#prepareSave(project);
 		return this.#optionalExact(await this.#delegate.saveIfCurrentAndFenced!(
 			expected, this.#publication(project), writeFence, postCommit,
 		));
@@ -181,6 +183,7 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 	}
 
 	async deleteIfCurrent(projectValue: ProjectDocument): Promise<boolean> {
+		if (this.#scapeImages?.owns(projectValue)) return this.#scapeImages.deleteIfCurrent(projectValue);
 		if (typeof this.#delegate.deleteIfCurrent !== 'function') return false;
 		return this.#delegate.deleteIfCurrent(this.#exact(projectValue));
 	}
@@ -195,6 +198,12 @@ export class FramescaperProjectRepository implements ProjectRepositoryPort {
 	}
 
 	async delete(projectId: string): Promise<void> { await this.#delegate.delete(projectId); }
+
+	async #prepareSave(project: FramescaperProject): Promise<void> {
+		if (!project.sources.some(source => source.kind === 'image' && (source.schemaVersion === 3 || source.schemaVersion === 4 || source.schemaVersion === 5))) return;
+		if (!this.#scapeImages) throw new Error('Current Frame save requires its actual native resource owner.');
+		await this.#scapeImages.prepareSave(project);
+	}
 
 	#exact(value: unknown): FramescaperProject & ProjectDocument {
 		return cloneFramescaperProject(this.#profile, value) as FramescaperProject & ProjectDocument;
@@ -274,7 +283,13 @@ function imageAuthority(project: FramescaperProject): ReadonlyMap<string, string
 	const result = new Map<string, string>();
 	for (const source of project.sources as readonly Readonly<Record<string, unknown>>[]) {
 		if (source.kind !== 'image') continue;
-		result.set(String(source.id), immutableImageBodyAuthority(source));
+		const { name: _name, ...authority } = source;
+		if (source.schemaVersion === 2 || source.schemaVersion === 3 || source.schemaVersion === 4 || source.schemaVersion === 5) {
+			const { develop: _develop, developed: _developed, provenance: _provenance, ...pack } = authority;
+			// RAW receipt stays immutable with its retained Original; only recipe
+			// and provenance can change in an ordinary Source4 authoring save.
+			result.set(String(source.id), JSON.stringify({ ...pack, schemaVersion: source.schemaVersion === 4 || source.schemaVersion === 5 ? source.schemaVersion : 1 }));
+		} else result.set(String(source.id), JSON.stringify(authority));
 	}
 	return result;
 }

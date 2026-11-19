@@ -53,11 +53,14 @@ test('Quality leaves one of the organization’s 20 runner slots available', () 
 test('consolidated browser jobs retain the previous aggregate test budget and Firefox setup time', () => {
 	const browser = jobs.browser;
 	const firefox = jobs.firefox;
+	const browserTests = browser.steps.find(step => step.name === 'Run browser workflows against the existing build');
 	const firefoxTests = firefox.steps.find(step => step.name === 'Run Firefox workflows against the existing build');
+	assert.ok(browserTests);
 	assert.ok(firefoxTests?.['timeout-minutes']);
-	for (const [job, minutes] of [[browser, browser['timeout-minutes']], [firefox, firefoxTests['timeout-minutes']]] as const) {
+	for (const [job, step] of [[browser, browserTests], [firefox, firefoxTests]] as const) {
+		const minutes = Math.min(job['timeout-minutes'], step['timeout-minutes'] ?? job['timeout-minutes']);
 		const shards = job.strategy?.matrix.shard.length ?? 1;
-		assert.ok(shards * minutes >= 12 * 60, `${shards} browser shards need more than ${minutes} minutes each`);
+		assert.ok(shards * minutes >= 12 * 60, `${shards} browser shards need more than ${minutes} effective minutes each`);
 	}
 	assert.ok(firefox['timeout-minutes'] >= firefoxTests['timeout-minutes'] + 30,
 		'Firefox installation time must remain separate from its test deadline');

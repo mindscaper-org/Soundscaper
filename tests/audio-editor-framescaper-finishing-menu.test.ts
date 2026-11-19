@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 
 import {
 	createFramescaperFinishingMenuItems,
@@ -72,7 +73,7 @@ test('Framescaper finishing menus fail closed outside current mutable capability
 test('the product menu seam merges Framescaper finishing rows without Soundscaper production rows', () => {
 	const items = createApplicationMenuProductItems({
 		productId: 'framescaper', capabilities: CAPABILITIES,
-		project: { ...PROJECT, sequences: [], subsequences: [], tracks: [] },
+		project: createFramescaperProject(),
 		snapshot: { readOnly: false }, editBlocked: false, copy: {},
 		actions: { openFramescaperFinishing: () => undefined },
 	});

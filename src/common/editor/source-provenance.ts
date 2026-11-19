@@ -171,7 +171,7 @@ export function normalizeSourceMetadata(
 }
 
 export function copySourceProvenance(
-	value: SourceProvenanceV1 | null | undefined,
+	value: unknown,
 ): SourceProvenanceV1 | undefined {
 	return value == null ? undefined : normalizeSourceProvenance(value);
 }

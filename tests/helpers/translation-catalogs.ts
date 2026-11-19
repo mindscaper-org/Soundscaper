@@ -6,6 +6,7 @@ import { FREESOUND_ATTRIBUTION_ENGLISH_COPY } from '../../src/common/i18n/freeso
 import { AUDIOCOM_COPY_BY_LOCALE } from '../../src/common/i18n/audiocom-copy.ts';
 import { resolveEditorCopyScope } from '../../src/common/i18n/editor-copy-scope.ts';
 import { currentTranslations } from '../../src/common/i18n/translation-catalog.js';
+import { resolveCatalog } from '../../src/common/i18n/runtime.js';
 import { EDITOR_COPY_AUDIT_INVENTORY } from '../../scripts/lib/editor-copy-audit-inventory.mjs';
 import catalog from '../../src/common/i18n/translations/de.json' with { type: 'json' };
 
@@ -18,3 +19,10 @@ export const GERMAN_COPY = Object.freeze(Object.fromEntries(
 export const FREESOUND_GERMAN_COPY = resolveEditorCopyScope('freesoundAttribution', FREESOUND_ATTRIBUTION_ENGLISH_COPY, translations);
 export const AUDIOCOM_GERMAN_COPY = resolveEditorCopyScope('audiocom', AUDIOCOM_COPY_BY_LOCALE.en, translations);
 
+/** Playwright's test loader needs an explicit JSON import for the committed catalog. */
+export async function resolveTestCatalog(locale: string): Promise<Readonly<Record<string, string>>> {
+	return resolveCatalog(locale, {
+		translationLoaders: { de: () => Promise.resolve(catalog) },
+		onFallback(error: unknown) { throw error; },
+	});
+}

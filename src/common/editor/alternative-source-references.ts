@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { collectTrackPlaylistSourceIds } from './track-playlist-media.ts';
+import { collectTrackPlaylistSourceIds } from './track-playlist-records.ts';
 import { readSessionSnapshots } from './session-snapshots.ts';
 import { readSubprojectLinks } from './subprojects.ts';
 

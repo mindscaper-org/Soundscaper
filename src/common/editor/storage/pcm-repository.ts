@@ -160,6 +160,8 @@ export class PcmRepository {
 			}
 			throw new Error(`PCM codec returned unsupported encoding ${String(encoding)}.`);
 		} catch (error) {
+			const cancellationReason = signal?.aborted ? signal.reason : undefined;
+			if (cancellationReason !== undefined && Object.is(error, cancellationReason)) throw error;
 			if (isAbortError(error)) throw error;
 			this.#circuitOpen = true;
 			if (allowRawOnFailure && !requireWavPack) return rawResult();
@@ -228,6 +230,8 @@ export class PcmRepository {
 				});
 				rawPayload = exactBuffer(decoded?.payload);
 			} catch (error) {
+				const cancellationReason = signal?.aborted ? signal.reason : undefined;
+				if (cancellationReason !== undefined && Object.is(error, cancellationReason)) throw error;
 				if (isAbortError(error)) throw error;
 				throw new PcmStorageCorruptionError(
 					'Persisted WavPack PCM could not be decoded losslessly.',
@@ -296,6 +300,8 @@ export class PcmRepository {
 					return { payload: checked, pcmCrc32: checksum, owned: true };
 				}
 			} catch (error) {
+				const cancellationReason = options.signal?.aborted ? options.signal.reason : undefined;
+				if (cancellationReason !== undefined && Object.is(error, cancellationReason)) throw error;
 				if (isAbortError(error)) throw error;
 				this.#checksumUnavailable = true;
 			}
@@ -326,6 +332,8 @@ function rawEncodedPcm(payload: ArrayBuffer, pcmCrc32: number): EncodedPcm {
 
 function throwIfAborted(signal?: AbortSignal): void {
 	if (!signal?.aborted) return;
+	const reason = signal.reason;
+	if (reason !== undefined) throw reason;
 	const error = new Error('Audio source loading was cancelled.');
 	error.name = 'AbortError';
 	throw error;

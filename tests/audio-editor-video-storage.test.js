@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { createVideoStorageOpfsModel as createOpfsDirectory, LyingBlob } from './helpers/video-storage-opfs-model-fixture.ts';
 
 test('memory storage persists immutable media assets and timestamped video derivatives', async () => {
 	const store = createProjectStore({
@@ -76,21 +77,22 @@ test('memory storage persists immutable media assets and timestamped video deriv
 	assert.equal((await store.listVideoDerivatives('video-source')).length, 2);
 });
 
-for (const backend of ['memory', 'indexeddb', 'opfs']) {
-	test(`${backend} concurrent direct media writes publish one immutable winner`, async () => {
+for (const backend of ['memory', 'indexeddb', 'opfs-model']) {
+	test(`${backend} concurrent direct media writes publish one immutable winner`, async context => {
 		const files = new Map();
-		const indexedDB = backend === 'indexeddb' ? createInstrumentedIndexedDB() : null;
+		const indexedDB = backend === 'memory' ? null : createInstrumentedIndexedDB();
 		const databaseName = uniqueDatabaseName(`concurrent-media-${backend}`);
 		const directory = createOpfsDirectory(files);
 		const store = createProjectStore({
 			indexedDB,
-			memoryFallback: backend !== 'indexeddb',
-			preferOpfs: backend === 'opfs',
+			memoryFallback: backend === 'memory',
+			preferOpfs: backend === 'opfs-model',
 			databaseName,
-			storageManager: backend === 'opfs' ? {
+			storageManager: backend === 'opfs-model' ? {
 				async getDirectory() { return { async getDirectoryHandle() { return directory; } }; },
 			} : null,
 		});
+		context.after(() => store.close());
 		const results = await Promise.allSettled([
 			store.writeMediaAsset('shared-id', new Blob(['first']), { candidate: 'first' }),
 			store.writeMediaAsset('shared-id', new Blob(['second']), { candidate: 'second' }),
@@ -103,26 +105,30 @@ for (const backend of ['memory', 'indexeddb', 'opfs']) {
 		assert.match(String(rejected[0].reason), /immutable media asset shared-id cannot be overwritten/iu);
 		const winner = fulfilled[0].value.candidate;
 		assert.equal(await (await store.loadMediaAsset('shared-id')).text(), winner);
-		if (backend === 'indexeddb') assert.equal(indexedDB.recordCount(databaseName, 'mediaAssets'), 1);
-		if (backend === 'opfs') assert.equal(files.size, 1, 'the losing staged OPFS payload is removed');
+		if (indexedDB) assert.equal(indexedDB.recordCount(databaseName, 'mediaAssets'), 1);
+		if (backend === 'opfs-model') {
+			assert.equal(fulfilled[0].value.storage, 'indexeddb-blob', 'a structural directory cannot grant native path custody');
+			assert.equal(files.size, 0, 'no witnessless model path may be created');
+		}
 	});
 }
 
-for (const backend of ['memory', 'indexeddb', 'opfs']) {
-	test(`${backend} retained-media digests use the Blob's stored bytes instead of overridden readers`, async () => {
+for (const backend of ['memory', 'indexeddb', 'opfs-model']) {
+	test(`${backend} retained-media digests use the Blob's stored bytes instead of overridden readers`, async context => {
 		const files = new Map();
-		const indexedDB = backend === 'indexeddb' ? createInstrumentedIndexedDB() : null;
+		const indexedDB = backend === 'memory' ? null : createInstrumentedIndexedDB();
 		const sourceDirectory = createOpfsDirectory(files);
 		const databaseName = uniqueDatabaseName(`adversarial-media-${backend}`);
 		const store = createProjectStore({
 			indexedDB,
-			memoryFallback: backend !== 'indexeddb',
-			preferOpfs: backend === 'opfs',
+			memoryFallback: backend === 'memory',
+			preferOpfs: backend === 'opfs-model',
 			databaseName,
-			storageManager: backend === 'opfs' ? {
+			storageManager: backend === 'opfs-model' ? {
 				async getDirectory() { return { async getDirectoryHandle() { return sourceDirectory; } }; },
 			} : null,
 		});
+		context.after(() => store.close());
 		const input = new LyingBlob('original-video', 'forged-content', { type: 'video/webm' });
 
 		const metadata = await store.writeMediaAsset('adversarial-media', input);
@@ -132,10 +138,12 @@ for (const backend of ['memory', 'indexeddb', 'opfs']) {
 		assert.equal(await loaded.text(), 'original-video');
 		if (backend === 'memory') {
 			assert.equal(await store.memory.mediaAssets.get('adversarial-media').blob.text(), 'original-video');
-		} else if (backend === 'indexeddb') {
-			assert.equal(await indexedDB.records(databaseName, 'mediaAssets')[0].blob.text(), 'original-video');
 		} else {
-			assert.equal(await [...files.values()][0].blob.text(), 'original-video');
+			assert.equal(await indexedDB.records(databaseName, 'mediaAssets')[0].blob.text(), 'original-video');
+			if (backend === 'opfs-model') {
+				assert.equal(metadata.storage, 'indexeddb-blob', 'the model handle is insufficient for native OPFS publication');
+				assert.equal(files.size, 0);
+			}
 		}
 	});
 }
@@ -346,15 +354,16 @@ test('derivative cache trimming reports exact disposal while preserving durable 
 	assert.equal((await store.loadProject('cache-project')).id, 'cache-project');
 });
 
-test('OPFS stores raw media and derivatives alongside PCM and cascades only requested files', async () => {
+test('OPFS PCM and derivative models coexist with witnessless media fallback and exact cascades', async context => {
 	const files = new Map();
 	const sourceDirectory = createOpfsDirectory(files);
 	const root = { async getDirectoryHandle() { return sourceDirectory; } };
 	const store = createProjectStore({
-		indexedDB: null,
+		indexedDB: createInstrumentedIndexedDB(), memoryFallback: false,
 		databaseName: uniqueDatabaseName('media-opfs'),
 		storageManager: { async getDirectory() { return root; } },
 	});
+	context.after(() => store.close());
 	const writer = await store.beginSourceWrite('opfs-media', { sampleRate: 48_000 });
 	await writer.write([Float32Array.of(0.5)]);
 	await writer.commit();
@@ -367,10 +376,10 @@ test('OPFS stores raw media and derivatives alongside PCM and cascades only requ
 		blob: new Blob(['thumbnail'], { type: 'image/webp' }),
 	});
 
-	assert.equal(media.storage, 'opfs');
+	assert.equal(media.storage, 'indexeddb-blob', 'the structural directory grants no whole-Blob custody');
 	assert.equal(media.sha256, 'a42d519714d616e9411dbceec4b52808bd6b1ee53e6f6497a281d655357d8b71');
 	assert.equal(derivative.storage, 'opfs');
-	assert.equal(files.size, 3);
+	assert.equal(files.size, 2, 'only the PCM and derivative model files exist');
 	const loadedMedia = await store.loadMediaAsset('opfs-media');
 	assert.equal(await loadedMedia.text(), 'container');
 	assert.equal(loadedMedia.type, 'video/mp4');
@@ -386,15 +395,16 @@ test('OPFS stores raw media and derivatives alongside PCM and cascades only requ
 	assert.equal(files.size, 0);
 });
 
-test('derivative cache trimming removes only derivative OPFS blobs', async () => {
+test('derivative cache trimming removes only derivative OPFS model blobs', async context => {
 	const files = new Map();
 	const sourceDirectory = createOpfsDirectory(files);
 	const root = { async getDirectoryHandle() { return sourceDirectory; } };
 	const store = createProjectStore({
-		indexedDB: null,
+		indexedDB: createInstrumentedIndexedDB(), memoryFallback: false,
 		databaseName: uniqueDatabaseName('derivative-cache-opfs'),
 		storageManager: { async getDirectory() { return root; } },
 	});
+	context.after(() => store.close());
 	const writer = await store.beginSourceWrite('opfs-cache', { sampleRate: 48_000 });
 	await writer.write([Float32Array.of(0.5)]);
 	await writer.commit();
@@ -409,34 +419,45 @@ test('derivative cache trimming removes only derivative OPFS blobs', async () =>
 		type: 'thumbnail',
 		blob: new Blob(['thumbnail']),
 	});
-	assert.equal(files.size, 4);
+	assert.equal(files.size, 3, 'PCM and both derivatives use the model; the original is an IndexedDB Blob');
 
 	await store.trimVideoDerivativeCache({ maximumBytes: 0, maximumEntries: 0 });
 
-	assert.equal(files.size, 2, 'canonical PCM and the immutable media container remain');
+	assert.equal(files.size, 1, 'only the canonical PCM model file remains; the immutable container stays in IndexedDB');
 	assert.equal(await (await store.loadMediaAsset('opfs-cache')).text(), 'container');
 	assert.equal((await store.getSourceMetadata('opfs-cache')).frameCount, 1);
 });
 
-test('cancelled OPFS media writes delete the staged file before metadata publication', async () => {
-	const files = new Map();
-	const controller = new AbortController();
-	const reason = new DOMException('cancel staged media', 'AbortError');
-	const sourceDirectory = createOpfsDirectory(files, {
-		onWrite() { controller.abort(reason); },
-	});
-	const store = createProjectStore({
-		indexedDB: null,
-		databaseName: uniqueDatabaseName('cancel-media-opfs'),
-		storageManager: { async getDirectory() { return { async getDirectoryHandle() { return sourceDirectory; } }; } },
-	});
-
-	await assert.rejects(
-		store.writeMediaAsset('cancelled-media', new Blob(['unpublished']), {}, { signal: controller.signal }),
-		(error) => error === reason,
-	);
-	assert.equal(await store.getMediaAssetMetadata('cancelled-media'), null);
-	assert.equal(files.size, 0);
+test('cancelled witnessless OPFS media reads join without creating files or publishing metadata', { timeout: 15_000 }, async context => {
+	const files = new Map(), controller = new AbortController(), reason = new DOMException('cancel media', 'AbortError');
+	let releaseRead, markStarted, refuseStarted;
+	const gate = new Promise(resolve => { releaseRead = resolve; });
+	const started = new Promise((resolve, reject) => { markStarted = resolve; refuseStarted = reject; });
+	const sourceDirectory = createOpfsDirectory(files, { onWrite() { assert.fail('A witnessless direct write must never create a model file.'); } });
+	const databaseName = uniqueDatabaseName('cancel-media-opfs'), indexedDB = createInstrumentedIndexedDB();
+	const store = createProjectStore({ indexedDB, memoryFallback: false, databaseName,
+		storageManager: { async getDirectory() { return { async getDirectoryHandle() { return sourceDirectory; } }; } } });
+	const nativeRead = Blob.prototype.arrayBuffer;
+	Blob.prototype.arrayBuffer = async function () { const bytes = await nativeRead.call(this); markStarted(); await gate; return bytes; };
+	const stop = () => { controller.abort(context.signal.reason ?? reason); releaseRead(); refuseStarted(context.signal.reason ?? reason); };
+	context.signal.addEventListener('abort', stop, { once: true });
+	let deadlineExpired = false;
+	const timer = setTimeout(() => { deadlineExpired = true; stop(); }, 13_000);
+	let write, observing;
+	try {
+		write = store.writeMediaAsset('cancelled-media', new Blob(['unpublished']), {}, { signal: controller.signal });
+		observing = write.then(() => { refuseStarted(new Error('Native digest barrier was skipped.')); }, refuseStarted);
+		await started;
+		let settled = false; void write.then(() => { settled = true; }, () => { settled = true; });
+		controller.abort(reason); await Promise.resolve(); assert.equal(settled, false, 'cancellation must join the actual held native read');
+		releaseRead(); await assert.rejects(write, error => error === reason);
+		assert.equal(await store.getMediaAssetMetadata('cancelled-media'), null);
+		assert.equal(indexedDB.recordCount(databaseName, 'mediaAssets'), 0); assert.equal(files.size, 0);
+	} finally {
+		stop(); await Promise.allSettled([write, observing]); Blob.prototype.arrayBuffer = nativeRead;
+		context.signal.removeEventListener('abort', stop); clearTimeout(timer); await store.close();
+	}
+	assert.equal(deadlineExpired, false, 'the forced cleanup deadline can never be a passing cancellation');
 });
 
 test('pre-publication cancellation publishes neither memory nor IndexedDB media metadata', async () => {
@@ -494,51 +515,6 @@ test('media cancellation after the publication boundary resolves the committed m
 	assert.equal(metadata.sha256, 'cc962289af2873dd6dad32931554372a7d2d2de5bd5859c8265eb58b5197a88e');
 	assert.deepEqual(await store.getMediaAssetMetadata('committed-media'), metadata);
 });
-
-function createOpfsDirectory(files, { onWrite = () => undefined } = {}) {
-	return {
-		async getFileHandle(path, options = {}) {
-			if (!files.has(path) && !options.create) throw new Error('missing');
-			if (!files.has(path)) files.set(path, { blob: new Blob() });
-			const entry = files.get(path);
-			return {
-				async createWritable() {
-					const parts = [];
-					return {
-						async write(part) {
-							parts.push(part);
-							onWrite();
-						},
-						async close() { entry.blob = new Blob(parts); },
-						async abort() { parts.length = 0; },
-					};
-				},
-				async getFile() { return entry.blob; },
-			};
-		},
-		async removeEntry(path) {
-			if (!files.delete(path)) throw new Error('missing');
-		},
-	};
-}
-
-class LyingBlob extends Blob {
-	#lie;
-
-	constructor(actual, lie, options) {
-		super([actual], options);
-		this.#lie = new Blob([lie], options);
-		if (this.#lie.size !== this.size) throw new Error('Adversarial Blob contents must have equal sizes.');
-	}
-
-	slice(start = 0, end = this.size, type = '') {
-		return this.#lie.slice(start, end, type);
-	}
-
-	arrayBuffer() {
-		return this.#lie.arrayBuffer();
-	}
-}
 
 function uniqueDatabaseName(prefix) {
 	return `${prefix}-${Date.now()}-${Math.random()}`;

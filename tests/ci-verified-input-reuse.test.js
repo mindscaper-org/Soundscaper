@@ -28,10 +28,11 @@ test('Firefox shards reuse verified engine bytes and run with live audio and a W
 		assert.match(job, /LIBGL_ALWAYS_SOFTWARE: '1'/u);
 		assert.match(job, /run: xvfb-run --auto-servernum node scripts\/ci-firefox-audio-clock\.mjs/u);
 		// The complete partition is enforced by playwright-config.test.js.
-		assert.match(job, /run: xvfb-run --auto-servernum npm run test:browser:built -- --project=firefox --suite-shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=2/u);
+		assert.match(job, /run: xvfb-run --auto-servernum npm run test:browser:built -- --project=firefox --suite-shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=\$\{\{ steps\.browser-run-shape\.outputs\.workers \}\}/u);
 	}
 	const action = await readFile(new URL('../.github/actions/verified-firefox/action.yml', import.meta.url), 'utf8');
-	assert.match(action, /run: npx playwright install-deps firefox/u);
+	assert.match(action, /run: node scripts\/ci-firefox-host-dependencies\.ts/u);
+	assert.doesNotMatch(action, /run: npx playwright install-deps/u);
 	assert.match(action, /verify firefox >> "\$GITHUB_OUTPUT"/u);
 	assert.match(action, /run: node scripts\/ci-input-cache\.mjs reset firefox/u);
 	assert.match(action, /if: steps\.verification\.outputs\.valid != 'true'[\s\S]*?run: npx playwright install firefox/u);

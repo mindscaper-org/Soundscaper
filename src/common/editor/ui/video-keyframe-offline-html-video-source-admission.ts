@@ -12,6 +12,8 @@ export interface VideoKeyframeOfflineHtmlVideoSourceAsset {
 	readonly decodedHeight: number;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
+	readonly presentedWidth?: number;
+	readonly presentedHeight?: number;
 	readonly postRotationAspectWidth?: number;
 	readonly presentationForEntry: (
 		entry: Readonly<Record<string, unknown>>,
@@ -52,7 +54,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 		const source = closedRecord(sourceValue, name, [
 			'sourceId', 'identity', 'blob', 'clipIds', 'decodedWidth', 'decodedHeight',
 			'displayWidth', 'displayHeight', 'presentationForEntry',
-		], ['postRotationAspectWidth']);
+		], ['presentedWidth', 'presentedHeight', 'postRotationAspectWidth']);
 		const sourceId = boundedId(source.sourceId, `${name}.sourceId`);
 		if (assets.has(sourceId)) throw new RangeError(`Duplicate offline HTML video source ID ${sourceId}.`);
 		const identity = digest(source.identity, `${name}.identity`);
@@ -63,6 +65,14 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 		planVideoPreviewCapture({ sourceWidth: decodedWidth, sourceHeight: decodedHeight });
 		const displayWidth = dimension(source.displayWidth, `${name}.displayWidth`);
 		const displayHeight = dimension(source.displayHeight, `${name}.displayHeight`);
+		if (Object.hasOwn(source, 'presentedWidth') !== Object.hasOwn(source, 'presentedHeight')) {
+			throw new TypeError(`${name} requires both presented dimensions or neither.`);
+		}
+		const presented = Object.hasOwn(source, 'presentedWidth') ? {
+			presentedWidth: dimension(source.presentedWidth, `${name}.presentedWidth`),
+			presentedHeight: dimension(source.presentedHeight, `${name}.presentedHeight`),
+		} : null;
+		if (presented) planVideoPreviewCapture({ sourceWidth: presented.presentedWidth, sourceHeight: presented.presentedHeight });
 		const postRotationAspectWidth = source.postRotationAspectWidth === undefined ? undefined
 			: dimension(source.postRotationAspectWidth, `${name}.postRotationAspectWidth`);
 		if (postRotationAspectWidth !== undefined && (displayWidth !== decodedWidth || displayHeight === decodedHeight)) {
@@ -91,6 +101,7 @@ export function admitVideoKeyframeOfflineHtmlVideoSourceAssets(
 			decodedHeight,
 			displayWidth,
 			displayHeight,
+			...presented,
 			...(postRotationAspectWidth === undefined ? {} : { postRotationAspectWidth }),
 			presentationForEntry: source.presentationForEntry as VideoKeyframeOfflineHtmlVideoSourceAssetSnapshot['presentationForEntry'],
 		}));

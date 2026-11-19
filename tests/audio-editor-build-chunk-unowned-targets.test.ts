@@ -74,7 +74,7 @@ test('the shared leaves an eager importer reaches keep the owner that importer a
 	// is one the eager importer's own product graph already downloads, so nothing
 	// new joins the startup graph.
 	for (const [path, owner] of [
-		['src/common/products.js', 'editor-shell'],
+		['src/common/products.js', 'product-profiles'],
 		['src/common/editor/audacity-effects/manifest.js', 'editor-effect-contracts'],
 		['src/common/editor/nyquist/plugin-parser.js', 'editor-effect-contracts'],
 		['src/common/editor/nyquist/plugins/catalog.js', 'editor-effect-contracts'],

@@ -13,6 +13,7 @@ import { collectTakeGroupSourceIds } from './take-group-source-references.ts';
 import { collectAlternativeSourceIds } from './alternative-source-references.ts';
 import { collectVisualPresetGeneratorSourceIds } from './video-visual-preset-v24.ts';
 import { videoSourceCharacteristicsAreReported } from './video-source-characteristics.ts';
+import { collectFramescaperImageProjectResourcesCurrentV1 } from './video-cube-lut-project-references-current-v1.ts';
 import { retireUnusedScapeLiteralKeys } from './scape-literal-json-keys.ts';
 import { sessionSnapshotProjects } from './session-snapshots.ts';
 
@@ -209,6 +210,9 @@ export function collectFramescaperProjectAssetStorageKeys(
 		const lut = preset?.template?.grade?.lut;
 		if (lut !== null && lut !== undefined) add('LUT', lut, 'lut-sha256:');
 	}
+	const resources = collectFramescaperImageProjectResourcesCurrentV1(project);
+	for (const lut of resources.luts) add('LUT', lut, 'lut-sha256:');
+	for (const mask of resources.brushes) add('mask', mask, `brush-mask-v1:${mask.width}:${mask.height}:`);
 	for (const storageKey of identities.keys()) target.add(storageKey);
 	return target;
 }

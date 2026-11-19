@@ -11,11 +11,13 @@ test('Clip properties retains live track lock and unlock admission', async ({ pa
 	const clip = clipByName(editor, toneA.name);
 	const track = clip.locator('xpath=ancestor::div[@data-track-row]');
 	const panel = await openClipProperties(page, editor, clip);
+	const invert = panel.getByRole('switch', { name: 'Invert', exact: true });
 	const name = panel.getByRole('textbox', { name: 'Clip name', exact: true });
 	await panel.getByText('Effects', { exact: true }).click();
 	const addEffect = panel.getByRole('button', { name: 'Add effect', exact: true });
 	await expect(addEffect).toBeEnabled();
 	await expect(name).toBeEnabled();
+	await expect(invert).toBeEnabled();
 	await name.fill('Programme');
 	await name.press('Enter');
 	await expect(clipByName(editor, 'Programme')).toBeVisible();

@@ -8,6 +8,7 @@ import { extractJob, readWorkflow } from './helpers/workflow-jobs.js';
 const SOURCE_MAP_ARTIFACTS = Object.freeze([
 	['verified-site-source-maps', '.wrangler/browser-products/soundscaper-source-maps'],
 	['verified-framescaper-site-source-maps', '.wrangler/browser-products/framescaper-source-maps'],
+	['verified-lightscaper-site-source-maps', '.wrangler/browser-products/lightscaper-source-maps'],
 ]);
 
 test('only Chromium coverage jobs download the authenticated product source maps', async () => {
@@ -26,7 +27,9 @@ test('only Chromium coverage jobs download the authenticated product source maps
 test('the producer publishes prepared Soundscaper bytes and consumers authenticate them unchanged', async () => {
 	const workflow = await readWorkflow('quality.yml');
 	const producer = extractJob(workflow, 'build');
-	assert.ok(producer.indexOf('run: npm run prepare:browser:products') > producer.indexOf('run: npm run build:browser:framescaper'));
+	for (const product of ['framescaper', 'lightscaper']) {
+		assert.ok(producer.indexOf('run: npm run prepare:browser:products') > producer.indexOf(`run: npm run build:browser:${product}`));
+	}
 	assert.match(producer, /name: verified-soundscaper-browser-site-build\n\s+path: \.wrangler\/browser-products\/soundscaper\/\n\s+include-hidden-files: true/u);
 	for (const name of ['browser', 'firefox']) {
 		const job = extractJob(workflow, name);

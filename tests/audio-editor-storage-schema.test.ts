@@ -35,6 +35,10 @@ import {
 	MEDIA_ASSET_STAGING_TOKEN_INDEX_NAME,
 } from '../src/common/editor/storage/media-asset-staging-schema.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import {
+	CATALOG_ORIGINAL_ASSET_INDEX_NAME, CATALOG_ORIGINAL_ROOT_STORE_NAME,
+	CATALOG_ORIGINAL_SCOPE_INDEX_NAME, MEDIA_ASSET_SHA256_INDEX_NAME,
+} from '../src/common/editor/storage/media-catalog-original-schema.ts';
 
 interface InstrumentedIndexedDB {
 	readonly stats: { readonly activeTransactions: number };
@@ -165,7 +169,10 @@ function assertCurrentSchema(
 		sourceChunks: { keyPath: 'key', indexes: ['sourceToken'] },
 		mediaAssets: {
 			keyPath: 'sourceId',
-			indexes: [MEDIA_ASSET_TOKEN_REFERENCE_INDEX_NAME, BINARY_PATH_REFERENCE_INDEX_NAME],
+			indexes: [MEDIA_ASSET_TOKEN_REFERENCE_INDEX_NAME, BINARY_PATH_REFERENCE_INDEX_NAME, MEDIA_ASSET_SHA256_INDEX_NAME],
+		},
+		[CATALOG_ORIGINAL_ROOT_STORE_NAME]: {
+			keyPath: 'key', indexes: [CATALOG_ORIGINAL_ASSET_INDEX_NAME, CATALOG_ORIGINAL_SCOPE_INDEX_NAME],
 		},
 		[MEDIA_ASSET_CHUNK_STORE_NAME]: { keyPath: 'key', indexes: [MEDIA_ASSET_CHUNK_TOKEN_INDEX_NAME] },
 		[MEDIA_ASSET_STAGING_STORE_NAME]: {

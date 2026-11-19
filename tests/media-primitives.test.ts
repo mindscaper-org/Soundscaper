@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createDigest, digestBytes, bytesStream, hashingStream, hex } from '../src/common/media/bytes.ts';
-import { request, transact, MAX_INDEXEDDB_CURSOR_PAGE_SIZE } from '../src/common/media/indexeddb.ts';
+import { request, transact, transactionCompletion, MAX_INDEXEDDB_CURSOR_PAGE_SIZE } from '../src/common/media/indexeddb.ts';
 
 void test('media byte streams snapshot their input and hash the exact streamed bytes', async () => {
 	const input = new Uint8Array([97, 98, 99]);
@@ -53,4 +53,21 @@ void test('generic transactions await commit and preserve an operation failure o
 	await assert.rejects(transact(database, 'records', 'readwrite', () => { throw failure; }), error => error === failure);
 	assert.equal(aborted, true);
 	assert.equal(MAX_INDEXEDDB_CURSOR_PAGE_SIZE, 64);
+});
+
+void test('generic transaction completion joins native completion after a handled request error', async () => {
+	const transaction = {} as IDBTransaction;
+	let settled = false;
+	const outcome = transactionCompletion(transaction).then(() => {
+		settled = true;
+		return 'committed';
+	}, () => {
+		settled = true;
+		return 'aborted';
+	});
+	transaction.onerror?.call(transaction, {} as Event);
+	await Promise.resolve();
+	assert.equal(settled, false);
+	transaction.oncomplete?.call(transaction, {} as Event);
+	assert.equal(await outcome, 'committed');
 });

@@ -41,7 +41,7 @@ for (const backend of ['indexeddb', 'opfs'] as const) {
 		}
 	});
 
-	test(`${backend} expired PCM staging is reclaimable and cannot publish after cleanup`, async () => {
+	test(`${backend} expired PCM staging cannot publish and ${backend === 'opfs' ? 'retains its path until owned retirement' : 'is reclaimable after cleanup'}`, async () => {
 		const fixture = await sharedStores(`cross-context-pcm-expiry-${backend}`, backend);
 		const writer = await fixture.first.beginSourceWrite('expired-pcm', {
 			sampleRate: 48_000, channelCount: 1, chunkFrames: 1,
@@ -61,8 +61,15 @@ for (const backend of ['indexeddb', 'opfs'] as const) {
 		try {
 			await fixture.second.cleanupTemporaryAssets({ maximumAgeMs: 0 });
 			assert.equal(fixture.indexedDB.recordCount(fixture.databaseName, 'sourceChunks'), 0);
-			assert.equal(fixture.files.size, 0);
+			if (backend === 'opfs') {
+				assert.equal(fixture.files.size, 1, 'expiry alone cannot prove an unbound physical path is retired');
+				assert.deepEqual(fixture.indexedDB.records(fixture.databaseName, MEDIA_ASSET_STAGING_STORE_NAME)
+					.find(row => row.key === lease.key), { ...lease, expiresAt: 0 }, 'another store retains the exact failed-path evidence');
+			} else assert.equal(fixture.files.size, 0);
 			await assert.rejects(writer.commit(), /staging lease|storage maintenance|invalidated/iu);
+			assert.equal(fixture.files.size, 0, 'the owning writer joins its actual aborted path before refusing commit');
+			assert.equal(fixture.indexedDB.records(fixture.databaseName, MEDIA_ASSET_STAGING_STORE_NAME)
+				.some(row => row.key === lease.key), false, 'only joined owning cleanup retires its lease');
 			assert.equal(await fixture.first.getSourceMetadata('expired-pcm'), null);
 		} finally {
 			await writer.abort();
@@ -168,7 +175,7 @@ for (const backend of ['indexeddb', 'opfs'] as const) {
 		}
 	});
 
-	test(`${backend} cleanup reclaims expired crashed media staging`, async () => {
+	test(`${backend} cleanup ${backend === 'opfs' ? 'retains expired media paths until owning retirement' : 'reclaims expired crashed media staging'}`, async () => {
 		const fixture = await sharedStores(`cross-context-expired-${backend}`, backend);
 		const bytes = backend === 'indexeddb'
 			? new Uint8Array(MEDIA_ASSET_STREAM_CHUNK_BYTES + 1).fill(0x52)
@@ -200,12 +207,18 @@ for (const backend of ['indexeddb', 'opfs'] as const) {
 			await fixture.second.cleanupTemporaryAssets({ maximumAgeMs: 0 });
 			assert.equal(
 				fixture.indexedDB.recordCount(fixture.databaseName, MEDIA_ASSET_STAGING_STORE_NAME),
-				1,
+				backend === 'opfs' ? 2 : 1,
 			);
 			if (backend === 'indexeddb') {
 				assert.equal(fixture.indexedDB.recordCount(fixture.databaseName, 'mediaAssetChunks'), 0);
-			} else assert.equal(fixture.files.size, 0);
+			} else {
+				assert.equal(fixture.files.size, 1, 'a foreign cleanup cannot erase unproved path ownership');
+				assert.deepEqual(fixture.indexedDB.records(fixture.databaseName, MEDIA_ASSET_STAGING_STORE_NAME)
+					.find(row => row.key === lease.key), { ...lease, expiresAt: 0 });
+			}
 			await assert.rejects(writer.commit(), /staging lease|storage maintenance|invalidated/iu);
+			assert.equal(fixture.files.size, 0, 'the actual writer reclaims its stage before its refusal settles');
+			assert.equal(fixture.indexedDB.recordCount(fixture.databaseName, MEDIA_ASSET_STAGING_STORE_NAME), 1);
 		} finally {
 			await writer.abort();
 			await closeStores(fixture);

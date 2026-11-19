@@ -41,15 +41,25 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(page.locator('.website-brand img')).toBeVisible();
 		await expect(page.locator('.website-sidebar-nav img').first()).toHaveAttribute('src', '/logo/soundscaper.svg');
 		await expect(page.locator('.website-sidebar-nav img').nth(1)).toHaveAttribute('src', '/logo/framescaper.svg');
+		await expect(page.locator('.website-sidebar-nav img').nth(2)).toHaveAttribute('src', '/logo/lightscaper.svg');
 		const joinUs = page.getByRole('link', { name: 'Join us', exact: true });
 		await expect(joinUs).toBeVisible();
 		await expect(joinUs).toHaveAttribute('href', 'https://mindscaper.org/');
 		await expect(joinUs.locator('img')).toHaveAttribute('src', '/logo/mindscaper.svg');
-		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(3);
+		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(4);
 		await expect.poll(() => page.locator('.website-sidebar-nav img').nth(1)
 			.evaluate((image) => image.complete ? image.naturalWidth : 0)).toBeGreaterThan(0);
+		await expect.poll(() => page.locator('.website-sidebar-nav img').nth(2)
+			.evaluate((image) => image.complete ? image.naturalWidth : 0)).toBeGreaterThan(0);
 		await expect(page.getByRole('link', { name: 'Audio editor', exact: true })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Video editor', exact: true })).toBeVisible();
+		const productMenu = page.locator('[data-sidebar] [data-product-menu]');
+		await expect(productMenu.getByRole('link', { name: 'Video editor', exact: true })).toBeHidden();
+		await productMenu.locator(':scope > summary').click();
+		await expect(productMenu.getByRole('link', { name: 'Video editor', exact: true })).toBeVisible();
+		await expect(productMenu.getByRole('link', { name: 'Video editor', exact: true })).toHaveAttribute('href', 'https://framescaper.org/en/');
+		await expect(productMenu.getByRole('link', { name: 'Photo editor', exact: true })).toBeVisible();
+		await expect(productMenu.getByRole('link', { name: 'Photo editor', exact: true })).toHaveAttribute('href', 'https://lightscaper.org/en/');
+		await productMenu.locator(':scope > summary').click();
 		await expect(page.getByRole('link', { name: 'Framescaper', exact: true })).toHaveCount(0);
 		await expect(page.locator('.website-sidebar-nav img').first()).toBeVisible();
 		await expect(page.getByRole('link', { name: 'More Mindscaper tools' })).toHaveCount(0);
@@ -121,8 +131,17 @@ test.describe('audio editor React/design-system workflows', () => {
 		await expect(page.locator('.website-brand img')).toBeVisible();
 		await expect(page.locator('.website-sidebar-nav img').first()).toHaveAttribute('src', '/logo/framescaper.svg');
 		await expect(page.locator('.website-sidebar-nav img').nth(1)).toHaveAttribute('src', '/logo/soundscaper.svg');
+		await expect(page.locator('.website-sidebar-nav img').nth(2)).toHaveAttribute('src', '/logo/lightscaper.svg');
+		await expect(page.locator('.website-sidebar-nav img')).toHaveCount(4);
 		await expect(page.getByRole('link', { name: 'Video editor', exact: true })).toBeVisible();
-		await expect(page.getByRole('link', { name: 'Audio editor', exact: true })).toBeVisible();
+		const productMenu = page.locator('[data-sidebar] [data-product-menu]');
+		await expect(productMenu.getByRole('link', { name: 'Audio editor', exact: true })).toBeHidden();
+		await productMenu.locator(':scope > summary').click();
+		await expect(productMenu.getByRole('link', { name: 'Audio editor', exact: true })).toBeVisible();
+		await expect(productMenu.getByRole('link', { name: 'Audio editor', exact: true })).toHaveAttribute('href', 'https://soundscaper.org/en/');
+		await expect(productMenu.getByRole('link', { name: 'Photo editor', exact: true })).toBeVisible();
+		await expect(productMenu.getByRole('link', { name: 'Photo editor', exact: true })).toHaveAttribute('href', 'https://lightscaper.org/en/');
+		await productMenu.locator(':scope > summary').click();
 		await expect(page.getByRole('link', { name: 'Soundscaper', exact: true })).toHaveCount(0);
 		await expect(editor.locator('.kw-audio-editor__application-mark')).toHaveAttribute('src', '/logo/framescaper.svg');
 		const workspaceSelect = page.locator('[data-sidebar] [data-workspace-select]');
@@ -215,6 +234,8 @@ test.describe('audio editor React/design-system workflows', () => {
 		await clipMenu.getByRole('menuitem', { name: 'Clip properties', exact: true }).click();
 		const clipDialog = editor.locator('[data-workspace-panel="clip-properties"]');
 		await expect(clipDialog).toBeVisible();
+		await expect(clipDialog.locator('[data-upstream-clip-properties]')).toBeFocused();
+		await clipDialog.getByRole('textbox', { name: 'Clip name', exact: true }).click();
 		await expect(clipDialog.getByRole('textbox', { name: 'Clip name', exact: true })).toBeFocused();
 		await closeClipProperties(clipDialog);
 		expect(errors).toEqual([]);

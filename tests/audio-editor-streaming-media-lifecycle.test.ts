@@ -11,6 +11,8 @@ import {
 } from '../src/common/editor/storage/media-asset-staging-schema.ts';
 import { MEDIA_ASSET_STREAM_CHUNK_BYTES } from '../src/common/editor/storage/media-asset-write-repository.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { closedMediaAssetPathLease } from '../src/common/editor/storage/media-asset-path-staging.ts';
+import { cleanlyFallingBackOpfs } from './helpers/media-clean-opfs-fallback-fixture.ts';
 
 test('temporary cleanup preserves a suspended chunk writer until it aborts', async () => {
 	const store = memoryStore('stream-lifecycle-cleanup-chunks');
@@ -194,7 +196,7 @@ test('clear reports failed cleanup for a streamed writer cancelled before begin 
 	}
 });
 
-test('clear reports failed lease release during clean OPFS fallback', async () => {
+test('clear preserves failed fallback path ownership until native reconciliation proves absence', async () => {
 	const databaseName = uniqueDatabaseName('stream-lifecycle-fallback-release-failure');
 	const indexedDB = createInstrumentedIndexedDB();
 	const opfs = cleanlyFallingBackOpfs();
@@ -210,39 +212,44 @@ test('clear reports failed lease release during clean OPFS fallback', async () =
 		expectedSha256: digest(Uint8Array.of(1)),
 	});
 	void beginning.catch(() => undefined);
-	await opfs.writerOpenStarted;
-
-	const releaseError = new Error('Planned fallback lease release failure.');
-	indexedDB.failNextDeleteForStore(MEDIA_ASSET_STAGING_STORE_NAME, releaseError);
 	let clearing: Promise<void> | null = null;
-	let markClearStarted: (() => void) | undefined;
-	const clearStarted = new Promise<void>((resolve) => { markClearStarted = resolve; });
-	indexedDB.onNextGetForStore(MEDIA_ASSET_STAGING_STORE_NAME, () => {
-		clearing = store.clear();
-		markClearStarted?.();
-	});
-	opfs.releaseWriterOpen();
-	await clearStarted;
-	assert.ok(clearing);
-	const [beginResult, clearResult] = await Promise.allSettled([beginning, clearing]);
+	try {
+		await opfs.writerOpenStarted;
 
-	assert.equal(beginResult?.status, 'rejected');
-	if (beginResult?.status === 'rejected') {
-		assert.equal(nestedErrorContains(beginResult.reason, releaseError), true);
-	}
-	assert.equal(clearResult?.status, 'rejected', 'maintenance must surface failed fallback lease cleanup');
-	if (clearResult?.status === 'rejected') {
-		assert.equal(nestedErrorContains(clearResult.reason, releaseError), true);
-	}
-	assert.equal(
-		indexedDB.recordCount(databaseName, MEDIA_ASSET_STAGING_STORE_NAME) > 1,
-		true,
-		'the failed release must leave its durable lease visible',
-	);
+		const releaseError = new Error('Planned fallback lease release failure.');
+		indexedDB.failNextDeleteForStore(MEDIA_ASSET_STAGING_STORE_NAME, releaseError);
+		let markClearStarted: (() => void) | undefined;
+		const clearStarted = new Promise<void>((resolve) => { markClearStarted = resolve; });
+		indexedDB.onNextGetForStore(MEDIA_ASSET_STAGING_STORE_NAME, () => {
+			clearing = store.clear();
+			markClearStarted?.();
+		});
+		opfs.releaseWriterOpen();
+		await clearStarted;
+		assert.ok(clearing);
+		const [beginResult, clearResult] = await Promise.allSettled([beginning, clearing]);
 
-	await store.clear();
-	assert.equal(indexedDB.recordCount(databaseName, MEDIA_ASSET_STAGING_STORE_NAME), 1);
-	await store.close();
+		assert.equal(beginResult?.status, 'rejected');
+		if (beginResult?.status === 'rejected') {
+			assert.equal(nestedErrorContains(beginResult.reason, releaseError), true);
+		}
+		assert.equal(clearResult?.status, 'rejected', 'maintenance must surface failed fallback lease cleanup');
+		if (clearResult?.status === 'rejected') {
+			assert.equal(nestedErrorContains(clearResult.reason, releaseError), true);
+		}
+		const pathLeases = () => indexedDB.records(databaseName, MEDIA_ASSET_STAGING_STORE_NAME).flatMap((value: unknown) =>
+			value && typeof value === 'object' && 'path' in value ? [closedMediaAssetPathLease(value)] : []);
+		const failedPaths = pathLeases();
+		assert.equal(failedPaths.length, 1, 'the exact failed release must retain its path lease');
+		assert.equal(opfs.files.size, 0, 'clean writer fallback already removed the model file');
+		await store.clear();
+		assert.deepEqual(pathLeases(), failedPaths, 'clear must not erase a path without native namespace proof');
+		assert.equal(indexedDB.recordCount(databaseName, MEDIA_ASSET_STAGING_STORE_NAME), failedPaths.length + 1);
+	} finally {
+		opfs.releaseWriterOpen();
+		await Promise.allSettled([beginning, clearing]);
+		await store.close();
+	}
 });
 
 for (const operation of ['delete', 'prune'] as const) {
@@ -279,24 +286,23 @@ for (const operation of ['delete', 'prune'] as const) {
 }
 
 test('delete cannot cross-delete an OPFS file through a corrupted media path', async () => {
-	const opfs = fakeOpfs();
-	const store = createProjectStore({
-		indexedDB: null,
-		databaseName: uniqueDatabaseName('stream-lifecycle-path-delete'),
-		preferOpfs: true,
-		opfsRoot: opfs.directory,
-	});
-	const bytes = Uint8Array.of(3, 5, 7);
-	await store.writeMediaAsset('path-owner', new Blob([bytes]));
-	const owner = structuredClone(store.memory.mediaAssets.get('path-owner')) as Record<string, unknown>;
-	store.memory.mediaAssets.set('path-attacker', { ...owner, sourceId: 'path-attacker' });
-
-	await store.deleteMediaAsset('path-attacker');
-	assert.deepEqual(
-		new Uint8Array(await (await requiredMedia(store, 'path-owner')).arrayBuffer()),
-		bytes,
-	);
-	assert.equal(opfs.files.size, 1);
+	const opfs = fakeOpfs(), indexedDB = createInstrumentedIndexedDB();
+	const databaseName = uniqueDatabaseName('stream-lifecycle-path-delete');
+	const store = createProjectStore({ indexedDB, memoryFallback: false, databaseName, preferOpfs: true, opfsRoot: opfs.directory });
+	try {
+		const bytes = Uint8Array.of(3, 5, 7);
+		const writer = await store.beginMediaAssetWrite('path-owner', {}, { expectedBytes: bytes.byteLength, expectedSha256: digest(bytes) });
+		await writer.write(bytes);
+		assert.equal((await writer.commit()).storage, 'opfs', 'the owner must actually publish the model OPFS path');
+		const owner: unknown = indexedDB.records(databaseName, 'mediaAssets')[0];
+		assert.ok(owner && typeof owner === 'object' && 'path' in owner && typeof owner.path === 'string');
+		assert.equal(opfs.files.has(owner.path), true);
+		indexedDB.seedRecord(databaseName, 'mediaAssets', { ...owner, sourceId: 'path-attacker' });
+		await store.deleteMediaAsset('path-attacker');
+		assert.deepEqual(new Uint8Array(await (await requiredMedia(store, 'path-owner')).arrayBuffer()), bytes);
+		assert.equal(opfs.files.has(owner.path), true);
+		assert.equal(opfs.files.size, 1);
+	} finally { await store.close(); }
 });
 
 test('delete cannot cross-delete an active OPFS staging path through corrupted metadata', async () => {
@@ -493,43 +499,6 @@ function transientlyFailingPreReturnOpfs() {
 	};
 }
 
-function cleanlyFallingBackOpfs() {
-	const files = new Map<string, Blob>();
-	let markWriterOpenStarted: (() => void) | undefined;
-	let releaseWriterOpen: (() => void) | undefined;
-	const writerOpenStarted = new Promise<void>((resolve) => { markWriterOpenStarted = resolve; });
-	const writerOpenRelease = new Promise<void>((resolve) => { releaseWriterOpen = resolve; });
-	const directory = {
-		async getDirectoryHandle() { return directory; },
-		async getFileHandle(path: string, options: Readonly<{ create?: boolean }> = {}) {
-			if (!files.has(path) && !options.create) throw new DOMException('missing', 'NotFoundError');
-			if (!files.has(path)) files.set(path, new Blob());
-			return {
-				async createWritable(): Promise<never> {
-					markWriterOpenStarted?.();
-					await writerOpenRelease;
-					throw new Error('OPFS writer creation fell back cleanly.');
-				},
-				async getFile() {
-					const file = files.get(path);
-					if (!file) throw new DOMException('missing', 'NotFoundError');
-					return file;
-				},
-			};
-		},
-		async removeEntry(path: string) {
-			if (!files.delete(path)) throw new DOMException('missing', 'NotFoundError');
-		},
-		async *entries() {
-			for (const path of files.keys()) yield [path, await directory.getFileHandle(path)];
-		},
-	};
-	return {
-		directory: directory as unknown as FileSystemDirectoryHandle,
-		writerOpenStarted,
-		releaseWriterOpen: () => { releaseWriterOpen?.(); },
-	};
-}
 
 function uniqueDatabaseName(prefix: string): string {
 	return `${prefix}-${Date.now()}-${Math.random()}`;

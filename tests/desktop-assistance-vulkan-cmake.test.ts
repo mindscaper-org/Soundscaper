@@ -10,7 +10,14 @@ import { promisify } from 'node:util';
 
 import { patchGgmlVulkanShaderGenerator } from '../scripts/lib/desktop-assistance-vulkan-companion.mjs';
 
+import { runDesktopAssistanceBuildCommand } from '../scripts/lib/desktop-assistance-build-process.mjs';
+
 const runFile = promisify(execFile);
+// The hosted Windows configure commands hit the former 30s fixture bound; use
+// Sherpa's existing finite allowance without changing build or probe budgets.
+const configure = (args: string[]) => runDesktopAssistanceBuildCommand('cmake', args, {
+	label: 'Vulkan shader fixture configure', timeout: process.platform === 'win32' ? 120_000 : 30_000, maxBuffer: 1024 * 1024,
+});
 
 for (const host of ['x64', 'ARM64']) test(`Vulkan's ${host} shader generator configures independently of the engine target`, async context => {
 	const root = await mkdtemp(join(tmpdir(), 'vulkan cmake '));
@@ -37,11 +44,11 @@ include(ExternalProject)
         INSTALL_COMMAND ""
     )
 `));
-	await runFile('cmake', ['-S', source, '-B', build,
+	await configure(['-S', source, '-B', build,
 		// Cross the parent target to ensure the child uses the requested host.
 		...(process.platform === 'win32' ? ['-A', host === 'x64' ? 'ARM64' : 'x64'] : []),
 		`-DGGML_VULKAN_SHADERS_GEN_PLATFORM=${host}`,
-	], { timeout: 30_000 });
+	]);
 	const cache = await readFile(join(build, 'CMakeCache.txt'), 'utf8');
 	const generator = /^CMAKE_GENERATOR:INTERNAL=(.+)$/mu.exec(cache)?.[1]?.trim();
 	assert.ok(generator);

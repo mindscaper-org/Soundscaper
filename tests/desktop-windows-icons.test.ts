@@ -14,7 +14,7 @@ test('Windows packaging uses a prepared ICO containing each product raster witho
 	const root = await mkdtemp(join(tmpdir(), 'scape-windows-icons-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const sizes = [16, 24, 32, 48, 64, 96, 128, 256];
-	for (const product of ['soundscaper', 'framescaper']) {
+	for (const product of ['soundscaper', 'framescaper', 'lightscaper']) {
 		await generateDesktopIcon({
 			sourcePath: resolve(import.meta.dirname, `../public/logo/${product}.svg`),
 			outputPath: join(root, 'icon.png'),

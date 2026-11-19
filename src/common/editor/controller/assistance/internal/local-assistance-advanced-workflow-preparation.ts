@@ -34,6 +34,9 @@ import { deriveLocalAssistanceReviewAuthority } from '../local-assistance-review
 import { LocalAssistanceAdvancedContextUnavailableError } from
 	'./local-assistance-advanced-selected-context.ts';
 import { assertSlottedCustodyClaim } from './local-assistance-slotted-custody-claim.ts';
+import {
+	PROJECT_SCHEMA_VERSION, isTimelineProjectSchemaFamily, readProjectSchemaIdentity,
+} from '../../../project-schema-identity.ts';
 import { createLocalAssistancePreparedAudioScope } from './audio/local-assistance-prepared-audio-scope.ts';
 
 export interface LocalAssistanceAdvancedWorkflowPreparationRequest {
@@ -102,6 +105,10 @@ export function createLocalAssistanceAdvancedWorkflowPreparation(
 			request.operation, request.models, request.models.map(({ modelId }) => modelId), mode,
 		);
 		if (selectedModels === null) return unavailable('model-binding-unavailable');
+		const identity = readProjectSchemaIdentity(dependencies.getProject());
+		if (!isTimelineProjectSchemaFamily(identity.schemaFamily) || identity.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+			return unavailable('source-custody-unavailable');
+		}
 		const token = dependencies.captureProject();
 		const audioScope = createLocalAssistancePreparedAudioScope();
 		try {

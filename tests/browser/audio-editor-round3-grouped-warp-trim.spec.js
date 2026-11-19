@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { createWavFixture, expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
-import { expectClipTimeFrames } from './audio-editor-clip-timing-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction, clipByName, clipField, importFiles, openClipProperties, showClipTimingFields } from './audio-editor-test-helpers.js';
+import { persistedProject } from './helpers/complex-editing-workflows.js';
 
 test('a grouped keyboard trim resolves an editable boundary on every participating recording', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
+	const projectId = await editor.getAttribute('data-project-id');
 	const plain = createWavFixture({ name: 'plain-recording.wav', frequency: 440, duration: 1, channelCount: 1 });
 	const warped = createWavFixture({ name: 'aligned-recording.wav', frequency: 440, duration: 1, channelCount: 1 });
 	await importFiles(editor, [plain, warped]);
@@ -34,6 +35,11 @@ test('a grouped keyboard trim resolves an editable boundary on every participati
 		const properties = await openClipProperties(page, editor, clipByName(editor, fixture.name));
 		await expect(editor.locator('.clip-display[data-selected="true"]')).toHaveCount(1);
 		await showClipTimingFields(properties);
-		await expectClipTimeFrames(properties, 'durationFrame', 43_201);
+		const clipId = await properties.locator('[data-clip-properties-active-clip]').getAttribute('data-clip-properties-active-clip');
+		await expect.poll(async () => (await persistedProject(page, projectId))?.clips.find(clip => clip.id === clipId)?.durationFrames).toBe(43_201);
+		expect((await persistedProject(page, projectId)).sampleRate).toBe(48_000);
+		const duration = clipField(properties, 'durationFrame');
+		await duration.focus();
+		await expect(duration).toHaveValue(String(43_201 / 48_000));
 	}
 });

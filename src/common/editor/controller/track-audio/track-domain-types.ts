@@ -27,7 +27,7 @@ export interface ControllerClip extends Readonly<Record<string, unknown>> {
 	readonly effectsActive?: boolean;
 }
 
-export interface ControllerSource extends Readonly<Record<string, unknown>> {
+interface ControllerSourceFields extends Readonly<Record<string, unknown>> {
 	readonly id: string;
 	readonly storageKey: string;
 	readonly name: string;
@@ -38,11 +38,14 @@ export interface ControllerSource extends Readonly<Record<string, unknown>> {
 	readonly originalSampleRate: number;
 	readonly sampleFormat?: string;
 	readonly chunkFrames?: number;
+}
+
+export interface ControllerSource extends ControllerSourceFields {
 	readonly provenance?: SourceProvenanceV1;
 }
 
 /** Media inventory includes visual sources; PCM consumers narrow through findControllerSource. */
-export interface ControllerSourceInventory extends Partial<ControllerSource> {
+export interface ControllerSourceInventory extends Partial<ControllerSourceFields> {
 	readonly id: string;
 	readonly kind?: unknown;
 }

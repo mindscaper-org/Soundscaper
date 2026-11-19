@@ -13,7 +13,11 @@ test('the opted-in translator inventories every optional surface and retains its
 	assert.equal(await loadCommunityTranslationInventory(), inventory);
 	const keys = ['ui.freesoundAttribution.panel', 'ui.audiocom.searchLabel', 'ui.nyquistBundled.highpass.control.FREQUENCY.label', 'ui.acxCompliance.title'];
 	// Every lazy owner must participate even when the key names evolve.
-	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'acxCompliance']) {
+	for (const owner of ['freesoundAttribution', 'audiocom', 'nyquistBundled', 'acxCompliance', 'photoDebugSoak', 'photoLinked', 'photoBackend',
+		'photoRawPreviewSource', 'photoBatchExportMenu', 'photoBatchExport', 'photoJpegExport', 'photoDevelopSoftProof',
+		'photoDevelopPreviewRenderer', 'photoRasterProfile', 'photoPngExport', 'photoExportPresets', 'imageExportGraphic',
+		'imageExportText', 'imageHdrMerge', 'photoFramescaperHandoff', 'photoFramescaperReceive',
+		'photoFramescaperCollectionHandoff', 'photoFramescaperHandoffMenu']) {
 		const key = Object.keys(inventory.english).find(key => key.startsWith(`ui.${owner}.`));
 		assert.ok(key);
 		assert.equal(inventory.metadata[key]?.owner, owner);

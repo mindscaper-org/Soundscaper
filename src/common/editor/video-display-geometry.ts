@@ -81,20 +81,19 @@ export function resolveVideoDisplayGeometry(
 			});
 		}
 	}
-	// Some decoders stretch the already rotated raster horizontally. Accept its
-	// exact raster size only, after the ordinary rotation/aspect cases above.
-	if (quarterTurn && anamorphic && height === codedWidth) {
-		const stretch = aspectNum / aspectDen;
-		const displayHeight = Math.max(1, Math.round(codedWidth * stretch));
-		if (width === Math.max(1, Math.round(codedHeight * stretch))
-			&& displayHeight <= VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION) {
+	// Some decoders stretch the presented horizontal axis after applying the
+	// quarter turn. Undo that stretch and move it to the coded width's new axis.
+	// Keep this last: an existing explanation wins when the ratios are ambiguous.
+	if (quarterTurn && anamorphic) {
+		const expectedWidth = codedHeight * aspectNum, expectedHeight = codedWidth * aspectDen;
+		if (expectedWidth * height === expectedHeight * width
+			|| matchesRoundedAspect(expectedWidth, expectedHeight, width, height)) {
+			const residualScaleX = aspectDen / aspectNum, residualScaleY = aspectNum / aspectDen;
 			return Object.freeze({
 				reconciliation: 'residual',
-				displayWidth: codedHeight,
-				displayHeight,
-				residualRotationDegrees: 0,
-				residualScaleX: codedHeight / width,
-				residualScaleY: displayHeight / height,
+				displayWidth: Math.max(1, Math.round(width * residualScaleX)),
+				displayHeight: Math.max(1, Math.round(height * residualScaleY)),
+				residualRotationDegrees: 0, residualScaleX, residualScaleY,
 			});
 		}
 	}

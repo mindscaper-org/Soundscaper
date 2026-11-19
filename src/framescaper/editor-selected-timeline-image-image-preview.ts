@@ -1,9 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
+import {
+	createFramescaperImagePreviewPrefetchTimelineImage,
+	disposeFramescaperImagePreviewFramesTimelineImage,
+	openFramescaperImagePreviewFramesTimelineImage,
+	type FramescaperImagePreviewFramesTimelineImage,
+} from './editor-selected-timeline-image-image-preview-frames.ts';
 import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigation.ts';
 import { registerVideoPreviewDrawableRevision } from '../common/editor/controller/clip-video/video-preview-frame-identity.ts';
 import type { AudioEditorProjectStore } from '../common/editor/storage.js';
-import { createFramescaperImageTimelineTickMapperV1 } from '../common/editor/timeline-image-model.ts';
+import { createTimelineImageResourcePreviewV16, requiresTimelineImageResourcePreviewV16 } from './editor-selected-timeline-image-resource-preview-v16.ts';
+import type { FramescaperSelectedOpenFxExecutionNativeMedia } from './selected-native-media-openfx-exact-planes.ts';
+import { createDefaultInheritedSession, createDefaultInheritedThumbnail } from './timeline-image-native-preview-companions.ts';
+import { composeTimelineImagePreviewSession, rejectAfterInheritedPreviewRetirement } from './editor-selected-timeline-image-image-preview-session.ts';
 import type {
 	ProductVideoVisualPreviewCreateRequest,
 	ProductVideoVisualPreviewFrame,
@@ -19,8 +29,6 @@ import { createFramescaperImageClipIndex } from './editor-timeline-image-clip-in
 import {
 	fitFramescaperImagePreviewSizeTimelineImage,
 	framescaperImageSourceForClipTimelineImage,
-	openFramescaperStoredImageFramePackTimelineImage,
-	scaleFramescaperImageRgbaTimelineImage,
 	throwIfFramescaperImagePreviewAbortedTimelineImage,
 	type FramescaperImageClipV1,
 } from './editor-selected-timeline-image-image-frame-source.ts';
@@ -32,18 +40,11 @@ import {
 	type FramescaperImagePreviewResourceContextTimelineImage,
 } from './editor-selected-timeline-image-image-preview-resources.ts';
 import {
-	createFramescaperImagePreviewPrefetchTimelineImage,
-	disposeFramescaperImagePreviewFramesTimelineImage,
-	openFramescaperImagePreviewFramesTimelineImage,
-	type FramescaperImagePreviewFramesTimelineImage,
-} from './editor-selected-timeline-image-image-preview-frames.ts';
-import { FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE } from './editor-domain-runtime-profile.ts';
-import { framescaperProjectFinishingFoundationShapeNativeMedia } from './editor-project-native-media-foundation.ts';
-import { framescaperProjectNativeMediaFoundationShapeTimelineImage } from './editor-project-timeline-image-foundation.ts';
-import {
 	cloneFramescaperProjectTimelineImage,
 	type FramescaperProjectTimelineImage,
 } from './editor-project-timeline-image.ts';
+
+import { materializeFramescaperCurrentImageThumbnail } from './timeline-image-current-frame-source.ts';
 
 type Data = Readonly<Record<string, unknown>>;
 
@@ -79,6 +80,8 @@ export interface FramescaperSelectedVisualPreviewOptionsTimelineImage
 	readonly profile: unknown;
 	readonly store: AudioEditorProjectStore;
 	readonly signal?: AbortSignal;
+	readonly openFxExecute?: FramescaperSelectedOpenFxExecutionNativeMedia['execute'];
+	readonly assertCurrentV16?: () => void;
 	readonly createImageDrawable?: CreateFramescaperImagePreviewDrawableTimelineImage;
 	readonly createInheritedSession?: CreateFramescaperInheritedVisualPreviewSessionTimelineImage;
 	readonly cloneProject?: (profile: unknown, project: unknown) => FramescaperProjectTimelineImage;
@@ -109,6 +112,7 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 	options: FramescaperSelectedVisualPreviewOptionsTimelineImage,
 ): Promise<ProductVideoVisualPreviewSession | null> {
 	const project = admittedProject(options?.profile, options?.project, options?.cloneProject);
+	if (requiresTimelineImageResourcePreviewV16(project)) return createTimelineImageResourcePreviewV16(options, project);
 	const canvas = previewCanvas(options?.width, options?.height, options?.fit);
 	throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
 	const sequence = project.sequences.find(({ id }) => id === project.primarySequenceId);
@@ -120,9 +124,9 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		return { source: planned.source, width: planned.width, height: planned.height };
 	}));
 	const inheritedFactory = options.createInheritedSession ?? ((request) => (
-		createDefaultInheritedSession(request, options.store)
+		createDefaultInheritedSession(request, options.store, options.openFxExecute)
 	));
-	const inheritedPromise = Promise.resolve().then(() => inheritedFactory({ project, ...canvas }));
+	const inheritedPromise = Promise.resolve().then(() => inheritedFactory({ project, ...canvas, signal: options.signal }));
 	const imagePromise = openFramescaperImagePreviewFramesTimelineImage(
 		options.store, [...plannedSources.values()], options.signal,
 	);
@@ -130,6 +134,8 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		inheritedPromise, imagePromise,
 	]);
 	if (inheritedResult.status === 'rejected' && imageResult.status === 'rejected') {
+		if (options.signal?.aborted && Object.is(inheritedResult.reason, options.signal.reason)
+			&& Object.is(inheritedResult.reason, imageResult.reason)) throw inheritedResult.reason;
 		throw new AggregateError(
 			[inheritedResult.reason, imageResult.reason],
 			'The timelineImage inherited and image preview routes both failed.',
@@ -140,8 +146,8 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 		throw inheritedResult.reason;
 	}
 	if (imageResult.status === 'rejected') {
-		disposeInheritedSession(inheritedResult.value);
-		throw imageResult.reason;
+		return rejectAfterInheritedPreviewRetirement(imageResult.reason, inheritedResult.value,
+			() => { disposeInheritedSession(inheritedResult.value); });
 	}
 	const inherited = inheritedResult.value;
 	const loaded = imageResult.value;
@@ -165,58 +171,27 @@ export async function createFramescaperSelectedVisualPreviewSessionTimelineImage
 	} catch (error) {
 		disposeClipDrawables(clips);
 		disposeFramescaperImagePreviewFramesTimelineImage(loaded);
-		disposeInheritedSession(inherited);
-		throw error;
+		return rejectAfterInheritedPreviewRetirement(error, inherited,
+			() => { disposeInheritedSession(inherited); });
 	}
 	if (inherited === null && clips.length === 0) return null;
-	let disposed = false;
-	const schedulePrefetch = createFramescaperImagePreviewPrefetchTimelineImage();
 	const clipsAt = createFramescaperImageClipIndex(clips);
-	const imageFrame = (timelineSampleValue: number): ProductVideoVisualPreviewFrame => {
-		if (disposed) throw new Error('The selected timelineImage image preview session is disposed.');
-		throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
-		const frame = sequenceFrameAtSample(timelinePosition(timelineSampleValue), sequence.rate, project.sampleRate);
-		return resolveImageFrame(clipsAt, frame, canvas, schedulePrefetch);
-	};
-	const resolve = (timelineSample: number): ProductVideoVisualPreviewFrame => {
-		try {
-			return mergePreviewFrames(inherited?.resolve(timelinePosition(timelineSample)) ?? emptyFrame(), imageFrame(timelineSample));
-		} catch (error) {
-			schedulePrefetch();
-			throw error;
-		}
-	};
-	// Active images require the layered compositor because the exact session omits their tracks.
-	const renderExact = inherited?.renderExact;
-	return Object.freeze({
-		resolve,
-		resolveTransitionWeight(clipId: string, timelineSample: number): number | null {
-			if (disposed) throw new Error('The selected timelineImage image preview session is disposed.');
-			return inherited?.resolveTransitionWeight(
-				stableId(clipId, 'timelineImage transition clip ID'), timelinePosition(timelineSample),
-			) ?? null;
+	const schedulePrefetch = createFramescaperImagePreviewPrefetchTimelineImage();
+	return composeTimelineImagePreviewSession({
+		inherited, hasImages: clips.length !== 0,
+		imageFrame(sample) {
+			throwIfFramescaperImagePreviewAbortedTimelineImage(options.signal);
+			const frame = sequenceFrameAtSample(sample, sequence.rate, project.sampleRate);
+			return resolveImageFrame(clipsAt, frame, canvas, schedulePrefetch);
 		},
-		...(renderExact ? { async renderExact(request: Readonly<{
-			readonly timelineSample: number;
-			readonly mediaLayers: readonly unknown[];
-		}>) {
-			const sample = timelinePosition(request.timelineSample);
-			const images = imageFrame(sample);
-			if (images.layers.length) throw new Error('Active images require layered preview.');
-			const result = await renderExact.call(inherited, {
-				timelineSample: sample,
-				mediaLayers: request.mediaLayers,
-			});
-			return Object.freeze({ ...result, frame: mergePreviewFrames(result.frame, images) });
-		} } : {}),
-		dispose(): void {
-			if (disposed) return;
-			disposed = true;
+		emptyFrame, mergeFrames: mergePreviewFrames, timelinePosition,
+		clipId: (id) => stableId(id, 'timelineImage transition clip ID'),
+		disposeImages() {
 			schedulePrefetch();
 			disposeClipDrawables(clips);
 			disposeFramescaperImagePreviewFramesTimelineImage(loaded);
-			disposeInheritedSession(inherited);
 		},
+		disposeInherited: () => { disposeInheritedSession(inherited); },
 	});
 }
 
@@ -237,19 +212,8 @@ export async function createFramescaperSelectedProjectBinThumbnailTimelineImage(
 	const width = positiveDimension(options.width, 'timelineImage Project Bin thumbnail width');
 	const height = positiveDimension(options.height, 'timelineImage Project Bin thumbnail height');
 	admitFramescaperImageProjectBinThumbnailResourcesTimelineImage(source, width, height);
-	const reader = await openFramescaperStoredImageFramePackTimelineImage(
-		options.store, source, options.signal,
-		(byteLength) => { assertFramescaperImagePreviewReaderMetadataTimelineImage(source, byteLength); },
-	);
-	const frameIndex = reader.frameIndexAtTicks(BigInt(clip.sourceStartTicks));
-	const rgba = await reader.readFrame(frameIndex, options.signal);
-	let pixels: Uint8Array<ArrayBuffer>;
-	try {
-		pixels = scaleFramescaperImageRgbaTimelineImage(
-			rgba, source.canonical.width, source.canonical.height,
-			width, height, options.signal,
-		);
-	} finally { rgba.fill(0); }
+	const pixels = await materializeFramescaperCurrentImageThumbnail(options.store, source, BigInt(clip.sourceStartTicks), width, height, options.signal,
+		(byteLength) => { assertFramescaperImagePreviewReaderMetadataTimelineImage(source, byteLength); });
 	return Object.freeze({
 		clipId,
 		sourceId: source.id,
@@ -405,36 +369,6 @@ function emptyFrame(): ProductVideoVisualPreviewFrame {
 		layers: Object.freeze([]), adjustments: Object.freeze([]),
 		activeFreezeNodeIds: empty, availablePresetIds: empty,
 		ledger: Object.freeze({ requestedNodeIds: empty, consumedNodeIds: empty, omittedNodeIds: empty }),
-	});
-}
-
-async function createDefaultInheritedSession(
-	request: ProductVideoVisualPreviewCreateRequest,
-	store: AudioEditorProjectStore,
-): Promise<ProductVideoVisualPreviewSession | null> {
-	const module = await import('./editor-selected-finishing-visual-preview.ts');
-	return module.createFramescaperSelectedVisualPreviewSessionFinishing({
-		...request,
-		project: framescaperProjectFinishingFoundationShapeNativeMedia(
-			framescaperProjectNativeMediaFoundationShapeTimelineImage(request.project),
-		),
-		profile: FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE,
-		store,
-	});
-}
-
-async function createDefaultInheritedThumbnail(
-	request: ProductVideoVisualProjectBinThumbnailRequest,
-	store: AudioEditorProjectStore,
-): Promise<ProductVideoVisualProjectBinThumbnail | null> {
-	const module = await import('./editor-selected-finishing-visual-preview.ts');
-	return module.createFramescaperSelectedProjectBinThumbnailFinishing({
-		...request,
-		project: framescaperProjectFinishingFoundationShapeNativeMedia(
-			framescaperProjectNativeMediaFoundationShapeTimelineImage(request.project),
-		),
-		profile: FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE,
-		store,
 	});
 }
 

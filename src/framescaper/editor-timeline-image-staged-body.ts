@@ -8,7 +8,7 @@ export const FRAMESCAPER_TIMELINE_IMAGE_BODY_KIND_TIMELINE_IMAGE = 'timeline-ima
 export const FRAMESCAPER_TIMELINE_IMAGE_BODY_ENCODING_TIMELINE_IMAGE = FRAMESCAPER_IMAGE_ASSET_ENCODING;
 
 /** Check the exact staged image row inside its owning publication transaction. */
-export function requireStagedTimelineImageBody(value: unknown, source: FramescaperImageSourceV1): StorageRecord {
+export function requireStagedTimelineImageBody(value: unknown, source: Pick<FramescaperImageSourceV1, 'storageKey' | 'mimeType' | 'assetByteLength' | 'contentSha256'>): StorageRecord {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new TypeError('timelineImage staged image body must be an object.');
 	}

@@ -7,11 +7,10 @@ import {
 	FRAMESCAPER_IMAGE_FRAME_PACK_MAXIMUM_CHUNK_BYTES,
 	FRAMESCAPER_IMAGE_FRAME_PACK_MAXIMUM_RECEIPT_BYTES,
 } from '../common/editor/timeline-image-frame-pack-v1.ts';
-import {
-	normalizeFramescaperImageSourceV1,
-	type FramescaperImageSourceV1,
-} from '../common/editor/timeline-image-model.ts';
-import { FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE } from './editor-selected-timeline-image-image-frame-source.ts';
+import { normalizeFramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
+import { FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_FITTED_PIXELS_TIMELINE_IMAGE, type FramescaperCurrentImageSourceTimelineImage } from './editor-selected-timeline-image-image-frame-source.ts';
+import { framescaperEditableImageWorkingBytes } from './timeline-image-current-frame-source.ts';
+import { FRAMESCAPER_RAW_IMAGE_WORKING_BYTES_CURRENT_V1 } from './internal/timeline-image-raw-working-plan-current-v1.ts';
 
 /** timelineImage image-route ceiling; inherited finishing media keeps independent resource ownership. */
 export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_WORKING_BYTES_TIMELINE_IMAGE = 512 * 1024 * 1024;
@@ -20,7 +19,7 @@ export const FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_CONTEXTS_TIMELINE_IMAGE = 4_096;
 export const FRAMESCAPER_IMAGE_PREVIEW_CACHE_FRAMES_PER_SOURCE_TIMELINE_IMAGE = 2;
 
 export interface FramescaperImagePreviewResourceContextTimelineImage {
-	readonly source: FramescaperImageSourceV1;
+	readonly source: FramescaperCurrentImageSourceTimelineImage;
 	readonly width: number;
 	readonly height: number;
 }
@@ -67,7 +66,7 @@ export function admitFramescaperImageTimelinePreviewResourcesTimelineImage(
 
 /** Admit one Project Bin output plus the reader's worst simultaneous decode. */
 export function admitFramescaperImageProjectBinThumbnailResourcesTimelineImage(
-	sourceValue: FramescaperImageSourceV1,
+	sourceValue: FramescaperCurrentImageSourceTimelineImage,
 	width: number,
 	height: number,
 ): FramescaperImagePreviewResourceBudgetTimelineImage {
@@ -103,10 +102,10 @@ export function admitFramescaperImageTimelineFilmstripResourcesTimelineImage(
 
 /** Bind an authenticated reader's exact estimate to its conservative preflight reservation. */
 export function assertFramescaperImagePreviewReaderMetadataTimelineImage(
-	sourceValue: FramescaperImageSourceV1,
+	sourceValue: FramescaperCurrentImageSourceTimelineImage,
 	byteLength: number,
 ): void {
-	const source = normalizeFramescaperImageSourceV1(sourceValue);
+	const source = normalizeFramescaperImageSourceCurrentV1(sourceValue);
 	if (!Number.isSafeInteger(byteLength) || byteLength < 0
 		|| byteLength > conservativeReaderMetadataBytes(source)) {
 		throw new RangeError(`timelineImage image reader ${source.id} exceeds its preflight metadata reservation.`);
@@ -134,7 +133,7 @@ function contextsAndSources(
 		throw new RangeError(`timelineImage image ${route} exceeds its context count bound.`);
 	}
 	const contexts = values.map((value) => Object.freeze({
-		source: normalizeFramescaperImageSourceV1(value?.source),
+		source: normalizeFramescaperImageSourceCurrentV1(value?.source),
 		width: dimension(value?.width, `timelineImage image ${route} width`),
 		height: dimension(value?.height, `timelineImage image ${route} height`),
 	}));
@@ -166,7 +165,7 @@ function admit(
 		snapshotBytes += assetBytes;
 		readerMetadataBytes += BigInt(conservativeReaderMetadataBytes(source));
 		maximumAssetBytes = maximumBigInt(maximumAssetBytes, assetBytes);
-		maximumRawFrameBytes = maximumBigInt(maximumRawFrameBytes, rawFrameBytes(source) + 1n);
+		maximumRawFrameBytes = maximumBigInt(maximumRawFrameBytes, rawFrameBytes(source) + 1n + framescaperEditableImageWorkingBytes(source));
 	}
 	const transientRangeBytes = maximumAssetBytes === 0n ? 0n
 		: maximumAssetBytes + minimumBigInt(
@@ -176,8 +175,10 @@ function admit(
 		+ resources.retainedFrameBytes + resources.drawableBackingBytes
 		+ resources.requestOutputBytes + resources.uniqueFrameCacheBytes
 		+ transientRangeBytes + maximumRawFrameBytes + resources.transientScaledFrameBytes;
-	if (totalBytes > BigInt(FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_WORKING_BYTES_TIMELINE_IMAGE)) {
-		throw new RangeError(`timelineImage image ${route} exceeds its 512 MiB working byte bound.`);
+	const nativeRaw = [...admitted.sources.values()].some(context => context.source.schemaVersion === 4 || context.source.schemaVersion === 5);
+	const maximum = nativeRaw ? FRAMESCAPER_RAW_IMAGE_WORKING_BYTES_CURRENT_V1 : FRAMESCAPER_IMAGE_PREVIEW_MAXIMUM_WORKING_BYTES_TIMELINE_IMAGE;
+	if (totalBytes > BigInt(maximum)) {
+		throw new RangeError(`timelineImage image ${route} exceeds its ${nativeRaw ? '1 GiB' : '512 MiB'} working byte bound.`);
 	}
 	return Object.freeze({
 		sourceCount: admitted.sources.size,
@@ -195,7 +196,7 @@ function admit(
 	});
 }
 
-function conservativeReaderMetadataBytes(source: FramescaperImageSourceV1): number {
+function conservativeReaderMetadataBytes(source: FramescaperCurrentImageSourceTimelineImage): number {
 	const indexBytes = source.canonical.frameCount * FRAMESCAPER_IMAGE_FRAME_PACK_INDEX_BYTES;
 	const fixedBytes = FRAMESCAPER_IMAGE_FRAME_PACK_HEADER_BYTES
 		+ source.original.byteLength + indexBytes + source.canonical.frameCount;
@@ -209,7 +210,7 @@ function conservativeReaderMetadataBytes(source: FramescaperImageSourceV1): numb
 	);
 }
 
-function rawFrameBytes(source: FramescaperImageSourceV1): bigint {
+function rawFrameBytes(source: FramescaperCurrentImageSourceTimelineImage): bigint {
 	return BigInt(source.canonical.width) * BigInt(source.canonical.height) * 4n;
 }
 

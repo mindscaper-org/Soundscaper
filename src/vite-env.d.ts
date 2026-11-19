@@ -10,6 +10,6 @@ declare module 'js-synthesizer/externals/libfluidsynth-2.4.6.js' {
 	export default runtime;
 }
 
-declare const __SCAPE_PRODUCT__: 'soundscaper' | 'framescaper';
+declare const __SCAPE_PRODUCT__: 'soundscaper' | 'framescaper' | 'lightscaper';
 declare const __SCAPE_VERSION__: string;
 declare const __SCAPE_DESKTOP_RENDERER__: boolean;

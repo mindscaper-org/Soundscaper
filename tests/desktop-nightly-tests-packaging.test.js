@@ -149,7 +149,7 @@ test('nightly-with-tests enables RunAsNode without weakening the other desktop f
 test('the production package keeps RunAsNode disabled and excludes the nightly payload', async () => {
 	const [configSource, fuseSource, mainSource] = await Promise.all([
 		readFile(resolve(ROOT, 'electron-builder.config.cjs'), 'utf8'),
-		readFile(resolve(ROOT, 'scripts/desktop-after-pack.mjs'), 'utf8'),
+		readFile(resolve(ROOT, 'scripts/lib/desktop-electron-fuses-current-v1.ts'), 'utf8'),
 		readFile(resolve(ROOT, 'desktop/main.mjs'), 'utf8'),
 	]);
 

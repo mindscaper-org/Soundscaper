@@ -2,8 +2,8 @@
 
 import {
 	normalizeFramescaperImageClipV1,
-	normalizeFramescaperImageSourceV1,
 } from '../common/editor/timeline-image-model.ts';
+import { normalizeFramescaperImageSourceCurrentV1 } from '../common/editor/timeline-image-model-current-v1.ts';
 import { rebindFramescaperSourceIdentitiesFinishing } from './editor-project-finishing-source-rebind.ts';
 import { projectString } from '../common/editor/project-validation-primitives.ts';
 
@@ -18,7 +18,7 @@ export function rebindFramescaperSourceIdentitiesTimelineImage(
 		if (source.kind !== 'image') return source;
 		const before = stableId(source.id, 'timelineImage image source ID');
 		const after = sourceIdMap.get(before) ?? before;
-		return normalizeFramescaperImageSourceV1({
+		return normalizeFramescaperImageSourceCurrentV1({
 			...source,
 			id: after,
 			storageKey: after,

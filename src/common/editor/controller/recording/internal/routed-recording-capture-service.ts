@@ -21,6 +21,7 @@ import { acquireRecordingHardwareInput } from './recording-hardware-admission.ts
 import { audibleRecordingStartTime, planRecordingStartTiming } from './recording-start-timing.ts';
 import { recordingSourceAlignment } from './recording-source-alignment.ts';
 import { assertRecordingTargetsUnlocked } from '../../../recording-target-admission.ts';
+import { isRecordingCaptureAbort, recordingCaptureFailure, type RecordingCaptureOutcome } from './recording-start-ownership.ts';
 import { observeMediaInputInterruption } from '../../shared/media-input-interruption.ts';
 import { RecordingInputLossError } from '../../../recording-input-events.ts';
 import type {
@@ -31,9 +32,6 @@ import type {
 	RoutedRecordingEntry,
 	RoutedRecordingSourceSession,
 } from '../recording-transaction-types.ts';
-function errorName(error: unknown): string | undefined {
-	return (error as Readonly<{ name?: string }> | null)?.name;
-}
 
 function hasController(
 	session: RoutedRecordingSourceSession,
@@ -48,7 +46,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 	async function capture(
 		options: RecordingStartOptions = {},
 		scope: RecordingStartScope,
-	): Promise<void> {
+	): Promise<RecordingCaptureOutcome> {
 		const project = runtime.getProject();
 		const timedStartTimeMs = Number(options.timedStartTimeMs);
 		const timedStart = Number.isFinite(timedStartTimeMs);
@@ -401,7 +399,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 					scope.assertCurrent();
 					if (!runtime.recordingStreamIsLive(session.stream, session.kind)) disconnectSession(session);
 				} catch (error) {
-					if (errorName(error) === 'AbortError') throw error;
+					if (isRecordingCaptureAbort(error)) throw error;
 					sourceFailures.push(error);
 					session.failed = true;
 					const health = runtime.recordingStreamIsLive(session.stream, session.kind)
@@ -506,7 +504,7 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				runtime.updateTransportState('recording');
 			}
 		} catch (error) {
-			const handedOff = Boolean(!ownsGeneration() && routedRecorder && state.recorder === routedRecorder);
+			const handedOff = Boolean(routedRecorder && (scope.isHandedOff?.(routedRecorder) || !ownsGeneration() && state.recorder === routedRecorder));
 			if (isCurrent()) {
 				runtime.engine.pause();
 				state.recordingCleanup?.();
@@ -534,14 +532,14 @@ export function createRoutedRecordingCaptureService(runtime: RoutedRecordingCapt
 				runtime.releaseUnretainedRecordingInputs();
 				runtime.syncRecordingPoolSnapshot();
 			} else if (ownsGeneration()) runtime.releaseUnretainedRecordingInputs();
-			if (errorName(error) === 'AbortError') return;
-			throw error;
+			return recordingCaptureFailure(error, handedOff, scope);
 		} finally {
 			if (isCurrent()) {
 				state.recordingStarting = false;
 				runtime.publishDocumentSnapshot();
 			}
 		}
+		return 'recording';
 	}
 
 	return Object.freeze({ capture });

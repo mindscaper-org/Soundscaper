@@ -19,7 +19,20 @@ interface Crossing { readonly x: number; readonly winding: number }
 /** Rasterize admitted cubic contours at pixel centres, with one bounded crossing walk per row. */
 export function rasterizeCubicMaskPaths(
 	paths: readonly CubicMaskPath[], fillRule: 'nonzero' | 'even-odd', width: number, height: number,
+	output = new Uint8Array(width * height),
 ): Uint8Array<ArrayBuffer> {
+	const work = rasterizeCubicMaskPathsWork(paths, fillRule, width, height, output);
+	let next = work.next();
+	while (!next.done) next = work.next();
+	return next.value;
+}
+
+/** The scoped mask owner supplies its admitted plane and yields between row spans. */
+export function* rasterizeCubicMaskPathsWork(
+	paths: readonly CubicMaskPath[], fillRule: 'nonzero' | 'even-odd', width: number, height: number,
+	output: Uint8Array<ArrayBuffer>,
+): Generator<void, Uint8Array<ArrayBuffer>, void> {
+	if (output.length !== width * height) throw new RangeError('Mask path output does not match its dimensions.');
 	const edges = paths.flatMap(path => path.points.map((start, index) => {
 		const end = path.points[(index + 1) % path.points.length]!;
 		// Filling an open path closes it with a line, without connecting unused handles.
@@ -29,7 +42,7 @@ export function rasterizeCubicMaskPaths(
 			closing ? end.position : end.inHandle ?? end.position, end.position];
 		return { points, cuts: monotoneCuts(points[0].y, points[1].y, points[2].y, points[3].y) };
 	}));
-	const output = new Uint8Array(width * height);
+	const rowsPerSpan = Math.max(1, Math.floor(65_536 / width));
 	for (let y = 0; y < height; y++) {
 		const py = (y + 0.5) / height;
 		const crossings: Crossing[] = [];
@@ -44,6 +57,7 @@ export function rasterizeCubicMaskPaths(
 			}
 			output[y * width + x] = (fillRule === 'even-odd' ? Math.abs(winding) % 2 === 1 : winding !== 0) ? 255 : 0;
 		}
+		if ((y + 1) % rowsPerSpan === 0 && y + 1 < height) yield;
 	}
 	return output;
 }

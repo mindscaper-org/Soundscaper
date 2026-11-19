@@ -5,6 +5,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { renderVideoEffectReference } from '../scripts/lib/docs-reference/video-effects.mjs';
+import { VIDEO_EFFECT_DEFINITIONS } from '../src/common/editor/video-effects.js';
 
 import { SOUNDSCAPER_GUIDE_GROUPS, SOUNDSCAPER_GUIDES } from '../handbook/guides/soundscaper.mjs';
 import { SOUNDSCAPER_TUTORIALS } from '../handbook/guides/tutorials.mjs';
@@ -246,6 +248,71 @@ test('capability reference renders product-owned families and a reviewed feature
 	assert.match(rendered, /disabled capability can still be preserved/u);
 	assert.match(rendered, /\[Export formats\]\(\/reference\/generated\/formats\/\)/u);
 	assert.doesNotMatch(rendered, /\d{4}-\d{2}-\d{2}T\d{2}:/u);
+});
+
+for (const photoDevelop of [false, true]) test(`photo catalog capability prose follows Develop activation=${String(photoDevelop)}`, () => {
+	const lightscaper = {
+		id: 'lightscaper', name: 'Lightscaper', projectFileExtension: '.liscape',
+		importChoices: ['photos'], exportChoices: [],
+		capabilities: { photoLibrarySurface: true, photoCatalog: true, photoDevelop, photoExport: false, photoRaw: false },
+	};
+	const rendered = renderCapabilityReference({ products: [...products, lightscaper] });
+	assert.match(rendered, /\| Lightscaper \| Photos \| None \|/u);
+	assert.match(rendered, /preserves original bytes/u);
+	if (photoDevelop) {
+		assert.match(rendered, /\| Photo develop \| Not enabled \| Not enabled \| Enabled \|/u);
+		assert.match(rendered, /Develop is available through File > Photo > Develop for the selected photo/u);
+		assert.doesNotMatch(rendered, /Develop[^.]*remain(?:s)? planned/u);
+		assert.match(rendered, /Photo export and raw decoding remain planned\./u);
+	} else {
+		assert.match(rendered, /Develop, (?:photo )?export, and raw decoding remain planned\./u);
+		assert.doesNotMatch(rendered, /Develop is available/u);
+	}
+});
+
+for (const [photoExport, photoRaw] of [[true, false], [false, true], [true, true]]) {
+	test(`photo export and RAW prose follow their independent runtime flags export=${String(photoExport)} raw=${String(photoRaw)}`, () => {
+		const lightscaper = {
+			id: 'lightscaper', name: 'Lightscaper', projectFileExtension: '.liscape',
+			importChoices: ['photos'], exportChoices: photoExport ? ['photos', 'scape'] : [],
+			capabilities: { photoLibrarySurface: true, photoCatalog: true, photoDevelop: true, photoExport, photoRaw },
+		};
+		const draft = {
+			id: 'photo-draft', name: 'Photo draft', projectFileExtension: '.draft',
+			importChoices: ['photos'], exportChoices: [],
+			capabilities: { photoLibrarySurface: true, photoCatalog: true, photoDevelop: false, photoExport: false, photoRaw: false },
+		};
+		const rendered = renderCapabilityReference({ products: [...products, lightscaper, draft] });
+		assert.match(rendered, photoExport ? /\| Lightscaper \| Photos \| Photos, \.liscape \|/u : /\| Lightscaper \| Photos \| None \|/u);
+		assert.match(rendered, /Raster import admits static 8-bit sRGB photos and preserves original bytes/u);
+		if (photoExport) {
+			assert.match(rendered, /\| Photo export \| Not enabled \| Not enabled \| Enabled \| Not enabled \|/u);
+			assert.match(rendered, /Photo export is enabled for Lightscaper: PNG and JPEG output support sizing, metadata, sidecars and batch workflows\./u);
+			assert.doesNotMatch(rendered, /Photo export[^.]*remain(?:s)? planned/u);
+		} else {
+			assert.match(rendered, /Photo export remains planned\./u);
+			assert.doesNotMatch(rendered, /Photo export is enabled/u);
+		}
+		if (photoRaw) {
+			assert.match(rendered, /\| Raw photo decoding \| Not enabled \| Not enabled \| Enabled \| Not enabled \|/u);
+			assert.match(rendered, /RAW photo decoding is enabled for Lightscaper when a verified browser or native LibRaw decoder runtime is available\./u);
+			assert.match(rendered, /Enabling the profile does not publish runtime assets\./u);
+			assert.doesNotMatch(rendered, /Raw decoding[^.]*remain(?:s)? planned/u);
+		} else {
+			assert.match(rendered, /Raw decoding remains planned\./u);
+			assert.doesNotMatch(rendered, /RAW photo decoding is enabled/u);
+		}
+		assert.doesNotMatch(rendered, /(?:Photo export|RAW photo decoding) is enabled for (?:Lightscaper and )?Photo draft/u);
+	});
+}
+
+test('owning curve reference explains structured coordinate bounds beside unchanged numeric defaults', () => {
+	const rendered = renderVideoEffectReference({ products, definitions: VIDEO_EFFECT_DEFINITIONS });
+	assert.match(rendered, /Point curves.*`point-curves-v1`.*4/u);
+	assert.match(rendered, /Parametric curves.*`parametric-curves-v1`.*19/u);
+	assert.match(rendered, /\(0, 0\); \(1, 1\)/u);
+	assert.match(rendered, /2–32 points; input\/output 0–1; strictly increasing inputs, endpoints 0 and 1/u);
+	assert.match(rendered, /Brightness.*0.*-1/u);
 });
 
 test('capability reference rejects a product family with no declared suffix', () => {

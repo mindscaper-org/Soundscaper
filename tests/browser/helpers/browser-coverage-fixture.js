@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { test as base } from '@playwright/test';
+import { test as base } from './browser-context-fixture.ts';
+import { createBrowserCoverageObserverInstallation } from '../../../scripts/lib/browser-coverage-observer-installation.mjs';
+import { browserCoverageObserverPaths } from '../../../scripts/lib/browser-coverage-observer-routes.mjs';
+export { installLightscaperGpuObserverRoute } from '../../../scripts/lib/browser-coverage-observer-installation.mjs';
 
 import {
 	collectsBrowserCoverage,
@@ -37,24 +40,16 @@ export const test = base.extend({
 	// pay for it.
 	browserCoverage: [true, { option: true }],
 	context: async ({ context, browserName, browserCoverage }, use, testInfo) => {
-		if (!browserCoverage || !collectsBrowserCoverage(browserName)) {
-			await use(context);
-			return;
-		}
-		const collector = createBrowserCoverageCollector({
-			browserName,
-			scripts,
-			sites: browserProductSites(),
-		});
-		collectors.set(context, collector);
-		// Popups and reciprocal-origin windows open their own pages, so the whole
-		// context is instrumented rather than the one page the test starts with.
-		collector.attach(context);
+		const observer = createBrowserCoverageObserverInstallation({ context, testFile: testInfo.file,
+			origin: browserCoverageObserverPaths(testInfo.file).length ? browserProductSites().find(site => site.productId === 'lightscaper').origin : '' });
 		try {
-			await use(context);
-		} finally {
-			await collector.collect(testInfo.titlePath.join(' '), writtenSourceMaps);
-		}
+			if (!browserCoverage || !collectsBrowserCoverage(browserName)) { await use(context); return; }
+			const collector = createBrowserCoverageCollector({ browserName, scripts, sites: browserProductSites(), observerOwner: observer.owner });
+			collectors.set(context, collector);
+			collector.attach(context);
+			try { await use(context); }
+			finally { await collector.collect(testInfo.titlePath.join(' '), writtenSourceMaps, testInfo); }
+		} finally { observer.close(); }
 	},
 	page: async ({ page, browserName }, use, testInfo) => {
 		// Playwright opened this page while the context fixture was still setting

@@ -49,6 +49,49 @@ test('product release metadata records each product software status', async () =
 	assert.deepEqual(inventory.products.framescaper.release, {
 		softwareStatus: 'pre-release',
 	});
+	assert.deepEqual(inventory.products.lightscaper.release, {
+		softwareStatus: 'pre-release', channel: 'deferred',
+		candidateVersion: '0.1.0-beta.1', stableTarget: null,
+	});
+});
+
+test('Lightscaper runtime tiers record partial availability and their own implemented boundaries', async () => {
+	const inventory = JSON.parse(await readFile(inventoryUrl, 'utf8'));
+	const photo = inventory.products.lightscaper;
+	assert.deepEqual(photo.exportFamilies, ['photos', 'scape']);
+	assert.equal(photo.projectFeatures.photoExport, true);
+	assert.equal(photo.projectFeatures.photoRaw, true);
+	assert.equal(photo.projectFeatures.project, false, 'the catalog archive family does not enable timeline project authoring');
+	for (const [tierName, paths] of Object.entries({
+		'web-core': [
+			'src/lightscaper/photo-library-session-runtime-current-v1.ts',
+			'tests/browser/lightscaper-photo-raster-export-matrix-current.spec.ts',
+			'tests/browser/lightscaper-raw-import-current.spec.js',
+		],
+		'web-enhanced': [
+			'src/lightscaper/storage/photo-media-store.ts',
+			'src/lightscaper/photo-develop-gpu-preview-current-v1.ts',
+			'tests/browser/lightscaper-managed-fallback-ui-current.spec.ts',
+			'tests/browser/lightscaper-develop-gpu-preview-current.spec.js',
+		],
+		'electron-enhanced': [
+			'desktop/lightscaper-native-photo-session-service-current-v1.ts',
+			'src/lightscaper/desktop-photo-library-session-runtime-current-v1.ts',
+			'desktop/lightscaper-native-photo-raw-current-v1.ts',
+			'tests/lightscaper-desktop-native-session-runtime-current.test.ts',
+			'scripts/lightscaper-desktop-native-qualification-current-v1.ts',
+		],
+		'electron-only': [
+			'desktop/lightscaper-native-photo-granted-filesystem-current-v1.ts',
+			'src/lightscaper/desktop-photo-linked-library-current-v1.ts',
+			'tests/lightscaper-native-granted-filesystem-current.test.ts',
+			'tests/lightscaper-native-linked-workflow-commands-current.test.tsx',
+		],
+	})) {
+		const tier = photo.platforms[tierName];
+		assert.equal(tier.status, 'partial', `${tierName} availability remains conditional`);
+		for (const path of paths) assert.ok(tier.evidence.includes(path), `${tierName} is missing ${path}`);
+	}
 });
 
 test('production capability inventory records browser and desktop QA targets', async () => {

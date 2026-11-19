@@ -24,7 +24,8 @@ for (const [key, inherited] of [['id3Artwork', false], ['id3Artwork', true], ['I
 		const snapshot = controller.getSnapshot();
 		assert.ok(snapshot.project);
 		const projectMetadata = snapshot.project.metadata;
-		assert.ok(projectMetadata && typeof projectMetadata === 'object');
+		assert.ok(projectMetadata === undefined || projectMetadata !== null && typeof projectMetadata === 'object' && !Array.isArray(projectMetadata),
+			'The project fixture metadata must be absent or an object.');
 		const inputProject = inherited ? { ...snapshot.project, metadata: { ...projectMetadata,
 			tags: { id3Artwork: artwork('Inherited cover') } } } : snapshot.project;
 		let request: Readonly<Record<string, unknown>> | null = null;

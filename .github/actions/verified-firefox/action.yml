@@ -1,5 +1,5 @@
 name: Verified Playwright Firefox
-description: Reuse the pinned engine bytes while installing fresh host dependencies.
+description: Reuse pinned engine bytes after bounded host and audio dependency verification.
 inputs:
   scope:
     description: Runner image identity.
@@ -7,9 +7,9 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install fresh Firefox host dependencies
+    - name: Verify and install bounded Firefox host and audio dependencies
       shell: bash
-      run: npx playwright install-deps firefox
+      run: node scripts/ci-firefox-host-dependencies.ts
     - name: Resolve pinned Firefox identity and engine path
       id: identity
       shell: bash

@@ -133,7 +133,7 @@ test('an in-flight IndexedDB quota rejection rolls the publication back to the r
 
 	await assert.rejects(
 		store.saveProject(replacement),
-		/IndexedDB transaction/u,
+		(error: unknown) => error === exhaustion,
 	);
 	assert.deepEqual(await store.loadProject(retained.id), retained);
 	assert.deepEqual(

@@ -1,6 +1,6 @@
-import { visualAuthoringBoundFailure } from './editor-selected-visual-validation.ts';
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { boundedVisualAuthoringValue as bounded } from './editor-selected-visual-validation.ts';
 import { exportSequenceProject } from '../common/editor/export-sequence-project.ts';
 import { derivedVideoVisualSourceName } from '../common/editor/video-visual-source-name.ts';
 import {
@@ -19,6 +19,7 @@ import { sequenceFrameAtSample } from '../common/editor/sequence-frame-navigatio
 import { createVideoFreezeFallbackV1 } from '../common/editor/video-freeze-v24.ts';
 import { resolveFramescaperSelectedFreezePictureFinishing } from './editor-selected-finishing-freeze-ordinal.ts';
 import { authorSelectedMaskShape } from '../common/editor/selected-mask-shape-authoring.ts';
+import { normalizeVideoMaskMatteGraphV1 } from '../common/editor/video-mask-matte-v24.ts';
 import { normalizeVideoVisualPresetV1 } from '../common/editor/video-visual-preset-v24.ts';
 import {
 	instantiateVideoFinishingPresetV1,
@@ -27,6 +28,7 @@ import {
 } from '../common/editor/video-visual-presentation-v27.ts';
 import {
 	assertFramescaperSelectedVisualAuthoringFenceFinishing,
+	createFramescaperMaskNodeFinishing,
 	createFramescaperSelectedVisualAuthoringModelFinishing,
 	type FramescaperSelectedVisualAuthoringFenceFinishing,
 	type FramescaperSelectedVisualAuthoringSurfaceFinishing,
@@ -70,6 +72,10 @@ export interface FramescaperSelectedVisualAuthoringRequestFinishing {
 	readonly shape?: string;
 	readonly width?: number;
 	readonly height?: number;
+	readonly startX?: number; readonly startY?: number; readonly endX?: number; readonly endY?: number;
+	readonly centerX?: number; readonly centerY?: number; readonly radiusX?: number; readonly radiusY?: number; readonly innerFraction?: number;
+	readonly lower?: number; readonly upper?: number; readonly falloff?: number;
+	readonly red?: number; readonly green?: number; readonly blue?: number; readonly radius?: number;
 	readonly presetId?: string | null;
 	readonly name?: string;
 	readonly playheadSample?: number;
@@ -159,36 +165,31 @@ function maskCommand(project: Data, request: Data): unknown {
 			throw new Error('The selected mask attachment is stale. Reopen the dialog.');
 		}
 		const mask = requireById(records(project.videoMaskMattes, 'video masks'), requestedMaskId, 'selected mask');
-		const presentation = normalizeVideoVisualPresentationV1({
-			...currentPresentation,
-			maskMatteIds: currentPresentation.maskMatteIds.filter((id) => id !== requestedMaskId),
-		});
+		const presentation = normalizeVideoVisualPresentationV1({ ...currentPresentation,
+			maskMatteIds: currentPresentation.maskMatteIds.filter((id) => id !== requestedMaskId) });
 		const referencedElsewhere = records(project.videoVisualPresentations, 'visual presentations')
 			.some((value) => value.id !== currentPresentation.id && Array.isArray(value.maskMatteIds)
 				&& value.maskMatteIds.includes(requestedMaskId));
-		return batch([
-			presentationSet(currentPresentation, presentation),
-			...(referencedElsewhere ? [] : [{
-				type: 'video-mask-matte/set', maskMatteId: requestedMaskId,
-				expectedMaskMatte: mask, maskMatte: null,
-			}]),
+		return batch([presentationSet(currentPresentation, presentation),
+			...(referencedElsewhere ? [] : [{ type: 'video-mask-matte/set', maskMatteId: requestedMaskId,
+				expectedMaskMatte: mask, maskMatte: null }]),
 		]);
 	}
 	const maskId = requestedMaskId ?? createStableId('mask-matte');
-	const currentMask = requestedMaskId === null ? null
-		: requireById(records(project.videoMaskMattes, 'video masks'), maskId, 'selected mask');
-	const shape = oneOf(request.shape, ['rectangle', 'ellipse', 'line'] as const, 'mask shape');
-	const width = bounded(request.width, 0.01, 1, 'mask width');
-	const height = bounded(request.height, 0.01, 1, 'mask height');
-	const mask = authorSelectedMaskShape({ maskId, current: currentMask,
-		nodeId: () => createStableId('mask-node'), shape, width, height });
+	const currentMask = requestedMaskId === null ? null : normalizeVideoMaskMatteGraphV1(requireById(records(project.videoMaskMattes, 'video masks'), maskId, 'selected mask'));
+	const output = currentMask?.nodes.find(node => node.id === currentMask.outputNodeId);
+	if (currentMask && !['vector-shape', 'linear-gradient', 'radial-gradient', 'luminance-range', 'color-range'].includes(output?.kind ?? '')) throw new Error('The selected mask graph is not editable by the selected mask editor.');
+	const nodeId = currentMask?.outputNodeId ?? createStableId('mask-node'), node = createFramescaperMaskNodeFinishing(request, nodeId);
+	const mask = node.kind === 'vector-shape' && (!currentMask || output?.kind === 'vector-shape')
+		? authorSelectedMaskShape({ maskId, current: currentMask, nodeId: () => nodeId, shape: node.shape, width: node.width, height: node.height })
+		: normalizeVideoMaskMatteGraphV1(currentMask
+			? { ...currentMask, nodes: currentMask.nodes.map(value => value.id === nodeId ? node : value) }
+			: { schemaVersion: 1, id: maskId, kind: 'mask', inputs: [], nodes: [node], outputNodeId: nodeId });
 	const presentation = currentPresentation
-		? normalizeVideoVisualPresentationV1({ ...currentPresentation,
-			maskMatteIds: [...new Set([...currentPresentation.maskMatteIds, maskId])] })
+		? normalizeVideoVisualPresentationV1({ ...currentPresentation, maskMatteIds: [...new Set([...currentPresentation.maskMatteIds, maskId])] })
 		: defaultPresentation(stableId(clip.id, 'selected clip ID'), [maskId]);
 	return batch([
-		{ type: 'video-mask-matte/set', maskMatteId: maskId,
-			expectedMaskMatte: currentMask, maskMatte: mask },
+		{ type: 'video-mask-matte/set', maskMatteId: maskId, expectedMaskMatte: currentMask, maskMatte: mask },
 		...(currentPresentation?.maskMatteIds.includes(maskId) ? [] : [presentationSet(currentPresentation, presentation)]),
 	]);
 }
@@ -526,13 +527,6 @@ function positiveInteger(value: unknown, name: string): number {
 function nonNegativeInteger(value: unknown, name: string): number {
 	if (!Number.isSafeInteger(value) || Number(value) < 0) throw new RangeError(`${name} must be non-negative.`);
 	return Number(value);
-}
-
-function bounded(value: unknown, minimum: number, maximum: number, name: string): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value < minimum || value > maximum) {
-		throw visualAuthoringBoundFailure(new RangeError(`${name} is outside its finite bound.`), name, minimum, maximum);
-	}
-	return Object.is(value, -0) ? 0 : value;
 }
 
 function safeName(value: unknown, name: string): string {

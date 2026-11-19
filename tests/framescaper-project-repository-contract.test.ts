@@ -99,7 +99,7 @@ test('a fenced Detach and its undo and redo only change the authorized proxy poi
 	);
 	const port = {};
 	const delegate = new FakeProjectRepository([attached]);
-	const repository = new FramescaperProjectRepository(PROFILE, delegate, port);
+	const repository = new FramescaperProjectRepository(PROFILE, delegate, undefined, port);
 	type Listener = Parameters<Parameters<typeof bindFramescaperProxyDetachSession>[1]['subscribe']>[0];
 	const listeners = new Set<Listener>();
 	const stage = bindFramescaperProxyDetachSession(port, {
@@ -122,7 +122,7 @@ test('a fenced Detach and its undo and redo only change the authorized proxy poi
 	const permit = stage(attached.id, source.id, attachment);
 	const duplicate = stage(attached.id, source.id, attachment);
 	duplicate.rollback();
-	await assert.rejects(detach(new FramescaperProjectRepository(PROFILE, delegate, {})), guard);
+	await assert.rejects(detach(new FramescaperProjectRepository(PROFILE, delegate, undefined, {})), guard);
 	await assert.rejects(repository.save(detached), guard);
 	await assert.rejects(repository.saveIfCurrent(attached, detached), guard);
 	const replacement = withProxyAttachment(attached, 'b3');

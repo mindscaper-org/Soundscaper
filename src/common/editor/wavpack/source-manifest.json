@@ -75,8 +75,8 @@
 		"soundscaper_wavpack.c"
 	],
 	"localExtensions": [
-		{ "path": "client.js", "sha256": "929679261c7dc669b246b64d3329b257765a7903ffffc105b0554bc808a9177f" },
-		{ "path": "container.js", "sha256": "de62b2e84f2da0161173766bde3043ce4c54c73882d0c09abf905ddfdd584a67" },
+		{ "path": "client.js", "sha256": "ac17a4539bfcb22aa9d80ec1dbee4942723bdb2927f2c940e9915ed7ef741cf2" },
+		{ "path": "container.js", "sha256": "9d654dd08c52a79fc2560289d4b59a977f26a1167d9b4877a29549ed67c6a436" },
 		{ "path": "index.js", "sha256": "18faaa40904cb5f581f2463aa4ffd6b057a474815afca31b37818fcf08e5bfce" },
 		{ "path": "operations.js", "sha256": "1ca692aa37c89bf288c24f98efec9739f68489ab68fe4dd182e1295d3dcf47cc" },
 		{ "path": "pcm.js", "sha256": "150d1c5da5b7d4b1cc6cfaa435865f0dabef23ccf27aa708ec851117f5b78bce" },

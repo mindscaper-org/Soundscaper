@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { readTrackPlaylists } from './track-playlists.ts';
-import { collectTakeGroupSourceIds, remapTakeGroupSourceIds } from './take-group-source-references.ts';
+import { collectTrackPlaylistSourceIds, readTrackPlaylists } from './track-playlist-records.ts';
+export { collectTrackPlaylistSourceIds } from './track-playlist-records.ts';
+import { remapTakeGroupSourceIds } from './take-group-source-references.ts';
 import { remapClipSourceReference } from './clip-source-stretch-memory.ts';
-
-export function collectTrackPlaylistSourceIds(project: unknown, target = new Set<string>()): Set<string> {
-	for (const collection of readTrackPlaylists(project)) for (const { state } of collection.playlists) {
-		if (!state) continue;
-		for (const clip of state.clips) if (typeof clip.sourceId === 'string') target.add(clip.sourceId);
-		collectTakeGroupSourceIds(state, target);
-	}
-	return target;
-}
 
 export function trackPlaylistUsesSource(project: unknown, sourceId: string): boolean {
 	return collectTrackPlaylistSourceIds(project).has(sourceId);

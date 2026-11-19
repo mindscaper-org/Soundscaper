@@ -55,6 +55,10 @@ test('authenticates source bytes before resolver/GL and cleans renderer then res
 		capturedAssets(dependencies)[0]?.displayWidth,
 		capturedAssets(dependencies)[0]?.displayHeight,
 	], [64, 32, 80, 32]);
+	assert.deepEqual([
+		capturedAssets(dependencies)[0]?.presentedWidth,
+		capturedAssets(dependencies)[0]?.presentedHeight,
+	], [64, 32]);
 	assert.equal(Object.isFrozen(capturedAssets(dependencies)[0]), true);
 });
 
@@ -403,8 +407,13 @@ test('retains effective folder visibility through the actual keyed offline encod
 test('captures decoder-rotated geometry separately from PAR display geometry', async () => {
 	const fixture = await exportFixture({ rotationDegrees: 90 });
 	const dependencies = harnessDependencies([]);
+	const project = structuredClone(fixture.project) as Record<string, unknown>;
+	const source = (project.sources as Array<Record<string, unknown>>)[0]!;
+	// This decoder applies the PAR horizontally after rotating the source.
+	source.width = 40;
+	source.height = 64;
 	await encodeVideoKeyframeOfflineVideo({
-		project: fixture.project,
+		project,
 		timingBySourceId: fixture.timing,
 		sources: [{ sourceId: SOURCE_ID, blob: fixture.blob }],
 		canvas: { width: 64, height: 32, frameRate: RATE },
@@ -417,6 +426,7 @@ test('captures decoder-rotated geometry separately from PAR display geometry', a
 	assert.deepEqual([
 		asset?.decodedWidth, asset?.decodedHeight, asset?.displayWidth, asset?.displayHeight,
 	], [32, 64, 32, 80]);
+	assert.deepEqual([asset?.presentedWidth, asset?.presentedHeight], [40, 64]);
 });
 
 test('snapshots mutable request ports and canonical source identity before digest continuation', async () => {

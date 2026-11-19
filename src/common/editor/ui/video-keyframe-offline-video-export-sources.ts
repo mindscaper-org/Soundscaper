@@ -45,6 +45,8 @@ interface CanonicalVideoSource {
 	readonly decodedHeight: number;
 	readonly displayWidth: number;
 	readonly displayHeight: number;
+	readonly presentedWidth: number;
+	readonly presentedHeight: number;
 	readonly postRotationAspectWidth?: number;
 }
 
@@ -98,6 +100,8 @@ export function planVideoKeyframeOfflineVideoSources(requestValue: Readonly<{
 					decodedHeight: expected.decodedHeight,
 					displayWidth: expected.displayWidth,
 					displayHeight: expected.displayHeight,
+					presentedWidth: expected.presentedWidth,
+					presentedHeight: expected.presentedHeight,
 					...(expected.postRotationAspectWidth === undefined ? {} : { postRotationAspectWidth: expected.postRotationAspectWidth }),
 					presentationForEntry,
 				}));
@@ -156,6 +160,8 @@ function captureCanonicalSources(
 			decodedHeight: dimension(presentation?.decodedHeight ?? persistedHeight, 'source decoded height'),
 			displayWidth: dimension(display.width, 'source display width'),
 			displayHeight: dimension(display.height, 'source display height'),
+			presentedWidth: persistedWidth,
+			presentedHeight: persistedHeight,
 			...(postRotationAspectWidth !== null && postRotationAspectWidth <= VIDEO_SOURCE_MAXIMUM_CODED_DIMENSION
 				? { postRotationAspectWidth } : {}),
 		}));

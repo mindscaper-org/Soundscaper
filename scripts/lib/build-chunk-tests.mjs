@@ -125,9 +125,10 @@ export const EDITOR_PRODUCTION_METER_CHUNK_TEST = new RegExp(
 /** Only the lazy import service and import dialogs read these preparation modules. */
 const deferredImportHelpers = String.raw`controller[\\/]import[\\/](?:raw-pcm-import|internal[\\/](?:clip-spreadsheet-paste-service|prepare-clip-spreadsheet-source|import-result-warnings|incremental-wav-import-service|video-import-(?:audio-workload|hybrid-aac)|native-container-audio-admission|native-alac-import-admission|native-free-format-mp3-admission|native-mpeg-layer-one-admission|native-low-rate-mpeg-admission|native-ogg-flac-admission|native-surround-opus-admission|native-surround-vorbis-admission|wav-import-metadata|wav-import-routing|legacy-audacity-project-import|legacy-aup-project-persistence|freesound-import-download|linked-media[\\/](?:linked-wav-import-service|linked-audio-import-admission)|dawproject[\\/](?:dawproject-import-compressed|dawproject-export-audio)))`;
 
-/** Import admission runs after an import starts, apart from codec execution. */
+/** Import admission runs after an import starts, apart from codec execution.
+ * Bounded container identity, presentation edits and metadata share that deferred boundary. */
 export const EDITOR_IMPORT_ADMISSION_CHUNK_TEST = new RegExp(
-	String.raw`${editorPath}(?:${deferredImportHelpers}|controller[\\/]import[\\/](?:freesound-import-service|internal[\\/](?:freesound-import-service|import-task-cancellation|imported-source-provenance|project-import-admission|project-import-options-for-use|project-import-service-runtime|standalone-audio-import-decoder))|encoded-audio-marker-scan|imported-media-metadata|source-provenance(?:-derivation)?|streamed-audio-(?:import-file|content-admission)|ui[\\/]workspace[\\/]freesound-workspace-service)\.ts$`,
+	String.raw`${editorPath}(?:${deferredImportHelpers}|controller[\\/]import[\\/](?:freesound-import-service|internal[\\/](?:freesound-import-service|import-task-cancellation|imported-source-provenance|project-import-admission|project-import-options-for-use|project-import-service-runtime|standalone-audio-import-decoder))|aiff-imported-metadata|encoded-audio-marker-scan|imported-media-metadata|iso-audio-presentation-edit|ogg-flac-metadata-read-view|opaque-iso-audio-import-identity|source-provenance(?:-derivation)?|streamed-audio-(?:import-file|content-admission)|ui[\\/]workspace[\\/]freesound-workspace-service)\.ts$`,
 );
 
 /** Stored PCM and waveform activation reached after a source is opened. */
@@ -171,7 +172,7 @@ const audiocomOptionalModule = String.raw`(?:controller[\\/]import[\\/](?:intern
 
 /** Menu-opened UI, panel-only domain helpers, and deferred native authoring contracts. */
 export const EDITOR_OPTIONAL_SURFACE_CHUNK_TEST = new RegExp(
-	`(?:${editorPath}(?:${editorOptionalSurfaceModule}|${audiocomOptionalModule}|${deferredSurfaceHelpers}|recording-notes-(?:markdown|code)\\.ts|selected-generator-source-command\\.ts|ui[\\\\/]workspace[\\\\/]RecordingNotesPanel\\.tsx|freesound-upload-metadata\\.ts|ui[\\\\/]local-assistance-review-authority\\.ts|local-diagnostics-(?:report|contract)\\.ts|native-ofx-(?:host-contract(?:-v2)?|interact-contract)\\.ts)|src[\\\\/]common[\\\\/]i18n[\\\\/](?:freesound-attribution-copy\\.js|audiocom-copy\\.ts)|src[\\\\/]framescaper[\\\\/](?:editor-selected-timeline-image-image-(?:preview(?:-frames|-resources)?|filmstrip)|editor-native-openfx-authoring-model)\\.ts)$`,
+	`(?:${editorPath}(?:${editorOptionalSurfaceModule}|${audiocomOptionalModule}|${deferredSurfaceHelpers}|recording-notes-(?:markdown|code)\\.ts|selected-generator-source-command\\.ts|ui[\\\\/]workspace[\\\\/]RecordingNotesPanel\\.tsx|freesound-upload-metadata\\.ts|ui[\\\\/]local-assistance-review-authority\\.ts|local-diagnostics-(?:report|contract)\\.ts|native-ofx-(?:host-contract(?:-v2)?|interact-contract)\\.ts)|src[\\\\/]common[\\\\/]i18n[\\\\/](?:freesound-attribution-copy\\.js|audiocom-copy\\.ts)|src[\\\\/]framescaper[\\\\/](?:editor-selected-timeline-image-image-(?:preview(?:-frames|-resources|-session)?|filmstrip)|editor-selected-timeline-image-resource-preview-v16|editor-native-openfx-authoring-model|timeline-image-native-preview-companions)\\.ts)$`,
 );
 
 /** Split Tool interaction runtimes kept out of the product-ready startup graph. */
@@ -203,8 +204,13 @@ export const DESIGN_SYSTEM_EDITOR_SHELL_COMPONENT_CHUNK_TEST = /(?:^|[\\/])vendo
 // adapter. A shared eager codec owner creates an emitted initialization cycle
 // through the desktop codec composition that dynamically imports the adapter.
 export const EDITOR_DESKTOP_VIDEO_CODEC_RUNTIME_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/]desktop-video-codec-runtime\.ts|desktop[\\/]desktop-video-(?:codec-operation-contract|h264-encoder)\.ts)$/;
-export const EDITOR_CODEC_FOUNDATION_CHUNK_TEST = /(?:src[\\/]common[\\/]editor[\\/](?:wavpack[\\/]|staffpad[\\/]|parametric-eq[\\/](?:authorities|parameters|design|wasm-runtime|wasm-loader)\.js$)|desktop[\\/]desktop-audio-(?:codec-(?:capability|operation)-contract|decode-formats)\.ts$)/;
 export const EDITOR_EFFECT_CONTRACT_CHUNK_TEST = /(?:src[\\/]common[\\/](?:i18n[\\/]action-parity\.js|editor[\\/](?:juce-effects[\\/]catalog\.(?:ts|json)|(?:effect-parameter-validation|selection-effect-chain-contract)\.ts|audacity-effects[\\/](?:(?:classic-filter-coefficients|contracts|factory-preset-tables|factory-presets|live-capabilities|live-capability-policy|manifest)\.js|(?:audacity-dynamics-lookahead|audacity-filter-release|curve-text|dynamics-definitions|live-update-geometry|noise-reduction-clock|pcm-channel-validation|reverb-parameters|true-peak-limiter-parameters)\.ts)|first-party-effects[\\/](?:ai-denoise[\\/]contract\.ts|selection-definitions\.ts|(?:phase-correction|match-eq|hum-removal|reverb)[\\/]definition\.ts|auto-tune[\\/](?:definition|realtime-contract)\.ts|(?:bitcrusher|parametric-eq)[\\/]definition\.js|parametric-eq[\\/]coefficients\.ts|dynamics[\\/]definition\.ts|standard[\\/](?:definition|filters-definition|filters-coefficients|modulation-definition|noise-gate-definition|delay-definition|delay-pitch-admission|delay-selection-contract|parameter-range|effect-tail|nyquist-replacements|selection-contract)\.ts)|nyquist[\\/](?:(?:plugin-parser|plugin-registry|plugins[\\/]catalog)\.js|audio-budget\.ts)|reviewed-effects[\\/](?:errors|manifest|selection-effect-contract|utility-gain-package)\.ts)))$/;
+// Complete WAV/RIFF byte and metadata codecs share their decoder/encoder foundation.
+// Cancellation and the existing XML/compression vendors retain their own owners.
+const wavContainerCodecModules = String.raw`(?:adm-(?:authored-objects|axml-document|bed-layout|chna|metadata|normalization-guards|sxml|xml-compression)|broadcast-wave(?:-normalization)?|cart-metadata|id3-(?:artwork|descriptive-fields|frame-values|structured-metadata|validation-failure)|ixml|media-metadata|riff-(?:info|markers|metadata-text|streaming-size)|voc-pcm-sample-rate|wav-(?:adm-import|adm-riff-sequence|adpcm-source-geometry|import-io|metadata-finalize|opaque-chunks|pcm-chunk-reader)|wave64-pcm-source-geometry)\.ts|(?:id3-metadata|pcm-(?:chunks|dither)|wav(?:-ds64|-import)?)\.js`;
+export const EDITOR_CODEC_FOUNDATION_CHUNK_TEST = new RegExp(
+	`${editorPath}(?:${wavContainerCodecModules})$|${/(?:src[\\/]common[\\/]editor[\\/](?:wavpack[\\/]|staffpad[\\/]|parametric-eq[\\/](?:authorities|parameters|design|wasm-runtime|wasm-loader)\.js$)|desktop[\\/]desktop-audio-(?:codec-(?:capability|operation)-contract|decode-formats)\.ts$|(?:^|[\\/])config[\\/]lightscaper-libraw-runtime-manifest\.json$)/.source}`,
+);
 /**
  * Soundscaper family-v1 project and archive authority shared with transfer pages.
  *
@@ -332,6 +338,7 @@ const framescaperProjectFoundationModules = Object.freeze([
 	'editor-project-visual',
 	'editor-project',
 	'editor-video-proxy-action-runtime',
+	'timeline-image-picture-carrier',
 ]);
 export const FRAMESCAPER_PROJECT_FOUNDATION_CHUNK_TEST = new RegExp(
 	`src[\\\\/]framescaper[\\\\/](?:${framescaperProjectFoundationModules.join('|')})\\.ts$`,
@@ -354,6 +361,7 @@ const framescaperProjectCommandModules = Object.freeze([
 	'editor-multicamera-source-retention-sequence',
 	'editor-project-assistance-commands',
 	'editor-project-assistance-transition-allocation',
+	'editor-project-commands',
 	'editor-project-composition-commands',
 	'editor-project-finishing-command-inheritance',
 	'editor-project-finishing-commands',
@@ -405,9 +413,25 @@ export const FRAMESCAPER_PROJECT_COMMAND_CHUNK_TEST = new RegExp(
 );
 export const FRAMESCAPER_SESSION_CLIPBOARD_CHUNK_TEST = /src[\\/]framescaper[\\/]editor-session-clipboard-(?:visual-collisions|v(?:8|11(?:-(?:controller|selection))?|12(?:-controller)?|13(?:-paste)?))\.ts$/;
 
-/** Timeline-image feature modules plus the runtime projection chain they extend. */
-export const FRAMESCAPER_TIMELINE_IMAGE_CHUNK_TEST =
-	/src[\\/]framescaper[\\/](?:editor-project-(?:native-media|assistance)-runtime|editor-(?:image-(?:import-coordinator|placement)-timeline-image|project-[^\\/]*timeline-image[^\\/]*|scape-[^\\/]*timeline-image|selected-timeline-image|timeline-image)|video-export-(?:image|strategy-timeline-image)-)/;
+// The image archive extensions call these base asset/rebind implementations,
+// whose native facade composes the image extension back. One owner prevents
+// that source layering from becoming a generated cross-chunk initialization cycle.
+const framescaperImageArchiveModules = [
+	'editor-multicamera-source-rebind-sequence',
+	'editor-project-visual-source-rebind',
+	'editor-project-finishing-source-rebind',
+	'editor-project-assistance-source-rebind',
+	'editor-project-openfx-source-rebind',
+	'editor-project-source-rebind',
+	'editor-scape-asset-import-finishing',
+	'editor-scape-assets-finishing',
+	'editor-scape-assets',
+	'editor-scape-native',
+];
+/** Timeline-image features, native LUTs, and their complete archive extension. */
+export const FRAMESCAPER_TIMELINE_IMAGE_CHUNK_TEST = new RegExp(
+	`src[\\\\/]framescaper[\\\\/](?:${framescaperImageArchiveModules.join('|')})\\.ts$|${/src[\\/]framescaper[\\/](?:(?:internal[\\/]timeline-image-(?:develop-frame-kernel|native-pack-owner-current|publication-transition|(?:raw|hdr)-working-plan-current)-v1|editor-selected-image-hdr-merge-current-v1|editor-scape-asset-plan-finishing|timeline-image-[^\\/]+|cube-lut-source-finishing)\.ts$|editor-project-(?:native-media|assistance)-runtime|editor-(?:image-(?:import-coordinator|placement)-timeline-image|project-[^\\/]*timeline-image[^\\/]*|scape-[^\\/]*timeline-image|selected-timeline-image|timeline-image)|video-export-(?:image|strategy-timeline-image)-)/.source}`,
+);
 
 
 /**
@@ -440,6 +464,7 @@ export const EDITOR_DOMAIN_CHUNK_TEST = new RegExp([
 	`${editorPath}(?!${editorOptionalArchiveModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalExecutionModule}\\.(?:[cm]?[jt]s)$)(?!${editorOptionalCaptureFlatModule}\\.ts$)(?:[^\\\\/]+|assistance[\\\\/](?:internal[\\\\/]radix-two-fft-v1|[^\\\\/]+)|(?:design-system-adapters|platform)[\\\\/][^\\\\/]+)\\.(?:[cm]?[jt]s)$`,
 	String.raw`${editorPath}ear[\\/]layouts\.ts$`,
 	String.raw`${editorPath}macro-script[\\/]protocol\.ts$`,
+	String.raw`${editorPath}internal[\\/](?:image-develop-handoff-provenance|timeline-image-model-editable|video-cube-lut-project-references)-kernel-v1\.ts$`,
 	String.raw`src[\\/]common[\\/](?:(?:imaging|foundation|scape)[\\/][^\\/]+|media[\\/]bytes)\.(?:[cm]?[jt]s)$`,
 ].join('|'));
 

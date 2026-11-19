@@ -82,7 +82,7 @@ export function registerAppScheme(protocolApi) {
 export function createProtocolHandler({
 	productId = 'soundscaper', rendererRoot, runtimeRoot, readCapabilities, freesoundProxy = /** @type {DesktopProviderProxy | null} */ (null), audiocomProxy = /** @type {DesktopProviderProxy | null} */ (null),
 }) {
-	if (productId !== 'soundscaper' && productId !== 'framescaper') {
+	if (productId !== 'soundscaper' && productId !== 'framescaper' && productId !== 'lightscaper') {
 		throw new TypeError('Desktop protocol product is invalid');
 	}
 	return async (request) => {

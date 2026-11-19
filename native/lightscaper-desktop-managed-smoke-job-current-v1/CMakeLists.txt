@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+cmake_minimum_required(VERSION 3.28)
+project(lightscaper_desktop_managed_smoke_job_current_v1 LANGUAGES CXX)
+if(NOT WIN32 OR NOT MSVC)
+	message(FATAL_ERROR "Lightscaper's managed Job Object supervisor requires native Windows MSVC")
+endif()
+if(LIGHTSCAPER_SMOKE_NATIVE_TARGET STREQUAL "win-x64")
+	if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64|x64)$" OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+		message(FATAL_ERROR "The Lightscaper supervisor is not targeting native Windows x64")
+	endif()
+elseif(LIGHTSCAPER_SMOKE_NATIVE_TARGET STREQUAL "win-arm64")
+	if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|aarch64|arm64)$" OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+		message(FATAL_ERROR "The Lightscaper supervisor is not targeting native Windows ARM64")
+	endif()
+else()
+	message(FATAL_ERROR "An explicit win-x64 or win-arm64 LIGHTSCAPER_SMOKE_NATIVE_TARGET is required")
+endif()
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+add_executable(lightscaper-desktop-managed-smoke-job-current-v1
+	src/main-current-v1.cpp src/job-plan-current-v1.cpp
+	src/job-supervisor-current-v1.cpp src/job-receipt-current-v1.cpp)
+target_compile_features(lightscaper-desktop-managed-smoke-job-current-v1 PRIVATE cxx_std_17)
+set_target_properties(lightscaper-desktop-managed-smoke-job-current-v1 PROPERTIES CXX_EXTENSIONS OFF)
+target_compile_definitions(lightscaper-desktop-managed-smoke-job-current-v1 PRIVATE
+	UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX _WIN32_WINNT=0x0A00)
+target_compile_options(lightscaper-desktop-managed-smoke-job-current-v1 PRIVATE /W4 /WX /permissive- /utf-8)
+target_link_libraries(lightscaper-desktop-managed-smoke-job-current-v1 PRIVATE kernel32)

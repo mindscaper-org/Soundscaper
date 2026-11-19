@@ -42,7 +42,7 @@ const MEDIA_INPUTS = Object.freeze([
 	'CMakeLists.txt', 'CMakePresets.json', 'build/external-source-authentication.mjs',
 	'build/ffmpeg-9.0.1-configure.json', 'build/ffmpeg-9.0.1-external-sources.json',
 	'build/media-build-commands.mjs', 'build/recipe-cli.mjs', 'build/recipe-driver.mjs',
-	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh',
+	'build/source-authentication.mjs', 'build/targets.json', 'build/windows-ffmpeg-dependencies.sh', 'build/windows-installed-codec-text.ts', 'build/windows-svt-pkg-config.ts', 'build/windows-vpx.pc', 'build/windows-vpx-project.sh', 'build/windows-zlib-header.ts',
 	...FRAMESCAPER_MEDIA_HOST_BUILD_TARGETS.map(({ toolchainFile }) => toolchainFile),
 ].sort());
 const OPENFX_INPUTS = Object.freeze([
@@ -111,13 +111,13 @@ test('all five media and OpenFX targets emit immutable closed dry-run recipes', 
 		const fixture = buildFixture(context, 'media', target.id);
 		const recipe = createFramescaperMediaHostBuildRecipe(fixture.options);
 		assertNativeHostBuildRecipe(recipe, target, [
-			'zlib-configure', 'zlib-build', 'zlib-install-metadata', 'zlib-install-library-directory',
+			'zlib-configure', 'zlib-build', 'zlib-install-metadata', ...(target.id.startsWith('win-') ? ['zlib-normalize-header'] : []), 'zlib-install-library-directory',
 			'zlib-install-static-library',
 			'x264-configure', 'x264-build', 'x264-install',
 			'x265-configure', 'x265-build', 'x265-install', ...(target.id.startsWith('win-') ? ['x265-normalize-library'] : []),
 			'libvpx-configure', 'libvpx-build', 'libvpx-install',
 			...(target.id.startsWith('win-') ? ['libvpx-normalize-library', 'libvpx-normalize-pkg-config'] : []),
-			'svt-av1-configure', 'svt-av1-build', 'svt-av1-install', 'libopus-configure', 'libopus-build', 'libopus-install',
+			'svt-av1-configure', 'svt-av1-build', 'svt-av1-install', ...(target.id.startsWith('win-') ? ['svt-av1-normalize-pkg-config'] : []), 'libopus-configure', 'libopus-build', 'libopus-install',
 			'ffmpeg-configure', 'ffmpeg-build', 'ffmpeg-install', 'host-configure', 'host-build',
 			'host-install',
 		], SOURCE_DATE_EPOCH);

@@ -7,10 +7,10 @@ import { expect, test, toneA } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseExportProjectFileAction, chooseNestedCommandAction, disableNativeSavePicker, importFiles } from './audio-editor-test-helpers.js';
 
 let archive;
-test.beforeAll(async ({ browser }) => {
-	const context = await browser.newContext();
+test.beforeAll(async ({ createBrowserContext }) => {
+	const context = await createBrowserContext();
 	try {
-		const page = await context.newPage();
+		const page = context.pages()[0] ?? await context.newPage();
 		await disableNativeSavePicker(page);
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);

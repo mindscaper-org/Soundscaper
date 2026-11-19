@@ -12,8 +12,8 @@ test('shared component copy context retains the design-system foundation owner',
 	assert.equal(chunkGroupForModulePath('vendor/audacity-design-system/components/src/component-copy.ts'), 'vendor-design-system');
 });
 
-test('project filename identity retains the interchange foundation owner', () => {
-	assert.equal(chunkGroupForModulePath('src/common/project-file-extensions.ts'), 'project-interchange-foundations');
+test('project filename identity retains the shared product profile owner', () => {
+	assert.equal(chunkGroupForModulePath('src/common/project-file-extensions.ts'), 'product-profiles');
 });
 
 test('native project timing and render-plan construction retain their project foundation owner', () => {

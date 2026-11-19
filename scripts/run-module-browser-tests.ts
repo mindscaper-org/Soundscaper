@@ -143,7 +143,8 @@ export function runModuleBrowserTests(root: string, args: readonly string[], env
 		}
 		const selected = browserSuiteFiles(root, repositoryModuleTestSuites(root), all.files, suiteShard.index, suiteShard.total);
 		if (requestsJsonList(suiteShard.args)) {
-			process.stdout.write(JSON.stringify(selectedModuleBrowserReport(all.report, selected.map(file => resolve(root, file)))) + '\n');
+			const report = selectedModuleBrowserReport(all.report, selected.map(file => resolve(root, file)));
+			process.stdout.write(JSON.stringify({ ...report, suiteShard: { current: suiteShard.index, total: suiteShard.total } }) + '\n');
 			return 0;
 		}
 		if (selected.length === 0) return skip(root, environment, args.includes('--list'));

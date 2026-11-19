@@ -3,6 +3,7 @@
 import { createTrackLockRelationshipReader, type TrackLockRelationshipReader } from './track-lock-relationship-index.ts';
 import { createTrackLockSnapshotIndex, type TrackLockSnapshotIndex } from './track-lock-snapshot-index.ts';
 import type { AudioEditorCommand } from './protocol.ts';
+import type { CurrentAudioEditorMutationCommandV2 } from './clipboard-command-v2.ts';
 import {
 	resolveRuntimeProjectProjection,
 	type RuntimeClipProject,
@@ -34,7 +35,7 @@ interface TrackLockBaseline {
 
 export interface TrackLockAdmission {
 	/** Reject destructive structural intent before its subject disappears or moves. */
-	beforeCommand(project: unknown, command: AudioEditorCommand): void;
+	beforeCommand(project: unknown, command: CurrentAudioEditorMutationCommandV2): void;
 	/** Assert the raw command projection after every non-batch child and capture new locks. */
 	afterCommand(project: unknown): void;
 	/** Assert the fully reconciled persisted result before it leaves applyEditorCommand. */
@@ -110,7 +111,7 @@ export function createTrackLockAdmission(
 		}
 	}
 
-	function beforeCommand(projectValue: unknown, command: AudioEditorCommand): void {
+	function beforeCommand(projectValue: unknown, command: CurrentAudioEditorMutationCommandV2): void {
 		if (command.type === 'batch' || baselines.size === 0) return;
 		const project = record(projectValue, 'command project');
 		let lockedId: string | null = null;

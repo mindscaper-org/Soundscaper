@@ -159,4 +159,3 @@ export function SteppedSlider({ value, defaultValue, min, max, step, ariaLabel, 
 		</div>
 	);
 }
-

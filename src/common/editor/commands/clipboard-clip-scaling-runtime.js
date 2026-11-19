@@ -5,8 +5,8 @@ import { clipLoopTransformFields } from '../audio-clip-loop.ts';
 import { normalizeAudioWarpMap } from '../audio-warp-domain.ts';
 import { multiplyDivideRationals } from '../timeline-time.ts';
 import { cloneVideoCompositionCarrierFields } from './video-composition-carrier.ts';
-import { rebindVideoKeyframeCarrierEffects } from './video-keyframe-carrier.ts';
 import { cloneVideoEffectsWithCommandIds } from './shared-runtime.js';
+import { frameCommandCarriersV2 } from './frame-resource-command-carriers-v2.ts';
 
 export function scaleClipboardClip(
 	descriptor,
@@ -18,6 +18,7 @@ export function scaleClipboardClip(
 	videoEffectIds = undefined,
 	targetSequence = null,
 	conformedAnchor = null,
+	project = undefined,
 ) {
 	const offsetFrame = Math.round(descriptor.offsetFrame * scale);
 	const scaleLocalFrame = frame => descriptor.kind === 'video' ? Math.round(frame * scale)
@@ -54,6 +55,7 @@ export function scaleClipboardClip(
 				descriptor.videoEffects,
 				videoEffectIds,
 				`Pasted clip ${descriptor.key}`,
+				project,
 			),
 		} : {}),
 		...cloneVideoCompositionCarrierFields(descriptor, `Pasted clip ${descriptor.key}`),
@@ -64,7 +66,7 @@ export function scaleClipboardClip(
 			})).filter((point, index, values) => index === values.length - 1 || point.frame < values[index + 1].frame),
 		} : {}),
 	};
-	return rebindVideoKeyframeCarrierEffects(
+	return frameCommandCarriersV2(project).rebindVideoKeyframeCarrierEffects(
 		candidate,
 		descriptor,
 		candidate,

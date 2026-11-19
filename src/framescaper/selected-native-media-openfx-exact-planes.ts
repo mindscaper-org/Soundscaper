@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { ExactConsumerPlanCore } from '../common/editor/unified-exact-render-consumer-plan-core.ts';
 import {
 	placeUnifiedExactLinearRgbaFrameV13,
 	straightUnifiedExactLinearFrameV13,
 	type UnifiedExactLinearPremultipliedFrameV13,
 } from '../common/editor/unified-exact-linear-rgba-v13.ts';
 import type { OfxContext } from '../common/editor/native-ofx-descriptor.ts';
-import type { UnifiedExactRenderPlanV13, UnifiedExactRenderPlanV14 } from '../common/editor/unified-exact-render-plan.ts';
+import type { UnifiedExactRenderPlanV14 } from '../common/editor/unified-exact-render-plan.ts';
 import {
 	createFramescaperOpenFxFrameGraphNativeMedia,
 	type FramescaperOpenFxFrameExecutionRequestNativeMedia,
@@ -21,6 +22,7 @@ import {
 } from './editor-openfx-frame-timing-native-media.ts';
 import { prepareFramescaperOwnedOpenFxGraphIndexNativeMedia } from './editor-openfx-owned-graph-index-native-media.ts';
 import { identityVisualPlacement } from './visual-finishing-kernel.ts';
+import { assertFramescaperOpenFxResourcePairV16 } from './selected-native-media-openfx-resource-v16.ts';
 
 export interface FramescaperSelectedOpenFxExecutionNativeMedia {
 	readonly plan: UnifiedExactRenderPlanV14;
@@ -51,16 +53,21 @@ export interface FramescaperSelectedOpenFxExactPlanesNativeMedia {
 }
 
 export function createFramescaperSelectedOpenFxExactPlanesNativeMedia(options: Readonly<{
-	readonly foundationPlan: UnifiedExactRenderPlanV13;
+	readonly foundationPlan: ExactConsumerPlanCore;
 	readonly openFx: FramescaperSelectedOpenFxExecutionNativeMedia;
 	readonly assertCurrent: () => void;
+	/** The selected source-frame owner supplies a fallback without copying the private execution identity. */
+	readonly fallbackFrozenFrame?: FramescaperSelectedOpenFxExecutionNativeMedia['resolveFrozenFrame'];
 }>): FramescaperSelectedOpenFxExactPlanesNativeMedia {
+	if (options.foundationPlan.version === 16) assertFramescaperOpenFxResourcePairV16(options.openFx, options.foundationPlan);
 	const prepared = prepareFramescaperOwnedOpenFxGraphIndexNativeMedia(options.openFx.plan);
 	assertPlanParity(options.foundationPlan, prepared.plan);
 	const graph = createFramescaperOpenFxFrameGraphNativeMedia({
 		plan: prepared.plan, assertCurrent: options.assertCurrent,
 		execute: options.openFx.execute,
-		...(options.openFx.resolveFrozenFrame ? { resolveFrozenFrame: options.openFx.resolveFrozenFrame } : {}),
+		...(options.openFx.resolveFrozenFrame ?? options.fallbackFrozenFrame ? {
+			resolveFrozenFrame: options.openFx.resolveFrozenFrame ?? options.fallbackFrozenFrame,
+		} : {}),
 		allowRepeatedFrames: true,
 	});
 	return Object.freeze({
@@ -119,7 +126,7 @@ async function apply(
 	});
 }
 
-function assertPlanParity(foundation: UnifiedExactRenderPlanV13, plan: UnifiedExactRenderPlanV14): void {
+function assertPlanParity(foundation: ExactConsumerPlanCore, plan: UnifiedExactRenderPlanV14): void {
 	if (foundation.output.canvas.width !== plan.output.canvas.width
 		|| foundation.output.canvas.height !== plan.output.canvas.height
 		|| foundation.timebase.sampleRate !== plan.timebase.sampleRate

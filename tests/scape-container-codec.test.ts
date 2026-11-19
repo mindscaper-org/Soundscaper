@@ -54,3 +54,25 @@ void test('Scape envelope keeps entry bounds and ownership independent of its fa
 	await assert.rejects(readScapeArchiveEnvelope([...archive(), entry('orphan.bin', {})], codec), /Unreferenced entry/u);
 	await assert.rejects(readScapeArchiveEnvelope([...archive(), entry('../bad', {})], codec), /Unsafe Scape entry/u);
 });
+
+void test('Scape envelope delegates family-specific asset admission to the product codec', async () => {
+	const project = entry('project.json', identity), asset = entry('assets/product.bin', {});
+	const entries = [entry('manifest.json', {
+		format: 'scape-project', formatVersion: 1,
+		project: { ...identity, entry: project.filename, size: project.uncompressedSize, sha256: '0'.repeat(64) },
+		assets: [{ sourceId: 'product-source', entry: asset.filename, size: asset.uncompressedSize,
+			sha256: '0'.repeat(64), kind: 'product-only', encoding: 'test-v1' }],
+	}), project, asset];
+	let admitted = false;
+	const familyCodec: ScapeFamilyCodec<'test-product'> = { ...codec,
+		resolveAssetKinds(receivedIdentity, additional) {
+			assert.deepEqual(receivedIdentity, identity);
+			assert.deepEqual(additional, ['registered-kind']);
+			admitted = true;
+			return new Set(['product-only']);
+		},
+	};
+	assert.equal((await readScapeArchiveEnvelope(entries, familyCodec, {}, undefined, ['registered-kind'])).manifest.assets[0]?.kind, 'product-only');
+	assert.equal(admitted, true);
+	await assert.rejects(readScapeArchiveEnvelope(entries, codec), /invalid kind/u);
+});

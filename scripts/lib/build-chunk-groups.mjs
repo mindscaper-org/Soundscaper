@@ -20,6 +20,9 @@
  * `tests/audio-editor-build-chunk-ownership.test.ts` keeps it that way.
  */
 
+import { imagingChunkGroups } from './build-chunk-imaging.mjs';
+import { productProfileChunkGroups } from './build-chunk-product-profiles.mjs';
+import { translationCatalogChunkGroups } from './build-chunk-translation-catalogs.mjs';
 import { EDITOR_UI_CHUNK_GROUPS } from './build-editor-ui-chunks.mjs';
 import { deferredEditorFeatureChunks } from './build-deferred-editor-features.mjs';
 
@@ -62,10 +65,10 @@ import {
 	editorOptionalAssistanceModule,
 	editorOptionalCaptureControllerModule,
 	editorOptionalControllerModule,
-	editorOptionalSurfaceModule,
 	editorPath,
 } from './build-chunk-tests.mjs';
 import { withUiPreparationChunkTest } from './build-chunk-ui-preparation.mjs';
+import { editorUiChunkGroups, HDR_MERGE_COPY_CHUNK_TEST } from './build-chunk-editor-ui.mjs';
 
 // The membership patterns keep their long-standing import site.
 export {
@@ -95,6 +98,8 @@ export {
 
 /** @type {import('rolldown').CodeSplittingGroup[]} */
 export const chunkGroups = [
+	...translationCatalogChunkGroups,
+	...productProfileChunkGroups,
 	...deferredEditorFeatureChunks,
 	{
 		// Transcript projection and inference are requested only by the optional panel.
@@ -212,7 +217,9 @@ export const chunkGroups = [
 	},
 	{
 		name: 'vendor-design-system',
-		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|component-copy\.ts|constants\.ts|assets[\\/]fonts))/,
+		// Keep the neutral context out of lazy routes when a small product's
+		// component group falls below the global minimum chunk size.
+		test: /(?:^|[\\/])vendor[\\/]audacity-design-system[\\/](?:core[\\/]src|tokens[\\/]src|components[\\/]src[\\/](?:ThemeProvider|contexts|hooks|utils|component-copy\.ts|constants\.ts|assets[\\/]fonts|TimeCode[\\/]time-code-musical-context\.ts$))/,
 		priority: 95,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
@@ -327,7 +334,7 @@ export const chunkGroups = [
 		name: 'editor-copy',
 		test: EDITOR_COPY_CHUNK_TEST,
 		priority: 97,
-		maxSize: 400_000,
+		maxSize: 490_000,
 		includeDependenciesRecursively: false,
 	},
 	{
@@ -457,27 +464,22 @@ export const chunkGroups = [
 	},
 	{
 		name: 'editor-timeline',
-		test: new RegExp(`${editorPath}(?:ui[\\\\/](?:AudioEditorTimeline|AudioEditorSampleTools)|audacity-waveform-renderer\\.js|waveform-stem-batch-capability\\.ts)`),
+		test: new RegExp(`${editorPath}(?:ui[\\\\/](?:AudioEditorTimeline|AudioEditorSampleTools|timeline[\\\\/])|audacity-waveform-renderer\\.js|waveform-stem-batch-capability\\.ts)`),
 		priority: 80,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
 	{
+		// Exact action-runtime registries hold controller state without importing views.
 		name: 'editor-controller-core',
-		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|facade\\.ts|index\\.js)`),
+		test: new RegExp(`${editorPath}(?!controller[\\\\/](?:${editorOptionalControllerModule}|${editorOptionalAssistanceModule}|${editorOptionalCaptureControllerModule})\\.ts$)(?:app\\.js|controller[\\\\/]|commands(?:\\.js|[\\\\/])|delivery-queue-runner\\.ts$|ui[\\\\/]framescaper-(?:candidate-authoring-actions|native-project-actions)\\.ts$|facade\\.ts|index\\.js)`),
 		priority: 75,
 		minSize: 40_000,
 		maxSize: 400_000,
 		includeDependenciesRecursively: false,
 	},
-	{
-		name: 'editor-shell',
-		// The workspace reads timed-recording values before its dialog is opened.
-		test: new RegExp(`(?:${editorPath}(?!${editorOptionalSurfaceModule}$)ui[\\\\/](?!(?:dialogs[\\\\/](?!(?:editor-dialog-model\\.js|AssistanceLoadingDialog\\.tsx|AssistanceModelGate\\.css|timed-recording-dialog-model\\.ts)$)|inspector[\\\\/]))|src[\\\\/]common[\\\\/](?:products\\.js|url\\.ts)$|src[\\\\/]common[\\\\/]offline[\\\\/](?:file-handler-launch|install-prompt|share-target-launch)\\.ts$|src[\\\\/]soundscaper[\\\\/](?:editor-capture-toolbar-control|editor-framescaper-overlay-model|editor-video-preview-product-runtime|editor-application-menu-product-runtime|editor-web-desktop-command-menus|editor-workspace-application-menu-runtime|editor-workspace-panel-runtime)\\.(?:js|tsx?)$|src[\\\\/]framescaper[\\\\/]editor-soundscaper-workflow-product-runtime\\.tsx$)`),
-		priority: 70,
-		maxSize: 400_000,
-		includeDependenciesRecursively: false,
-	},
+	...editorUiChunkGroups,
+	...imagingChunkGroups,
 	{
 		// The schema, planners, assistance domain, and value tables the shell and dialogs share.
 		// They are owned here rather than placed by reachability; see the module
@@ -485,7 +487,7 @@ export const chunkGroups = [
 		name: 'editor-domain',
 		test: EDITOR_DOMAIN_CHUNK_TEST,
 		priority: 65,
-		maxSize: 400_000,
+		maxSize: 490_000,
 		includeDependenciesRecursively: false,
 	},
 	{
@@ -515,8 +517,8 @@ export const chunkGroups = [
 	},
 ];
 
-export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST }
-	from './build-worker-chunk-groups.mjs';
+export { workerChunkGroups, WORKER_EFFECT_CONTRACT_CHUNK_TEST, WORKER_XML_VENDOR_CHUNK_TEST,
+	WORKER_VIDEO_CONTRACT_CHUNK_TEST } from './build-worker-chunk-groups.mjs';
 
 /**
  * The group that claims one repository-relative module path, or null.
@@ -529,5 +531,17 @@ export function chunkGroupForModulePath(path) {
 	const candidates = chunkGroups
 		.filter((group) => group.test instanceof RegExp && group.test.test(path))
 		.sort((left, right) => right.priority - left.priority);
-	return candidates[0]?.name ?? null;
+	const name = candidates[0]?.name;
+	return typeof name === 'function' ? name(path) : name ?? null;
+}
+
+/** @param {string} productId */
+export function chunkGroupsForProduct(productId) {
+	if (productId !== 'framescaper') return chunkGroups;
+	// The timeline editor already starts its shared dialog foundations. Its
+	// HDR menu labels can use that owner without pulling in the editor catalog.
+	return chunkGroups.filter(({ name }) => name !== 'editor-hdr-merge-copy').map(group => {
+		if (group.name !== 'editor-dialog-foundations' || !(group.test instanceof RegExp)) return group;
+		return { ...group, test: new RegExp(`${group.test.source}|${HDR_MERGE_COPY_CHUNK_TEST.source}`) };
+	});
 }

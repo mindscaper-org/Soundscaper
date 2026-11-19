@@ -23,9 +23,9 @@ export function applyVideoPreviewPixelate(compositor: Compositor, source: Target
 	compositor.clearTarget(first);
 	compositor.draw(source.texture, first, { code: 2, params0: [blockSize, 0, 0, 0] }, 1, null, horizontal, content, source);
 	compositor.clearTarget(second);
-	compositor.draw(first.texture, second, { code: 18, params0: [blockSize, 0, 0, 0] }, 1, null, blocks, horizontal, first);
+	compositor.draw(first.texture, second, { code: 38, params0: [blockSize, 0, 0, 0] }, 1, null, blocks, horizontal, first);
 	compositor.clearTarget(first);
-	compositor.draw(second.texture, first, { code: 19, params0: [blockSize, 0, 0, 0] }, 1, null, content, blocks, second);
+	compositor.draw(second.texture, first, { code: 39, params0: [blockSize, 0, 0, 0] }, 1, null, content, blocks, second);
 	return first;
 }
 
@@ -34,7 +34,7 @@ export const VIDEO_PREVIEW_PIXELATE_SHADER_BODY = `
 		vec2 top_pixel = floor(vec2(content_uv.x, 1.0 - content_uv.y) * u_resolution);
 		vec4 total = vec4(0.0);
 		float count = 0.0;
-		if (u_effect == 19) {
+		if (u_effect == 39) {
 			vec2 block_pixel = floor(top_pixel / block_size);
 			vec2 uv = (block_pixel + 0.5) / u_source_resolution;
 			color = sample_content(vec2(uv.x, 1.0 - uv.y));

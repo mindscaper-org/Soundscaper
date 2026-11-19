@@ -12,7 +12,6 @@ import {
 	findTrack,
 } from '../project.js';
 import {
-	createMediaClip,
 	createMediaSource,
 	createMediaTrack,
 } from '../project-media-factory.ts';
@@ -20,15 +19,11 @@ import {
 	isRuntimeProjectProjection,
 	resolveRuntimeClipProjection,
 } from '../runtime-clip-projection.ts';
-import {
-	cloneVideoEffects,
-} from '../video-effects.js';
+import { cloneFrameCommandEffectsV2, frameCommandCarriersV2 } from './frame-resource-command-carriers-v2.ts';
+import { frameCommandClipFactoryV2 } from './frame-resource-command-clip-factory-v2.ts';
 import { trimAudioWarpClipToTimelineRange } from '../audio-warp-clip-edit.ts';
 import { stretchAudioWarpClipRate } from '../audio-warp-rate-stretch.ts';
 import { detachVideoCompositionCarrier } from './video-composition-carrier.ts';
-import {
-	detachVideoKeyframeCarrier,
-} from './video-keyframe-carrier.ts';
 import { finalizeVideoKeyframeSegmentCarrier } from './video-keyframe-segment-carrier.ts';
 
 export function pruneMissingProjectSelections(project) {
@@ -133,7 +128,7 @@ export function segmentOfClip(project, clip, segmentStartFrame, segmentEndFrame,
 	// A cut creates a new edge, so its next fade must not inherit the old edge's shape.
 	if (segmentStartFrame !== clip.timelineStartFrame) delete segmentClip.fadeInShape;
 	if (segmentEndFrame !== clipEndFrame(clip)) delete segmentClip.fadeOutShape;
-	let value = detachVideoKeyframeCarrier(detachVideoCompositionCarrier({
+	let value = frameCommandCarriersV2(project).detachVideoKeyframeCarrier(detachVideoCompositionCarrier({
 		...segmentClip,
 		id,
 		timelineStartFrame,
@@ -161,6 +156,7 @@ export function segmentOfClip(project, clip, segmentStartFrame, segmentEndFrame,
 			clip.videoEffects,
 			videoEffectIds,
 			`Segment ${id}`,
+			project,
 		);
 	}
 	value = finalizeVideoKeyframeSegmentCarrier(
@@ -280,14 +276,14 @@ export function requireStableCommandId(value, name) {
 	return value;
 }
 
-export function cloneVideoEffectsWithCommandIds(effects, ids, name) {
+export function cloneVideoEffectsWithCommandIds(effects, ids, name, project = undefined) {
 	const stack = Array.isArray(effects) ? effects : [];
 	if (!stack.length) return [];
 	if (!Array.isArray(ids) || ids.length !== stack.length) {
 		throw new TypeError(`${name} requires one stable ID for every video effect.`);
 	}
 	let index = 0;
-	return cloneVideoEffects(stack, {
+	return cloneFrameCommandEffectsV2(project, stack, {
 		regenerateIds: true,
 		idFactory: () => requireStableCommandId(ids[index++], `${name} video effect`),
 	});
@@ -454,7 +450,7 @@ export function normalizeClipForProject(project, value) {
 		const normalizedValue = { ...value };
 		if (normalizedValue.fadeInShape == null) delete normalizedValue.fadeInShape;
 		if (normalizedValue.fadeOutShape == null) delete normalizedValue.fadeOutShape;
-		return detachVideoKeyframeCarrier(detachVideoCompositionCarrier({
+		return frameCommandCarriersV2(project).detachVideoKeyframeCarrier(detachVideoCompositionCarrier({
 			...normalizedValue,
 			timelineEndFrame: timelineStartFrame + durationFrames,
 			sourceEndFrame: sourceStartFrame + sourceDurationFrames,
@@ -464,7 +460,7 @@ export function normalizeClipForProject(project, value) {
 	const sequenceId = value.sequenceId || project.primarySequenceId;
 	const sequence = project.sequences.find((candidate) => candidate.id === sequenceId);
 	if (!sequence) throw new ReferenceError(`Unknown sequence: ${sequenceId}.`);
-	const clip = createMediaClip({
+	const clip = frameCommandClipFactoryV2(project)({
 		...value,
 		kind: value?.kind || 'audio',
 		binItemId: value?.binItemId ?? null,
@@ -475,7 +471,7 @@ export function normalizeClipForProject(project, value) {
 		sequence,
 		source,
 	});
-	return detachVideoKeyframeCarrier(detachVideoCompositionCarrier(
+	return frameCommandCarriersV2(project).detachVideoKeyframeCarrier(detachVideoCompositionCarrier(
 		resolveRuntimeClipProjection(project, clip),
 		value,
 		`Clip ${String(value?.id ?? '')}`,

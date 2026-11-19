@@ -27,7 +27,7 @@ test('Quality produces one module plan and supplies the same revision artifact t
 test('Quality aggregate observes every prerequisite even when a dependency failed', () => {
 	const aggregate = jobs.coverage!;
 	assert.equal(aggregate.if, 'always()');
-	for (const id of ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'lint', 'typecheck', 'audits']) {
+	for (const id of ['build', 'tests', 'native-platform-compile', 'browser', 'firefox', 'browser-lightscaper-gpu', 'lint', 'typecheck', 'audits']) {
 		assert.ok(Array.isArray(aggregate.needs) && aggregate.needs.includes(id));
 	}
 	const validation = aggregate.steps.findIndex(step => step.name === 'Require every planned prerequisite to succeed');

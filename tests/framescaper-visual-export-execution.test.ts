@@ -77,6 +77,7 @@ test('a visual export execution compiles its own exact render plan', async () =>
 	const built = await execution();
 
 	assert.equal((built.exactPlan as Data).version, 13);
+	assert.equal(built.outputColorSpace, 'rec709');
 	(built.dispose as () => void)();
 });
 

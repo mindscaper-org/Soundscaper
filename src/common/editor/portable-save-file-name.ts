@@ -8,11 +8,13 @@ export function escapeReservedFileName(value: string): string {
 }
 
 /** Retain the output suffix while making authored names portable on disk. */
-export function sanitizeSuggestedFileName(value: unknown): string {
+export function sanitizeSuggestedFileName(value: unknown, overflow: 'truncate' | 'reject' = 'truncate'): string {
 	const name = escapeReservedFileName(String(value || 'soundscaper-export')
 		// eslint-disable-next-line no-control-regex -- Control bytes cannot occur in a portable filename.
 		.trim().replace(/[\\/:*?"<>|\u0000-\u001f]+/gu, '-').replace(/[. ]+$/gu, '')
 		|| 'soundscaper-export');
 	const suffix = /\.[a-z0-9]{1,16}$/iu.exec(name)?.[0] ?? '';
-	return fitExportFileName(suffix ? name.slice(0, -suffix.length) : name, '', suffix).replace(/[. ]+$/gu, '');
+	const fitted = fitExportFileName(suffix ? name.slice(0, -suffix.length) : name, '', suffix);
+	if (overflow === 'reject' && fitted !== name) throw new RangeError('The export filename exceeds its portable byte bound.');
+	return fitted.replace(/[. ]+$/gu, '');
 }
