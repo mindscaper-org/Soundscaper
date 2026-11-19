@@ -34,14 +34,14 @@ test('exact placement retains every Float64 bit across scaled, mirrored, cropped
 test('axis-aligned alpha taps preserve affine output for opaque, hidden and signed-zero samples', () => {
 	for (const variant of [0, 1, 2, 3, 5, 7]) {
 		const request = fixture(variant);
-		const { width, height, pixels } = request.frame;
+		const { width, pixels } = request.frame;
 		const scale = pixels instanceof Float32Array ? 1 : 255;
 		for (const alpha of [[scale], [0, -0, scale / 3, scale]]) {
 			for (let index = 0; index < pixels.length; index += 4) {
 				pixels[index + 3] = alpha[(index / 4) % alpha.length]!;
 			}
 			const affine = placeUnifiedExactLinearRgbaFrameV13({
-				...request, frame: { width, height, get pixels() { return pixels; } },
+				...request, frame: { ...request.frame, get width() { return width; } },
 			});
 			const aligned = placeUnifiedExactLinearRgbaFrameV13(request);
 			assert.deepEqual(Buffer.from(aligned.pixels.buffer), Buffer.from(affine.pixels.buffer));
