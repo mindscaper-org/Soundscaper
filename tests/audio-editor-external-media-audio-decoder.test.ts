@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { floatWave } from './helpers/float32-wave-fixture.ts';
-import { createExternalMediaAudioDecoder } from '../src/common/editor/external-media-audio-decoder.ts';
+import { createExternalMediaAudioDecoder } from '../src/common/editor/controller/import/internal/external-media-audio-decoder.ts';
 import { attachExternalMedia } from '../src/common/editor/desktop-external-media.ts';
 
 const samples = new Float32Array([0.25, -0.5, 0.75, 0]);

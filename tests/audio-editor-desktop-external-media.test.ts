@@ -19,13 +19,13 @@ pcm.set(new Uint8Array(packPlanarFloat32(channels)), 4);
 const reference = { reference: 'opaque-native-file-reference', byteLength: original.size,
 	sha256: digestScapeBytes(new TextEncoder().encode('external audio')) };
 
-async function fixture() {
+async function fixture(role: 'audio' | 'video-audio' = 'audio') {
 	const store = memoryStore();
 	const source = attachExternalMedia({ kind: 'audio', id: 'external-audio', storageKey: 'external-audio',
 		name: 'original.mp3', mimeType: 'audio/mpeg', frameCount: 4, channelCount: 1,
 		contentSha256: digestScapeBytes(pcm),
 		sampleRate: 48_000, originalSampleRate: 48_000, sampleFormat: 'float32', chunkFrames: 4,
-		opaqueExtensions: {} }, reference, 'audio');
+		opaqueExtensions: {} }, reference, role);
 	const project = createBaselineAudioEditorProject({ title: 'External media', sources: [source],
 		clips: [{ kind: 'audio', id: 'clip', sourceId: source.id, timelineStartFrame: 0,
 			sourceStartFrame: 0, sourceDurationFrames: 4, durationFrames: 4 }],
@@ -66,6 +66,44 @@ test('external archives reopen from the verified original into a fresh store', a
 			resolveExternalMedia: async () => original,
 			decodeExternalAudio: async () => [new Float32Array(4)],
 		}), /different samples/i);
+	} finally { await store.close(); await target.close(); }
+});
+
+test('a thin archive retries video companion audio against the same PCM digest', async context => {
+	const { project, store } = await fixture('video-audio');
+	const target = memoryStore();
+	const attempts: unknown[] = [];
+	let aborted = 0, released = 0;
+	const begin = target.beginSourceWrite.bind(target);
+	context.mock.method(target, 'beginSourceWrite', async (...args: Parameters<typeof target.beginSourceWrite>) => {
+		const writer = await begin(...args);
+		const abort = writer.abort.bind(writer);
+		context.mock.method(writer, 'abort', async () => {
+			await abort();
+			aborted++;
+		});
+		return writer;
+	});
+	try {
+		const exported = await exportScapeProject(project, store, { externalMedia: true });
+		const result = await importBaselineScapeProject(exported.blob, target, {
+			resolveExternalMedia: async () => ({ file: original, async release() { released++; } }),
+			decodeExternalAudio: async (file, source, _signal, options) => {
+				assert.equal(file, original);
+				assert.equal(source.id, 'external-audio');
+				attempts.push(options?.videoAudioTiming);
+				if (!options) return [new Float32Array(4)];
+				assert.equal(aborted, 1);
+				assert.equal(released, 0);
+				assert.equal(await target.getSourceMetadata('external-audio'), null);
+				return channels;
+			},
+		});
+		assert.equal(result.project.sources[0]?.id, 'external-audio');
+		assert.equal((await target.getSourceMetadata('external-audio'))?.frameCount, 4);
+		assert.deepEqual(attempts, [undefined, 'import']);
+		assert.equal(aborted, 1);
+		assert.equal(released, 1);
 	} finally { await store.close(); await target.close(); }
 });
 

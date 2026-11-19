@@ -71,7 +71,7 @@ import {
 import { createMicrophoneMeterService } from './controller/recording/microphone-meter-service.ts'; import { createProjectVisualService } from './controller/document/project-visual-service.ts'; import { reloadPublishedVideoVisual } from './controller/document/reload-published-video-visual.ts';
 
 import { createNativeProjectComposition } from './controller/document/native-project-composition.ts'; import { createControllerFileSavingRuntime } from './controller/document/project-file-saving-composition.ts';
-import { createDawprojectAudioPreparer } from './controller/import/dawproject-audio-decode.ts'; import { createDeferredExternalMediaAudioDecoder } from './deferred-external-media-audio-decoder.ts';
+import { createDawprojectAudioPreparer } from './controller/import/dawproject-audio-decode.ts'; import { createDeferredExternalMediaAudioDecoder } from './controller/import/deferred-external-media-audio-decoder.ts';
 
 import { createTakeCycleOpenRecoveryAppPort } from './controller/recording/take-cycle-open-recovery-app-port.ts';
 

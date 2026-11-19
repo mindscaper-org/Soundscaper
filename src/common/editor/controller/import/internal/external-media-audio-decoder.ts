@@ -1,28 +1,22 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { openExternalMediaPcm } from './external-media-pcm-reader.ts';
-import { externalMediaForSource } from './desktop-external-media.ts';
-import { decodeBrowserContainerAudio } from './browser-container-audio-decode.ts';
-import { createStreamingWindowedSincResampler } from './resample.js';
-import { downmixSurroundToStereo } from './surround-monitoring.ts';
-import { scaleSampleFrame } from './timeline-time.ts';
-import type { ExternalAudioDecoder } from './scape-external-media.ts';
-
-interface DecodedAudio {
-	readonly sampleRate: number;
-	readonly channels?: readonly Float32Array[];
-	readonly numberOfChannels?: number;
-	getChannelData?(index: number): Float32Array;
-}
+import { openExternalMediaPcm } from '../../../external-media-pcm-reader.ts';
+import { externalMediaForSource } from '../../../desktop-external-media.ts';
+import { decodeBrowserContainerAudio } from '../../../browser-container-audio-decode.ts';
+import { createStreamingWindowedSincResampler } from '../../../resample.js';
+import { downmixSurroundToStereo } from '../../../surround-monitoring.ts';
+import { scaleSampleFrame } from '../../../timeline-time.ts';
+import type { ExternalAudioDecoder } from '../../../scape-external-media.ts';
+import { decodeImportedVideoAudio, type ImportedVideoDecodedAudio } from './video-import-audio-decode.ts';
 
 export interface ExternalAudioDecodePorts {
-	decodeNative(encoded: ArrayBuffer, sampleRate: number | null): Promise<DecodedAudio>;
-	decodeCodec(file: Blob, settings: { sampleRate: number; signal?: AbortSignal }): Promise<DecodedAudio>;
+	decodeNative(encoded: ArrayBuffer, sampleRate: number | null): Promise<ImportedVideoDecodedAudio>;
+	decodeCodec(file: Blob, settings: { sampleRate: number; signal?: AbortSignal }): Promise<ImportedVideoDecodedAudio>;
 }
 
 /** Rebuild the original import's PCM cache using its saved rate and sample shape. */
 export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts): ExternalAudioDecoder {
-	return async (file, source, signal) => {
+	return async (file, source, signal, options) => {
 		signal?.throwIfAborted();
 		const frames = Number(source.frameCount), sampleRate = Number(source.sampleRate);
 		const channels = Array.from({ length: Number(source.channelCount) }, () => new Float32Array(frames));
@@ -35,10 +29,19 @@ export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts)
 			});
 			return channels;
 		}
-		let decoded: DecodedAudio;
+		let decoded: ImportedVideoDecodedAudio;
 		const reference = externalMediaForSource(source);
 		const videoAudio = reference?.role === 'video-audio';
-		if (videoAudio) {
+		if (videoAudio && options?.videoAudioTiming === 'import') {
+			const result = await decodeImportedVideoAudio({
+				file, projectSampleRate: sampleRate, nativeContextSampleRate: reference.decodeSampleRate ?? sampleRate,
+				durationSeconds: frames / sampleRate, hasAudio: true, signal,
+				inspectEncodedSampleRate: () => null,
+				decodeNative: encoded => ports.decodeNative(encoded, reference.decodeSampleRate ?? null),
+				decodeFfmpeg: (input, settings) => ports.decodeCodec(input, settings),
+			});
+			decoded = result.decodedAudio;
+		} else if (videoAudio) {
 			try {
 				if (file.size > 32 * 1024 * 1024) throw new RangeError('Use the container audio decoder.');
 				decoded = await ports.decodeNative(await file.arrayBuffer(), reference.decodeSampleRate ?? null);
@@ -48,7 +51,7 @@ export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts)
 			}
 		} else decoded = await ports.decodeCodec(file, { sampleRate, signal });
 		signal?.throwIfAborted();
-		let input = decoded.channels ?? Array.from({ length: decoded.numberOfChannels ?? 0 }, (_, index) => decoded.getChannelData!(index));
+		let input = decoded.channels ?? Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index));
 		if (input.length > 2 && channels.length === 2) input = downmix(input);
 		if (videoAudio && decoded.sampleRate !== sampleRate) {
 			const outputFrames = Math.max(1, scaleSampleFrame(input[0]!.length, decoded.sampleRate, sampleRate, 'point'));
