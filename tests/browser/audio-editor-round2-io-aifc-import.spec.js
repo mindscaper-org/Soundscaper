@@ -3,6 +3,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { strFromU8, unzipSync } from 'fflate';
+import { libsndfileAiffAlignmentFixture } from '../helpers/libsndfile-aiff-alignment-fixture.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker,
 	downloadBytes, openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
@@ -75,5 +76,33 @@ test('File Import preserves libsndfile 24-bit and 32-bit AIFF-C recordings in a 
 		const pcm = Buffer.from(entries[`audio/${source.id}.f32c`]);
 		expect(pcm.readFloatLE(4)).toBe(-6542089 / 8388608);
 		expect(pcm.readFloatLE(4 + 51 * 4)).toBe(2393443 / 8388608);
+	}
+});
+
+test('File Import retains mono AIFF and AIFF-C PCM when SSND includes the last alignment byte', async ({ page }, testInfo) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const { files, frameCount, sampleRate, samples } = libsndfileAiffAlignmentFixture();
+	const folder = testInfo.outputPath('mono-aiff');
+	await mkdir(folder, { recursive: true });
+	const paths = await Promise.all(files.map(async file => {
+		const path = join(folder, file.name);
+		await writeFile(path, new Uint8Array(await file.arrayBuffer()));
+		return path;
+	}));
+	const picking = page.waitForEvent('filechooser');
+	await chooseFileAction(page, editor, 'Import');
+	await (await picking).setFiles(paths);
+	await expect(editor).toHaveAttribute('data-clip-count', String(files.length));
+	const saving = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await saving));
+	const project = JSON.parse(strFromU8(entries['project.json']));
+	expect(project.sources.map(source => source.name).sort()).toEqual(files.map(file => file.name).sort());
+	const expected = Buffer.alloc(frameCount * 4);
+	for (const [frame, sample] of samples.entries()) expected.writeFloatLE(sample, frame * 4);
+	for (const source of project.sources) {
+		expect(source).toMatchObject({ sampleRate, frameCount, channelCount: 1 });
+		expect(Buffer.from(entries[`audio/${source.id}.f32c`]).subarray(4)).toEqual(expected);
 	}
 });

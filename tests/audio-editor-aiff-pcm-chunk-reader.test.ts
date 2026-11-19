@@ -9,6 +9,7 @@ import {
 	createAiffBlobPcmChunkReader,
 	inspectAiffBlobPcm,
 } from '../src/common/editor/aiff-pcm-chunk-reader.ts';
+import { libsndfileAiffAlignmentFixture } from './helpers/libsndfile-aiff-alignment-fixture.ts';
 
 function encodedAiff(
 	channels: Float32Array[],
@@ -99,6 +100,37 @@ test('AIFF PCM reads preserve 24-bit and 32-bit integer sample geometry', async 
 		assert.equal(descriptor.sampleFormat, sampleFormat);
 		assert.deepEqual([...chunk.channels[0]!], [-1, -0.5, 0, 0.5]);
 	}
+});
+
+test('libsndfile mono AIFF and AIFF-C retain their authored PCM when SSND includes the alignment byte', async () => {
+	const { files, frameCount, sampleRate, samples } = libsndfileAiffAlignmentFixture();
+	for (const file of files) {
+		const { source, reads } = trackedSource(new Uint8Array(await file.arrayBuffer()));
+		const descriptor = await inspectAiffBlobPcm(source);
+		assert.equal(descriptor.frameCount, frameCount);
+		assert.equal(descriptor.sampleRate, sampleRate);
+		assert.equal(descriptor.dataByteLength, frameCount * 3);
+		assert.deepEqual(reads.filter(([start]) => start >= descriptor.dataOffset), [[file.size - 1, file.size]]);
+		const chunk = await createAiffBlobPcmChunkReader(source, { descriptor }).readChunk(0);
+		assert.deepEqual(chunk.channels[0], samples, file.name);
+		assert.deepEqual(reads.at(-1), [descriptor.dataOffset, file.size - 1]);
+	}
+});
+
+test('an included AIFF alignment byte must be zero and end on an even boundary', async () => {
+	const file = libsndfileAiffAlignmentFixture().files[0]!;
+	const bytes = new Uint8Array(await file.arrayBuffer());
+	bytes[bytes.length - 1] = 1;
+	await assert.rejects(inspectAiffBlobPcm(new Blob([bytes])), /declared PCM geometry/u);
+
+	const stereo = encodedAiff([Float32Array.of(0.25), Float32Array.of(-0.25)],
+		{ sampleRate: 44_100, sampleFormat: 'int24', dither: 'none' });
+	const extra = new Uint8Array(stereo.length + 2);
+	extra.set(stereo);
+	const view = new DataView(extra.buffer);
+	view.setUint32(4, extra.length - 8, false);
+	view.setUint32(42, 8 + 7, false);
+	await assert.rejects(inspectAiffBlobPcm(new Blob([extra])), /declared PCM geometry/u);
 });
 
 test('libsndfile AIFF-C integer tags retain their width, byte order, and exact PCM', async () => {

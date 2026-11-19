@@ -195,8 +195,13 @@ export async function inspectAiffBlobPcm(
 	if (!comm) throw new Error('The AIFF file does not contain one COMM chunk.');
 	if (!sound) throw new Error('The AIFF file does not contain one SSND chunk.');
 	const expectedDataBytes = comm.frameCount * comm.blockAlign;
-	if (!Number.isSafeInteger(expectedDataBytes) || sound.dataByteLength < expectedDataBytes
-		|| sound.dataByteLength - expectedDataBytes >= Math.max(1, sound.blockSize)) {
+	const excess = sound.dataByteLength - expectedDataBytes;
+	const dataEnd = sound.dataOffset + expectedDataBytes;
+	// libsndfile includes the last alignment byte in the SSND chunk size.
+	const includesAlignmentByte = sound.blockSize === 0 && excess === 1 && dataEnd % 2 === 1;
+	if (!Number.isSafeInteger(expectedDataBytes) || excess < 0
+		|| (excess >= Math.max(1, sound.blockSize) && (!includesAlignmentByte
+			|| (await readSourceBytes(source, dataEnd, dataEnd + 1, signal))[0] !== 0))) {
 		throw new Error('The AIFF sound data does not match its declared PCM geometry.');
 	}
 	return descriptorFromFields({
