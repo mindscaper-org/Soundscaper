@@ -5,6 +5,7 @@ import test from 'node:test';
 import { floatWave } from './helpers/float32-wave-fixture.ts';
 import { createExternalMediaAudioDecoder } from '../src/common/editor/controller/import/internal/external-media-audio-decoder.ts';
 import { attachExternalMedia } from '../src/common/editor/desktop-external-media.ts';
+import { enabledVideoAudioTrackFixture } from './helpers/native-video-audio-tail-fixture.ts';
 
 const samples = new Float32Array([0.25, -0.5, 0.75, 0]);
 const source = { kind: 'audio', id: 'audio', name: 'source.wav', sampleRate: 48_000, channelCount: 1, frameCount: 4, chunkFrames: 4 };
@@ -54,4 +55,26 @@ test('video companion audio reuses its original native decode rate on another ou
 	const result = await decode(file, videoAudio);
 	assert.equal(result[0]!.length, source.frameCount);
 	assert.ok(result[0]!.every(Number.isFinite));
+});
+
+test('video companion recovery requires the recorded stream in both decode modes and keeps unmarked archives readable', async () => {
+	const file = new Blob([enabledVideoAudioTrackFixture()], { type: 'video/mp4' });
+	const videoAudio = attachExternalMedia({ ...source, opaqueExtensions: {} }, { reference: 'video-original', byteLength: file.size,
+		sha256: 'a'.repeat(64) }, 'video-audio');
+	let nativeCalls = 0;
+	const decode = createExternalMediaAudioDecoder({ decodeCodec: refuse, async decodeNative() {
+		nativeCalls++;
+		return { channels: [samples], sampleRate: 48_000 };
+	} });
+	const wrongStream = { ...videoAudio, opaqueExtensions: { ...videoAudio.opaqueExtensions,
+		videoAudioProgramme: { streamIndex: 1, pictureFrameCount: 4 },
+	} };
+	for (const mode of [undefined, { videoAudioTiming: 'import' as const }]) {
+		await assert.rejects(decode(file, wrongStream, undefined, mode), /recorded container stream/u);
+	}
+	assert.equal(nativeCalls, 0);
+	for (const mode of [undefined, { videoAudioTiming: 'import' as const }]) {
+		assert.deepEqual(await decode(file, videoAudio, undefined, mode), [samples]);
+	}
+	assert.equal(nativeCalls, 2);
 });

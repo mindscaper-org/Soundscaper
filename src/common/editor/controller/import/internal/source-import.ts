@@ -154,6 +154,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 		let canonicalAudio = null;
 		let audioDecodeNotice: string | null = null;
 		let audioContentIdentity: ImportedAudioContentIdentity | null = null;
+		let selectedAudioStreamIndex: number | undefined;
 		let originalAudioSampleRate = sampleRate, decodedAudioSampleRate = sampleRate;
 		const publications: { media: OwnedMediaAssetPublication | null; timing: OwnedMediaAssetPublication | null;
 			timingIndex: VideoTimingIndex | null } = { media: null, timing: null, timingIndex: null };
@@ -209,7 +210,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 
 			const context = await engine.getAudioContext({ resume: false });
 			try {
-				const { decodedAudio, declaredAudioSampleRate, programmeFrameCount } = await decodeImportedVideoAudio({
+				const { decodedAudio, declaredAudioSampleRate, programmeFrameCount, selectedAudioStreamIndex: decodedStreamIndex } = await decodeImportedVideoAudio({
 					file: canonicalVideoFile,
 					projectSampleRate: sampleRate, nativeContextSampleRate: context.sampleRate ?? sampleRate,
 					durationSeconds: timelineDurationFrames / sampleRate,
@@ -226,6 +227,7 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 						? audioBufferChannels(decodedAudio)
 						: null;
 				if (decodedChannels?.length) {
+					selectedAudioStreamIndex = decodedStreamIndex;
 					originalAudioSampleRate = declaredAudioSampleRate || decodedAudio.sampleRate || sampleRate; decodedAudioSampleRate = decodedAudio.sampleRate;
 					const decodedBuffer = await bufferFromChannels(
 						decodedChannels,
@@ -281,11 +283,10 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 			const sourceFrameCount = timingProbe.decision === 'timing-asset'
 				? timingProbe.timing.frameCount
 				: Math.max(1, sampleFrameToVideoFrame(durationFrames, sourceRate, sampleRate, 'enclosingEnd'));
-			// Ingest decodes one audio program. Naming it is only honest when the
-			// inventory reports exactly one, so a multi-stream master records the
-			// streams it did not import instead of guessing which one it did.
+			// Report an extracted stream when the inventory or packet decoder identifies it.
 			const reportedStreams = timingProbe.characteristics.audioStreams;
-			const extractedStream = canonicalAudio && reportedStreams?.length === 1 ? reportedStreams[0] : null;
+			const extractedIndex = selectedAudioStreamIndex ?? (reportedStreams?.length === 1 ? reportedStreams[0]?.index : undefined);
+			const extractedStream = canonicalAudio ? reportedStreams?.find(stream => stream.index === extractedIndex) : null;
 			const characteristics = normalizeVideoSourceCharacteristics({
 				...timingProbe.characteristics,
 				extractedAudioStreamIndex: extractedStream ? extractedStream.index : null,
@@ -337,7 +338,11 @@ export function createImportVideoFile(runtime: ImportVideoRuntime): ImportVideoF
 				originalSampleRate: originalAudioSampleRate,
 				contentSha256: audioContentIdentity.contentSha256,
 				byteLength: audioContentIdentity.byteLength,
-				opaqueExtensions: { originVideoSourceId: videoSourceId }, ...(importOptions.sourceProvenance ? { provenance: importOptions.sourceProvenance } : {}),
+				opaqueExtensions: { originVideoSourceId: videoSourceId,
+					...(selectedAudioStreamIndex === undefined ? {} : { videoAudioProgramme: {
+						streamIndex: selectedAudioStreamIndex, pictureFrameCount: timelineDurationFrames,
+					} }) },
+				...(importOptions.sourceProvenance ? { provenance: importOptions.sourceProvenance } : {}),
 			}, conformedAtIngest || !importOptions.externalMedia ? null : { ...importOptions.externalMedia, decodeSampleRate: decodedAudioSampleRate }, 'video-audio') : null;
 			const videoClip = {
 				kind: 'video',

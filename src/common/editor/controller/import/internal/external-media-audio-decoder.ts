@@ -32,10 +32,12 @@ export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts)
 		let decoded: ImportedVideoDecodedAudio;
 		const reference = externalMediaForSource(source);
 		const videoAudio = reference?.role === 'video-audio';
-		if (videoAudio && options?.videoAudioTiming === 'import') {
+		const programme = videoAudio ? readVideoAudioProgramme(source, frames) : null;
+		if (videoAudio && (programme || options?.videoAudioTiming === 'import')) {
 			const result = await decodeImportedVideoAudio({
 				file, projectSampleRate: sampleRate, nativeContextSampleRate: reference.decodeSampleRate ?? sampleRate,
-				durationSeconds: frames / sampleRate, hasAudio: true, signal,
+				durationSeconds: (programme?.pictureFrameCount ?? frames) / sampleRate, hasAudio: true, signal,
+				audioProgramme: programme?.streamIndex ?? 'legacy',
 				inspectEncodedSampleRate: () => null,
 				decodeNative: encoded => ports.decodeNative(encoded, reference.decodeSampleRate ?? null),
 				decodeFfmpeg: (input, settings) => ports.decodeCodec(input, settings),
@@ -72,6 +74,19 @@ export function createExternalMediaAudioDecoder(ports: ExternalAudioDecodePorts)
 		for (const [index, channel] of input.entries()) channels[index]!.set(channel.subarray(0, frames));
 		return channels;
 	};
+}
+
+function readVideoAudioProgramme(source: Readonly<Record<string, unknown>>, frames: number):
+	Readonly<{ streamIndex: number; pictureFrameCount: number }> | null {
+	const value = (source.opaqueExtensions as Readonly<Record<string, unknown>> | undefined)?.videoAudioProgramme;
+	if (value === undefined) return null;
+	const { streamIndex, pictureFrameCount } = (value ?? {}) as Readonly<Record<string, unknown>>;
+	if (typeof streamIndex !== 'number' || !Number.isSafeInteger(streamIndex) || streamIndex < 0
+		|| typeof pictureFrameCount !== 'number' || !Number.isSafeInteger(pictureFrameCount)
+		|| pictureFrameCount < 1 || pictureFrameCount > frames) {
+		throw new RangeError('The recorded external video audio programme is invalid.');
+	}
+	return { streamIndex, pictureFrameCount };
 }
 
 function downmix(input: readonly Float32Array[]): readonly Float32Array[] {

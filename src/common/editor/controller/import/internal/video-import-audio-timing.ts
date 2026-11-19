@@ -12,9 +12,11 @@ interface VideoContainerAudioTiming {
 	/** A native decoder may choose any programme only when all have these timings. */
 	readonly nativeTimingShared: boolean;
 	readonly packetDecodePreferred?: boolean;
+	readonly selectedAudioTrack?: Readonly<{ file: Blob; ordinal: number; streamIndex: number; sampleRate: number }>;
 	/** Authenticated ISO AAC-LC presentation end, relative to picture zero. */
 	readonly programmeEndSeconds: number | null;
 }
+type AudioTimingSelection = 'primary' | 'legacy-primary' | 'first';
 
 /** Whole-file decoders return PCM at zero; retain the primary picture-relative start. */
 export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSignal): Promise<number> {
@@ -23,12 +25,12 @@ export async function readVideoContainerAudioOffset(blob: Blob, signal?: AbortSi
 
 /** Inspect programme end only where the container declares the decoded AAC extent. */
 export async function readVideoContainerAudioTiming(blob: Blob, signal?: AbortSignal,
-	selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
+	selection: AudioTimingSelection = 'primary'): Promise<VideoContainerAudioTiming> {
 	return inspectVideoContainerAudioTiming(blob, signal, true, selection);
 }
 
 async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal | undefined,
-	includeProgrammeEnd: boolean, selection: 'primary' | 'first' = 'primary'): Promise<VideoContainerAudioTiming> {
+	includeProgrammeEnd: boolean, selection: AudioTimingSelection = 'legacy-primary'): Promise<VideoContainerAudioTiming> {
 	throwIfAborted(signal);
 	const { BlobSource, Input, MATROSKA, MP4, QTFF, WEBM } = await import('mediabunny');
 	throwIfAborted(signal);
@@ -38,9 +40,28 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 	try {
 		// getAudioTracks preserves file order, matching FFmpeg's explicit 0:a:0.
 		const [tracks, video] = await Promise.all([input.getAudioTracks(), input.getPrimaryVideoTrack()]);
-		const audio = selection === 'first' ? tracks[0] : await input.getPrimaryAudioTrack();
+		let audio = selection === 'first' ? tracks[0] : await input.getPrimaryAudioTrack();
 		const audioTrackCount = tracks.length;
 		if (!audio || !video) return { offsetSeconds: 0, programmeEndSeconds: null, audioTrackCount, nativeTimingShared: audioTrackCount <= 1 };
+		const format = includeProgrammeEnd ? await input.getFormat() : null;
+		let selectedAudioTrack: VideoContainerAudioTiming['selectedAudioTrack'];
+		if (selection === 'primary' && (format === MP4 || format === QTFF) && audioTrackCount > 1 && audioTrackCount <= 32
+			&& (await input.getVideoTracks()).length === 1) {
+			const dispositions = await Promise.all(tracks.map(track => track.getDisposition()));
+			const ordinal = dispositions.findIndex(disposition => disposition.default);
+			const enabled = tracks[ordinal];
+			const geometry = enabled && !dispositions.slice(ordinal + 1).some(disposition => disposition.default)
+				? (await import('./video-import-audio-workload.ts')).explicitVideoAacLcGeometry(await enabled.getDecoderConfig()) : null;
+			if (enabled && geometry) {
+				const streamIndex = (await input.getTracks()).indexOf(enabled);
+				const { isolateIsoAudioProgramme } = await import('../../../iso-audio-presentation-edit.ts');
+				const file = await isolateIsoAudioProgramme(blob, enabled.id, tracks.filter(track => track !== enabled).map(track => track.id), signal);
+				if (streamIndex >= 0 && file) {
+					audio = enabled;
+					selectedAudioTrack = { file, ordinal, streamIndex, sampleRate: geometry.sampleRate };
+				}
+			}
+		}
 		const [audioStart, videoStart] = await Promise.all([audio.getFirstTimestamp(), video.getFirstTimestamp()]);
 		throwIfAborted(signal);
 		if (!Number.isFinite(audioStart) || !Number.isFinite(videoStart)) throw new RangeError('Invalid container audio timing.');
@@ -51,7 +72,6 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 		let preferTimestampedPcm = false;
 		if (includeProgrammeEnd) {
 			try {
-				const format = await input.getFormat();
 				const codec = await audio.getCodec();
 				// Matroska's last-packet timestamp can exclude packet duration or
 				// include codec padding, so it cannot establish this source extent.
@@ -65,7 +85,7 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 			} catch { throwIfAborted(signal); }
 		}
 		let nativeTimingShared = audioTrackCount <= 1;
-		if (!nativeTimingShared && programmeEndSeconds !== null) {
+		if (!selectedAudioTrack && !nativeTimingShared && programmeEndSeconds !== null) {
 			try {
 				nativeTimingShared = true;
 				for (const other of tracks) {
@@ -86,7 +106,8 @@ async function inspectVideoContainerAudioTiming(blob: Blob, signal: AbortSignal 
 			&& (await import('../../../browser-container-opus-decoder.ts')).hasReviewedContainerOpusPreSkip(config);
 		throwIfAborted(signal);
 		return { offsetSeconds, programmeEndSeconds, audioTrackCount, nativeTimingShared,
-			...(packetDecodePreferred ? { packetDecodePreferred: true } : {}) };
+			...(packetDecodePreferred ? { packetDecodePreferred: true } : {}),
+			...(selectedAudioTrack ? { selectedAudioTrack } : {}) };
 	} finally {
 		signal?.removeEventListener('abort', onAbort);
 		input.dispose();

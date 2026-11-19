@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
-import { isoOpusTailFixture, nativeVideoAudioTailFixture, quickTimePcmTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
+import { enabledVideoAudioTrackFixture, isoOpusTailFixture, nativeVideoAudioTailFixture, quickTimePcmTailFixture } from '../helpers/native-video-audio-tail-fixture.ts';
 import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
@@ -72,6 +72,38 @@ for (const pictureFrames of [2, 4]) test(`ISO Opus keeps the authored audio edit
 	for (let frame = 4800; frame < 5600; frame++) peak = Math.max(peak, Math.abs(pcm.readFloatLE(4 + frame * 4)));
 	expect(peak).toBeGreaterThan(.05);
 	expect(pcm.subarray(4 + 5760 * 4)).toEqual(Buffer.alloc((audio.frameCount - 5760) * 4));
+});
+
+test('video import uses the only enabled AAC programme and preserves both original streams', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	const original = enabledVideoAudioTrackFixture();
+	await editor.locator('[data-project-bin-input]').setInputFiles({ name: 'Two programmes.mp4', mimeType: 'video/mp4', buffer: original });
+	await editor.locator('[data-project-bin-item]').first().getByRole('button', { name: /Add to timeline:/u }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '2');
+	await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+	const saving = page.waitForEvent('download');
+	await chooseExportProjectFileAction(page, editor);
+	const entries = unzipSync(await downloadBytes(await saving));
+	const project = JSON.parse(strFromU8(entries['project.json']));
+	const picture = project.sources.find(source => source.kind === 'video');
+	const audio = project.sources.find(source => source.kind === 'audio');
+	const pcm = Buffer.from(entries[`audio/${audio.id}.f32c`]);
+	const amplitudes = [430, 1170].map(frequency => {
+		let sine = 0, cosine = 0;
+		for (let frame = 4800; frame < 24_000; frame++) {
+			const sample = pcm.readFloatLE(4 + frame * 4), phase = 2 * Math.PI * frequency * frame / 48_000;
+			sine += sample * Math.sin(phase); cosine += sample * Math.cos(phase);
+		}
+		return Math.hypot(sine, cosine) / 9600;
+	});
+	expect(amplitudes[1]).toBeGreaterThan(.09);
+	expect(amplitudes[0]).toBeLessThan(.002);
+	expect(audio.frameCount).toBe(38_400);
+	expect(pcm.subarray(4 + 34_560 * 4).every(byte => byte === 0)).toBe(true);
+	expect(picture.characteristics.extractedAudioStreamIndex).toBe(2);
+	expect(audio.opaqueExtensions.videoAudioProgramme).toEqual({ streamIndex: 2, pictureFrameCount: 38_400 });
+	expect(Buffer.from(entries[`media/${picture.id}/original`])).toEqual(original);
 });
 
 test('a saved QuickTime PCM tail remains editable after reopening the Framescaper archive', async ({ page, browser, browserName }) => {
