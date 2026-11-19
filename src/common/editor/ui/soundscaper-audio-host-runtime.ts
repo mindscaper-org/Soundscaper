@@ -397,7 +397,8 @@ function routeRequests(host: string, inventory: NativeAudioInventoryReport, sett
 	const periodFrames = host === 'wasapi' ? 256 * Math.ceil(sampleRate / 48_000) : 256;
 	const request = (device: NativeAudioDeviceReport, direction: 'input' | 'output' | 'duplex', channelCount: number) => createNativeAudioRouteOpenRequest({
 		candidates: [{ backend: host, deviceHandle: device.handle }], direction,
-		mode: host === 'asio' ? 'exclusive' : 'shared', sampleRate, periodFrames, channelCount,
+		// The native ALSA adapter grants direct hw: handles as exclusive streams.
+		mode: host === 'asio' || (host === 'alsa' && device.handle.startsWith('hw:')) ? 'exclusive' : 'shared', sampleRate, periodFrames, channelCount,
 	});
 	const outputChannels = Math.min(2, output?.channelCount || 2);
 	// ALSA opens a shared PCM name independently for capture and playback.

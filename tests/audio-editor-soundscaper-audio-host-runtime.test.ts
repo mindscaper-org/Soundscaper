@@ -164,13 +164,15 @@ for (const refused of [false, true]) test(`choosing another input retains the op
 	} finally { await fixture.runtime.dispose(); }
 });
 
-test('asymmetric devices use separate exact channel requests instead of an invalid duplex format', async () => {
-	const fixture = hostFixture('wasapi', false, [
-		{ handle: 'interface', label: 'Mono input', direction: 'input', channelCount: 1 },
-		{ handle: 'interface', label: 'Stereo output', direction: 'output', channelCount: 2 },
+for (const [host, handle, mode] of [
+	['wasapi', 'interface', 'shared'], ['alsa', 'hw:CARD=Studio,DEV=0', 'exclusive'], ['alsa', 'plughw:CARD=Studio,DEV=0', 'shared'],
+] as const) test(`${host} ${handle} opens separate exact input and output requests`, async () => {
+	const fixture = hostFixture(host, false, [
+		{ handle, label: 'Mono input', direction: 'input', channelCount: 1 },
+		{ handle, label: 'Stereo output', direction: 'output', channelCount: 2 },
 	]);
 	await fixture.runtime.refresh();
-	assert.deepEqual(fixture.opened.map((request) => [request.direction, request.channelCount]), [['input', 1], ['output', 2]]);
+	assert.deepEqual(fixture.opened.map(request => [request.direction, request.channelCount, request.mode]), [['input', 1, mode], ['output', 2, mode]]);
 	fixture.runtime.reportDeviceLoss('session-1', 'device-loss');
 	assert.match(fixture.runtime.getSnapshot().error, /disconnected.*Refresh audio devices/u);
 	await fixture.runtime.dispose();
@@ -496,7 +498,7 @@ function hostFixture(host = 'electron', failOutput = false, devices?: readonly N
 	const bridge = {
 		nativeAudioHelperAvailability: async () => {
 			if (failAvailability) throw new Error('Temporary availability query failure');
-			return { enabled, quarantined: false, payload: { status: 'available', reason: null, detail: '' }, backends: ['wasapi', 'asio', 'jack'] };
+			return { enabled, quarantined: false, payload: { status: 'available', reason: null, detail: '' }, backends: ['wasapi', 'asio', 'jack', ...(host === 'alsa' ? ['alsa'] : [])] };
 		},
 		setNativeAudioHelperEnabled: async (value: boolean) => { enabled = value; return value; },
 		describeNativeAudioBackend: async ({ backend }: { backend: string }) => {

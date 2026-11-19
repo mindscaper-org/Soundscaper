@@ -63,6 +63,49 @@ test('ALSA can switch a shared PCM to stereo recording without reopening its spe
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 });
 
+test('ALSA direct hardware choices open for capture and playback', async ({ page, browserName }) => {
+	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
+	await installNativeInputPeer(page);
+	const handle = 'hw:CARD=Studio,DEV=0';
+	await page.addInitScript(handle => {
+		const api = window.soundscaperDesktop.v1, describe = api.describeNativeAudioBackend, open = api.openNativeAudioSession;
+		api.describeNativeAudioBackend = async request => {
+			const result = await describe(request);
+			result.inventory.devices = [{ handle: 'default', label: 'Default PCM', direction: 'duplex', isDefault: true },
+				{ handle, label: 'Studio hardware', direction: 'duplex' }];
+			return result;
+		};
+		api.openNativeAudioSession = async request => {
+			const deviceHandle = request.candidates[0].deviceHandle;
+			if (request.mode !== (deviceHandle === handle ? 'exclusive' : 'shared')) return { status: 'refused', code: 'format-refused',
+				message: 'The backend granted a different format or mode than requested.', attempts: [] };
+			return { ...await open(request), deviceHandle };
+		};
+	}, handle);
+	const editor = await bootEditor(page, '/embed/en/');
+	await editor.getByRole('button', { name: 'Audio setup', exact: true }).click();
+	const setup = editor.getByRole('dialog', { name: 'Audio setup', exact: true });
+	await setup.getByRole('combobox', { name: 'Host', exact: true }).selectOption('alsa');
+	const microphone = setup.getByRole('combobox', { name: 'Microphone', exact: true });
+	const speakers = setup.getByRole('combobox', { name: 'Speakers', exact: true });
+	const openedRequests = () => page.evaluate(() => window.__nativeInputPeer.requests.map(request => [request.direction, request.mode]));
+	const inputRequests = [['input', 'shared'], ['output', 'shared'], ['input', 'exclusive']];
+	await expect(microphone).toBeEnabled();
+	await microphone.selectOption(`native:alsa:in:${handle}`);
+	await expect.poll(openedRequests).toEqual(inputRequests);
+	await expect(speakers).toBeEnabled();
+	await expect(setup.getByRole('alert')).toHaveCount(0);
+	await speakers.selectOption(`native:alsa:out:${handle}`);
+	await expect.poll(openedRequests).toEqual([...inputRequests, ['output', 'exclusive']]);
+	await expect(microphone).toBeEnabled();
+	await page.keyboard.press('Escape');
+	await editor.getByRole('button', { name: 'Record onto the active track', exact: true }).click();
+	await expect(editor.getByRole('button', { name: 'Pause recording', exact: true })).toHaveAttribute('aria-pressed', 'true');
+	await expect.poll(async () => Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'))).toBeGreaterThan(12_000);
+	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+});
+
 test('a busy renderer still saves only captured audio when the native microphone disconnects', async ({ page, browserName }) => {
 	test.skip(browserName === 'webkit', NATIVE_OUTPUT_PEER_WEBKIT_REASON);
 	await installNativeInputPeer(page);
