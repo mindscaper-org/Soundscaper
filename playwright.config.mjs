@@ -2,6 +2,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { resolve } from 'node:path';
 import { browserSuiteTestMatch } from './scripts/lib/module-browser-suites.ts';
+import { ciFirefoxLaunchOptions } from './scripts/lib/ci-firefox-launch.mjs';
 
 import {
 	ordinaryBrowserProductSitePlan,
@@ -14,6 +15,7 @@ const modulePlan = process.env.SCAPE_MODULE_PLAN
 	? (await import('./scripts/lib/check-module-repository.ts')).readModuleExecutionPlan(import.meta.dirname, process.env.SCAPE_MODULE_PLAN)
 	: null;
 const browserCoverage = process.env.SCAPE_BROWSER_COVERAGE === '1';
+const { headless: firefoxHeadless, ...firefoxLaunchOptions } = ciFirefoxLaunchOptions();
 const suiteTestMatch = browserSuiteTestMatch(import.meta.dirname, process.env.SCAPE_BROWSER_SUITE_FILES,
 	modulePlan?.mode === 'focused' ? modulePlan.browserTests : undefined);
 process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(Object.fromEntries(sitePlan.sites.map(site => [site.productId, site.origin])));
@@ -53,7 +55,7 @@ export default defineConfig({
 			// Explicit realtime assertions and per-test budgets retain their bounds.
 			...(browserCoverage ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 		},
-		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox', headless: true } },
+		{ name: 'firefox', use: { ...devices['Desktop Firefox'], browserName: 'firefox', headless: firefoxHeadless, launchOptions: firefoxLaunchOptions } },
 		{ name: 'webkit', use: { ...devices['Desktop Safari'], browserName: 'webkit', deviceScaleFactor: 1 } },
 	],
 });

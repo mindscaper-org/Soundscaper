@@ -738,7 +738,8 @@ jobs:
     env:
       SCAPE_MODULE_PLAN: .wrangler/module-plan.json
       SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
-      # Headless workers keep independent focus while Mesa provides WebGL2 on GPU-less runners.
+      # A private X11 display gives each worker WebGL2 and independent keyboard focus.
+      SCAPE_FIREFOX_XVFB: '1'
       LIBGL_ALWAYS_SOFTWARE: '1'
       GALLIUM_DRIVER: llvmpipe
     steps:
@@ -790,7 +791,7 @@ jobs:
         run: bash scripts/ci-firefox-pulseaudio.sh
 
       - name: Require a live Firefox AudioContext clock and WebGL2
-        run: xvfb-run --auto-servernum node scripts/ci-firefox-audio-clock.mjs
+        run: node scripts/ci-firefox-audio-clock.mjs
 
       - name: Resolve the selected test prerequisites
         id: test-prerequisites
@@ -833,7 +834,7 @@ jobs:
 
       - name: Run Firefox workflows against the existing build
         timeout-minutes: 180
-        run: xvfb-run --auto-servernum npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/4 --workers=2
+        run: npm run test:browser:built -- --project=firefox --suite-shard=${{ matrix.shard }}/4 --workers=2
 
       - name: Upload Firefox diagnostics
         if: always()

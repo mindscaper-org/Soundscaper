@@ -24,11 +24,12 @@ test('Firefox shards reuse verified engine bytes and run with live audio and a W
 		assert.match(job, /uses: \.\/\.github\/actions\/verified-firefox/u);
 		assert.match(job, /ci-firefox-pulseaudio\.sh/u);
 		assert.match(job, /ci-apt-install\.sh[^\n]*xvfb[^\n]*libgl1-mesa-dri/u);
+		assert.match(job, /SCAPE_FIREFOX_XVFB: '1'/u);
 		assert.match(job, /LIBGL_ALWAYS_SOFTWARE: '1'/u);
 		assert.match(job, /GALLIUM_DRIVER: llvmpipe/u);
-		assert.match(job, /run: xvfb-run --auto-servernum node scripts\/ci-firefox-audio-clock\.mjs/u);
+		assert.match(job, /run: node scripts\/ci-firefox-audio-clock\.mjs/u);
 		// The complete partition is enforced by playwright-config.test.js.
-		assert.match(job, /run: xvfb-run --auto-servernum npm run test:browser:built -- --project=firefox --suite-shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=2/u);
+		assert.match(job, /run: npm run test:browser:built -- --project=firefox --suite-shard=\$\{\{ matrix\.shard \}\}\/\d+ --workers=2/u);
 	}
 	const action = await readFile(new URL('../.github/actions/verified-firefox/action.yml', import.meta.url), 'utf8');
 	assert.match(action, /run: npx playwright install-deps firefox/u);

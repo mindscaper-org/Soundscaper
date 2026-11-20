@@ -2,8 +2,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { firefox } from '@playwright/test';
+import { ciFirefoxLaunchOptions } from './lib/ci-firefox-launch.mjs';
 
-const browser = await firefox.launch({ headless: true });
+const browser = await firefox.launch(ciFirefoxLaunchOptions());
 try {
 	const page = await browser.newPage();
 	const webgl2 = await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2')));
@@ -51,6 +52,19 @@ try {
 			});
 		</script>
 	`);
+	if (process.env.SCAPE_FIREFOX_XVFB === '1') {
+		await page.getByRole('button', { name: 'Start audio', exact: true }).focus();
+		const sibling = await firefox.launch(ciFirefoxLaunchOptions());
+		try {
+			const secondPage = await sibling.newPage();
+			await secondPage.setContent('<button type="button">Focus</button>');
+			await secondPage.getByRole('button', { name: 'Focus', exact: true }).focus();
+			const checkFocus = () => document.hasFocus() && document.activeElement?.tagName === 'BUTTON';
+			await Promise.all([page, secondPage].map(active => active.waitForFunction(checkFocus, undefined, { timeout: 5_000 })));
+		} finally {
+			await sibling.close();
+		}
+	}
 	await page.getByRole('button', { name: 'Start audio', exact: true }).click();
 	const result = await withTimeout(
 		page.evaluate(() => globalThis.__soundscaperAudioClockProbe),

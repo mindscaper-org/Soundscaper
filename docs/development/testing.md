@@ -219,6 +219,10 @@ Playwright stays pinned to 1.64.1 while its Firefox file-chooser interception
 Verify both selection and cancellation through Generate > Add Images before
 updating the pin; application cancellation handlers must still honor real cancellation.
 
+Quality runs Firefox with a private Xvfb display for each worker's browser.
+The preflight uses the same launcher to verify WebGL2, PulseAudio clock progress,
+and independent keyboard focus across two browsers.
+
 `check-all` schedules up to four checks or test shards at once. It splits lint
 using the existing eight lint shards, Node suites across four execution slots,
 and browser suites into four partitions spanning all three engines. Each

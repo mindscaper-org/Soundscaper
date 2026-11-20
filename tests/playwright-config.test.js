@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { firefox as playwrightFirefox } from '@playwright/test';
 
 import { DUAL_ORIGIN_BROWSER_SITES } from '../scripts/build-dual-origin-browser-sites.mjs';
 import { extractJob } from './helpers/workflow-jobs.js';
@@ -54,9 +55,22 @@ test('only instrumented Chromium receives extra render and persistence time', as
 	}
 });
 
-test('Firefox stays headless on the CI virtual display so workers have independent focus', async () => {
-	const { default: config } = await import('../playwright.config.mjs?firefox-display');
-	assert.deepEqual(config.projects.map(({ use }) => use.headless), [undefined, true, undefined]);
+test('Firefox CI launches the verified browser with a separate display per worker', async () => {
+	const previous = process.env.SCAPE_FIREFOX_XVFB;
+	try {
+		delete process.env.SCAPE_FIREFOX_XVFB;
+		const { default: ordinary } = await import('../playwright.config.mjs?firefox-headless');
+		assert.deepEqual(ordinary.projects.map(({ use }) => use.headless), [undefined, true, undefined]);
+		process.env.SCAPE_FIREFOX_XVFB = '1';
+		const { default: config } = await import('../playwright.config.mjs?firefox-display');
+		assert.deepEqual(config.projects.map(({ use }) => use.headless), [undefined, false, undefined]);
+		assert.deepEqual(config.projects.map(({ use }) => use.launchOptions?.executablePath),
+			[undefined, resolve(ROOT, 'scripts/ci-firefox-xvfb.sh'), undefined]);
+		assert.equal(config.projects[1].use.launchOptions.env.SCAPE_FIREFOX_EXECUTABLE, playwrightFirefox.executablePath());
+	} finally {
+		if (previous === undefined) delete process.env.SCAPE_FIREFOX_XVFB;
+		else process.env.SCAPE_FIREFOX_XVFB = previous;
+	}
 });
 
 test('Playwright runs the maintained evergreen browser-engine matrix', async () => {
@@ -270,7 +284,7 @@ test('Firefox CI audio helpers configure a null sink/source and reject a stalled
 	assert.match(pulseSetup, /set-default-source[^\n]+\.monitor/u);
 	assert.match(pulseSetup, /GITHUB_ENV/u);
 	assert.match(clockProbe, /firefox\.launch/u);
-	assert.match(clockProbe, /headless: true/u);
+	assert.match(clockProbe, /firefox\.launch\(ciFirefoxLaunchOptions\(\)\)/u);
 	assert.match(clockProbe, /new AudioContext/u);
 	assert.match(clockProbe, /currentTime/u);
 	assert.match(clockProbe, /withTimeout/u);
