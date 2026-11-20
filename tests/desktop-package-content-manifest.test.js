@@ -86,7 +86,7 @@ test('Stable Soundscaper admits no legacy native-addon manifest or helper payloa
 		resourcesRoot: stable.resourcesRoot, runtimeManifestPath: stable.runtimeManifestPath,
 		productId: 'soundscaper', targetId: 'linux-x64',
 	}, stableNotices.dependencies);
-	assert.equal(written.fileCount, 23);
+	assert.equal(written.fileCount, 11 + stable.runtimeManifest.desktopNotices.professionalNative.notices.length);
 
 	const missingNotices = await packageTree(context, { professionalBuilt: true });
 	await rm(join(missingNotices.resourcesRoot, 'runtime/native/linux-x64'), { recursive: true });

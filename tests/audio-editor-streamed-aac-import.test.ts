@@ -57,7 +57,9 @@ async function encodedFixture(sourceFrames: number, options: { metadata?: string
 		const config = await track.getDecoderConfig();
 		assert.ok(packet && config);
 		const target = new BufferTarget();
-		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'fragmented' }), target });
+		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'fragmented',
+			...(options.metadata === null ? { minimumFragmentDuration: 0 } : {}),
+		}), target });
 		const source = new EncodedAudioPacketSource('aac');
 		output.addAudioTrack(source);
 		if (options.metadata !== null) output.setMetadataTags({ raw: { scaf: options.metadata ?? aacSourceMetadata(48_000, 2, sourceFrames) } });
@@ -128,7 +130,7 @@ test('AAC source metadata cannot hide excessive encoded delay, forged geometry, 
 	}
 }));
 
-test('desktop AAC utility import preserves validated priming and source length without selecting a native decoder', async () => withNativeAacFixture(async seen => {
+test('desktop AAC prefers the main provider and preserves validated priming and source length', async () => withNativeAacFixture(async seen => {
 	let calls = 0;
 	const prepared = await prepareStreamedAudioImport(await encodedFixture(1030), {
 		desktop: true, reviewedFallback: false, desktopCodec: { decode(_file, options) {
@@ -148,14 +150,10 @@ test('desktop AAC utility import preserves validated priming and source length w
 	assert.equal(calls, 1);
 	assert.equal(seen.constructors, 0);
 	assert.equal(seen.packets, 0);
-}, false));
+}));
 
-test('desktop AAC with working native support never selects an unavailable utility provider', async () => withNativeAacFixture(async seen => {
-	const prepared = await prepareStreamedAudioImport(await encodedFixture(1030), {
-		desktop: true, reviewedFallback: false, desktopCodec: { decode() {
-			assert.fail('Working native AAC must remain available without an admitted main provider.');
-		} },
-	});
+test('desktop AAC uses packet decoding when no main provider is supplied', async () => withNativeAacFixture(async seen => {
+	const prepared = await prepareStreamedAudioImport(await encodedFixture(1030), { desktop: true, reviewedFallback: false });
 	let frames = 0;
 	await prepared.stream({ chunkFrames: 127, onChunk(channels) { frames += channels[0]!.length; } });
 	assert.equal(frames, 1030);
@@ -170,9 +168,12 @@ test('desktop AAC with encoded timeline gaps retains packet decoding without inv
 			assert.fail('A discontinuous AAC source must retain its packet timestamps.');
 		} },
 	});
-	let frames = 0;
-	await prepared.stream({ chunkFrames: 127, onChunk(channels) { frames += channels[0]!.length; } });
-	assert.equal(frames, prepared.descriptor.frameCount);
+	const pcm: number[] = [];
+	await prepared.stream({ chunkFrames: 127, onChunk(channels) { pcm.push(...channels[0]!); } });
+	assert.equal(pcm.length, 3172);
+	assert.equal(pcm[1023], 1023);
+	assert.deepEqual(pcm.slice(1024, 1124), new Array<number>(100).fill(0));
+	assert.equal(pcm[1124], 1124);
 	assert.equal(seen.constructors, 1);
 	assert.equal(seen.packets, 3);
 }));
