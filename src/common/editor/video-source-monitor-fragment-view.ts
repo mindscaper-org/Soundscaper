@@ -15,11 +15,19 @@ export interface FragmentPlaybackClock {
 	presentationTick(ordinal: number): bigint | undefined;
 }
 
-/** A local, picture-only playback view where browsers disagree on the original fragment clock. */
+type FragmentPlaybackOptions = Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean; programmePicture?: boolean }>;
+
 export async function prepareFragmentPlaybackView(
-	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal,
-	options: Readonly<{ maximumBytes?: number; standardSampleEntry?: boolean; programmePicture?: boolean }> = {},
+	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal, options?: FragmentPlaybackOptions,
 ): Promise<Blob | null> {
+	return (await prepareQualifiedFragmentPlaybackView(file, timing, signal, options))?.blob ?? null;
+}
+
+/** A local, picture-only playback view where browsers disagree on the original fragment clock. */
+export async function prepareQualifiedFragmentPlaybackView(
+	file: Blob, timing: FragmentPlaybackClock, signal: AbortSignal,
+	options: FragmentPlaybackOptions = {},
+): Promise<Readonly<{ blob: Blob; compositionShiftSeconds: number }> | null> {
 	const maximumBytes = Math.min(options.maximumBytes ?? MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES, MAXIMUM_FRAGMENT_PLAYBACK_VIEW_BYTES);
 	if (file.size > maximumBytes || timing.timescale > MAXIMUM_MUXER_TIMESCALE) return null;
 	const reader = createIsoBoxReader(file, signal);
@@ -127,11 +135,12 @@ export async function prepareFragmentPlaybackView(
 		if (!target.buffer || target.buffer.byteLength > maximumBytes) return null;
 		const view = new Blob([target.buffer], { type: 'video/mp4' });
 		if (av1Configuration && !await matchesProjectedAv1Header(view, av1Configuration, signal)) return null;
-		const index = await demuxIsobmffVideoTiming(createVideoTimingDemuxReader(view, { signal }), { signal });
+		const index = await demuxIsobmffVideoTiming(createVideoTimingDemuxReader(view, { signal }),
+			{ signal, includeCompositionShift: options.programmePicture === true });
 		if (!index || index.timescale !== timing.timescale || index.finalFrameDurationTicks !== timing.finalFrameDurationTicks
 			|| index.presentationTicks.length !== timing.frameCount
 			|| index.presentationTicks.some((tick, ordinal) => tick !== timing.presentationTick(ordinal))) return null;
-		return view;
+		return Object.freeze({ blob: view, compositionShiftSeconds: Number(index.compositionShiftTicks ?? 0n) / index.timescale });
 	} finally {
 		signal.removeEventListener('abort', dispose);
 		dispose();

@@ -32,7 +32,10 @@ export interface VideoTimingDemuxTrack {
 	readonly timescale: number;
 	readonly presentationTicks: readonly bigint[];
 	readonly finalFrameDurationTicks: bigint;
+	readonly compositionShiftTicks?: bigint;
 }
+
+type VideoTimingDemuxOptions = Readonly<{ signal?: AbortSignal; includeCompositionShift?: boolean }>;
 
 interface Box {
 	readonly type: string;
@@ -115,7 +118,7 @@ export async function hasLeadingIsobmffVideoEdit(reader: VideoTimingDemuxReader,
  */
 export async function demuxIsobmffVideoTiming(
 	reader: VideoTimingDemuxReader,
-	options: Readonly<{ signal?: AbortSignal }> = {},
+	options: VideoTimingDemuxOptions = {},
 ): Promise<VideoTimingDemuxTrack | null> {
 	const movie = await findMovieBox(reader, options.signal);
 	if (movie === null) return null;
@@ -124,7 +127,7 @@ export async function demuxIsobmffVideoTiming(
 	const movieTimescale = readHeaderValueAfterDates(bytes, firstChild(bytes, 0, bytes.byteLength, 'mvhd'));
 	const extensions = firstChild(bytes, 0, bytes.byteLength, 'mvex');
 	for (const trak of children(bytes, 0, bytes.byteLength, 'trak')) {
-		const track = await readTrack(bytes, trak, movieTimescale, extensions, reader, movie.end, options.signal);
+		const track = await readTrack(bytes, trak, movieTimescale, extensions, reader, movie.end, options);
 		if (track !== null) return track;
 	}
 	return null;
@@ -168,7 +171,7 @@ async function readTrack(
 	extensions: Box | null,
 	reader: VideoTimingDemuxReader,
 	fragmentStart: number,
-	signal: AbortSignal | undefined,
+	options: VideoTimingDemuxOptions,
 ): Promise<VideoTimingDemuxTrack | null> {
 	const handler = find(bytes, trak, ['mdia', 'hdlr']);
 	if (handler === null || handler.end - handler.body < 12
@@ -197,9 +200,13 @@ async function readTrack(
 		const defaultDuration = readFragmentDefaults(bytes, extensions, trackId);
 		if (defaultDuration !== null && !await readFragments(reader, fragmentStart, trackId, defaultDuration, {
 			decodeDurations, composition, decodeTime,
-		}, signal)) return null;
+		}, options.signal)) return null;
 	}
-	return resolvePresentation(timescale, edit, decodeDurations, composition);
+	const timing = resolvePresentation(timescale, edit, decodeDurations, composition);
+	if (!timing || extensions !== null || !options.includeCompositionShift) return timing;
+	// A generated progressive view has no cslg atom. Its signed ctts offsets establish the shift.
+	const minimum = compositionOffsets.reduce((lowest, current) => current < lowest ? current : lowest, 0n);
+	return minimum < 0n ? Object.freeze({ ...timing, compositionShiftTicks: -minimum }) : timing;
 }
 
 function resolvePresentation(

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { BlobSource, EncodedPacketSink, Input, MP4 } from 'mediabunny';
-import { prepareFragmentPlaybackView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
+import { prepareFragmentPlaybackView, prepareQualifiedFragmentPlaybackView } from '../src/common/editor/video-source-monitor-fragment-view.ts';
 import { createVideoPicturePlaybackUrls } from '../src/common/editor/controller/document/internal/video-picture-playback-urls.ts';
 import { demuxVideoTiming } from '../src/common/editor/video-timing-demux.ts';
 import { createVideoTimingAssetPublication, validateVideoTimingAssetBytes } from '../src/common/editor/video-timing-asset.ts';
@@ -64,6 +64,12 @@ test('owned Programme can normalize a complete video-only fragment picture clock
 		return validateVideoTimingAssetBytes(timing.reference, timing.bytes);
 	};
 	const timing = await indexFor(original);
+	const projection = await prepareQualifiedFragmentPlaybackView(original, {
+		...timing, presentationTick: ordinal => timing.presentationTicks[ordinal],
+	}, new AbortController().signal,
+		{ programmePicture: true, standardSampleEntry: true });
+	assert.ok(projection);
+	assert.equal(projection.compositionShiftSeconds, 6_000 / 90_000);
 	const url = await playback.create(original, timing);
 	assert.equal(url, 'fragment-picture');
 	const view = blobs.get(url)!;

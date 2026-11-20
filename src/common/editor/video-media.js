@@ -79,7 +79,8 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		width = positiveInteger(video.videoWidth, 'Video width');
 		height = positiveInteger(video.videoHeight, 'Video height');
 		captureTiming = await (await import('./video-frame-capture-timing.ts'))
-			.createVideoFrameCaptureTiming(file, { signal: options.signal, timing: options.timing });
+			.createVideoFrameCaptureTiming(file, { signal: options.signal, timing: options.timing,
+				compositorTimeOffset: options.compositorTimeOffset });
 	} catch (error) {
 		releaseVideoFrameCaptureElement(video, () => {
 			if (!selectedRange) urlApi.revokeObjectURL?.(objectUrl);
@@ -165,7 +166,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 		// frame. Seeking to a nearby time forces the browser to populate the
 		// video frame before canvas capture, including for the timestamp-zero
 		// poster.
-		const { matches, seekTime } = captureTiming;
+		const { matches, matchesPresentation, seekTime } = captureTiming;
 		const indexedSeekTimestamp = seekTime(timestamp);
 		const seekTimestamp = indexedSeekTimestamp ?? (timestamp === 0 && !hasPresentedFrame
 			? Math.min(Math.max(0.001, durationSeconds / 2_000), Math.max(0, durationSeconds - 0.001))
@@ -176,7 +177,7 @@ export async function createAudioEditorVideoFrameExtractor(file, options = {}) {
 				signal,
 				timeoutMs,
 				retryTimestamp: seekTime(timestamp, 'retry'),
-				isRequestedFrame: indexedSeekTimestamp === null ? undefined : mediaTime => matches(seekTimestamp, mediaTime),
+				isRequestedFrame: indexedSeekTimestamp === null ? undefined : mediaTime => matchesPresentation(seekTimestamp, mediaTime),
 			});
 		}
 		throwIfCaptureAborted(signal);

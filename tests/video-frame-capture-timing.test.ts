@@ -38,6 +38,16 @@ test('capture matches frame PTS and interior times across variable source interv
 	assert.equal(matches(.0335, NaN), false);
 });
 
+test('a qualified Linux WebKit callback shift does not change the frame seek clock', async () => {
+	const { matches, matchesPresentation, seekTime } = await createVideoFrameCaptureTiming(file,
+		{ readTiming, compositorTimeOffset: .067 });
+	assert.equal(seekTime(0), .01675);
+	assert.equal(matches(.01675, .01675), true);
+	assert.equal(matchesPresentation(.01675, .08375), true);
+	assert.equal(matchesPresentation(.08525, .08375), false);
+	assert.equal(matchesPresentation(.08525, .15225), true);
+});
+
 test('unknown containers retain exact-time matching and cancellation is never swallowed', async () => {
 	const { matches, seekTime, clampTime } = await createVideoFrameCaptureTiming(file, {
 		readTiming: () => Promise.reject(new Error('Unsupported timing.')),

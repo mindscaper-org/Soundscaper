@@ -8,12 +8,14 @@ type CaptureTiming = Pick<VideoTimingProbeResult, 'timescale' | 'presentationTic
 type FrameMatcher = (timestamp: number, mediaTime: number) => boolean;
 interface VideoFrameCaptureTiming {
 	readonly matches: FrameMatcher;
+	readonly matchesPresentation: FrameMatcher;
 	readonly seekTime: (timestamp: number, phase?: 'retry') => number | null;
 	readonly clampTime: (timestamp: number, duration: number) => number;
 }
 interface CaptureTimingOptions {
 	readonly signal?: AbortSignal;
 	readonly timing?: CaptureTiming;
+	readonly compositorTimeOffset?: number;
 	readonly readTiming?: (file: Blob, options: Readonly<{ signal?: AbortSignal }>) => Promise<CaptureTiming>;
 }
 const ROUNDING_SECONDS = 0.000001;
@@ -31,7 +33,8 @@ export async function createVideoFrameCaptureTiming(
 	} catch {
 		options.signal?.throwIfAborted();
 		// A native decoder may support a container the timing reader does not.
-		return Object.freeze({ matches: exactTimestamp, seekTime: () => null, clampTime: clampUnindexedTime });
+		return Object.freeze({ matches: exactTimestamp, matchesPresentation: exactTimestamp,
+			seekTime: () => null, clampTime: clampUnindexedTime });
 	}
 	options.signal?.throwIfAborted();
 	const starts = timing.presentationTicks.map(ticks => Number(ticks) / timing.timescale);
@@ -68,7 +71,16 @@ export async function createVideoFrameCaptureTiming(
 		// Native duration can round to the last picture's start. Preserve the indexed interval.
 		return timestamp < end ? timestamp : last;
 	};
-	return Object.freeze({ matches, seekTime, clampTime });
+	return Object.freeze({ matches, seekTime, clampTime,
+		matchesPresentation: (timestamp: number, mediaTime: number) => matches(timestamp, mediaTime - (options.compositorTimeOffset ?? 0)),
+	});
+}
+
+/** Linux WebKit's GStreamer callback clock includes the signed MP4 composition shift. */
+export function linuxWebKitCompositorOffset(compositionShiftSeconds: number): number {
+	const navigator = globalThis.navigator;
+	return navigator?.platform.startsWith('Linux') && navigator.vendor === 'Apple Computer, Inc.'
+		? compositionShiftSeconds : 0;
 }
 
 function clampUnindexedTime(timestamp: number, duration: number): number {

@@ -247,9 +247,10 @@ async function defaultDecoder(
 	sourceIndex: VideoTimingIndex | undefined,
 ): Promise<LocalAssistanceSelectedVideoFrameDecoder> {
 	const media = await import('../../../../video-media.js');
+	const { linuxWebKitCompositorOffset } = await import('../../../../video-frame-capture-timing.ts');
 	const view = sourceIndex && await qualifiedPictureView(body, sourceIndex, options.signal);
-	const extractor = await media.createAudioEditorVideoFrameExtractor(view || body,
-		view ? { ...options, timing: sourceIndex } : options) as Readonly<{
+	const extractor = await media.createAudioEditorVideoFrameExtractor(view?.blob ?? body,
+		view ? { ...options, timing: sourceIndex, compositorTimeOffset: linuxWebKitCompositorOffset(view.compositionShiftSeconds) } : options) as Readonly<{
 		capturePixels(timestamp: number, options: Readonly<Record<string, unknown>>): Promise<Readonly<{
 			readonly width: number;
 			readonly height: number;
@@ -270,11 +271,11 @@ async function defaultDecoder(
 	});
 }
 
-async function qualifiedPictureView(body: Blob, index: VideoTimingIndex, signal: AbortSignal): Promise<Blob | null> {
+async function qualifiedPictureView(body: Blob, index: VideoTimingIndex, signal: AbortSignal) {
 	if (body.type !== 'video/mp4' && body.type !== 'video/quicktime') return null;
 	try {
-		const { prepareFragmentPlaybackView } = await import('../../../../video-source-monitor-fragment-view.ts');
-		return await prepareFragmentPlaybackView(body, {
+		const { prepareQualifiedFragmentPlaybackView } = await import('../../../../video-source-monitor-fragment-view.ts');
+		return await prepareQualifiedFragmentPlaybackView(body, {
 			...index, presentationTick: ordinal => index.presentationTicks[ordinal],
 		}, signal, { standardSampleEntry: true, programmePicture: true });
 	} catch {
