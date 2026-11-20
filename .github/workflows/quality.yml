@@ -738,8 +738,9 @@ jobs:
     env:
       SCAPE_MODULE_PLAN: .wrangler/module-plan.json
       SCAPE_BROWSER_PRODUCTS_PREPARED: '1'
-      SCAPE_FIREFOX_HEADED: '1'
+      # Headless workers keep independent focus while Mesa provides WebGL2 on GPU-less runners.
       LIBGL_ALWAYS_SOFTWARE: '1'
+      GALLIUM_DRIVER: llvmpipe
     steps:
       - name: Check out source
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2

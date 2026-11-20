@@ -3,7 +3,7 @@
 
 import { firefox } from '@playwright/test';
 
-const browser = await firefox.launch({ headless: process.env.SCAPE_FIREFOX_HEADED !== '1' });
+const browser = await firefox.launch({ headless: true });
 try {
 	const page = await browser.newPage();
 	const webgl2 = await page.evaluate(() => Boolean(document.createElement('canvas').getContext('webgl2')));
