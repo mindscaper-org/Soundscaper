@@ -10,6 +10,7 @@ test('native instrument recipes build only VST3 instruments on every maintained 
 		assert.deepEqual(plan.engines.map(engine => engine.targetName), ['surge-xt_VST3', 'Dexed_VST3']);
 		assert.ok(plan.engines[0]!.configure.includes('-DSURGE_BUILD_FX=OFF'));
 		assert.ok(plan.engines[0]!.configure.includes('-DSURGE_COPY_AFTER_BUILD=OFF'));
+		assert.ok(plan.engines[0]!.configure.includes('-DCMAKE_POLICY_VERSION_MINIMUM=3.5'));
 		for (const engine of plan.engines) {
 			assert.deepEqual(engine.build.slice(-2), ['--parallel', '2']);
 			assert.ok(engine.configure.includes('-DBUILD_TESTING=OFF'));

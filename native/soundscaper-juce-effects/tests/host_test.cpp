@@ -109,7 +109,7 @@ int exercise(const char *path, bool gui)
 		require(soundscaper_pro_plugin_open_vendor_window(reverb, "juce-reverb-test") == SOUNDSCAPER_PRO_OK, "open convolution editor");
 		soundscaper_pro_plugin_close_vendor_window(reverb);
 	}
-	std::cout << "Bundled CLAP scan, controls, state and short-block PCM passed\n";
+	std::cout << "Bundled CLAP scan, controls, state and short-block PCM passed" << std::endl;
 	return 0;
 }
 int main(int argc, char **argv)
@@ -119,6 +119,9 @@ int main(int argc, char **argv)
 #if defined(__APPLE__)
 	return soundscaper::runMacJuceMessageDispatcher(run);
 #else
-	return run();
+	const auto result = run();
+	// Join the JUCE message thread before Windows starts CRT teardown.
+	soundscaper::shutdownJuceMessageDispatcher();
+	return result;
 #endif
 }

@@ -33,6 +33,7 @@ export function createBundledMidiInstrumentBuildPlan(options: Options) {
 		const targetName = id === 'surge-xt' ? 'surge-xt_VST3' : 'Dexed_VST3';
 		const configure = ['-S', workSourceRoot, '-B', buildRoot, ...selection, '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_TESTING=OFF',
 			'-DJUCE_COPY_PLUGIN_AFTER_BUILD=FALSE', ...(id === 'surge-xt' ? ['-DSURGE_BUILD_FX=OFF', '-DSURGE_BUILD_TESTRUNNER=OFF',
+				'-DCMAKE_POLICY_VERSION_MINIMUM=3.5', // Surge's pinned libsamplerate predates the CMake 4 policy floor.
 				'-DSURGE_COPY_AFTER_BUILD=OFF', '-DSURGE_COPY_TO_PRODUCTS=OFF', '-DSURGE_SKIP_STANDALONE=ON',
 				'-DSURGE_SKIP_WERROR=ON', `-DSURGE_SKIP_LUA=${options.target === 'win-arm64' ? 'ON' : 'OFF'}`] : ['-DBUILD_ID=Soundscaper'])];
 		if (options.target === 'mac-arm64') configure.push('-DCMAKE_OSX_ARCHITECTURES=arm64', `-DCMAKE_OSX_SYSROOT=${absolute(options.macosSdkPath)}`);
