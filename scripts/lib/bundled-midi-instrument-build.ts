@@ -85,6 +85,17 @@ function patchWorkingSource(engine: EngineBuild): void {
 	if (engine.id === 'dexed') patch('source/CMakeLists.txt', 'COPY_PLUGIN_AFTER_BUILD TRUE', 'COPY_PLUGIN_AFTER_BUILD FALSE');
 	else {
 		patch('src/CMakeLists.txt', 'include(cmake/pluginval.cmake)', '# Soundscaper builds only the instrument; upstream pluginval assumes the FX target also exists.');
+		if (engine.target === 'mac-arm64') {
+			const standalone = '\n  add_dependencies(${PROJECT_NAME}_Standalone ${PROJECT_NAME}-cli)';
+			patch('src/surge-xt/CMakeLists.txt', `if(APPLE)${standalone}`,
+				'if(APPLE AND TARGET ${PROJECT_NAME}_Standalone)' + standalone);
+		}
+		if (engine.target === 'win-x64') {
+			// MSVC diagnoses mixed enum operands in the x86 callback emitter. Preserve the integer encoding.
+			const callbacks = 'libs/LuaJitLib/LuaJIT/src/lj_ccallback.c';
+			patch(callbacks, 'XI_MOVrib | RID_EAX', 'XI_MOVrib | (int)RID_EAX');
+			patch(callbacks, 'XI_MOVri | RID_EBP', 'XI_MOVri | (int)RID_EBP');
+		}
 		// SURGE_DATA_HOME arrives as UTF-8, including under Windows installations with non-ASCII paths.
 		patch('src/common/SurgeStorage.cpp', 'fs::path{suppliedDataPath}', 'fs::u8path(suppliedDataPath)');
 		patch('src/common/SurgeStorage.cpp', 'datapath = suppliedDataPath;', 'datapath = fs::u8path(suppliedDataPath);');
