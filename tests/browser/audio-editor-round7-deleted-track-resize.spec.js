@@ -13,9 +13,10 @@ test('undoing a newly added track retires its held height resize', async ({ page
 	const resize = async (row, complete) => {
 		const box = await row.locator('[data-track-header]').boundingBox();
 		expect(box).not.toBeNull();
-		await page.mouse.move(box.x + 50, box.y + box.height - 2);
+		// Use the top edge so the timeline scrollbar cannot intercept the drag.
+		await page.mouse.move(box.x + 50, box.y + 2);
 		await page.mouse.down();
-		await page.mouse.move(box.x + 50, box.y + box.height + 22, { steps: 4 });
+		await page.mouse.move(box.x + 50, box.y - 22, { steps: 4 });
 		if (complete) await page.mouse.up();
 	};
 	await resize(first, true);

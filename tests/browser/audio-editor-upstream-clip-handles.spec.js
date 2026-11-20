@@ -72,10 +72,11 @@ for (const height of [54, 60]) test(`trim and stretch handles remain reachable i
 	const header = await row.locator('[data-track-header]').boundingBox();
 	expect(initial).not.toBeNull();
 	expect(header).not.toBeNull();
-	const resizeY = header.y + header.height - 2;
+	// The timeline scrollbar can cover the bottom edge of the fitted track.
+	const resizeY = header.y + 2;
 	await page.mouse.move(header.x + 40, resizeY);
 	await page.mouse.down();
-	await page.mouse.move(header.x + 40, resizeY + height - initial.height, { steps: 4 });
+	await page.mouse.move(header.x + 40, resizeY + initial.height - height, { steps: 4 });
 	await page.mouse.up();
 	await page.mouse.move(header.x + 40, header.y - 10);
 	await expect.poll(async () => (await clip.boundingBox())?.height).toBe(height);
