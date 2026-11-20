@@ -3,7 +3,7 @@ title: "שימוש בתוספי אודיו לשולחן העבודה"
 description: "מצאו, הפעילו והאזינו לאפקטים ולכלים מקוריים ב-Soundscaper לשולחן העבודה."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"he"} -->
 
 מצאו, הפעילו והאזינו לאפקטים ולכלים מקוריים ב-Soundscaper לשולחן העבודה.
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. בחרו את התוסף ובדקו את הגרסה, ההרשאה ואמצעי השחזור שלו. הפעילו אותו כשזה מתאים.
 3. הוסיפו אפקט דרך **אפקט > אפקטים של פלאגינים אודיו** או rack בזמן אמת. בחרו כלים מקוריים מתוך פקדי הכלי ברצועת MIDI.
 4. האזינו להפעלה, שמרו preset אם הוא שימושי ושמרו את הפרויקט.
+
+## נגינה דרך מגבר גיטרה
+
+הוסיפו את **OrbitAmp** דרך **אפקט > אפקטים של פלאגינים אודיו** או דרך מתקן האפקטים בזמן אמת של הרצועה. פתחו את עורך התוסף ובחרו מגבר במקטע **AMP** ותיבת רמקולים במקטע **CAB**. חבילת שולחן העבודה כוללת את צלילי היצרן.
 
 ## בדיקת התוצאה
 

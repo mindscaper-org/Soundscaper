@@ -3,7 +3,7 @@ title: "Օգտագործել աշխատասեղանի աուդիո փլագին�
 description: "Soundscaper-ի աշխատասեղանի տարբերակում գտեք, միացրեք և լսեք native էֆեկտներն ու գործիքները։"
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"hy"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"hy"} -->
 
 Soundscaper-ի աշխատասեղանի տարբերակում գտեք, միացրեք և լսեք native էֆեկտներն ու գործիքները։
 
@@ -17,6 +17,10 @@ Soundscaper-ի աշխատասեղանի տարբերակում գտեք, միա�
 2. Ընտրեք plug-in-ը և ստուգեք դրա տարբերակը, թույլտվությունն ու վերականգնման կառավարիչները։ Միացրեք, եթե տեղին է։
 3. Ավելացրեք էֆեկտ **Էֆեկտ > Աուդիո պլագիններ** բաժնից կամ իրական ժամանակի դարակից։ MIDI ուղու գործիքի կառավարիչներով ընտրեք native գործիքները։
 4. Լսեք նվագարկումը, անհրաժեշտության դեպքում պահպանեք preset-ը և պահեք նախագիծը։
+
+## Նվագել կիթառի ուժեղացուցիչով
+
+Ավելացրեք **OrbitAmp**-ը **Էֆեկտ > Աուդիո պլագիններ** ցանկից կամ ուղու իրական ժամանակի էֆեկտների դարակից։ Բացեք փլագինի խմբագրիչը և **AMP** բաժնում ընտրեք ուժեղացուցիչ, իսկ **CAB** բաժնում՝ բարձրախոսի պահարան։ Աշխատասեղանի փաթեթը ներառում է գործարանային հնչյունները։
 
 ## Ստուգեք արդյունքը
 

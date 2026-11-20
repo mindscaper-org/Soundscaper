@@ -3,7 +3,7 @@ title: "Использование настольных аудиоплагино
 description: "Найдите, включите и прослушайте встроенные эффекты и инструменты в настольной версии Soundscaper."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"ru"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"ru"} -->
 
 Найдите, включите и прослушайте встроенные эффекты и инструменты в настольной версии Soundscaper.
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. Выберите плагин и проверьте версию, разрешения и средства восстановления. Включите его, если он подходит для вашей задачи.
 3. Добавьте эффект через **Эффект > Аудиоплагины** или цепочку реального времени. Встроенные инструменты выберите в настройках инструмента MIDI-дорожки.
 4. Прослушайте результат, при необходимости сохраните пресет и сохраните проект.
+
+## Игра через гитарный усилитель
+
+Добавьте **OrbitAmp** из меню **Эффект > Аудиоплагины** или из стойки эффектов дорожки, работающих в реальном времени. Откройте редактор плагина и выберите усилитель в разделе **AMP**, а гитарный кабинет — в разделе **CAB**. В настольный пакет входят заводские звуки.
 
 ## Проверка результата
 

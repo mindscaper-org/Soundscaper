@@ -3,7 +3,7 @@ title: "데스크톱 오디오 플러그인 사용"
 description: "Soundscaper 데스크톱에서 네이티브 효과와 악기를 찾아 활성화하고 들어봅니다."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"ko"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"ko"} -->
 
 Soundscaper 데스크톱에서 네이티브 효과와 악기를 찾아 활성화하고 들어봅니다.
 
@@ -17,6 +17,10 @@ Soundscaper 데스크톱에서 네이티브 효과와 악기를 찾아 활성화
 2. 플러그인을 선택하고 버전, 권한, 복구 컨트롤을 확인합니다. 적절하면 활성화합니다.
 3. **이펙트 > 오디오 플러그인**나 실시간 랙에서 효과를 추가합니다. MIDI 트랙의 악기 컨트롤로 네이티브 악기를 선택합니다.
 4. 재생을 들어보고 필요하면 프리셋을 저장한 다음 프로젝트를 저장합니다.
+
+## 기타 앰프로 연주하기
+
+**이펙트 > 오디오 플러그인** 또는 트랙의 실시간 이펙트 랙에서 **OrbitAmp**를 추가합니다. 플러그인 편집기를 열고 **AMP** 섹션에서 앰프를, **CAB** 섹션에서 스피커 캐비닛을 선택합니다. 데스크톱 패키지에는 팩토리 사운드가 포함되어 있습니다.
 
 ## 결과 확인
 

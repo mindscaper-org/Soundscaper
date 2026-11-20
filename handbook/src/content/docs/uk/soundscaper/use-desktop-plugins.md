@@ -3,7 +3,7 @@ title: "Використання настільних аудіоплагінів
 description: "Знаходьте, вмикайте й прослуховуйте вбудовані ефекти та інструменти у Soundscaper для комп’ютера."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"uk"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"uk"} -->
 
 Знаходьте, вмикайте й прослуховуйте вбудовані ефекти та інструменти у Soundscaper для комп’ютера.
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. Виберіть плагін і перевірте версію, дозвіл та засоби відновлення. Увімкніть його, якщо це доречно.
 3. Додайте ефект через **Ефект > Аудіо плагіни** або блок ефектів реального часу. Виберіть вбудовані інструменти через керування інструментом на MIDI-доріжці.
 4. Прослухайте відтворення, за потреби збережіть пресет і збережіть проєкт.
+
+## Гра через гітарний підсилювач
+
+Додайте **OrbitAmp** через **Ефект > Аудіо плагіни** або зі стійки ефектів реального часу доріжки. Відкрийте редактор плагіна й виберіть підсилювач у розділі **AMP**, а гітарний кабінет — у розділі **CAB**. Пакет для комп’ютера містить заводські звуки.
 
 ## Перевірка результату
 

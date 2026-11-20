@@ -3,7 +3,7 @@ title: "Dùng plug-in âm thanh trên máy tính"
 description: "Tìm, bật và nghe thử các hiệu ứng cũng như nhạc cụ gốc trong Soundscaper trên máy tính."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"vi"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"vi"} -->
 
 Tìm, bật và nghe thử các hiệu ứng cũng như nhạc cụ gốc trong Soundscaper trên máy tính.
 
@@ -17,6 +17,10 @@ Cài bản dựng plug-in tương thích với hệ điều hành và định d�
 2. Chọn plug-in và xem phiên bản, quyền cùng các điều khiển khôi phục. Bật plug-in nếu phù hợp.
 3. Thêm hiệu ứng qua **Hiệu ứng > Hiệu ứng Plugins âm thanh** hoặc một giá thời gian thực. Chọn nhạc cụ gốc bằng điều khiển nhạc cụ của rãnh MIDI.
 4. Nghe thử, lưu preset nếu hữu ích, rồi lưu dự án.
+
+## Chơi qua bộ khuếch đại guitar
+
+Thêm **OrbitAmp** từ **Hiệu ứng > Hiệu ứng Plugins âm thanh** hoặc từ giá hiệu ứng thời gian thực của một rãnh. Mở trình chỉnh sửa phần bổ trợ, chọn bộ khuếch đại trong mục **AMP** và thùng loa trong mục **CAB**. Gói ứng dụng máy tính đi kèm các âm thanh mặc định của nhà sản xuất.
 
 ## Kiểm tra kết quả
 

@@ -3,7 +3,7 @@ title: "Używaj komputerowych wtyczek audio"
 description: "Znajdź, włącz i odsłuchaj natywne efekty oraz instrumenty w komputerowej wersji Soundscaper."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"pl"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"pl"} -->
 
 Znajdź, włącz i odsłuchaj natywne efekty oraz instrumenty w komputerowej wersji Soundscaper.
 
@@ -17,6 +17,10 @@ Zainstaluj kompilację wtyczki zgodną z systemem operacyjnym i obsługiwanym fo
 2. Wybierz wtyczkę i sprawdź jej wersję, uprawnienia oraz opcje odzyskiwania. Włącz ją, jeśli jest to właściwe.
 3. Dodaj efekt przez **Efekt > Efekty wtyczek audio** lub rack czasu rzeczywistego. Wybierz natywne instrumenty w ustawieniach instrumentu ścieżki MIDI.
 4. Odsłuchaj odtwarzanie, w razie potrzeby zapisz preset i zapisz projekt.
+
+## Granie przez wzmacniacz gitarowy
+
+Dodaj **OrbitAmp** z menu **Efekt > Efekty wtyczek audio** lub z panelu efektów czasu rzeczywistego ścieżki. Otwórz edytor wtyczki i wybierz wzmacniacz w sekcji **AMP**, a kolumnę głośnikową w sekcji **CAB**. Pakiet na komputer zawiera fabryczne brzmienia.
 
 ## Sprawdź wynik
 

@@ -3,7 +3,7 @@ title: "Desktop-audioplug-ins gebruiken"
 description: "Zoek native effecten en instrumenten in Soundscaper voor desktop, schakel ze in en beluister ze."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"nl"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"nl"} -->
 
 Zoek native effecten en instrumenten in Soundscaper voor desktop, schakel ze in en beluister ze.
 
@@ -17,6 +17,10 @@ Installeer een plug-inbuild die compatibel is met je besturingssysteem en een on
 2. Selecteer de plug-in en controleer de versie, machtiging en herstelopties. Schakel de plug-in in wanneer dat passend is.
 3. Voeg een effect toe via **Effect > Audio Plugins** of een realtime-rek. Selecteer native instrumenten via de instrumentbediening van een MIDI-track.
 4. Beluister de weergave, sla zo nodig een preset op en sla het project op.
+
+## Via een gitaarversterker spelen
+
+Voeg **OrbitAmp** toe via **Effect > Audio Plugins** of het realtime-effectenrek van een spoor. Open de plug-in-editor en kies een versterker in de sectie **AMP** en een luidsprekerkast in de sectie **CAB**. De desktopbundel bevat de fabrieksgeluiden.
 
 ## Het resultaat controleren
 

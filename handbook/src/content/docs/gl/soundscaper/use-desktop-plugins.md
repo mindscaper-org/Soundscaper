@@ -3,7 +3,7 @@ title: "Usar complementos de audio de escritorio"
 description: "Busca, activa e escoita efectos e instrumentos nativos en Soundscaper para escritorio."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"gl"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"gl"} -->
 
 Busca, activa e escoita efectos e instrumentos nativos en Soundscaper para escritorio.
 
@@ -17,6 +17,10 @@ Instala unha versión do complemento compatible co teu sistema operativo e cun f
 2. Selecciona o complemento e revisa a versión, os permisos e os controis de recuperación. Actívao cando corresponda.
 3. Engade un efecto desde **Efecto > Complementos de son** ou un rack en tempo real. Selecciona os instrumentos nativos cos controis do instrumento da pista MIDI.
 4. Escoita a reprodución, garda un preaxuste se che resulta útil e garda o proxecto.
+
+## Tocar cun amplificador de guitarra
+
+Engade **OrbitAmp** desde **Efecto > Complementos de son** ou desde o rack de efectos en tempo real dunha pista. Abre o editor do complemento e escolle un amplificador na sección **AMP** e unha caixa de altofalantes na sección **CAB**. O paquete de escritorio inclúe os sons de fábrica.
 
 ## Comprobar o resultado
 

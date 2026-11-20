@@ -3,7 +3,7 @@ title: "Používat desktopové zvukové plug-iny"
 description: "Vyhledejte, povolte a poslechněte si nativní efekty a nástroje v Soundscaperu pro desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"cs"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"cs"} -->
 
 Vyhledejte, povolte a poslechněte si nativní efekty a nástroje v Soundscaperu pro desktop.
 
@@ -17,6 +17,10 @@ Nainstalujte sestavení plug-inu kompatibilní s vaším operačním systémem a
 2. Vyberte plug-in a zkontrolujte jeho verzi, oprávnění a ovládací prvky obnovy. Podle potřeby jej povolte.
 3. Přidejte efekt přes **Efekt > Audio pluginy** nebo řetězec efektů v reálném čase. Nativní nástroje vyberte v ovládání nástroje MIDI stopy.
 4. Poslechněte si přehrávání, případně uložte předvolbu a uložte projekt.
+
+## Hra přes kytarový zesilovač
+
+Přidejte **OrbitAmp** z nabídky **Efekt > Audio pluginy** nebo ze stojanu efektů stopy v reálném čase. Otevřete editor zásuvného modulu, v části **AMP** vyberte zesilovač a v části **CAB** reprobox. Balíček pro stolní počítače obsahuje tovární zvuky.
 
 ## Kontrola výsledku
 

@@ -3,7 +3,7 @@ title: "Käytä työpöydän ääniliitännäisiä"
 description: "Etsi, ota käyttöön ja kuuntele Soundscaper-työpöydän natiiveja tehosteita ja soittimia."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"fi"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"fi"} -->
 
 Etsi, ota käyttöön ja kuuntele Soundscaper-työpöydän natiiveja tehosteita ja soittimia.
 
@@ -17,6 +17,10 @@ Asenna käyttöjärjestelmääsi ja tuettua isäntämuotoa vastaava liitännäis
 2. Valitse liitännäinen ja tarkista sen versio, luvat ja palautustoiminnot. Ota se käyttöön tarvittaessa.
 3. Lisää tehoste valinnasta **Tehoste > Ääniliitännäiset** tai reaaliaikatehosteräkistä. Valitse natiivit soittimet MIDI-raidan soitinohjaimista.
 4. Kuuntele toistoa, tallenna esiasetus tarvittaessa ja tallenna projekti.
+
+## Soita kitaravahvistimen kautta
+
+Lisää **OrbitAmp** valikosta **Tehoste > Ääniliitännäiset** tai raidan reaaliaikaisten tehosteiden telineestä. Avaa liitännäisen muokkain ja valitse vahvistin **AMP**-osiosta ja kaiutinkaappi **CAB**-osiosta. Työpöytäpaketti sisältää tehdasäänet.
 
 ## Tuloksen tarkistaminen
 

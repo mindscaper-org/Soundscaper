@@ -3,7 +3,7 @@ title: "Desktop-Audio-Plug-ins verwenden"
 description: "Finden, aktivieren und testen Sie native Effekte und Instrumente in Soundscaper Desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"de"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"de"} -->
 
 Finden, aktivieren und testen Sie native Effekte und Instrumente in Soundscaper Desktop.
 
@@ -17,6 +17,10 @@ Installieren Sie einen Plug-in-Build, der mit Ihrem Betriebssystem und dem unter
 2. Wählen Sie das Plug-in und prüfen Sie Version, Berechtigungen und Wiederherstellungssteuerung. Aktivieren Sie es bei Bedarf.
 3. Fügen Sie einen Effekt über **Effekt > Audio-Plugins** oder ein Echtzeit-Rack hinzu. Wählen Sie native Instrumente über die Instrumentsteuerung der MIDI-Spur.
 4. Hören Sie das Ergebnis ab, speichern Sie bei Bedarf eine Voreinstellung und sichern Sie das Projekt.
+
+## Über einen Gitarrenverstärker spielen
+
+Fügen Sie **OrbitAmp** über **Effekt > Audio-Plugins** oder das Echtzeit-Effekt-Rack einer Spur hinzu. Öffnen Sie den Plug-in-Editor und wählen Sie im Bereich **AMP** einen Verstärker und unter **CAB** eine Lautsprecherbox. Das Desktop-Paket enthält die Werkssounds.
 
 ## Ergebnis prüfen
 

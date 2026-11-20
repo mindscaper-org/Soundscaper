@@ -3,7 +3,7 @@ title: "デスクトップのオーディオプラグインを使う"
 description: "Soundscaper デスクトップでネイティブエフェクトや楽器を見つけ、有効にして試聴します。"
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"ja"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"ja"} -->
 
 Soundscaper デスクトップでネイティブエフェクトや楽器を見つけ、有効にして試聴します。
 
@@ -17,6 +17,10 @@ OS と対応ホスト形式に互換性のあるプラグインビルドをイ�
 2. プラグインを選び、バージョン、許可、復旧コントロールを確認します。適切であれば有効にします。
 3. **エフェクト > オーディオプラグイン** またはリアルタイムラックからエフェクトを追加します。MIDI トラックの楽器コントロールからネイティブ楽器を選びます。
 4. 再生を試聴し、必要ならプリセットを保存してからプロジェクトを保存します。
+
+## ギターアンプを通して演奏する
+
+**エフェクト > オーディオプラグイン** またはトラックのリアルタイムエフェクトラックから **OrbitAmp** を追加します。プラグインエディターを開き、**AMP** セクションでアンプを、**CAB** セクションでスピーカーキャビネットを選択します。デスクトップ版にはファクトリーサウンドが含まれています。
 
 ## 結果を確認する
 

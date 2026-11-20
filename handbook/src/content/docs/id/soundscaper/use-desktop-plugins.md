@@ -3,7 +3,7 @@ title: "Gunakan plug-in audio desktop"
 description: "Temukan, aktifkan, dan dengarkan efek serta instrumen native di Soundscaper desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"id"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"id"} -->
 
 Temukan, aktifkan, dan dengarkan efek serta instrumen native di Soundscaper desktop.
 
@@ -17,6 +17,10 @@ Pasang build plug-in yang kompatibel dengan sistem operasi dan format host yang 
 2. Pilih plug-in dan tinjau versi, izin, serta kontrol pemulihannya. Aktifkan jika sesuai.
 3. Tambahkan efek melalui **Efek > Plugin Audio** atau rak waktu nyata. Pilih instrumen native melalui kontrol instrumen trek MIDI.
 4. Dengarkan pemutaran, simpan preset bila berguna, lalu simpan proyek.
+
+## Bermain melalui amplifier gitar
+
+Tambahkan **OrbitAmp** dari **Efek > Plugin Audio** atau dari rak efek waktu nyata pada trek. Buka editor plug-in dan pilih amplifier di bagian **AMP** serta kabinet pengeras suara di bagian **CAB**. Paket desktop sudah menyertakan suara bawaan pabrik.
 
 ## Periksa hasilnya
 

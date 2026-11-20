@@ -3,7 +3,7 @@ title: "Folosește pluginuri audio pentru desktop"
 description: "Găsește, activează și ascultă efecte și instrumente native în Soundscaper desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"ro"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"ro"} -->
 
 Găsește, activează și ascultă efecte și instrumente native în Soundscaper desktop.
 
@@ -17,6 +17,10 @@ Instalează o versiune de plugin compatibilă cu sistemul de operare și formatu
 2. Selectează pluginul și verifică versiunea, permisiunea și comenzile de recuperare. Activează-l când este potrivit.
 3. Adaugă un efect prin **Efect > Efecte plugin-uri audio** sau un rack în timp real. Selectează instrumente native din comenzile instrumentului de pe pista MIDI.
 4. Ascultă redarea, salvează un preset dacă e util și salvează proiectul.
+
+## Cântă printr-un amplificator de chitară
+
+Adaugă **OrbitAmp** din **Efect > Efecte plugin-uri audio** sau din rackul de efecte în timp real al pistei. Deschide editorul plug-inului și alege un amplificator în secțiunea **AMP** și o incintă acustică în secțiunea **CAB**. Pachetul pentru desktop include sunetele din fabrică.
 
 ## Verifică rezultatul
 

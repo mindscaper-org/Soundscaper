@@ -3,7 +3,7 @@ title: "Masaüstü ses eklentilerini kullanın"
 description: "Soundscaper masaüstünde yerel efektleri ve enstrümanları bulun, etkinleştirin ve dinleyin."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"tr"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"tr"} -->
 
 Soundscaper masaüstünde yerel efektleri ve enstrümanları bulun, etkinleştirin ve dinleyin.
 
@@ -17,6 +17,10 @@ Soundscaper masaüstünde yerel efektleri ve enstrümanları bulun, etkinleştir
 2. Eklentiyi seçip sürümünü, izinlerini ve kurtarma denetimlerini inceleyin. Uygunsa etkinleştirin.
 3. **Etki > Ses Plugin'leri** veya gerçek zamanlı raf üzerinden efekt ekleyin. MIDI parçasının enstrüman denetimlerinden yerel enstrümanları seçin.
 4. Çalmayı dinleyin, gerekirse ön ayarı kaydedin ve projeyi kaydedin.
+
+## Gitar amfisiyle çalma
+
+**Etki > Ses Plugin'leri** menüsünden veya bir izin gerçek zamanlı efekt rafından **OrbitAmp**’i ekleyin. Eklenti düzenleyicisini açın ve **AMP** bölümünde bir amfi, **CAB** bölümünde bir hoparlör kabini seçin. Masaüstü paketi fabrika seslerini içerir.
 
 ## Sonucu kontrol edin
 

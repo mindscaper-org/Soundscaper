@@ -3,7 +3,7 @@ title: "Utiliser les plug-ins audio de la version de bureau"
 description: "Recherchez, activez et écoutez les effets et instruments natifs dans Soundscaper pour ordinateur."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"fr"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"fr"} -->
 
 Recherchez, activez et écoutez les effets et instruments natifs dans Soundscaper pour ordinateur.
 
@@ -17,6 +17,10 @@ Installez une version du plug-in compatible avec votre système d’exploitation
 2. Sélectionnez le plug-in et vérifiez sa version, ses autorisations et ses options de récupération. Activez-le si nécessaire.
 3. Ajoutez un effet via **Effet > Effets des plugins audio** ou un rack en temps réel. Sélectionnez les instruments natifs avec les commandes d’instrument de la piste MIDI.
 4. Écoutez le résultat, enregistrez un préréglage si utile, puis enregistrez le projet.
+
+## Jouer avec un ampli de guitare
+
+Ajoutez **OrbitAmp** depuis **Effet > Effets des plugins audio** ou depuis le rack d’effets en temps réel d’une piste. Ouvrez l’éditeur du greffon et choisissez un ampli dans la section **AMP** et un baffle dans la section **CAB**. Le paquet pour ordinateur inclut les sons d’usine.
 
 ## Vérifier le résultat
 

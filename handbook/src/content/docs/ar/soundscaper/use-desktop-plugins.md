@@ -3,7 +3,7 @@ title: "استخدام إضافات الصوت في إصدار سطح المكت
 description: "اعثر على المؤثرات والآلات الأصلية في Soundscaper لسطح المكتب وفعّلها واستمع إليها."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"ar"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"ar"} -->
 
 اعثر على المؤثرات والآلات الأصلية في Soundscaper لسطح المكتب وفعّلها واستمع إليها.
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. حدد الإضافة وراجع إصدارها وأذوناتها وعناصر التحكم في الاسترداد. فعّلها عند ملاءمة ذلك.
 3. أضف مؤثرًا عبر **التأثير > تأثيرات المكونات الإضافية الصوتية** أو حاوية فورية. حدد الآلات الأصلية عبر عناصر التحكم الخاصة بالآلة في مسار MIDI.
 4. استمع إلى التشغيل، واحفظ إعدادًا مسبقًا إن كان مفيدًا، ثم احفظ المشروع.
+
+## العزف عبر مضخّم غيتار
+
+أضف **OrbitAmp** من **التأثير > تأثيرات المكونات الإضافية الصوتية** أو من رف المؤثرات الآنية في المسار. افتح محرّر الإضافة واختر مضخّمًا في قسم **AMP** وخزانة سماعات في قسم **CAB**. تتضمّن حزمة سطح المكتب أصوات المصنع.
 
 ## التحقق من النتيجة
 

@@ -3,7 +3,7 @@ title: "استفاده از افزونه‌های صوتی دسکتاپ"
 description: "افکت‌ها و سازهای بومی را در Soundscaper دسکتاپ پیدا، فعال و شنود کنید."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"fa"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"fa"} -->
 
 افکت‌ها و سازهای بومی را در Soundscaper دسکتاپ پیدا، فعال و شنود کنید.
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. افزونه را انتخاب و نسخه، مجوز و کنترل‌های بازیابی آن را بررسی کنید. در صورت مناسب‌بودن فعالش کنید.
 3. از **افکت > افکت‌های پلاگین صوتی** یا یک رک بلادرنگ افکت اضافه کنید. سازهای بومی را از کنترل‌های ساز ترک MIDI برگزینید.
 4. پخش را بشنوید، اگر مفید است preset ذخیره کنید و پروژه را ذخیره کنید.
+
+## نواختن با تقویت‌کنندهٔ گیتار
+
+افزونهٔ **OrbitAmp** را از **افکت > افکت‌های پلاگین صوتی** یا از رک جلوه‌های بلادرنگ یک ترک اضافه کنید. ویرایشگر افزونه را باز کنید و در بخش **AMP** یک تقویت‌کننده و در بخش **CAB** یک کابینت بلندگو انتخاب کنید. بستهٔ دسکتاپ صداهای کارخانه‌ای را در بر دارد.
 
 ## بررسی نتیجه
 

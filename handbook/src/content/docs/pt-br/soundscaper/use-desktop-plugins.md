@@ -3,7 +3,7 @@ title: "Usar plug-ins de áudio no desktop"
 description: "Encontre, ative e ouça efeitos e instrumentos nativos no Soundscaper para desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"pt-BR"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"pt-BR"} -->
 
 Encontre, ative e ouça efeitos e instrumentos nativos no Soundscaper para desktop.
 
@@ -17,6 +17,10 @@ Instale uma build do plug-in compatível com seu sistema operacional e com o for
 2. Selecione o plug-in e confira a versão, a permissão e os controles de recuperação. Ative-o quando for apropriado.
 3. Adicione um efeito em **Efeito > Efeitos de Plugins de Áudio** ou em um rack de tempo real. Selecione instrumentos nativos nos controles de instrumento da faixa MIDI.
 4. Ouça a reprodução, salve um preset se for útil e salve o projeto.
+
+## Tocar com um amplificador de guitarra
+
+Adicione o **OrbitAmp** em **Efeito > Efeitos de Plugins de Áudio** ou no rack de efeitos em tempo real de uma faixa. Abra o editor do plug-in e escolha um amplificador na seção **AMP** e um gabinete na seção **CAB**. O pacote para desktop inclui os sons de fábrica.
 
 ## Verifique o resultado
 

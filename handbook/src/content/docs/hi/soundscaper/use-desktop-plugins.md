@@ -3,7 +3,7 @@ title: "डेस्कटॉप ऑडियो प्लग-इन इस्�
 description: "Soundscaper डेस्कटॉप में नेटिव इफेक्ट और वाद्य खोजें, चालू करें और सुनें।"
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"hi"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"hi"} -->
 
 Soundscaper डेस्कटॉप में नेटिव इफेक्ट और वाद्य खोजें, चालू करें और सुनें।
 
@@ -17,6 +17,10 @@ Soundscaper डेस्कटॉप में नेटिव इफेक्�
 2. प्लग-इन चुनें और उसका संस्करण, अनुमति तथा पुनर्प्राप्ति नियंत्रण देखें। उचित हो तो चालू करें।
 3. **प्रभाव > ऑडियो प्लगइन्स** या रीयल-टाइम रैक से इफेक्ट जोड़ें। MIDI ट्रैक के वाद्य नियंत्रण से नेटिव वाद्य चुनें।
 4. प्लेबैक सुनें, ज़रूरी हो तो प्रीसेट सहेजें और प्रोजेक्ट सहेजें।
+
+## गिटार ऐम्प से बजाना
+
+**प्रभाव > ऑडियो प्लगइन्स** या किसी ट्रैक के रियल-टाइम इफ़ेक्ट रैक से **OrbitAmp** जोड़ें। प्लग-इन संपादक खोलें और **AMP** अनुभाग में ऐम्प तथा **CAB** अनुभाग में स्पीकर कैबिनेट चुनें। डेस्कटॉप पैकेज में फ़ैक्टरी ध्वनियाँ शामिल हैं।
 
 ## परिणाम जाँचें
 

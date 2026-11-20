@@ -3,7 +3,7 @@ title: "Use desktop audio plug-ins"
 description: "Find, enable, and audition native effects and instruments in Soundscaper desktop."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"en-GB"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"en-GB"} -->
 
 Find, enable, and audition native effects and instruments in Soundscaper desktop.
 
@@ -17,6 +17,10 @@ Install a plug-in build compatible with your operating system and the supported 
 2. Select the plug-in and review its version, permission, and recovery controls. Enable it when appropriate.
 3. Add an effect through **Effect > Audio Plugins** or a realtime rack. Select native instruments through the MIDI track’s instrument controls.
 4. Audition playback, save a preset if useful, and save the project.
+
+## Play through a guitar amp
+
+Add **OrbitAmp** from **Effect > Audio Plugins** or a track's real-time effects rack. Open the plug-in editor and choose an amp in the **AMP** section and a cabinet in the **CAB** section. The desktop bundle includes the factory sounds.
 
 ## Check the result
 

@@ -3,7 +3,7 @@ title: "使用桌面音訊外掛程式"
 description: "在 Soundscaper 桌面版中尋找、啟用並試聽原生效果和樂器。"
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fc4f375d65049fb921bb3c7a04239407a33132340a7eb14cd5eae22db3092c9e","targetLocale":"zh-TW"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"ee294775a2938f1c35bb03712c6e4d726617fd3351241c60a1e5cfb69c886c18","targetLocale":"zh-TW"} -->
 
 在 Soundscaper 桌面版中尋找、啟用並試聽原生效果和樂器。
 
@@ -17,6 +17,10 @@ diataxis: how-to
 2. 選取外掛程式並檢查其版本、權限和復原控制項。適用時啟用它。
 3. 透過 **效果器 > 音頻插件** 或即時效果架新增效果。使用 MIDI 音軌的樂器控制項選取原生樂器。
 4. 試聽播放；若有需要，儲存預設，然後儲存專案。
+
+## 透過吉他音箱演奏
+
+從 **效果器 > 音頻插件** 或音軌的即時效果架加入 **OrbitAmp**。開啟外掛編輯器，在 **AMP** 區段選擇放大器，在 **CAB** 區段選擇揚聲器箱體。桌面版套件內含原廠音色。
 
 ## 檢查結果
 
