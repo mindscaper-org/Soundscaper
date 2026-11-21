@@ -524,9 +524,10 @@ function packagedAppAuthority(target, sourceRevision = SOURCE_REVISION) {
 	};
 }
 
-test('Windows x64 build results carry the authenticated x86 bridge as a distinct runtime artifact', async (context) => {
+for (const withRuntimeClosure of [true, false]) test(`Windows x64 carries the x86 bridge with optional runtime closure=${withRuntimeClosure}`, async (context) => {
 	const fixture = await candidateFixture(context, 'win-x64');
 	const built = await createSoundscaperProfessionalNativeBuildResult({ ...fixture.options,
+		runtimeRoot: withRuntimeClosure ? fixture.options.runtimeRoot : null,
 		inspectDependencies: async ({ path }) => dependencyInspection(path, [], 'win-x64'),
 		runSelfTest: async (request) => ({ status: request.expectedStatus, stdout: 'passed', stderr: '' }),
 	});

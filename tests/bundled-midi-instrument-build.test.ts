@@ -84,12 +84,15 @@ test('macOS instrument working copies use AppKit snapshots with the current SDK'
 	assert.match(patched, /#if defined \(MAC_OS_VERSION_15_0\)[\s\S]+cacheDisplayInRect[\s\S]+#else[\s\S]+CGWindowListCreateImage[\s\S]+#endif\s+Image createSnapshotOfNativeWindow/u);
 });
 
-test('macOS Surge XT only configures the standalone CLI copy if its wrapper exists', async context => {
+test('macOS Surge XT orders the native LuaJIT archive before VST3 linking and guards its standalone CLI', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'bundled-surge-macos-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const sourceRoot = join(root, 'surge');
 	await writeSurgeFixture(sourceRoot);
 	await writeFixture(sourceRoot, WINDOWING, SNAPSHOT);
+	const luaPath = 'libs/LuaJitLib/CMakeLists.txt';
+	const lua = 'if(APPLE AND NOT CMAKE_CROSSCOMPILING)\n  message(STATUS "fat mode")\nendif()\n';
+	await writeFixture(sourceRoot, luaPath, lua);
 	const path = 'src/surge-xt/CMakeLists.txt';
 	const cmake = 'if(APPLE)\n  add_dependencies(${PROJECT_NAME}_Standalone ${PROJECT_NAME}-cli)\nendif()\n';
 	await writeFixture(sourceRoot, path, cmake);
@@ -100,4 +103,36 @@ test('macOS Surge XT only configures the standalone CLI copy if its wrapper exis
 	assert.equal(await readFile(join(sourceRoot, path), 'utf8'), cmake);
 	assert.ok((await readFile(join(engine.workSourceRoot, path), 'utf8'))
 		.startsWith('if(APPLE AND TARGET ${PROJECT_NAME}_Standalone)\n  add_dependencies'));
+	assert.equal(await readFile(join(sourceRoot, luaPath), 'utf8'), lua);
+	const recipe = await readFile(join(engine.workSourceRoot, luaPath), 'utf8');
+	assert.match(recipe, /STREQUAL "arm64"[\s\S]+BUILDMODE=static[\s\S]+BYPRODUCTS[^\n]+libluajit\.a/u);
+	assert.match(recipe, /add_dependencies\(luajit-5\.1 soundscaper_luajit_arm64\)[\s\S]+elseif\(APPLE AND NOT CMAKE_CROSSCOMPILING\)/u);
+});
+
+test('Windows ARM64 Surge XT preserves the floating-point control word without x86 CPU instructions', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'bundled-surge-win-arm64-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const sourceRoot = join(root, 'surge');
+	await writeSurgeFixture(sourceRoot);
+	const path = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
+	const cpu = [
+		'#include "sst/plugininfra/cpufeatures.h"',
+		'#ifdef _WIN32\n#include <intrin.h>\n#define cpuid(info, x) __cpuidex(info, x, 0)',
+		'#if !USING_X86\n#error "Windows only works on X86 right now"\n#endif',
+		'#elif WINDOWS\n    std::string platform = "Windows";',
+		'#if defined(__arm__) || defined(__aarch64__)',
+		'#if defined(__aarch64__)\n    uint64_t FPCR = 0;',
+		'#if defined(__aarch64__)\n    asm volatile("MSR FPCR, %0 " : : "r"(priorS));',
+	].join('\n');
+	await writeFixture(sourceRoot, path, cpu);
+	const { engines } = createBundledMidiInstrumentBuildPlan({ target: 'win-arm64', sourceRoots: { 'surge-xt': sourceRoot, dexed: join(root, 'dexed') },
+		buildRoot: join(root, 'build'), installRoot: join(root, 'install') });
+	prepareBundledMidiInstrumentSources(engines[0]!);
+	assert.equal(await readFile(join(sourceRoot, path), 'utf8'), cpu);
+	const patched = await readFile(join(engines[0]!.workSourceRoot, path), 'utf8');
+	assert.doesNotMatch(patched, /Windows only works on X86/u);
+	assert.match(patched, /#if defined\(_WIN32\) && USING_X86\n#include <intrin.h>/u);
+	assert.match(patched, /_controlfp\(0, 0\) & _MCW_DN/u);
+	assert.match(patched, /_controlfp\(_DN_FLUSH, _MCW_DN\)/u);
+	assert.match(patched, /_controlfp\(priorS, _MCW_DN\)/u);
 });

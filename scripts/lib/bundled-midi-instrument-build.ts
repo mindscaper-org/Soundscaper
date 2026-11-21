@@ -89,12 +89,42 @@ function patchWorkingSource(engine: EngineBuild): void {
 			const standalone = '\n  add_dependencies(${PROJECT_NAME}_Standalone ${PROJECT_NAME}-cli)';
 			patch('src/surge-xt/CMakeLists.txt', `if(APPLE)${standalone}`,
 				'if(APPLE AND TARGET ${PROJECT_NAME}_Standalone)' + standalone);
+			// Build the native archive with the selected SDK and let CMake own its link dependency.
+			patch('libs/LuaJitLib/CMakeLists.txt', 'if(APPLE AND NOT CMAKE_CROSSCOMPILING)', [
+				'if(APPLE AND NOT CMAKE_CROSSCOMPILING AND CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")',
+				'  set(LUAJIT_SRC "${CMAKE_CURRENT_LIST_DIR}/LuaJIT/src")',
+				'  find_program(SOUNDSCAPER_LUAJIT_MAKE NAMES make REQUIRED)',
+				'  add_custom_target(soundscaper_luajit_arm64',
+				'    COMMAND "${CMAKE_COMMAND}" -E env "MACOSX_DEPLOYMENT_TARGET=11.0"',
+				'      "${SOUNDSCAPER_LUAJIT_MAKE}" -C "${LUAJIT_SRC}" -j2 BUILDMODE=static',
+				'      "CC=${CMAKE_C_COMPILER}" "TARGET_FLAGS=-arch arm64 -isysroot \\"${CMAKE_OSX_SYSROOT}\\" -fvisibility=hidden" libluajit.a',
+				'    BYPRODUCTS "${LUAJIT_SRC}/libluajit.a"',
+				'    VERBATIM)',
+				'  add_library(luajit-5.1 INTERFACE)',
+				'  add_dependencies(luajit-5.1 soundscaper_luajit_arm64)',
+				'  target_include_directories(luajit-5.1 INTERFACE "${LUAJIT_SRC}")',
+				'  target_link_libraries(luajit-5.1 INTERFACE "${LUAJIT_SRC}/libluajit.a")',
+				'elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)',
+			].join('\n'));
 		}
 		if (engine.target === 'win-x64') {
 			// MSVC diagnoses mixed enum operands in the x86 callback emitter. Preserve the integer encoding.
 			const callbacks = 'libs/LuaJitLib/LuaJIT/src/lj_ccallback.c';
 			patch(callbacks, 'XI_MOVrib | RID_EAX', 'XI_MOVrib | (int)RID_EAX');
 			patch(callbacks, 'XI_MOVri | RID_EBP', 'XI_MOVri | (int)RID_EBP');
+		}
+		if (engine.target === 'win-arm64') {
+			const cpu = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
+			patch(cpu, '#include "sst/plugininfra/cpufeatures.h"', '#include "sst/plugininfra/cpufeatures.h"\n#include <float.h>');
+			patch(cpu, '#ifdef _WIN32\n#include <intrin.h>', '#if defined(_WIN32) && USING_X86\n#include <intrin.h>');
+			patch(cpu, '#if !USING_X86\n#error "Windows only works on X86 right now"\n#endif', '');
+			patch(cpu, '#elif WINDOWS\n    std::string platform = "Windows";',
+				'#elif WINDOWS && defined(_M_ARM64)\n    arch = "Windows ARM64";\n#elif WINDOWS\n    std::string platform = "Windows";');
+			patch(cpu, '#if defined(__arm__) || defined(__aarch64__)', '#if defined(__arm__) || defined(__aarch64__) || defined(_M_ARM64)');
+			patch(cpu, '#if defined(__aarch64__)\n    uint64_t FPCR = 0;',
+				'#if defined(_M_ARM64)\n    priorS = _controlfp(0, 0) & _MCW_DN;\n    _controlfp(_DN_FLUSH, _MCW_DN);\n#elif defined(__aarch64__)\n    uint64_t FPCR = 0;');
+			patch(cpu, '#if defined(__aarch64__)\n    asm volatile("MSR FPCR, %0 " : : "r"(priorS));',
+				'#if defined(_M_ARM64)\n    _controlfp(priorS, _MCW_DN);\n#elif defined(__aarch64__)\n    asm volatile("MSR FPCR, %0 " : : "r"(priorS));');
 		}
 		// SURGE_DATA_HOME arrives as UTF-8, including under Windows installations with non-ASCII paths.
 		patch('src/common/SurgeStorage.cpp', 'fs::path{suppliedDataPath}', 'fs::u8path(suppliedDataPath)');

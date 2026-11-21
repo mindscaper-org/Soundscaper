@@ -160,12 +160,14 @@ export async function createSoundscaperProfessionalNativeBuildResult(options) {
 			brokerPolicy: await copyBuildResultFile(installed.brokerPolicy,
 				join(payloadRoot, 'native-isolation-broker-v1.json'), temporary, 0o444),
 		};
-		const runtimeClosure = [
-			...(runtimeRoot === null ? [] : await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary)),
-			...(target === 'win-x64' ? [await copyBuildResultFile(
-				join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'),
-				resolve(temporary, WINDOWS_VST2_X86_ARTIFACT), temporary, 0o755)] : []),
-		];
+		const runtimeClosure = [];
+		if (runtimeRoot !== null) runtimeClosure.push(...await copyRuntimeClosure(runtimeRoot, join(payloadRoot, 'runtime'), temporary));
+		if (target === 'win-x64') {
+			const bridge = resolve(temporary, WINDOWS_VST2_X86_ARTIFACT);
+			await mkdir(dirname(bridge), { recursive: true, mode: 0o700 });
+			runtimeClosure.push(await copyBuildResultFile(join(professionalInstallRoot, 'runtime/soundscaper_vst2_x86_peer.exe'),
+				bridge, temporary, 0o755));
+		}
 		const bundled = await copyBundledPluginPayload({ target, installRoot: professionalInstallRoot,
 			payloadRoot, resultRoot: temporary, copyArtifact: copyBuildResultFile });
 		const completeRuntimeClosure = [...runtimeClosure, ...bundled.code].sort((a, b) => a.path.localeCompare(b.path));
