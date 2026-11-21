@@ -15,6 +15,7 @@ export interface NormalizedProjectImportOptions extends Readonly<Record<string, 
 	readonly fileIndexOffset?: number;
 	readonly timelineStartFrame: number;
 	readonly timelineStartExplicit?: boolean;
+	readonly legacyCompanionsOnly?: boolean;
 	readonly signal?: AbortSignal;
 	readonly linkedAudioLocatorId?: string;
 	readonly linkedAudioLocatorRevision?: string;
@@ -67,6 +68,7 @@ export function normalizeProjectImportOptions(
 		...(typeof candidate.trackIndex === 'number' && Number.isSafeInteger(candidate.trackIndex)
 			? { trackIndex: candidate.trackIndex } : {}),
 		...(candidate.fileIndexOffset === undefined ? {} : { fileIndexOffset: Number(candidate.fileIndexOffset) }),
+		...(candidate.legacyCompanionsOnly === true ? { legacyCompanionsOnly: true } : {}),
 		...normalizeLinkedOriginalImportLocator(candidate),
 		...(candidate.sourceProvenance == null ? {} : {
 			// The import's already-deferred attribution admission validates and

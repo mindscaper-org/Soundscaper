@@ -32,6 +32,10 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	const projectRate = positiveRate(attribute(project, 'rate', 44_100));
 	const waveTracks = children(project, 'wavetrack');
 	const missing = new Set();
+	const missingAliases = new Set();
+	const aliasedFiles = new Map();
+	const aliasMatches = new Map();
+	let aliasReader;
 	const referencedFiles = new Map();
 	const physicalPlans = [];
 	for (const [trackIndex, trackNode] of waveTracks.entries()) {
@@ -61,7 +65,26 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 				}
 				const block = children(waveBlock, 'simpleblockfile')[0];
 				const alias = children(waveBlock, 'pcmaliasblockfile')[0];
-				if (alias) throw new LegacyAupError('Legacy projects with aliased external audio require the original media and are not self-contained.', 'UNSUPPORTED_ALIAS_BLOCK', { filename: attribute(alias, 'aliasfile', '') });
+				if (alias) {
+					aliasReader ??= await import('./aup-legacy-aliases.ts');
+					const range = aliasReader.readLegacyAliasRange(attribute(alias, 'aliasfile'), attribute(alias, 'aliasstart'),
+						attribute(alias, 'aliaslen'), attribute(alias, 'aliaschannel'));
+					budget.admitReference(range.frameCount);
+					const destinationOffset = clipPlan.frameCount;
+					clipPlan.frameCount = checkedFrameSum(clipPlan.frameCount, range.frameCount);
+					const aliasPath = normalizedPath(range.filename);
+					if (!aliasMatches.has(aliasPath)) aliasMatches.set(aliasPath, findLegacyFile(files, range.filename, true));
+					const file = aliasMatches.get(aliasPath);
+					if (!file) { missingAliases.add(range.filename); continue; }
+					const placements = aliasedFiles.get(file) ?? [];
+					if (placements.length && normalizedPath(placements[0].filename) !== aliasPath) {
+						throw new LegacyAupError(`Multiple Audacity aliases match the same selected audio file: ${file.name}.`,
+							'AMBIGUOUS_ALIAS_FILE', { filenames: [placements[0].filename, range.filename] });
+					}
+					placements.push({ ...range, clipPlan, destinationOffset });
+					aliasedFiles.set(file, placements);
+					continue;
+				}
 				if (!block) continue;
 				const filename = String(attribute(block, 'filename', '')).trim();
 				const length = positiveBlockLength(attribute(block, 'len', undefined));
@@ -86,6 +109,8 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 		physicalPlans.push({ clipPlans, trackIndex, trackNode, trackRate });
 	}
 	if (missing.size) throw new LegacyAupError(`Missing legacy Audacity block files: ${[...missing].join(', ')}.`, 'MISSING_BLOCK_FILES', { filenames: [...missing] });
+	if (missingAliases.size) throw new LegacyAupError(`Select the original audio files referenced by this Audacity project: ${[...missingAliases].join(', ')}.`,
+		'MISSING_ALIAS_FILES', { filenames: [...missingAliases] });
 	for (const referenced of referencedFiles.values()) {
 		referenced.declaredSize = referenced.file.size;
 		budget.admitReferencedFile(referenced.filename, referenced.declaredSize);
@@ -94,9 +119,14 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	const physicalTracks = physicalPlans.map(materializePhysicalTrack);
 	const warnings = [];
 	const tracks = linkLegacyAupTracks(physicalTracks, warnings);
-	const totalBlocks = [...referencedFiles.values()].reduce((sum, entry) => sum + entry.placements.length, 0);
+	const totalBlocks = [...referencedFiles.values()].reduce((sum, entry) => sum + entry.placements.length, 0)
+		+ [...aliasedFiles.values()].reduce((sum, placements) => sum + placements.length, 0);
 	const corrupt = [];
 	let completed = 0;
+	const finishPlacement = (filename) => {
+		completed += 1;
+		options.onProgress?.({ progress: completed / totalBlocks, phase: 'reading-blocks', filename });
+	};
 	for (const { file, filename, declaredSize, placements } of referencedFiles.values()) {
 		let decoded;
 		try {
@@ -116,11 +146,16 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 				decoded.subarray(0, placement.length),
 				placement.destinationOffset,
 			);
-			completed += 1;
-			options.onProgress?.({ progress: totalBlocks ? completed / totalBlocks : 1, phase: 'reading-blocks', filename: placement.filename });
+			finishPlacement(placement.filename);
 		}
 	}
 	if (corrupt.length) throw new LegacyAupError(`Corrupt legacy Audacity block files: ${corrupt.map((entry) => entry.filename).join(', ')}.`, 'CORRUPT_BLOCK_FILES', { files: corrupt });
+	for (const [file, placements] of aliasedFiles) {
+		await aliasReader.readLegacyAliasPlacements(file, placements, {
+			signal: options.signal, assertCurrent: options.assertCurrent, onPlacement: finishPlacement,
+			admitReadBytes: bytes => budget.admitReadBytes(bytes, file.name),
+		});
+	}
 	for (const [index, trackNode] of children(project, 'labeltrack').entries()) tracks.push({
 		type: 'label',
 		selected: booleanAttribute(trackNode, 'isSelected', false),
@@ -136,7 +171,7 @@ export async function decodeLegacyAupProject(projectFile, dataFiles, options = {
 	});
 	options.onProgress?.({ progress: 1, phase: 'complete' });
 	return {
-		consumedDataFiles: legacyAupDataFileCustody(dataFiles || [], [...referencedFiles.keys()]),
+		consumedDataFiles: legacyAupDataFileCustody(dataFiles || [], [...referencedFiles.keys(), ...aliasedFiles.keys()]),
 		sampleRate: projectRate,
 		tempo: { bpm: positive(attribute(project, 'time_signature_tempo', 120), 120), timeSignature: { numerator: 4, denominator: 4 } },
 		selection: { startSeconds: nonNegative(attribute(project, 'sel0', 0)), endSeconds: nonNegative(attribute(project, 'sel1', 0)) },
@@ -189,12 +224,28 @@ function indexLegacyFiles(values, budget) {
 	return { basename, exact };
 }
 
-function findLegacyFile(files, filename) {
+function findLegacyFile(files, filename, alias = false) {
 	const normalized = normalizedPath(filename);
 	const exact = files.exact.get(normalized);
-	if (exact?.size) return oneLegacyFile(exact, filename);
+	if (exact?.size) return oneLegacyFile(exact, filename, alias);
 	const fallback = files.basename.get(normalized.split('/').at(-1));
-	return fallback?.size ? oneLegacyFile(fallback, filename) : null;
+	if (!fallback?.size) return null;
+	return oneLegacyFile(alias && fallback.size > 1 ? longestAliasPathMatches(fallback, normalized) : fallback, filename, alias);
+}
+
+function longestAliasPathMatches(candidates, reference) {
+	const expected = reference.split('/').reverse();
+	const matches = new Set();
+	let best = 0;
+	for (const file of candidates) {
+		const actual = normalizedPath(file.webkitRelativePath || file.name).split('/').reverse();
+		let length = 0;
+		while (length < actual.length && actual[length] === expected[length]) length += 1;
+		if (length < best) continue;
+		if (length > best) { matches.clear(); best = length; }
+		matches.add(file);
+	}
+	return matches;
 }
 
 function addLegacyFileMatch(index, key, file) {
@@ -206,11 +257,11 @@ function addLegacyFileMatch(index, key, file) {
 	matches.add(file);
 }
 
-function oneLegacyFile(matches, filename) {
+function oneLegacyFile(matches, filename, alias) {
 	if (matches.size > 1) {
 		throw new LegacyAupError(
-			`Multiple selected files match legacy block ${filename}.`,
-			'AMBIGUOUS_BLOCK_FILE',
+			`Multiple selected files match ${alias ? 'the Audacity audio alias' : 'legacy block'} ${filename}.`,
+			alias ? 'AMBIGUOUS_ALIAS_FILE' : 'AMBIGUOUS_BLOCK_FILE',
 			{ filename, matches: matches.size },
 		);
 	}

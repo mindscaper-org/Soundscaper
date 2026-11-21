@@ -7,6 +7,7 @@ import { isLegacyAupFile } from '../../shared/app-helpers.ts';
 
 interface MidiImportOptions extends Readonly<Record<string, unknown>> {
 	readonly timelineStartFrame?: number;
+	readonly legacyCompanionsOnly?: boolean;
 	readonly signal?: AbortSignal;
 }
 
@@ -41,6 +42,7 @@ export function createMidiImportFiles(scope: MidiImportRuntime,
 		requests.add(context);
 		try {
 			const files = [...(fileList ?? [])];
+			if (options.legacyCompanionsOnly === true) return await scope.importFiles(files, options);
 			const kinds = await Promise.all(files.map(async file => {
 				options.signal?.throwIfAborted();
 				if (/\.gro$/iu.test(file.name ?? '')) return 'allegro';

@@ -67,6 +67,11 @@ test('legacy dropped AUP projects stay grouped with AU and AUF blocks for batch 
 	});
 });
 
+test('legacy AUP projects and explicitly selected alias originals reach the same import batch', () => {
+	const media = [new File([], 'session.aup'), new File([], 'original.AIFF'), new File([], 'take.wav')];
+	assert.deepEqual(partitionWorkspaceFiles(media), { projects: [], media, labels: [], cues: [] });
+});
+
 for (const name of ['session.aup', 'SESSION.AUP']) {
 	test(`File > Open waits for readiness before requesting companion data for ${name}`, async () => {
 		const ready = deferred<void>();

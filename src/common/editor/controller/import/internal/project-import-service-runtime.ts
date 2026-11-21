@@ -152,7 +152,7 @@ export function createProjectImportServiceRuntime(runtime: ProjectImportRuntime)
 			}
 			activeImportProgress?.update?.(1);
 			completedBytes += Math.max(1, Number(legacyProject.size) || 0);
-			importQueue = files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
+			importQueue = importOptions.legacyCompanionsOnly ? [] : files.filter((file: RuntimeValue) => file !== legacyProject && !isLegacyAupFile(file)
 				&& !(consumedLegacyFiles ? consumedLegacyFiles.has(file) : isLegacyBlockFile(file)));
 		}
 		let audioFileIndex = importOptions.fileIndexOffset ?? 0;

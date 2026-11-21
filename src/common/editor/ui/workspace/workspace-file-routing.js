@@ -29,7 +29,7 @@ export function isWorkspaceImportFile(file) {
 
 export function partitionWorkspaceFiles(files) {
 	const selectedFiles = [...(files || [])];
-	const hasLegacyBlocks = selectedFiles.some((file) => /\.au[f]?$/iu.test(file?.name || ''));
+	const hasLegacyCompanions = selectedFiles.some((file) => /\.(?:auf?|wav|wave|bw64|rf64|aif|aiff|aifc)$/iu.test(file?.name || ''));
 	const projects = [];
 	const media = [];
 	const labels = [];
@@ -38,7 +38,7 @@ export function partitionWorkspaceFiles(files) {
 		const name = file?.name || '';
 		const type = String(file?.type || '').split(';', 1)[0].trim().toLowerCase();
 		const mimeFallback = !isImportFileName(name);
-		if (hasLegacyBlocks && /\.aup$/iu.test(name)) media.push(file);
+		if (hasLegacyCompanions && /\.aup$/iu.test(name)) media.push(file);
 		else if (isScapeProjectFile(file) || LEGACY_AUDACITY_PROJECT_PATTERN.test(name) || isTimelineInterchangeFile(name)) projects.push(file);
 		else if (LABEL_PATTERN.test(name) || (mimeFallback && LABEL_MIME_TYPES.has(type))) labels.push(file);
 		else if (CUE_PATTERN.test(name) || (mimeFallback && type === 'application/x-cue')) cues.push(file);

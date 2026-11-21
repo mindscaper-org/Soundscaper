@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { strFromU8, unzipSync } from 'fflate';
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseExportProjectFileAction, chooseFileAction, disableNativeSavePicker, downloadBytes } from './audio-editor-test-helpers.js';
 import { legacyAupFiles } from '../helpers/more200-legacy-aup-file.ts';
+import { encodeWav } from '../../src/common/editor/wav.js';
 
 // UTF8/LE/BE data custody: audio-editor-more200-legacy-aup-utf16.test.ts.
 test('File Open imports utf-16be legacy AUP with its selected AU directory', async ({ page }) => {
@@ -37,5 +38,41 @@ test('File Open imports utf-16be legacy AUP with its selected AU directory', asy
 		expect(samples.getUint32(0, true)).toBe(4800);
 		expect(samples.getFloat32(4, true)).toBe(0.25);
 		expect(samples.getFloat32(8, true)).toBe(-0.25);
+	} finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('File Open restores an Audacity alias and saves its selected channel and sample range', async ({ page }) => {
+	await disableNativeSavePicker(page);
+	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-aup-alias-'));
+	const project = join(directory, 'edit.aup');
+	const recording = encodeWav([Float32Array.of(0, 0.125, 0.25, 0), Float32Array.of(0, -0.5, 0.75, 0)],
+		{ sampleRate: 48_000, float: true, bitDepth: 32, dither: false });
+	try {
+		await writeFile(project, `<project rate="48000"><wavetrack name="Aliased track" rate="48000"><waveclip offset="2">
+			<sequence numsamples="3"><waveblock start="0"><silentblockfile len="1"/></waveblock>
+			<waveblock start="1"><pcmaliasblockfile aliasfile="C:\\Old session\\Recording.wav" aliasstart="1" aliaslen="2" aliaschannel="1"/></waveblock>
+			</sequence></waveclip></wavetrack></project>`);
+		await writeFile(join(directory, 'Recording.wav'), recording);
+		await writeFile(join(directory, 'Unrelated.wav'), recording);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		const choosingProject = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		const projectChooser = await choosingProject;
+		const choosingFolder = page.waitForEvent('filechooser');
+		await projectChooser.setFiles(project);
+		await (await choosingFolder).setFiles(directory);
+		await expect(editor.getByRole('tab', { name: 'edit', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(editor).toHaveAttribute('data-track-count', '1');
+		const download = page.waitForEvent('download');
+		await chooseExportProjectFileAction(page, editor);
+		const entries = unzipSync(await downloadBytes(await download));
+		const saved = JSON.parse(strFromU8(entries['project.json']));
+		expect(saved.tracks.map(({ name }) => name)).toEqual(['Aliased track']);
+		expect(saved.clips[0]).toMatchObject({ timelineStartFrame: 96_000, durationFrames: 3 });
+		const pcm = Object.entries(entries).find(([name]) => name.endsWith('.f32c'))?.[1];
+		expect(pcm).toBeDefined();
+		const samples = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+		expect([samples.getUint32(0, true), samples.getFloat32(4, true), samples.getFloat32(8, true), samples.getFloat32(12, true)])
+			.toEqual([3, 0, -0.5, 0.75]);
 	} finally { await rm(directory, { recursive: true, force: true }); }
 });

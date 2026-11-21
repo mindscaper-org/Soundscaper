@@ -345,6 +345,15 @@ capability owns scratch cleanup through release and renderer revocation. Recover
 save targets refuse the original input path and hard-link aliases. Browsers
 continue to accept a single project file without companion discovery.
 
+Legacy Audacity `.aup` Open admits `.au` blocks and external WAV or AIFF PCM
+from the selected companion folder. Import can also receive the project and
+its companion files as a batch. Alias matching uses only those selected files,
+prefers matching directory suffixes, and rejects ambiguous originals. The
+importer copies the exact frame range and channel of each alias into the clip
+at the Audacity track rate. The resulting project owns the audio and travels
+independently of the original files. Companion-folder Open uses only files
+referenced by the project.
+
 Normal import and recovery first retain all imported metadata. If native clip
 XML exceeds the editor document node budget, they retry with the editable
 audio, timing, envelopes, track state and project/track extensions. The

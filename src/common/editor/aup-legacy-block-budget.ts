@@ -148,6 +148,11 @@ export class LegacyAupBlockBudget {
 				{ filename, observed: byteLength, minimum: AU_HEADER_BYTES },
 			);
 		}
+		this.admitReadBytes(byteLength, filename);
+	}
+
+	/** Charge external PCM ranges to the same aggregate read allowance as AU blocks. */
+	admitReadBytes(byteLength: number, filename: string): void {
 		if (byteLength > this.limits.maximumSelectedBlockBytes - this.#selectedBlockBytes) {
 			throw limitError(
 				'The selected legacy AUP block files exceed their aggregate byte limit.',

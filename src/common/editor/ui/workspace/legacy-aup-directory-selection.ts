@@ -7,7 +7,7 @@ import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
 interface LegacyDirectorySelectionRuntime {
 	getProjectSessionKey(): string;
 	chooseDirectory(): void;
-	importFiles(files: readonly File[]): PromiseLike<unknown> | unknown;
+	importFiles(files: readonly File[], options: Readonly<{ legacyCompanionsOnly: true }>): PromiseLike<unknown> | unknown;
 }
 
 interface LegacyDirectoryRequest {
@@ -39,7 +39,9 @@ export function createLegacyAupDirectorySelection(runtime: LegacyDirectorySelect
 				request.resolve(CANCELLED);
 				return;
 			}
-			void withWebFileLoadLimitContext(() => runtime.importFiles([request.file, ...files])).then(request.resolve, request.reject);
+			const companions = files.filter(file => !/\.aup$/iu.test(file.name));
+			void withWebFileLoadLimitContext(() => runtime.importFiles([request.file, ...companions], { legacyCompanionsOnly: true }))
+				.then(request.resolve, request.reject);
 		},
 		cancel(): void {
 			const request = pending;
@@ -62,7 +64,7 @@ export function useLegacyAupDirectorySelection(controller: Readonly<{
 			// WebKit does not open the directory chooser through showPicker on file-input continuation.
 			input.click();
 		},
-		importFiles: files => controller.actions.project.importFiles(files),
+		importFiles: (files, options) => controller.actions.project.importFiles(files, options),
 	}), [controller]);
 	useEffect(() => {
 		const input = legacyDataInputRef.current;
