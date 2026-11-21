@@ -63,9 +63,12 @@ test('npm run typecheck still covers every project in the tree', async () => {
 		}
 	}
 
-	const projects = (await readdir(new URL('../', import.meta.url)))
-		.filter((entry) => /^tsconfig\..+\.json$/u.test(entry) || entry === 'tsconfig.json')
-		.filter((entry) => entry !== 'tsconfig.base.json');
+	const projects = [];
+	for (const directory of ['', 'config/typescript/']) {
+		const entries = await readdir(new URL(`../${directory}`, import.meta.url));
+		projects.push(...entries.filter((entry) => /^tsconfig(?:\..+)?\.json$/u.test(entry) && entry !== 'tsconfig.base.json')
+			.map((entry) => `${directory}${entry}`));
+	}
 
 	assert.deepEqual([...checked].sort(), projects.sort(),
 		'splitting typecheck across jobs may not quietly drop a project from the gate');

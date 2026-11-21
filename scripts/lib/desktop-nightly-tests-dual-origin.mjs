@@ -42,7 +42,7 @@ export function createDesktopNightlyTestsDualOriginPlan({
 			join(payloadRoot, 'node_modules/@playwright/test/cli.js'),
 			'test',
 			'--config',
-			join(payloadRoot, 'playwright.nightly-dual-origin.config.mjs'),
+			join(payloadRoot, 'config/playwright/playwright.nightly-dual-origin.config.mjs'),
 		]),
 		cwd: payloadRoot,
 		env: Object.freeze({

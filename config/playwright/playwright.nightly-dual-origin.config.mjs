@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test';
 import {
 	firstLaunchSetupSeedValue,
 	firstLaunchSetupStorageKey,
-} from './src/common/editor/ui/first-launch-setup.ts';
+} from '../../src/common/editor/ui/first-launch-setup.ts';
 
 export function createNightlyDualOriginConfig(environment = process.env) {
 	const payloadRoot = requiredRoot(environment, 'SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT');

@@ -105,7 +105,7 @@ With dependencies installed in both checkouts and Audiocity at `../audiocity`
 
 ```sh
 npm run build
-npx playwright test --config playwright.audiocity.config.mjs
+npx playwright test --config config/playwright/playwright.audiocity.config.mjs
 ```
 
 The browser harness starts its own Audiocity process, disposable data directory,

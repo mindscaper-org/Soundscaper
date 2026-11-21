@@ -22,7 +22,7 @@ test('calendar DMG volume titles match the foreign-platform extractor for both p
 	const require = createRequire(import.meta.url);
 	const { DmgTarget } = require('dmg-builder/out/dmg.js');
 	const { Arch } = require('builder-util');
-	const configPath = require.resolve('../electron-builder.config.cjs');
+	const configPath = require.resolve('../config/electron/electron-builder.config.cjs');
 	const originalProduct = process.env.SCAPE_PRODUCT;
 	try {
 		for (const productId of ['soundscaper', 'framescaper']) {

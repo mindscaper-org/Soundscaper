@@ -21,8 +21,8 @@ const response = { contractVersion: 1, jobId, sourceId: 'source', claim: videoCl
 			colorPrimaries: null, colorTransfer: null, colorSpace: null, colorRange: null } } };
 
 test('the sandbox-only alpha encoder helper is an explicit compiled desktop root', () => {
-	const config = JSON.parse(readFileSync(new URL('../tsconfig.desktop-runtime.json', import.meta.url), 'utf8'));
-	assert.ok(config.include.includes('desktop/assistance-keyed-video-preload.ts'));
+	const config = JSON.parse(readFileSync(new URL('../config/typescript/tsconfig.desktop-runtime.json', import.meta.url), 'utf8'));
+	assert.ok(config.include.includes('../../desktop/assistance-keyed-video-preload.ts'));
 });
 
 test('the packaged sandbox exposes pathless keyed-video preflight and authenticated encode claims', async () => {

@@ -3,10 +3,12 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import { readFileSync } from 'node:fs';
+import { posix } from 'node:path';
 
+const checkedJavascriptProject = './config/typescript/tsconfig.javascript.json';
 const checkedJavascriptFiles = JSON.parse(
-	readFileSync(new URL('./tsconfig.javascript.json', import.meta.url), 'utf8'),
-).files;
+	readFileSync(new URL(checkedJavascriptProject, import.meta.url), 'utf8'),
+).files.map((file) => posix.join(posix.dirname(checkedJavascriptProject), file));
 
 const runtimeGlobals = {
 	...globals.browser,
@@ -69,7 +71,7 @@ export default tseslint.config(
 			parser: tseslint.parser,
 			parserOptions: {
 				ecmaFeatures: { jsx: true },
-				project: ['./tsconfig.javascript.json'],
+				project: [checkedJavascriptProject],
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},
@@ -88,7 +90,7 @@ export default tseslint.config(
 			parserOptions: {
 				...config.languageOptions?.parserOptions,
 				ecmaFeatures: { jsx: true },
-				project: ['./tsconfig.json', './tsconfig.tests.json', './tsconfig.tooling.json', './handbook/tsconfig.json'],
+				project: ['./tsconfig.json', './config/typescript/tsconfig.tests.json', './config/typescript/tsconfig.tooling.json', './handbook/tsconfig.json'],
 				tsconfigRootDir: import.meta.dirname,
 			},
 		},

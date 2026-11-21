@@ -28,7 +28,7 @@ async function collect(config: string): Promise<{ title: string; file: string }[
 }
 
 test('nightly collects every real denoising port case for both packaged products without downloading models', async () => {
-	const specs = (await collect('playwright.nightly-local-assistance.config.mjs'))
+	const specs = (await collect('config/playwright/playwright.nightly-local-assistance.config.mjs'))
 		.filter(spec => spec.file.endsWith('denoise-ports.spec.ts'));
 	assert.equal(specs.length, 12, 'six rate/channel cases must run in each product');
 	for (const rate of [48_000, 44_100, 96_000]) for (const channels of [1, 2]) {
@@ -37,7 +37,7 @@ test('nightly collects every real denoising port case for both packaged products
 });
 
 test('nightly collects real packaged Web VCR capture alongside persistent delivery recovery', async () => {
-	const specs = await collect('playwright.nightly-packaged-coverage.config.mjs');
+	const specs = await collect('config/playwright/playwright.nightly-packaged-coverage.config.mjs');
 	assert.equal(specs.filter(spec => spec.file.endsWith('desktop-packaged-web-vcr.spec.ts')).length, 1);
 	assert.equal(specs.filter(spec => spec.file.endsWith('desktop-packaged-delivery-restart.spec.ts')).length, 1);
 	assert.equal(specs.filter(spec => spec.title === 'recovers a real persistent delivery job in a packaged app with the native helper').length, 1);

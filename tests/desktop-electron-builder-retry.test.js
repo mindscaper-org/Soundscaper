@@ -33,12 +33,12 @@ test('desktop package jobs route electron-builder through the transient-download
 test('electron-builder retries the observed Electron ZIP HTTP 504 and preserves its arguments', () => {
 	const harness = createHarness('transient-zip');
 	try {
-		const result = harness.run(['--config', 'electron-builder.config.cjs', '--win', '--arm64', '--publish', 'never']);
+		const result = harness.run(['--config', 'config/electron/electron-builder.config.cjs', '--win', '--arm64', '--publish', 'never']);
 		assert.equal(result.status, 0, result.stderr);
 		assert.equal(harness.attempts(), 2);
 		assert.deepEqual(harness.calls(), [
-			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config electron-builder.config.cjs --win --arm64 --publish never',
-			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config electron-builder.config.cjs --win --arm64 --publish never',
+			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config config/electron/electron-builder.config.cjs --win --arm64 --publish never',
+			'--import ./scripts/ci-github-release-fetch.mjs node_modules/electron-builder/out/cli/cli.js --config config/electron/electron-builder.config.cjs --win --arm64 --publish never',
 		]);
 	} finally {
 		harness.cleanup();
@@ -48,7 +48,7 @@ test('electron-builder retries the observed Electron ZIP HTTP 504 and preserves 
 test('electron-builder retries the observed SHASUMS256.txt HTTP 504', () => {
 	const harness = createHarness('transient-shasums');
 	try {
-		const result = harness.run(['--config', 'electron-builder.config.cjs', '--win', '--arm64']);
+		const result = harness.run(['--config', 'config/electron/electron-builder.config.cjs', '--win', '--arm64']);
 		assert.equal(result.status, 0, result.stderr);
 		assert.equal(harness.attempts(), 2);
 	} finally {
@@ -59,7 +59,7 @@ test('electron-builder retries the observed SHASUMS256.txt HTTP 504', () => {
 test('electron-builder does not retry a functional packaging failure', () => {
 	const harness = createHarness('functional');
 	try {
-		const result = harness.run(['--config', 'electron-builder.config.cjs', '--linux', '--x64']);
+		const result = harness.run(['--config', 'config/electron/electron-builder.config.cjs', '--linux', '--x64']);
 		assert.equal(result.status, 23);
 		assert.equal(harness.attempts(), 1);
 		assert.match(result.stderr, /non-transient packaging error/iu);
@@ -71,7 +71,7 @@ test('electron-builder does not retry a functional packaging failure', () => {
 test('electron-builder retries the terse fetch failure observed while building the Windows portable installer', () => {
 	const harness = createHarness('transient-fetch');
 	try {
-		const result = harness.run(['--config', 'electron-builder.nightly-tests.config.cjs', '--win', '--x64']);
+		const result = harness.run(['--config', 'config/electron/electron-builder.nightly-tests.config.cjs', '--win', '--x64']);
 		assert.equal(result.status, 0, result.stderr);
 		assert.equal(harness.attempts(), 2);
 	} finally {
@@ -93,7 +93,7 @@ for (const mode of ['http-not-found', 'certificate', 'functional-fetch']) test(`
 test('electron-builder stops after three transient download failures', () => {
 	const harness = createHarness('exhausted');
 	try {
-		const result = harness.run(['--config', 'electron-builder.config.cjs', '--win', '--arm64']);
+		const result = harness.run(['--config', 'config/electron/electron-builder.config.cjs', '--win', '--arm64']);
 		assert.equal(result.status, 29);
 		assert.equal(harness.attempts(), 3);
 		assert.match(result.stderr, /failed after 3 attempts/iu);

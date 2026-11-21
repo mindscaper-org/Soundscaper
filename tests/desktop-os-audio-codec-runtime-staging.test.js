@@ -29,9 +29,9 @@ test('desktop runtime inventory closes over the supervised OS audio codec tier',
 	for (const file of COMPILED_OS_CODEC_FILES) {
 		assert.equal(DESKTOP_AUDIO_CODEC_RUNTIME_FILES.includes(file), true, file);
 	}
-	const configuration = JSON.parse(await readFile(join(ROOT, 'tsconfig.desktop-runtime.json'), 'utf8'));
+	const configuration = JSON.parse(await readFile(join(ROOT, 'config/typescript/tsconfig.desktop-runtime.json'), 'utf8'));
 	for (const file of COMPILED_OS_CODEC_FILES) {
-		assert.equal(configuration.include.includes(file.replace(/\.js$/u, '.ts')), true, file);
+		assert.equal(configuration.include.includes(`../../${file.replace(/\.js$/u, '.ts')}`), true, file);
 	}
 });
 

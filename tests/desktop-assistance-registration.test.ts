@@ -115,10 +115,10 @@ test('every assistance helper is composed as background work the machine can pau
 
 test('the staged desktop runtime carries assistance scheduling and confirmation policy', async () => {
 	const configuration = JSON.parse(await readFile(
-		new URL('../tsconfig.desktop-runtime.json', import.meta.url), 'utf8'));
-	assert.ok(configuration.include.includes('desktop/assistance-power-etiquette-v1.ts'),
+		new URL('../config/typescript/tsconfig.desktop-runtime.json', import.meta.url), 'utf8'));
+	assert.ok(configuration.include.includes('../../desktop/assistance-power-etiquette-v1.ts'),
 		'the composition root imports it from the staged runtime, so it must be emitted there');
-	assert.ok(configuration.include.includes('desktop/assistance-workflow-confirmation.ts'));
+	assert.ok(configuration.include.includes('../../desktop/assistance-workflow-confirmation.ts'));
 	const { DESKTOP_ASSISTANCE_RUNTIME_FILES } = await import('../scripts/lib/desktop-assistance-runtime-files.mjs');
 	assert.ok(DESKTOP_ASSISTANCE_RUNTIME_FILES.includes('desktop/assistance-workflow-confirmation.js'));
 });

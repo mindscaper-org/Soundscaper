@@ -212,11 +212,11 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'config/accessibility-wcag-baseline.json',
 		'config/quality-budgets.json',
 		'evidence/nyquist-plugin-publication/catalog-metadata-ed168a19631ec48d0029dfb5c17d16c339a174c1.json',
-		'playwright.nightly-metrics.config.mjs',
-		'playwright.nightly-packaged-coverage.config.mjs',
-		'playwright.nightly-packaged-metrics.config.mjs',
-		'playwright.nightly-local-assistance.config.mjs',
-		'playwright.nightly-tests.config.mjs',
+		'config/playwright/playwright.nightly-metrics.config.mjs',
+		'config/playwright/playwright.nightly-packaged-coverage.config.mjs',
+		'config/playwright/playwright.nightly-packaged-metrics.config.mjs',
+		'config/playwright/playwright.nightly-local-assistance.config.mjs',
+		'config/playwright/playwright.nightly-tests.config.mjs',
 		'sites/soundscaper/en/index.html',
 		'sites/soundscaper/.browser-product-build.json',
 		'sites/framescaper/en/index.html',
@@ -300,11 +300,6 @@ test('nightly test staging creates a hermetic, manifest-bound Playwright payload
 		'licenses',
 		'node_modules',
 		'package.json',
-		'playwright.nightly-metrics.config.mjs',
-		'playwright.nightly-packaged-coverage.config.mjs',
-		'playwright.nightly-packaged-metrics.config.mjs',
-		'playwright.nightly-local-assistance.config.mjs',
-		'playwright.nightly-tests.config.mjs',
 		'src',
 		'tests',
 		'vendor',
@@ -356,7 +351,7 @@ test('nightly test staging rejects missing inputs before replacing an existing p
 	const fixture = await createFixture(context);
 	await mkdir(fixture.outputRoot, { recursive: true });
 	await writeFile(join(fixture.outputRoot, 'keep.txt'), 'existing payload\n');
-	await rm(join(fixture.repositoryRoot, 'playwright.nightly-tests.config.mjs'));
+	await rm(join(fixture.repositoryRoot, 'config/playwright/playwright.nightly-tests.config.mjs'));
 
 	await assert.rejects(
 		() => stageDesktopNightlyTests({

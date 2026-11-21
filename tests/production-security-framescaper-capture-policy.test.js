@@ -46,7 +46,7 @@ test('Framescaper capture policy binds consent, recovery, origin, and publicatio
 		'desktop/framescaper-capture-session-security.ts',
 		'desktop/soundscaper-capture-session-security.ts',
 		'desktop/protocol.js',
-		'electron-builder.config.cjs',
+		'config/electron/electron-builder.config.cjs',
 		'scripts/lib/desktop-product-package-files.mjs',
 		'scripts/lib/desktop-soundscaper-runtime-files.mjs',
 		'src/common/editor/recording-capture-pool.js',

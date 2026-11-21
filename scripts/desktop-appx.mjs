@@ -42,7 +42,7 @@ export async function buildDesktopAppx({ args = process.argv.slice(2), environme
 	const { version } = desktopAppxSettings(env);
 	if (!args.includes('--prepared')) await run(process.execPath, [resolve(repositoryRoot, 'scripts/desktop-prepare.mjs')], { cwd: repositoryRoot, env });
 	await prepareAssets({ repositoryRoot, outputRoot: resolve(repositoryRoot, '.desktop-build/icons'), productId, version });
-	await run('bash', [resolve(repositoryRoot, 'scripts/ci-electron-builder.sh'), '--config', 'electron-builder.appx.config.cjs',
+	await run('bash', [resolve(repositoryRoot, 'scripts/ci-electron-builder.sh'), '--config', 'config/electron/electron-builder.appx.config.cjs',
 		'--win', `--${arch}`, '--publish', 'never'], { cwd: repositoryRoot, env });
 }
 

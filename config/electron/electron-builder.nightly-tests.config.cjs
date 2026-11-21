@@ -9,7 +9,7 @@ if (nightlyPackageArch !== undefined && nightlyPackageArch !== 'x64' && nightlyP
 module.exports = {
 	appId: 'org.soundscaper.desktop.nightly-tests',
 	productName: 'Soundscaper Nightly Tests',
-	artifactName: `${require('./package.json').releaseVersion ?? 'Soundscaper-${version}'}-nightly-with-tests-\${os}-\${arch}.\${ext}`,
+	artifactName: `${require('../../package.json').releaseVersion ?? 'Soundscaper-${version}'}-nightly-with-tests-\${os}-\${arch}.\${ext}`,
 	compression: 'normal',
 	asar: true,
 	npmRebuild: false,
@@ -69,7 +69,7 @@ module.exports = {
 			from: '.desktop-build/nightly-tests',
 			to: 'nightly-tests',
 			filter: [
-				...require('./scripts/lib/desktop-nightly-tests-native-fixture-inputs.cjs'),
+				...require('../../scripts/lib/desktop-nightly-tests-native-fixture-inputs.cjs'),
 				'.local-browsers/**/*',
 				'config/**/*',
 				'desktop/bundled-*-stream.ts',
@@ -113,11 +113,6 @@ module.exports = {
 				'sites/**/*',
 				'licenses/**/*',
 				'package.json',
-				'playwright.nightly-metrics.config.mjs',
-				'playwright.nightly-packaged-coverage.config.mjs',
-				'playwright.nightly-packaged-metrics.config.mjs',
-				'playwright.nightly-local-assistance.config.mjs',
-				'playwright.nightly-tests.config.mjs',
 				// The browser specs import spec-support helpers from here. The
 				// launcher's own modules reach the main process through `files`
 				// above, so this carries the payload's copies, not the launcher's.

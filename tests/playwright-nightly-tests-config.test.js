@@ -23,7 +23,7 @@ test('bundled Playwright config uses only absolute launcher-provided paths', asy
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = payloadRoot;
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = runRoot;
 		const { createNightlyTestsConfig, default: config } = await import(
-			'../playwright.nightly-tests.config.mjs?absolute-launcher-paths'
+			'../config/playwright/playwright.nightly-tests.config.mjs?absolute-launcher-paths'
 		);
 
 		assert.equal(config.testDir, resolve(payloadRoot, 'tests/browser'));
@@ -91,7 +91,7 @@ test('bundled metrics config isolates registered collectors from the functional 
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = payloadRoot;
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = runRoot;
 		const { default: config } = await import(
-			'../playwright.nightly-metrics.config.mjs?absolute-launcher-paths'
+			'../config/playwright/playwright.nightly-metrics.config.mjs?absolute-launcher-paths'
 		);
 
 		assert.equal(config.workers, 1);
@@ -132,7 +132,7 @@ test('packaged metrics run each formal workload in its owning product', async ()
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = payloadRoot;
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = runRoot;
 		const { createNightlyPackagedMetricsConfig } = await import(
-			'../playwright.nightly-packaged-metrics.config.mjs?formal-workload-ownership'
+			'../config/playwright/playwright.nightly-packaged-metrics.config.mjs?formal-workload-ownership'
 		);
 		const config = createNightlyPackagedMetricsConfig(process.env);
 		const projects = Object.fromEntries(config.projects.map((project) => [project.name, project.testMatch]));
@@ -178,7 +178,7 @@ test('package scripts expose local preparation and packaging of the diagnostic f
 	);
 	assert.equal(
 		packageMetadata.scripts['desktop:nightly-tests:dist'],
-		'npm run build && npm run build:browser:framescaper && npm run prepare:browser:products && npm run pretest:browser:dual-origin && npm run desktop:nightly-tests:products && npm run desktop:nightly-tests:prepare && electron-builder --config electron-builder.nightly-tests.config.cjs --publish never',
+		'npm run build && npm run build:browser:framescaper && npm run prepare:browser:products && npm run pretest:browser:dual-origin && npm run desktop:nightly-tests:products && npm run desktop:nightly-tests:prepare && electron-builder --config config/electron/electron-builder.nightly-tests.config.cjs --publish never',
 	);
 });
 

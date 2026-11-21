@@ -46,7 +46,7 @@ export function createDesktopNightlyTestsPackagedCoveragePlan({
 			join(payloadRoot, 'node_modules/@playwright/test/cli.js'),
 			'test',
 			'--config',
-			join(payloadRoot, 'playwright.nightly-packaged-coverage.config.mjs'),
+			join(payloadRoot, 'config/playwright/playwright.nightly-packaged-coverage.config.mjs'),
 		]),
 		cwd: payloadRoot,
 		env: Object.freeze({

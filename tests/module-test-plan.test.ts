@@ -8,7 +8,7 @@ import { planModuleTests } from '../scripts/lib/module-test-plan.ts';
 
 const policy = parseModulePolicy({
 	schemaVersion: 1,
-	globalInputs: ['package-lock.json', 'tsconfig*.json'],
+	globalInputs: ['package-lock.json', 'tsconfig*.json', 'config/'],
 	modules: [
 		{ id: 'imaging', sourcePrefixes: ['src/common/imaging/'], dependencies: ['media'], nodeTests: ['tests/pixels.test.ts', 'tests/masks.test.ts'], products: ['framescaper'], independent: true },
 		{ id: 'media', sourcePrefixes: ['src/common/media/'], nodeTests: ['tests/bytes.test.ts'], products: [], independent: true },
@@ -149,7 +149,7 @@ test('computed imports in an affected closure select full checks but unrelated u
 });
 
 test('unknown changes and global inputs conservatively retain all tests', () => {
-	for (const changed of ['unknown.config', 'package-lock.json', 'tsconfig.tests.json']) {
+	for (const changed of ['unknown.config', 'package-lock.json', 'config/typescript/tsconfig.tests.json']) {
 		const selected = plan([changed]);
 		assert.equal(selected.mode, 'full');
 		assert.deepEqual(selected.nodeTests, [...nodeTests].sort());

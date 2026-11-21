@@ -132,7 +132,7 @@ test('every reviewed codec notice is checked out with the line endings it was ha
 });
 
 test('Electron packages the aggregate and complete staged codec license trees', () => {
-	const configuration = require('../electron-builder.config.cjs');
+	const configuration = require('../config/electron/electron-builder.config.cjs');
 	assert.equal(configuration.extraResources.some(({ from, to }) => (
 		from === '.desktop-build/licenses' && to === 'licenses'
 	)), true);

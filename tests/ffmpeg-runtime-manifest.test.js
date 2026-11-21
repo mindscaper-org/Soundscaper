@@ -374,7 +374,7 @@ test('desktop entry points enforce absence without consuming the browser FFmpeg 
 		readFile(join(ROOT, 'scripts/desktop-before-pack.mjs'), 'utf8'),
 		readFile(join(ROOT, 'scripts/desktop-after-pack.mjs'), 'utf8'),
 		readFile(join(ROOT, 'scripts/desktop-release-assets.mjs'), 'utf8'),
-		readFile(join(ROOT, 'electron-builder.config.cjs'), 'utf8'),
+		readFile(join(ROOT, 'config/electron/electron-builder.config.cjs'), 'utf8'),
 		readFile(join(ROOT, 'package.json'), 'utf8').then(JSON.parse),
 	]);
 	const platformValidation = releaseAssets.indexOf('validateDesktopRuntimeManifests(manifests');

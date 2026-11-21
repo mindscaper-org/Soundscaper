@@ -27,21 +27,21 @@
 			"description": "The desktop-specific Vite application copied into each Electron product; its composition excludes the Web FFmpeg wrapper and core runtime.",
 			"artifactStatus": "distributed",
 			"noticeDeliveryStatus": "implemented",
-			"evidence": ["scripts/desktop-prepare.mjs", "scripts/lib/desktop-renderer-codec-audit.mjs", "electron-builder.config.cjs"]
+			"evidence": ["scripts/desktop-prepare.mjs", "scripts/lib/desktop-renderer-codec-audit.mjs", "config/electron/electron-builder.config.cjs"]
 		},
 		{
 			"id": "electron-runtime-assets",
 			"description": "Separately admitted runtime assets staged beside the Electron renderer, including exact reviewed libFLAC, libopus/libogg, libvorbis/libogg, WavPack, mpg123, LAME, and TwoLAME WebAssembly audio providers. Their runtime manifest authenticates each WASM file and its complete transitive JavaScript module closure before fresh supervised utility-process execution. Desktop targets whose assistance manifest row is built also stage the exact manifest-authenticated sherpa-onnx 2.0.1 local-assistance Node and native runtime. Application-supplied FFmpeg/libav, FFmpeg WebAssembly, and unqualified bundled WebM/AV1 payloads are excluded. Electron's separately inventoried alternate framework libffmpeg remains part of the Electron shell.",
 			"artifactStatus": "distributed",
 			"noticeDeliveryStatus": "implemented",
-			"evidence": ["config/assistance-native-runtime-manifest.json", "desktop/assistance-native-runtime-payload.mjs", "scripts/lib/desktop-codec-policy.mjs", "scripts/lib/desktop-bundled-audio-runtime.mjs", "scripts/lib/desktop-bundled-audio-codec-runtime-closure.mjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "desktop/bundled-audio-codec-runtime-payload.mjs", "scripts/desktop-prepare.mjs", "scripts/desktop-before-pack.mjs", "scripts/desktop-after-pack.mjs", "tests/assistance-native-runtime-payload.test.js", "tests/desktop-audio-codec-runtime-staging.test.js", "tests/desktop-bundled-audio-codec-runtime-payload.test.js", "tests/desktop-bundled-codec-notices.test.js", "electron-builder.config.cjs"]
+			"evidence": ["config/assistance-native-runtime-manifest.json", "desktop/assistance-native-runtime-payload.mjs", "scripts/lib/desktop-codec-policy.mjs", "scripts/lib/desktop-bundled-audio-runtime.mjs", "scripts/lib/desktop-bundled-audio-codec-runtime-closure.mjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "desktop/bundled-audio-codec-runtime-payload.mjs", "scripts/desktop-prepare.mjs", "scripts/desktop-before-pack.mjs", "scripts/desktop-after-pack.mjs", "tests/assistance-native-runtime-payload.test.js", "tests/desktop-audio-codec-runtime-staging.test.js", "tests/desktop-bundled-audio-codec-runtime-payload.test.js", "tests/desktop-bundled-codec-notices.test.js", "config/electron/electron-builder.config.cjs"]
 		},
 		{
 			"id": "electron-shell",
 			"description": "Electron, embedded Chromium and Node.js, Electron's exact alternate framework libffmpeg intended upstream to omit proprietary codec support, and the repository-owned main/preload process code. The framework library is not a Soundscaper codec-provider tier or patent-clearance evidence.",
 			"artifactStatus": "distributed",
 			"noticeDeliveryStatus": "implemented",
-			"evidence": ["electron-builder.config.cjs", "config/electron-alternate-ffmpeg-manifest.json", "scripts/lib/electron-alternate-ffmpeg.mjs", "desktop/main.mjs"]
+			"evidence": ["config/electron/electron-builder.config.cjs", "config/electron-alternate-ffmpeg-manifest.json", "scripts/lib/electron-alternate-ffmpeg.mjs", "desktop/main.mjs"]
 		},
 		{
 			"id": "desktop-release-assets",
@@ -436,7 +436,7 @@
 			"role": "packaged-desktop-runtime",
 			"artifactSurfaces": ["electron-shell"],
 			"noticeMarker": "Electron 45.2.3",
-			"evidence": ["package-lock.json", "electron-builder.config.cjs", "THIRD_PARTY_LICENSES.md"]
+			"evidence": ["package-lock.json", "config/electron/electron-builder.config.cjs", "THIRD_PARTY_LICENSES.md"]
 		}
 	],
 	"runtimeProvenance": [
@@ -603,7 +603,7 @@
 			"id": "electron-runtime",
 			"status": "documented",
 			"artifactSurfaces": ["electron-shell"],
-			"evidence": ["THIRD_PARTY_LICENSES.md", "electron-builder.config.cjs"]
+			"evidence": ["THIRD_PARTY_LICENSES.md", "config/electron/electron-builder.config.cjs"]
 		},
 		{
 			"id": "electron-alternate-ffmpeg-framework-43-7-7",
@@ -614,7 +614,7 @@
 			"providerRole": "electron-chromium-framework-internal-not-soundscaper-codec-provider",
 			"verification": "Exact target, file type, byte length, and SHA-256 are verified. No complete codec inventory, behavior, absence-of-patent-exposure, or patent-clearance claim is made.",
 			"targets": ["linux-x64", "linux-arm64", "mac-arm64", "win-x64", "win-arm64"],
-			"evidence": ["electron-builder.config.cjs", "config/electron-alternate-ffmpeg-manifest.json", "scripts/lib/electron-alternate-ffmpeg.mjs", "scripts/desktop-after-pack.mjs", "tests/desktop-electron-alternate-ffmpeg.test.js", "THIRD_PARTY_LICENSES.md"]
+			"evidence": ["config/electron/electron-builder.config.cjs", "config/electron-alternate-ffmpeg-manifest.json", "scripts/lib/electron-alternate-ffmpeg.mjs", "scripts/desktop-after-pack.mjs", "tests/desktop-electron-alternate-ffmpeg.test.js", "THIRD_PARTY_LICENSES.md"]
 		},
 		{
 			"id": "boost-multiprecision-1-92-0-build-source",
@@ -926,7 +926,7 @@
 			"scripts/lib/desktop-os-audio-codec-native-staging.mjs",
 			"scripts/lib/desktop-os-audio-codec-native-package-verification.mjs",
 			"scripts/lib/desktop-package-os-audio-codec-closure.mjs",
-			"electron-builder.config.cjs",
+			"config/electron/electron-builder.config.cjs",
 			"config/electron-alternate-ffmpeg-manifest.json",
 			"scripts/lib/electron-alternate-ffmpeg.mjs",
 			"tests/desktop-electron-alternate-ffmpeg.test.js",
@@ -1043,7 +1043,7 @@
 		{
 			"id": "desktop-notice-delivery",
 			"status": "implemented",
-			"evidence": ["electron-builder.config.cjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "scripts/desktop-after-pack.mjs", "scripts/desktop-release-assets.mjs", "tests/desktop-bundled-codec-notices.test.js", "tests/desktop-packaged-ffmpeg-runtime.test.js"]
+			"evidence": ["config/electron/electron-builder.config.cjs", "scripts/lib/desktop-bundled-codec-notices.mjs", "scripts/desktop-after-pack.mjs", "scripts/desktop-release-assets.mjs", "tests/desktop-bundled-codec-notices.test.js", "tests/desktop-packaged-ffmpeg-runtime.test.js"]
 		},
 		{
 			"id": "desktop-bundled-codec-corresponding-source",

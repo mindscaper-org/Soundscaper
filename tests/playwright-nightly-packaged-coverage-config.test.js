@@ -19,7 +19,7 @@ test('packaged coverage has a dedicated deterministic Playwright workload', asyn
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = payloadRoot;
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = runRoot;
 		const { createNightlyPackagedCoverageConfig } = await import(
-			'../playwright.nightly-packaged-coverage.config.mjs?dedicated-packaged-coverage'
+			'../config/playwright/playwright.nightly-packaged-coverage.config.mjs?dedicated-packaged-coverage'
 		);
 		const config = createNightlyPackagedCoverageConfig(process.env);
 		const projects = Object.fromEntries(config.projects.map((project) => [project.name, project]));
@@ -120,7 +120,7 @@ test('packaged coverage rejects relative launcher paths', async () => {
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = resolve('/tmp/payload');
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = resolve('/tmp/run');
 		const { createNightlyPackagedCoverageConfig } = await import(
-			'../playwright.nightly-packaged-coverage.config.mjs?reject-relative-paths'
+			'../config/playwright/playwright.nightly-packaged-coverage.config.mjs?reject-relative-paths'
 		);
 		assert.throws(() => createNightlyPackagedCoverageConfig({
 			SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT: 'relative/payload',

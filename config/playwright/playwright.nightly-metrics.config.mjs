@@ -6,7 +6,14 @@ import { defineConfig, devices } from '@playwright/test';
 import {
 	firstLaunchSetupSeedValue,
 	firstLaunchSetupStorageKey,
-} from './src/common/editor/ui/first-launch-setup.ts';
+} from '../../src/common/editor/ui/first-launch-setup.ts';
+
+const METRIC_SPECS = Object.freeze([
+	'audio-editor-video-preview-benchmark.spec.js',
+	'audio-editor-longform-editorial-benchmark.spec.js',
+	'audio-editor-m4-production-parity.spec.js',
+	'audio-editor-m4b2-keyframe-parity.spec.js',
+]);
 
 function requireAbsolutePath(environment, key) {
 	const value = environment[key];
@@ -19,70 +26,56 @@ function requireAbsolutePath(environment, key) {
 function requireLoopbackURL(environment) {
 	const value = environment.SOUNDSCAPER_NIGHTLY_TESTS_BASE_URL;
 	let url;
-	try {
-		url = new URL(value);
-	} catch {
+	try { url = new URL(value); } catch {
 		throw new Error('SOUNDSCAPER_NIGHTLY_TESTS_BASE_URL must be a valid loopback URL.');
 	}
-	if (
-		url.protocol !== 'http:'
-		|| url.hostname !== '127.0.0.1'
-		|| url.username !== ''
-		|| url.password !== ''
-		|| url.pathname !== '/'
-		|| url.search !== ''
-		|| url.hash !== ''
-	) {
+	if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1'
+		|| url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
 		throw new Error('SOUNDSCAPER_NIGHTLY_TESTS_BASE_URL must be an HTTP loopback URL.');
 	}
 	return url.href.replace(/\/$/u, '');
 }
 
-export function createNightlyTestsConfig(environment = process.env) {
+export function createNightlyMetricsConfig(environment = process.env) {
 	const payloadRoot = requireAbsolutePath(environment, 'SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT');
 	const runRoot = requireAbsolutePath(environment, 'SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT');
-	const baseURL = requireLoopbackURL(environment);
-
+	const metricsRoot = resolve(runRoot, 'metrics');
 	return defineConfig({
 		testDir: resolve(payloadRoot, 'tests/browser'),
-		// Cross-browser functional and dual-origin coverage belongs to ordinary CI.
-		testMatch: ['audio-editor-waveform-gpu.spec.js', 'framescaper-visual-preview.spec.js'],
-		grepInvert: /Canvas fallback does not|unavailable GPU keeps|Framescaper v1 visual state without WebGL2/u,
-		metadata: { requireHardwareGpu: true },
-		timeout: 30000,
-		expect: { timeout: 5000 },
-		fullyParallel: true,
+		testMatch: METRIC_SPECS,
+		timeout: 30_000,
+		expect: { timeout: 5_000 },
+		fullyParallel: false,
 		forbidOnly: true,
-		failOnFlakyTests: false,
-		retries: 1,
-		workers: 4,
+		failOnFlakyTests: true,
+		retries: 0,
+		workers: 1,
 		updateSnapshots: 'none',
 		reporter: [
 			['list'],
 			[resolve(payloadRoot, 'scripts/lib/desktop-nightly-tests-progress-reporter.mjs')],
-			['html', { outputFolder: resolve(runRoot, 'playwright-report'), open: 'never' }],
-			['json', { outputFile: resolve(runRoot, 'results.json') }],
-			['junit', { outputFile: resolve(runRoot, 'junit.xml') }],
+			['html', { outputFolder: resolve(metricsRoot, 'playwright-report'), open: 'never' }],
+			['json', { outputFile: resolve(metricsRoot, 'results.json') }],
+			['junit', { outputFile: resolve(metricsRoot, 'junit.xml') }],
 		],
-		outputDir: resolve(runRoot, 'test-results'),
+		outputDir: resolve(metricsRoot, 'test-results'),
 		use: {
-			baseURL,
+			baseURL: requireLoopbackURL(environment),
 			serviceWorkers: 'block',
-			trace: 'on-first-retry',
+			trace: 'retain-on-failure',
 			screenshot: 'only-on-failure',
 			// Every fresh context counts as a first launch; seed the finished-setup
 			// flag so the workspace chooser never sits in front of a nightly spec.
 			storageState: {
 				cookies: [],
 				origins: [{
-					origin: new URL(baseURL).origin,
+					origin: new URL(requireLoopbackURL(environment)).origin,
 					localStorage: [{ name: firstLaunchSetupStorageKey('soundscaper'), value: firstLaunchSetupSeedValue() }],
 				}],
 			},
 		},
 		projects: [{
 			name: 'chromium',
-			...(environment.SCAPE_BROWSER_COVERAGE === '1' ? { timeout: 90_000, expect: { timeout: 15_000 } } : {}),
 			use: {
 				...devices['Desktop Chrome'],
 				browserName: 'chromium',
@@ -94,4 +87,4 @@ export function createNightlyTestsConfig(environment = process.env) {
 	});
 }
 
-export default createNightlyTestsConfig();
+export default createNightlyMetricsConfig();

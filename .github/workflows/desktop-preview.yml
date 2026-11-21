@@ -651,7 +651,7 @@ jobs:
       - name: Package ${{ matrix.product }} ${{ matrix.target.platform }} ${{ matrix.target.arch }}
         run: >-
           bash scripts/ci-electron-builder.sh
-          --config electron-builder.config.cjs
+          --config config/electron/electron-builder.config.cjs
           --${{ matrix.target.platform }} --${{ matrix.target.arch }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.SCAPE_MAC_SIGNING == 'true' && 'true' || 'false' }}
@@ -1164,7 +1164,7 @@ jobs:
               SOUNDSCAPER_DESKTOP_TARGET_ARCH="${{ matrix.target.arch }}" \
               node scripts/desktop-prepare.mjs
             SCAPE_PRODUCT="$product" CSC_IDENTITY_AUTO_DISCOVERY=false \
-              bash scripts/ci-electron-builder.sh --config electron-builder.config.cjs \
+              bash scripts/ci-electron-builder.sh --config config/electron/electron-builder.config.cjs \
               --config.directories.output="release/desktop-lease-matrix/$product" \
               --${{ matrix.target.platform }} --${{ matrix.target.arch }} --dir
           done

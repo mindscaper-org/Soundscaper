@@ -129,7 +129,7 @@ test('shipped Electron is tracked separately from the non-development npm closur
 		readJson(matrixUrl),
 		readJson(packageUrl),
 		readJson(lockUrl),
-		readFile(new URL('../electron-builder.config.cjs', import.meta.url), 'utf8'),
+		readFile(new URL('../config/electron/electron-builder.config.cjs', import.meta.url), 'utf8'),
 	]);
 	const electron = lock.packages['node_modules/electron'];
 
@@ -144,7 +144,7 @@ test('shipped Electron is tracked separately from the non-development npm closur
 		noticeMarker: `Electron ${electron.version}`,
 		evidence: [
 			'package-lock.json',
-			'electron-builder.config.cjs',
+			'config/electron/electron-builder.config.cjs',
 			'THIRD_PARTY_LICENSES.md',
 		],
 	}]);
@@ -371,7 +371,7 @@ test('runtime provenance entries and distribution checks fail closed without cla
 		verification: 'Exact target, file type, byte length, and SHA-256 are verified. No complete codec inventory, behavior, absence-of-patent-exposure, or patent-clearance claim is made.',
 		targets: ['linux-x64', 'linux-arm64', 'mac-arm64', 'win-x64', 'win-arm64'],
 		evidence: [
-			'electron-builder.config.cjs',
+			'config/electron/electron-builder.config.cjs',
 			'config/electron-alternate-ffmpeg-manifest.json',
 			'scripts/lib/electron-alternate-ffmpeg.mjs',
 			'scripts/desktop-after-pack.mjs',

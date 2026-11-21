@@ -168,6 +168,10 @@ rebuild either monolith.
 a 600-line default ceiling and an 800-line browser-spec ceiling.
 `eslint-suppressions.json` similarly records exact
 counts for pre-existing lint debt while leaving new violations unsuppressed.
+The root `tsconfig.json` covers the application and is discovered by editors.
+The other TypeScript projects live in `config/typescript/`, Electron packaging
+configs in `config/electron/`, and specialized Playwright configs in
+`config/playwright/`. The default Playwright config is at the root.
 TypeScript linting resolves the strict projects and rejects floating or
 misused promises; Node's test-registration function is the sole known-safe
 promise-returning call.

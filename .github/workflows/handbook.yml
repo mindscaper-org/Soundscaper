@@ -56,7 +56,7 @@ jobs:
 
       - name: Run desktop and mobile handbook browser workflows
         if: matrix.product == 'soundscaper'
-        run: npx playwright test --config playwright.docs.config.mjs --workers=2
+        run: npx playwright test --config config/playwright/playwright.docs.config.mjs --workers=2
 
       - name: Prepare the independent handbook deployment
         run: node scripts/prepare-handbook-deploy.mjs

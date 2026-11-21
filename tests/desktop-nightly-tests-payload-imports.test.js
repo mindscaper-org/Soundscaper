@@ -22,7 +22,7 @@ import {
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BROWSER_TESTS = join(REPOSITORY_ROOT, 'tests/browser');
 const FRAMESCAPER_LIFECYCLE_SPEC = join(BROWSER_TESTS, 'audio-editor-framescaper-product-lifecycle.spec.js');
-// The `testMatch` of playwright.nightly-tests.config.mjs.
+// The `testMatch` of config/playwright/playwright.nightly-tests.config.mjs.
 const TEST_FILE = /\.(?:spec|test)\.[cm]?[jt]sx?$/u;
 const BUILTIN_MODULES = new Set([
 	...builtinModules.flatMap((name) => [name, `node:${name}`]),
@@ -254,7 +254,7 @@ test('the nightly launcher ASAR satisfies every local import it reaches', async 
 			},
 		}],
 	});
-	const { default: config } = await import('../electron-builder.nightly-tests.config.cjs');
+	const { default: config } = await import('../config/electron/electron-builder.nightly-tests.config.cjs');
 	const included = config.files.filter((pattern) => !pattern.startsWith('!'));
 	const failures = Object.keys(result.metafile.inputs)
 		.map((input) => relative(REPOSITORY_ROOT, resolve(REPOSITORY_ROOT, input)))
@@ -287,7 +287,7 @@ function isStagedInput(input) {
 }
 
 async function readPackagedPayloadFilter() {
-	const { default: config } = await import('../electron-builder.nightly-tests.config.cjs');
+	const { default: config } = await import('../config/electron/electron-builder.nightly-tests.config.cjs');
 	const payload = config.extraResources.find(({ to }) => to === 'nightly-tests');
 	assert.ok(payload?.filter, 'the nightly-tests payload must be packaged through a filtered resource');
 	return payload.filter;

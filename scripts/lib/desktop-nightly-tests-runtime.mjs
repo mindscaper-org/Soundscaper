@@ -162,7 +162,7 @@ export function createDesktopNightlyTestsPlaywrightPlan({
 			join(payloadRoot, 'node_modules/@playwright/test/cli.js'),
 			'test',
 			'--config',
-			join(payloadRoot, 'playwright.nightly-tests.config.mjs'),
+			join(payloadRoot, 'config/playwright/playwright.nightly-tests.config.mjs'),
 		]),
 		cwd: payloadRoot,
 		env,

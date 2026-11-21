@@ -15,7 +15,7 @@ test('the release register, public tag, numeric package version, and installer n
 	assert.match(metadata.applicationVersion, /^Soundscaper(?:-(?:alpha|beta|rc))?\.\d{4}\.[A-Z][a-z]{2}\.\d{1,2}\.[a-z]+$/u);
 	assert.match(metadata.packageVersion, /^\d+\.\d+\.\d+$/u);
 	assert.equal(expectedProductReleaseTag('soundscaper', lines), metadata.applicationVersion);
-	const config = createRequire(import.meta.url)('../electron-builder.config.cjs');
+	const config = createRequire(import.meta.url)('../config/electron/electron-builder.config.cjs');
 	assert.equal(config.artifactName, `${version}-\${os}-\${arch}.\${ext}`);
 	assert.equal(config.buildVersion, metadata.packageVersion);
 	assert.equal(config.extraMetadata.releaseVersion, metadata.applicationVersion);

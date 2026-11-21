@@ -92,7 +92,7 @@ const RUNTIME_CONFIGURATION = Object.freeze({
 	productionCapabilities: 'config/production-capabilities.json',
 });
 
-const DESKTOP_PACKAGING_CONFIGURATION = 'electron-builder.config.cjs';
+const DESKTOP_PACKAGING_CONFIGURATION = 'config/electron/electron-builder.config.cjs';
 
 function moduleUrl(repositoryRoot, relativePath) {
 	return pathToFileURL(resolve(repositoryRoot, relativePath)).href;

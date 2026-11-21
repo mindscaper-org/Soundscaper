@@ -6,7 +6,7 @@ import test from 'node:test';
 
 const matrixUrl = new URL('../config/production-security-matrix.json', import.meta.url);
 const ELECTRON_EVIDENCE = [
-	'electron-builder.config.cjs',
+	'config/electron/electron-builder.config.cjs',
 	'config/electron-alternate-ffmpeg-manifest.json',
 	'scripts/lib/electron-alternate-ffmpeg.mjs',
 	'tests/desktop-electron-alternate-ffmpeg.test.js',

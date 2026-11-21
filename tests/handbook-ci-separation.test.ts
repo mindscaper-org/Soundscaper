@@ -14,7 +14,7 @@ test('handbook publication runs weekly or manually without any product gate', as
 	assert.match(workflow, /product: \[soundscaper, framescaper\]/u);
 	assert.match(workflow, /SCAPE_PRODUCT: \$\{\{ matrix\.product \}\}/u);
 	assert.match(workflow, /npm run docs:check/u);
-	assert.match(workflow, /npx playwright test --config playwright\.docs\.config\.mjs/u);
+	assert.match(workflow, /npx playwright test --config config\/playwright\/playwright\.docs\.config\.mjs/u);
 	assert.match(workflow, /node scripts\/prepare-handbook-deploy\.mjs/u);
 	assert.match(workflow, /npx wrangler deploy --config wrangler\.handbook\.jsonc --env \$\{\{ matrix\.product \}\}/u);
 	assert.doesNotMatch(workflow, /needs:|npm run (?:check(?::static)?|build(?::pages)?|test:browser)\s*\n/u);

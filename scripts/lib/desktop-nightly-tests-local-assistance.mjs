@@ -32,7 +32,7 @@ export function createDesktopNightlyTestsLocalAssistancePlan({
 		command: executablePath,
 		args: Object.freeze([
 			join(payloadRoot, 'node_modules/@playwright/test/cli.js'), 'test', '--config',
-			join(payloadRoot, 'playwright.nightly-local-assistance.config.mjs'),
+			join(payloadRoot, 'config/playwright/playwright.nightly-local-assistance.config.mjs'),
 		]),
 		cwd: payloadRoot,
 		env: Object.freeze({

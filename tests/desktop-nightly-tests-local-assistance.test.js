@@ -112,7 +112,7 @@ test('real-model configuration is serial and excluded from normal Node and brows
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PAYLOAD_ROOT = ROOT;
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = '/tmp/nightly-model-config';
 		process.env.SOUNDSCAPER_LOCAL_ASSISTANCE_REAL_MODELS = '1';
-		const { default: config, createNightlyLocalAssistanceConfig } = await import('../playwright.nightly-local-assistance.config.mjs');
+		const { default: config, createNightlyLocalAssistanceConfig } = await import('../config/playwright/playwright.nightly-local-assistance.config.mjs');
 		assert.equal(config.testDir, join(ROOT, 'tests/electron/local-assistance-models'));
 		assert.equal(config.workers, 1);
 		assert.equal(config.fullyParallel, false);

@@ -44,7 +44,7 @@ test('the actual AppX manifest generator emits both architectures, Store version
 	const require = createRequire(import.meta.url);
 	const { default: AppXTarget } = require('app-builder-lib/out/targets/AppxTarget.js') as { default: { prototype: object } };
 	const { createDesktopAppxConfig } = require('../scripts/lib/desktop-appx-config.cjs');
-	const config = createDesktopAppxConfig(require('../electron-builder.config.cjs'), {
+	const config = createDesktopAppxConfig(require('../config/electron/electron-builder.config.cjs'), {
 		SCAPE_APPX_IDENTITY_NAME: '12345.MindscaperSoundscaper', SCAPE_APPX_PUBLISHER: 'CN=StoreIdentity',
 		SCAPE_APPX_PUBLISHER_DISPLAY_NAME: 'Mindscaper & Friends', SCAPE_APPX_VERSION: '1.0.27.0',
 	}) as Configuration;

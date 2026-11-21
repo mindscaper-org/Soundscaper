@@ -5,7 +5,7 @@ after focused GPU graphics tests, browser and desktop performance diagnostics,
 and packaged desktop workflow coverage. Ordinary cross-browser and dual-origin
 tests run in CI; the nightly package targets native-machine behavior that CI
 or WSL cannot reliably validate.
-These expensive checks use `playwright.nightly-local-assistance.config.mjs` and
+These expensive checks use `config/playwright/playwright.nightly-local-assistance.config.mjs` and
 `tests/electron/local-assistance-models/`. They are excluded from `npm test`,
 `npm run test:browser`, and the normal Playwright configuration. Lightweight tests
 in the normal Node suite validate the case manifest, output checks, package
@@ -211,7 +211,7 @@ export SOUNDSCAPER_NIGHTLY_TESTS_EXECUTABLE="$(node -p 'require("electron")')"
 export SOUNDSCAPER_NIGHTLY_TESTS_HOST_ENTRY="$PWD/desktop/nightly-tests-main.mjs"
 export SOUNDSCAPER_PACKAGED_PRODUCT_ROOT="$PWD/release/desktop-nightly-products"
 export SOUNDSCAPER_LOCAL_ASSISTANCE_MODEL_CACHE="$SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT/local-assistance/models"
-npx playwright test --config playwright.nightly-local-assistance.config.mjs
+npx playwright test --config config/playwright/playwright.nightly-local-assistance.config.mjs
 ```
 
 On Linux without a display, prefix the last command with `xvfb-run -a`. On

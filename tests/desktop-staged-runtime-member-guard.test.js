@@ -4,7 +4,7 @@
  * The raw `.js` and `.mjs` desktop members are copied into the asar rather than
  * compiled, so nothing type-checks their import graph. When one of them imports
  * a `./project-library-runtime/…` member whose source is absent from
- * `tsconfig.desktop-runtime.json`, the runtime compile happily succeeds, the
+ * `config/typescript/tsconfig.desktop-runtime.json`, the runtime compile happily succeeds, the
  * package builds, and packaged main then dies at startup with
  * `ERR_MODULE_NOT_FOUND` — which is how the nightly lease matrix and every
  * packaged smoke went red on a missing `desktop/native-realtime-broker.js`.

@@ -53,7 +53,7 @@ test('staging owns compiled capture security and a sandbox-only Framescaper capt
 	const [runtime, soundscaperRuntime, configuration] = await Promise.all([
 		readFile(resolve(ROOT, 'scripts/lib/desktop-project-library-runtime.mjs'), 'utf8'),
 		readFile(resolve(ROOT, 'scripts/lib/desktop-soundscaper-runtime-files.mjs'), 'utf8'),
-		readFile(resolve(ROOT, 'tsconfig.desktop-runtime.json'), 'utf8'),
+		readFile(resolve(ROOT, 'config/typescript/tsconfig.desktop-runtime.json'), 'utf8'),
 	]);
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-capture-desktop-port.js'));
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-capture-session-security.js'));

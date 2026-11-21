@@ -28,7 +28,7 @@ test('the packaged metrics plan is Chromium-only, single-worker, and no-retry', 
 		'/opt/Soundscaper Tests/resources/nightly-tests/node_modules/@playwright/test/cli.js',
 		'test',
 		'--config',
-		'/opt/Soundscaper Tests/resources/nightly-tests/playwright.nightly-metrics.config.mjs',
+		'/opt/Soundscaper Tests/resources/nightly-tests/config/playwright/playwright.nightly-metrics.config.mjs',
 	]);
 	assert.equal(plan.logFile, '/tmp/Soundscaper-playwright-run/metrics/console.log');
 	assert.equal(plan.env.GITHUB_ACTIONS, 'false');

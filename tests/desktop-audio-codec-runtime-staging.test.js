@@ -114,10 +114,10 @@ test('desktop codec runtime inventory closes over both main audio entry points',
 		assert.equal(DESKTOP_CODEC_RUNTIME_FILES.includes(file), true, file);
 	}
 
-	const configuration = JSON.parse(await readFile(resolve(ROOT, 'tsconfig.desktop-runtime.json'), 'utf8'));
+	const configuration = JSON.parse(await readFile(resolve(ROOT, 'config/typescript/tsconfig.desktop-runtime.json'), 'utf8'));
 	const included = new Set(configuration.include);
 	for (const file of AUDIO_CODEC_RUNTIME_FILES.filter((name) => name.startsWith('desktop/'))) {
-		assert.equal(included.has(file.replace(/\.js$/u, '.ts')), true, file);
+		assert.equal(included.has(`../../${file.replace(/\.js$/u, '.ts')}`), true, file);
 	}
 });
 

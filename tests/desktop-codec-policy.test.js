@@ -17,12 +17,12 @@ import {
 const require = createRequire(import.meta.url);
 
 test('desktop packaging replaces Electron proprietary codecs with its alternate FFmpeg library', () => {
-	const configuration = require('../electron-builder.config.cjs');
+	const configuration = require('../config/electron/electron-builder.config.cjs');
 	assert.equal(configuration.downloadAlternateFFmpeg, true);
 });
 
 test('macOS development signing ignores bundled native files but not optional AI paths', () => {
-	const configuration = require('../electron-builder.config.cjs');
+	const configuration = require('../config/electron/electron-builder.config.cjs');
 	const professional = require('../config/soundscaper-professional-native-payload-manifest.json');
 	const professionalRoot = `/tmp/Soundscaper.app/Contents/Resources/runtime/${professional.staging.runtimePrefix}`;
 	const assistanceRoot = '/tmp/Soundscaper.app/Contents/Resources/runtime/assistance';

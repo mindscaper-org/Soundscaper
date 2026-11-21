@@ -60,7 +60,7 @@ test('Developer ID mac packages retain hardened runtime and required notarizatio
 
 async function loadConfiguration(productId, signed = false) {
 	const script = "Object.defineProperty(process, 'platform', { value: 'darwin' });"
-		+ "process.stdout.write(JSON.stringify(require('./electron-builder.config.cjs')))";
+		+ "process.stdout.write(JSON.stringify(require('./config/electron/electron-builder.config.cjs')))";
 	const { stdout } = await execFileAsync(process.execPath, ['-e', script], {
 		cwd: new URL('..', import.meta.url),
 		env: {

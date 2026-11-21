@@ -1,14 +1,14 @@
 // @ts-check
-const professionalNativePayloadManifest = require('./config/soundscaper-professional-native-payload-manifest.json');
+const professionalNativePayloadManifest = require('../soundscaper-professional-native-payload-manifest.json');
 
 const productId = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const framescaper = productId === 'framescaper';
 const productName = framescaper ? 'Framescaper' : 'Soundscaper';
-const releaseMetadata = require('./scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
+const releaseMetadata = require('../../scripts/lib/product-release-lines.mjs').resolveProductDesktopMetadata(productId);
 const releaseName = releaseMetadata.applicationVersion;
 // Development builds use ad-hoc seals; credentialed release jobs explicitly
 // select a Developer ID identity and require notarization.
-const signing = require('./scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
+const signing = require('../../scripts/lib/desktop-signing-config.cjs').desktopSigningConfig();
 const macSigningIdentity = signing.mac.identity;
 const macEntitlements = framescaper
 	? 'desktop/framescaper-entitlements.mac.plist'

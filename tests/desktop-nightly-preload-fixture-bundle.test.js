@@ -7,7 +7,7 @@ import { dirname, join, matchesGlob, resolve } from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
 import vm from 'node:vm';
-import nightlyConfig from '../electron-builder.nightly-tests.config.cjs';
+import nightlyConfig from '../config/electron/electron-builder.nightly-tests.config.cjs';
 import { NIGHTLY_TEST_PAYLOAD_INPUTS } from '../scripts/lib/desktop-nightly-tests-staging.mjs';
 
 test('the declared nightly preload fixture builds from packaged sources without a generated desktop runtime', async (context) => {

@@ -30,7 +30,7 @@ test('the launcher chooses between the dialog and the summary line', async () =>
 // first launch that no unit test would otherwise see.
 test('the package ships every module the launcher imports', async () => {
 	const config = JSON.parse(JSON.stringify(
-		(await import(new URL('electron-builder.nightly-tests.config.cjs', ROOT).href)).default,
+		(await import(new URL('config/electron/electron-builder.nightly-tests.config.cjs', ROOT).href)).default,
 	));
 	const seen = new Set();
 	const queue = ['desktop/nightly-tests-main.mjs'];

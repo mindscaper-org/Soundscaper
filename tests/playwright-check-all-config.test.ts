@@ -32,7 +32,7 @@ test('all four check-all browser shards use the shared previews across the ordin
 	}
 	const configFile = join(fixture, 'playwright.config.mjs');
 	await writeFile(configFile, `
-		import shared from ${JSON.stringify(pathToFileURL(resolve(root, 'playwright.check-all.config.ts')).href)};
+		import shared from ${JSON.stringify(pathToFileURL(resolve(root, 'config/playwright/playwright.check-all.config.ts')).href)};
 		export default { ...shared, testDir: ${JSON.stringify(fixture)}, testMatch: '*.spec.mjs', retries: 0 };
 	`);
 	await writeFile(join(fixture, 'shared-preview.spec.mjs'), `

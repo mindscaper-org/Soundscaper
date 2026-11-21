@@ -11,10 +11,10 @@
 		"moduleResolution": "Bundler",
 		"noEmit": true,
 		"paths": {
-			"@audacity-ui/components": ["./vendor/audacity-design-system/components/src/index.ts"],
-			"@soundscaper/design-system/*": ["./vendor/audacity-design-system/components/src/*"],
-			"@audacity-ui/core": ["./vendor/audacity-design-system/core/src/index.ts"],
-			"@audacity-ui/tokens": ["./vendor/audacity-design-system/tokens/src/index.ts"]
+			"@audacity-ui/components": ["../../vendor/audacity-design-system/components/src/index.ts"],
+			"@soundscaper/design-system/*": ["../../vendor/audacity-design-system/components/src/*"],
+			"@audacity-ui/core": ["../../vendor/audacity-design-system/core/src/index.ts"],
+			"@audacity-ui/tokens": ["../../vendor/audacity-design-system/tokens/src/index.ts"]
 		},
 		"resolveJsonModule": true,
 		"skipLibCheck": true,

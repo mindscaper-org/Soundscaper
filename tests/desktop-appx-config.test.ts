@@ -29,7 +29,7 @@ test('AppX requires explicit Store identity and a distinct numeric version', () 
 });
 
 test('AppX retains native packaging guards and file associations without modifying installer configuration', () => {
-	const base = require('../electron-builder.config.cjs');
+	const base = require('../config/electron/electron-builder.config.cjs');
 	const before = structuredClone(base);
 	const config = createDesktopAppxConfig(base, environment);
 	assert.deepEqual(base, before);
@@ -51,5 +51,5 @@ test('AppX retains native packaging guards and file associations without modifyi
 });
 
 test('the pinned electron-builder accepts the complete AppX configuration', async () => {
-	await validateConfiguration(createDesktopAppxConfig(require('../electron-builder.config.cjs'), environment), new DebugLogger());
+	await validateConfiguration(createDesktopAppxConfig(require('../config/electron/electron-builder.config.cjs'), environment), new DebugLogger());
 });

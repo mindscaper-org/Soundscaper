@@ -27,7 +27,7 @@ const PRODUCTION_ROOTS = Object.freeze([
 ]);
 const PACKAGE_PATH_AUTHORITIES = Object.freeze([
 	'package.json',
-	'tsconfig.desktop-runtime.json',
+	'config/typescript/tsconfig.desktop-runtime.json',
 	'scripts/lib/desktop-nightly-tests-staging.mjs',
 	'scripts/lib/desktop-package-assistance-closure.mjs',
 	'scripts/lib/desktop-project-library-runtime.mjs',

@@ -464,7 +464,7 @@ test('editor UI imports exact internal design-system modules', () => {
 		.filter((path) => readFileSync(path, 'utf8').includes("from '@audacity-ui/components'"));
 	assert.deepEqual(broadImporters, [], 'broad design-system imports retain every component stylesheet');
 	const buildAliases = productResolveAliases({ productId: 'soundscaper', repositoryRoot: '/repository' });
-	const tsconfig = readFileSync(fileURLToPath(new URL('../tsconfig.base.json', import.meta.url)), 'utf8');
+	const tsconfig = readFileSync(fileURLToPath(new URL('../config/typescript/tsconfig.base.json', import.meta.url)), 'utf8');
 	assert.ok(
 		buildAliases.some((entry) => entry.find instanceof RegExp
 			&& entry.find.source.includes('@soundscaper\\/design-system')),

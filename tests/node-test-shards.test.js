@@ -73,7 +73,7 @@ test('the common execution shards partition every shared test without changing o
 });
 
 test('no Node test hides in a subdirectory where no shard would find it', async () => {
-	// Discovery reads tests/ itself, while tsconfig.tests.json includes
+	// Discovery reads tests/ itself, while config/typescript/tsconfig.tests.json includes
 	// tests/**/*.test.ts. A nested test would therefore typecheck, look maintained,
 	// and never be run by any job.
 	const nested = (await readdir(new URL('../tests/', import.meta.url), { recursive: true, withFileTypes: true }))

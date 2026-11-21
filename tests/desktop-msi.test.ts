@@ -35,7 +35,7 @@ test('the generated WiX project registers MSI ownership without changing applica
 test('each product ships silent per-machine MSI configuration and policy templates', async () => {
 	const { execFileSync } = await import('node:child_process');
 	for (const product of ['soundscaper', 'framescaper']) {
-		const config = JSON.parse(execFileSync(process.execPath, ['-e', "console.log(JSON.stringify(require('./electron-builder.config.cjs')))"],
+		const config = JSON.parse(execFileSync(process.execPath, ['-e', "console.log(JSON.stringify(require('./config/electron/electron-builder.config.cjs')))"],
 			{ cwd: new URL('..', import.meta.url), env: { ...process.env, SCAPE_PRODUCT: product, SCAPE_MAC_SIGNING: 'false', SCAPE_WIN_SIGNING: 'none' }, encoding: 'utf8' }));
 		assert.ok(config.win.target.includes('msi'));
 		assert.equal(config.msi.perMachine, true);

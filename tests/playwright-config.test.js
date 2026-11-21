@@ -158,13 +158,13 @@ test('the dual-origin Playwright harness serves two reciprocal built Pages sites
 	delete process.env.CI;
 	delete process.env.PLAYWRIGHT_DUAL_ORIGIN_OUTPUT_DIR;
 	const [{ default: config }, packageText] = await Promise.all([
-		import('../playwright.dual-origin.config.mjs?dual-origin-sites'),
+		import('../config/playwright/playwright.dual-origin.config.mjs?dual-origin-sites'),
 		readFile(new URL('../package.json', import.meta.url), 'utf8'),
 	]);
 	const packageDocument = JSON.parse(packageText);
 	const scripts = packageDocument.scripts;
 
-	assert.equal(config.testDir, './tests/browser/dual-origin');
+	assert.equal(config.testDir, resolve(ROOT, 'tests/browser/dual-origin'));
 	assert.equal(config.fullyParallel, false);
 	assert.equal(config.workers, 1);
 	assert.equal(config.retries, 0);
@@ -183,7 +183,7 @@ test('the dual-origin Playwright harness serves two reciprocal built Pages sites
 		},
 	]);
 	assert.deepEqual(config.projects.map(({ name }) => name), ['chromium']);
-	assert.equal(config.outputDir, 'test-results/dual-origin');
+	assert.equal(config.outputDir, resolve(ROOT, 'test-results/dual-origin'));
 	assert.ok(Array.isArray(config.webServer));
 	assert.equal(config.webServer.length, 2);
 
@@ -200,12 +200,13 @@ test('the dual-origin Playwright harness serves two reciprocal built Pages sites
 		assert.ok(server.command.includes(`.wrangler/dual-origin-browser/${product}`));
 		assert.ok(server.command.includes('--host 127.0.0.1'));
 		assert.ok(server.command.includes(`--port ${port}`));
+		assert.equal(server.cwd, ROOT);
 		assert.equal(server.reuseExistingServer, false);
 	}
 
 	assert.equal(scripts['pretest:browser:dual-origin'], 'node scripts/build-dual-origin-browser-sites.mjs');
 	assert.equal(scripts['test:browser:dual-origin'],
-		'playwright test --config playwright.dual-origin.config.mjs');
+		'playwright test --config config/playwright/playwright.dual-origin.config.mjs');
 	assert.deepEqual(DUAL_ORIGIN_BROWSER_SITES, [
 		{
 			productId: 'soundscaper', origin: 'http://127.0.0.1:4332',

@@ -51,7 +51,7 @@ test('Linux packages receive every icon size with the selected product artwork',
 });
 
 test('Debian and AppImage configurations select the Linux icon set', () => {
-	const configPath = join(repositoryRoot, 'electron-builder.config.cjs');
+	const configPath = join(repositoryRoot, 'config/electron/electron-builder.config.cjs');
 	const originalProduct = process.env.SCAPE_PRODUCT;
 	try {
 		for (const productId of ['soundscaper', 'framescaper']) {
@@ -64,7 +64,7 @@ test('Debian and AppImage configurations select the Linux icon set', () => {
 			assert.equal(config.win?.icon, '.desktop-build/icons/icon.ico');
 			assert.equal(config.mac?.icon, '.desktop-build/icons/icon.png');
 		}
-		const nightly = require(join(repositoryRoot, 'electron-builder.nightly-tests.config.cjs')) as Configuration;
+		const nightly = require(join(repositoryRoot, 'config/electron/electron-builder.nightly-tests.config.cjs')) as Configuration;
 		assert.equal(nightly.linux?.icon, '.desktop-build/icons/linux');
 	} finally {
 		if (originalProduct === undefined) delete process.env.SCAPE_PRODUCT;

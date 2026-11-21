@@ -18,7 +18,7 @@ test('AppX build scopes Store settings to its own Windows preparation and packag
 	assert.equal(calls.length, 2);
 	assert.ok(calls[0]?.args[0]?.endsWith('scripts/desktop-prepare.mjs'));
 	assert.equal(calls[1]?.command, 'bash');
-	assert.deepEqual(calls[1]?.args.slice(1), ['--config', 'electron-builder.appx.config.cjs', '--win', '--arm64', '--publish', 'never']);
+	assert.deepEqual(calls[1]?.args.slice(1), ['--config', 'config/electron/electron-builder.appx.config.cjs', '--win', '--arm64', '--publish', 'never']);
 	for (const { env } of calls) {
 		assert.equal(env.SCAPE_WIN_SIGNING, 'none');
 		assert.equal(env.CSC_LINK, undefined);

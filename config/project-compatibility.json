@@ -1913,7 +1913,7 @@
 				"desktop/validation.js",
 				"desktop/file-associations.js",
 				"desktop/read-selection-service.js",
-				"electron-builder.config.cjs",
+				"config/electron/electron-builder.config.cjs",
 				"tests/project-file-extensions.test.ts",
 				"tests/project-extension-copy.test.ts",
 				"tests/audio-editor-native-project-suffixes.test.ts",

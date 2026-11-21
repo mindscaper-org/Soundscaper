@@ -16,7 +16,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 
 test('nightly-with-tests packaging is isolated, portable, and keeps its payload outside ASAR', () => {
-	const configPath = resolve(ROOT, 'electron-builder.nightly-tests.config.cjs');
+	const configPath = resolve(ROOT, 'config/electron/electron-builder.nightly-tests.config.cjs');
 	delete require.cache[configPath];
 	const config = require(configPath);
 
@@ -46,7 +46,7 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	for (const platform of ['win', 'mac']) {
 		const iconPath = `.desktop-build/icons/icon.${platform === 'win' ? 'ico' : 'png'}`;
 		assert.equal(config[platform].icon, iconPath);
-		assert.equal(require(resolve(ROOT, 'electron-builder.config.cjs'))[platform].icon,
+		assert.equal(require(resolve(ROOT, 'config/electron/electron-builder.config.cjs'))[platform].icon,
 			iconPath);
 	}
 	assert.equal(config.linux.icon, '.desktop-build/icons/linux');
@@ -79,9 +79,6 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	assert.ok(payload.filter.includes('config/**/*'));
 	assert.ok(payload.filter.includes('sites/**/*'));
 	assert.equal(payload.filter.includes('dist/**/*'), false);
-	assert.ok(payload.filter.includes('playwright.nightly-metrics.config.mjs'));
-	assert.ok(payload.filter.includes('playwright.nightly-packaged-coverage.config.mjs'));
-	assert.ok(payload.filter.includes('playwright.nightly-tests.config.mjs'));
 	assert.ok(payload.filter.includes('desktop/soak-debug-*.mjs'));
 	assert.ok(payload.filter.includes('scripts/*.mjs'));
 	assert.ok(payload.filter.includes('scripts/lib/**/*'));
@@ -105,7 +102,7 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 });
 
 test('the Windows ARM64 portable package uses an embedded archive until direct-directory NSIS supports it', () => {
-	const configPath = resolve(ROOT, 'electron-builder.nightly-tests.config.cjs');
+	const configPath = resolve(ROOT, 'config/electron/electron-builder.nightly-tests.config.cjs');
 	const originalArch = process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH;
 	try {
 		for (const [arch, useZip] of [['x64', true], ['arm64', false]]) {
@@ -148,7 +145,7 @@ test('nightly-with-tests enables RunAsNode without weakening the other desktop f
 
 test('the production package keeps RunAsNode disabled and excludes the nightly payload', async () => {
 	const [configSource, fuseSource, mainSource] = await Promise.all([
-		readFile(resolve(ROOT, 'electron-builder.config.cjs'), 'utf8'),
+		readFile(resolve(ROOT, 'config/electron/electron-builder.config.cjs'), 'utf8'),
 		readFile(resolve(ROOT, 'scripts/desktop-after-pack.mjs'), 'utf8'),
 		readFile(resolve(ROOT, 'desktop/main.mjs'), 'utf8'),
 	]);
@@ -291,7 +288,7 @@ test('desktop test artifacts build on main pushes and manual target selections w
 	assert.doesNotMatch(testJob, /qualification|admission|readiness signature/iu);
 	assert.match(
 		testJob,
-		/ci-electron-builder\.sh[\s\\]*--config electron-builder\.nightly-tests\.config\.cjs/u,
+		/ci-electron-builder\.sh[\s\\]*--config config\/electron\/electron-builder\.nightly-tests\.config\.cjs/u,
 	);
 	assert.match(testJob, /SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH: \$\{\{ matrix\.target\.arch \}\}/u);
 	assert.match(testJob, /name: nightly-with-tests-\$\{\{ matrix\.target\.platform \}\}-\$\{\{ matrix\.target\.arch \}\}/u);

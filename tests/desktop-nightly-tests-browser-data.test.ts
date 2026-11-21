@@ -13,7 +13,7 @@ import {
 const repositoryRoot = resolve(import.meta.dirname, '..');
 
 test('nightly packaging retains media data opened by browser specs and helpers', async () => {
-	const { default: config } = await import('../electron-builder.nightly-tests.config.cjs');
+	const { default: config } = await import('../config/electron/electron-builder.nightly-tests.config.cjs');
 	assert.ok(Array.isArray(config.extraResources));
 	const payload = config.extraResources.find(entry => typeof entry !== 'string' && entry.to === 'nightly-tests');
 	assert.ok(payload && typeof payload !== 'string' && Array.isArray(payload.filter));

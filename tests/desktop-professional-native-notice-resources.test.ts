@@ -24,7 +24,7 @@ import {
 } from '../scripts/lib/soundscaper-professional-native-build-result-contract.mjs';
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
-const configPath = join(repositoryRoot, 'electron-builder.config.cjs');
+const configPath = join(repositoryRoot, 'config/electron/electron-builder.config.cjs');
 const require = createRequire(configPath);
 const configSource = await readFile(configPath, 'utf8');
 const agpl = await readFile(join(repositoryRoot, 'LICENSE'));

@@ -7,7 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CONFIG_PATH = resolve(ROOT, 'electron-builder.config.cjs');
+const CONFIG_PATH = resolve(ROOT, 'config/electron/electron-builder.config.cjs');
 const require = createRequire(import.meta.url);
 
 function packagingConfig(product) {

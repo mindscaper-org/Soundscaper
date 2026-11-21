@@ -51,7 +51,7 @@ export async function compileDesktopProjectLibraryRuntime({ repositoryRoot, outp
 	await mkdir(output, { recursive: true });
 	await run(process.execPath, [
 		resolve(root, 'node_modules/typescript/bin/tsc'),
-		'--project', resolve(root, 'tsconfig.desktop-runtime.json'),
+		'--project', resolve(root, 'config/typescript/tsconfig.desktop-runtime.json'),
 		'--outDir', output,
 	], root);
 	await bundleRuntimeHashModules(root, output);

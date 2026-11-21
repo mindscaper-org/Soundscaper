@@ -561,7 +561,7 @@
 						"desktop/framescaper-capture-sandbox-preload.ts",
 						"desktop/framescaper-capture-registration.mjs",
 						"desktop/framescaper-entitlements.mac.plist",
-						"electron-builder.config.cjs",
+						"config/electron/electron-builder.config.cjs",
 						"desktop/desktop-smoke.js",
 						"desktop/framescaper-baseline-artifact-smoke.js",
 						"desktop/project-library-product-runtime.js",

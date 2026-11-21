@@ -10,7 +10,7 @@ const execute = promisify(execFile);
 for (const product of ['soundscaper', 'framescaper']) {
 	test(`${product} Debian packages recommend FFmpeg without requiring it`, async () => {
 		const { stdout } = await execute(process.execPath, ['-e',
-			"process.stdout.write(JSON.stringify(require('./electron-builder.config.cjs')))"], {
+			"process.stdout.write(JSON.stringify(require('./config/electron/electron-builder.config.cjs')))"], {
 			cwd: new URL('..', import.meta.url),
 			env: { ...process.env, SCAPE_PRODUCT: product, SCAPE_MAC_SIGNING: 'false', SCAPE_WIN_SIGNING: 'none' },
 		});

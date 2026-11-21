@@ -35,7 +35,7 @@ import {
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 const NIGHTLY_BUILDER_CONFIG = createRequire(import.meta.url)(
-	'../electron-builder.nightly-tests.config.cjs',
+	'../config/electron/electron-builder.nightly-tests.config.cjs',
 ) as { readonly files: readonly string[]; readonly directories: { readonly app: string } };
 
 /** Generated or provisioned roots need not exist in an unprepared checkout. */

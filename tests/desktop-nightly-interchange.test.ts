@@ -81,6 +81,6 @@ test('nightly packaging provisions independent readers before staging and includ
 	const provision = workflow.indexOf('run: node scripts/provision-nightly-interchange.mjs');
 	assert.ok(provision > 0);
 	assert.ok(provision < workflow.indexOf('run: node scripts/desktop-nightly-tests-prepare.mjs'));
-	const builder = await readFile(new URL('../electron-builder.nightly-tests.config.cjs', import.meta.url), 'utf8');
+	const builder = await readFile(new URL('../config/electron/electron-builder.nightly-tests.config.cjs', import.meta.url), 'utf8');
 	assert.match(builder, /'vendor\/interchange-conformance\/\*\*\/\*'/u);
 });

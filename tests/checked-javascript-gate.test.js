@@ -13,8 +13,8 @@ const checkedFiles = [
 ];
 
 test('the checked JavaScript gate pins its strict runtime boundary inventory', async () => {
-	const project = JSON.parse(readFileSync('tsconfig.javascript.json', 'utf8'));
-	assert.deepEqual(project.files, checkedFiles);
+	const project = JSON.parse(readFileSync('config/typescript/tsconfig.javascript.json', 'utf8'));
+	assert.deepEqual(project.files, checkedFiles.map((file) => `../../${file}`));
 	assert.equal(project.compilerOptions.checkJs, false);
 	assert.equal(project.compilerOptions.allowJs, true);
 
@@ -31,7 +31,7 @@ test('the checked JavaScript gate pins its strict runtime boundary inventory', a
 	const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
 	assert.equal(
 		packageJson.scripts['typecheck:javascript'],
-		'node scripts/check-checked-javascript.mjs && tsc -p tsconfig.javascript.json',
+		'node scripts/check-checked-javascript.mjs && tsc -p config/typescript/tsconfig.javascript.json',
 	);
 	// `npm run typecheck` reaches the gate through whichever scripts it is
 	// composed of; it was one command and is now split across the projects the
@@ -49,7 +49,7 @@ test('the checked JavaScript gate pins its strict runtime boundary inventory', a
 	));
 	assert.ok(promiseLint, 'checked JavaScript files must have an exact typed promise-lint override');
 	assert.equal(promiseLint.rules['@typescript-eslint/no-misused-promises'], 'error');
-	assert.deepEqual(promiseLint.languageOptions.parserOptions.project, ['./tsconfig.javascript.json']);
+	assert.deepEqual(promiseLint.languageOptions.parserOptions.project, ['./config/typescript/tsconfig.javascript.json']);
 });
 
 /** Whether `npm run <from>` ultimately runs `npm run <target>`. */

@@ -18,7 +18,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const MEMBERS = ['desktop/audiocom-authorization.js', 'desktop/audiocom-integration.js', 'desktop/audiocom-links.js'];
 
 test('Framescaper retains every audio.com module statically imported by the shared desktop entries', async context => {
-	const configuration = ts.getParsedCommandLineOfConfigFile(join(ROOT, 'tsconfig.desktop-runtime.json'), {}, {
+	const configuration = ts.getParsedCommandLineOfConfigFile(join(ROOT, 'config/typescript/tsconfig.desktop-runtime.json'), {}, {
 		...ts.sys, onUnRecoverableConfigFileDiagnostic: diagnostic => { throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')); },
 	});
 	assert.ok(configuration);

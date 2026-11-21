@@ -6665,7 +6665,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "electron-builder.config.cjs"
+							"path": "config/electron/electron-builder.config.cjs"
 						},
 						{
 							"kind": "implementation",
@@ -11911,7 +11911,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "electron-builder.config.cjs"
+							"path": "config/electron/electron-builder.config.cjs"
 						},
 						{
 							"kind": "implementation",
@@ -15185,7 +15185,7 @@
 					"evidence": [
 						{
 							"kind": "implementation",
-							"path": "electron-builder.config.cjs"
+							"path": "config/electron/electron-builder.config.cjs"
 						},
 						{
 							"kind": "implementation",

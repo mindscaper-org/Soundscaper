@@ -17,7 +17,7 @@ const SURFACES = Object.freeze([
 	Object.freeze({
 		label: 'electron-builder',
 		args: ['--eval', [
-			"const config = require('./electron-builder.config.cjs');",
+			"const config = require('./config/electron/electron-builder.config.cjs');",
 			"process.stdout.write(config.productName === 'Framescaper' ? 'framescaper' : 'soundscaper');",
 		].join(' ')],
 	}),

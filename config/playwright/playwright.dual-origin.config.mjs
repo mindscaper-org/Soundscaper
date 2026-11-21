@@ -4,8 +4,9 @@ import { defineConfig, devices } from '@playwright/test';
 import {
 	firstLaunchSetupSeedValue,
 	firstLaunchSetupStorageKey,
-} from './src/common/editor/ui/first-launch-setup.ts';
+} from '../../src/common/editor/ui/first-launch-setup.ts';
 
+const root = resolve(import.meta.dirname, '../..');
 const soundscaperOrigin = 'http://127.0.0.1:4332';
 const framescaperOrigin = 'http://127.0.0.1:4333';
 const fixtureRoot = '.wrangler/dual-origin-browser';
@@ -17,15 +18,15 @@ process.env.SCAPE_BROWSER_COVERAGE_SITES = JSON.stringify([
 	{
 		productId: 'soundscaper',
 		origin: soundscaperOrigin,
-		outputDirectory: resolve(fixtureRoot, 'soundscaper'),
+		outputDirectory: resolve(root, fixtureRoot, 'soundscaper'),
 	},
 	{
 		productId: 'framescaper',
 		origin: framescaperOrigin,
-		outputDirectory: resolve(fixtureRoot, 'framescaper'),
+		outputDirectory: resolve(root, fixtureRoot, 'framescaper'),
 	},
 ]);
-const outputDir = process.env.PLAYWRIGHT_DUAL_ORIGIN_OUTPUT_DIR ?? 'test-results/dual-origin';
+const outputDir = resolve(root, process.env.PLAYWRIGHT_DUAL_ORIGIN_OUTPUT_DIR ?? 'test-results/dual-origin');
 
 function pagesServer(productId, origin, readinessPath) {
 	const port = new URL(origin).port;
@@ -35,6 +36,7 @@ function pagesServer(productId, origin, readinessPath) {
 		// already-served module chunk with an empty-message 500 on the CI runner.
 		command: 'node scripts/serve-pages-site.mjs '
 			+ `${fixtureRoot}/${productId} --host 127.0.0.1 --port ${port}`,
+		cwd: root,
 		url: `${origin}${readinessPath}`,
 		reuseExistingServer: false,
 		timeout: 120_000,
@@ -42,7 +44,7 @@ function pagesServer(productId, origin, readinessPath) {
 }
 
 export default defineConfig({
-	testDir: './tests/browser/dual-origin',
+	testDir: resolve(root, 'tests/browser/dual-origin'),
 	testMatch: '*.spec.js',
 	timeout: 90_000,
 	expect: { timeout: 15_000 },
@@ -52,7 +54,7 @@ export default defineConfig({
 	retries: 0,
 	workers: 1,
 	reporter: process.env.CI
-		? [['github'], ['html', { outputFolder: 'playwright-report/dual-origin', open: 'never' }]]
+		? [['github'], ['html', { outputFolder: resolve(root, 'playwright-report/dual-origin'), open: 'never' }]]
 		: 'list',
 	outputDir,
 	webServer: [

@@ -132,7 +132,7 @@ test('the Playwright plan is closed over the packaged payload and sibling run ro
 		'/opt/Soundscaper Tests/resources/nightly-tests/node_modules/@playwright/test/cli.js',
 		'test',
 		'--config',
-		'/opt/Soundscaper Tests/resources/nightly-tests/playwright.nightly-tests.config.mjs',
+		'/opt/Soundscaper Tests/resources/nightly-tests/config/playwright/playwright.nightly-tests.config.mjs',
 	]);
 	assert.equal(plan.cwd, '/opt/Soundscaper Tests/resources/nightly-tests');
 	assert.deepEqual(plan.env, {

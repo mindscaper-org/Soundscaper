@@ -70,7 +70,7 @@ export function createDesktopNightlyTestsMetricsPlan({
 			join(payloadRoot, 'node_modules/@playwright/test/cli.js'),
 			'test',
 			'--config',
-			join(payloadRoot, 'playwright.nightly-metrics.config.mjs'),
+			join(payloadRoot, 'config/playwright/playwright.nightly-metrics.config.mjs'),
 		]),
 		cwd: payloadRoot,
 		env: Object.freeze({

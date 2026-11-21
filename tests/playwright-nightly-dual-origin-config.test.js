@@ -24,7 +24,7 @@ test('nightly dual-origin coverage runs only the reciprocal Chromium workflow', 
 		process.env.SOUNDSCAPER_NIGHTLY_TESTS_RUN_ROOT = runRoot;
 		process.env.SCAPE_PLAYWRIGHT_PRODUCT_ORIGINS = JSON.stringify(origins);
 		const { createNightlyDualOriginConfig } = await import(
-			'../playwright.nightly-dual-origin.config.mjs?nightly-dual-origin'
+			'../config/playwright/playwright.nightly-dual-origin.config.mjs?nightly-dual-origin'
 		);
 		config = createNightlyDualOriginConfig(process.env);
 	} finally {
@@ -84,7 +84,7 @@ test('nightly dual-origin coverage requires two distinct loopback build origins'
 			}),
 		});
 		({ createNightlyDualOriginConfig } = await import(
-			'../playwright.nightly-dual-origin.config.mjs?nightly-dual-origin-refusals'
+			'../config/playwright/playwright.nightly-dual-origin.config.mjs?nightly-dual-origin-refusals'
 		));
 	} finally {
 		for (const [key, value] of Object.entries(previous)) {

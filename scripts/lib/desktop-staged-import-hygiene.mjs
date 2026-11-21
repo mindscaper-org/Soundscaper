@@ -11,7 +11,7 @@
  * tree and no TypeScript loader, so `../src/…/thing.ts` cannot resolve. The
  * second is an import of a compiled runtime member that the runtime compile
  * never produced — `./project-library-runtime/desktop/thing.js` is only real
- * when `tsconfig.desktop-runtime.json` includes its source, and a raw member is
+ * when `config/typescript/tsconfig.desktop-runtime.json` includes its source, and a raw member is
  * not part of the program that pulls sources in transitively. The third is a
  * bare dependency import: production deliberately ships no `node_modules`, so
  * those dependencies must have been bundled into their owning runtime leaf.
