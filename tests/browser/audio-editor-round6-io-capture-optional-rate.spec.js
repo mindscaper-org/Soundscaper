@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { expect, test } from './audio-editor-test-fixtures.js';
+import { expect } from './audio-editor-test-fixtures.js';
+import { test } from './helpers/native-capture-test.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 import { FRAMESCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
 import { expectCapturePhase, openRecordingSetup, selectSourceRoles } from './helpers/framescaper-capture-harness.js';
-
-test.use({ launchOptions: { firefoxUserPrefs: {
-	'media.navigator.streams.fake': true,
-	'media.navigator.permission.disabled': true,
-} } });
 
 test('Recording setup captures native microphones with an optional hardware sample rate', async ({ page, browserName }) => {
 	await page.addInitScript(({ nativeMicrophone }) => {

@@ -1,20 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { expect, test } from './audio-editor-test-fixtures.js';
+import { expect } from './audio-editor-test-fixtures.js';
+import { test } from './helpers/native-capture-test.js';
 import { bootEditor } from './audio-editor-test-helpers.js';
 import { expectCapturePhase, openRecordingSetup, selectSourceRoles } from './helpers/framescaper-capture-harness.js';
 
-const nativeCameraTest = test.extend({
-	launchOptions: [async ({ browserName }, use) => {
-		await use(browserName === 'chromium' ? {
-			args: ['--use-fake-device-for-media-stream=fps=60', '--use-fake-ui-for-media-stream'],
-		} : browserName === 'firefox' ? { firefoxUserPrefs: {
-			'media.navigator.streams.fake': true, 'media.navigator.permission.disabled': true,
-		} } : {});
-	}, { scope: 'worker' }],
-});
+test.use({ nativeCaptureChromiumArgs: ['--use-fake-device-for-media-stream=fps=60', '--use-fake-ui-for-media-stream'] });
 
-nativeCameraTest('Recording setup retains its selected camera frame rate when changing resolution', async ({ page, browserName }) => {
+test('Recording setup retains its selected camera frame rate when changing resolution', async ({ page, browserName }) => {
 	await page.addInitScript(() => {
 		const nativeGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
 		Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { configurable: true, value: async constraints => {
