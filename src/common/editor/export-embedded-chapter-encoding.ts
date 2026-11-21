@@ -8,12 +8,14 @@ import {
 	type EmbeddedExportChapter,
 } from './export-embedded-chapters.ts';
 import { scaleSampleFrame } from './timeline-time.ts';
+import { readEmbedChapters, readEmbeddedChapterTrack } from './export-chapter-track.ts';
 
 type DataRecord = Readonly<Record<string, unknown>>;
 
-export function assertEmbeddedChapterRequest(format: unknown, options: DataRecord): void {
-	if (options.embedLabelChapters !== true) return;
-	if (!supportsEmbeddedExportChapters(format)) {
+export function assertEmbeddedChapterRequest(format: unknown, options: DataRecord, carriesCues = false): void {
+	const enabled = readEmbedChapters(options.embedChapters) ?? (options.embedLabelChapters === true);
+	if (!enabled) return;
+	if (!supportsEmbeddedExportChapters(format) && !(carriesCues && options.embedChapters === true)) {
 		throw new RangeError('Embedded chapters support MP3 and M4A export formats.');
 	}
 	if (options.mode != null && options.mode !== 'mix') {
@@ -43,19 +45,23 @@ export function embeddedChapterEncodingFields(
 	return Object.freeze({ embeddedChapters });
 }
 
-/** Resolve project labels once, before render-route admission captures the plan. */
+/** Resolve chapter boundaries once, before render-route admission captures the plan. */
 export function createEmbeddedChapterEncoding<Encoding extends DataRecord>(
 	encoding: Encoding,
 	project: unknown,
 	options: DataRecord,
 	range: Readonly<{ startFrame: number; endFrame: number }>,
 	output?: Readonly<{ rangeOutputFrames: number; deliveryOutputFrames: number }>,
+	carriesCues = false,
 ): Encoding {
-	if (options.embedLabelChapters !== true) return encoding;
-	assertEmbeddedChapterRequest(encoding.format, options);
+	if (!(readEmbedChapters(options.embedChapters) ?? (options.embedLabelChapters === true))) return encoding;
+	assertEmbeddedChapterRequest(encoding.format, options, carriesCues);
+	if (carriesCues) return encoding;
 	const sampleRate = Number(encoding.sampleRate);
-	const chapters = resolveEmbeddedExportChapters(project, range, sampleRate, output);
-	if (chapters.length === 0) throw new RangeError('No labels occur in the exported range.');
+	const track = options.embedChapters === true ? readEmbeddedChapterTrack(options.embeddedChapterTrack) : undefined;
+	const chapters = resolveEmbeddedExportChapters(project, range, sampleRate, { ...output, track });
+	if (chapters.length === 0) throw new RangeError(track === 'markers'
+		? 'No markers occur in the exported range.' : 'No labels occur in the exported range.');
 	if (encoding.format === 'aac-m4a') {
 		const projectRate = Number(project && typeof project === 'object' && 'sampleRate' in project ? project.sampleRate : NaN);
 		const end = output?.deliveryOutputFrames ?? output?.rangeOutputFrames

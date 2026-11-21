@@ -18,6 +18,7 @@ import { projectForRuntimeConsumers } from './project-current-runtime.ts';
 import {
 	canonicalMediaExportFormat,
 	getMediaExportFormat,
+	mediaExportFormatCarriesCues,
 	normalizeMediaExportSettings,
 } from './media-export.js';
 import { inspectAiffLayout } from './aiff.js';
@@ -26,6 +27,7 @@ import { createStemArchivePlan } from './controller/export/stem-archive.ts';
 import { EBU_R128_MAXIMUM_CHANNELS } from './ebu-r128.js';
 import { resolveAdmEbuChannelWeights } from './loudness-channel-layout.ts';
 import { createExportSpanMarkers } from './export-span-markers.ts';
+import { exportChapterCueOptions } from './export-chapter-cue-options.ts';
 import { resolveSpatialDelivery, spatialLoudnessMetadata, spatialRenderWorkingSetBytes } from './export-spatial-delivery.ts';
 import { resolveExportChapters } from './export-chapters.ts';
 import { assertEmbeddedChapterRequest, createEmbeddedChapterEncoding } from './export-embedded-chapter-encoding.ts';
@@ -179,7 +181,8 @@ export function createExportPlan(project, options = {}) {
 	}
 	const format = canonicalMediaExportFormat(options.format || 'wav');
 	const aifcCompression = format === 'aiff' ? options.aifcCompression : undefined;
-	assertEmbeddedChapterRequest(format, options);
+	const carriesCues = mediaExportFormatCarriesCues(format);
+	assertEmbeddedChapterRequest(format, options, carriesCues);
 	if (format === 'bw64' && mode !== 'mix') throw new RangeError('BW64 / ADM export is mix-only.');
 	const bw64Adm = format === 'bw64' ? resolveBw64Adm(runtimeProject, options) : null;
 	if (renderAsLoop && bw64Adm?.metadata.mode === 'passthrough') throw new RangeError('ADM passthrough cannot render as loop.');
@@ -226,12 +229,12 @@ export function createExportPlan(project, options = {}) {
 	const markerExport = createExportSpanMarkers(runtimeProject, {
 		range,
 		outputSampleRate: sampleRate,
-		...(options.markerSource == null ? {} : { markerSource: options.markerSource }),
-		...(options.markerTrackId == null ? {} : { markerTrackId: options.markerTrackId }),
+		...exportChapterCueOptions(format, carriesCues, options, preservedRiffChunks?.markers === true),
 		preservedRiffMarkers: preservedRiffChunks?.markers === true,
 		masteringSequenceCues: masteringSequence !== null,
 	}, spans);
 	let markers = masteringSequence ? masteringSequence.cues : markerExport.markers;
+	if (carriesCues && options.embedChapters === true && !markers.length) throw new RangeError('No chapters occur in the exported range.');
 	const cartMetadata = (deliveryRange) => cartForDeliveryRange(
 		runtimeProject.metadata?.cart, deliveryRange, runtimeProject.sampleRate, sampleRate, encoding.bitDepth,
 	);
@@ -287,7 +290,7 @@ export function createExportPlan(project, options = {}) {
 		: spanOutputFrames
 			? Math.max(...spanOutputFrames)
 			: rangeOutputFrames + (renderAsLoop ? 0 : tailOutputFrames);
-	encoding = createEmbeddedChapterEncoding(encoding, runtimeProject, options, range, { rangeOutputFrames, deliveryOutputFrames: outputFrames });
+	encoding = createEmbeddedChapterEncoding(encoding, runtimeProject, options, range, { rangeOutputFrames, deliveryOutputFrames: outputFrames }, carriesCues);
 	const adm = bw64Adm ? createBw64AdmExport(runtimeProject, bw64Adm, {
 		range,
 		outputFrames,

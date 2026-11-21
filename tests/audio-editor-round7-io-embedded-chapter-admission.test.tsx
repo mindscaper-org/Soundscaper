@@ -36,7 +36,7 @@ test('the ordinary MP3 export checkbox admits an in-range point label', async ()
 		assert.notEqual(fixture.chapterCheckbox().getAttribute('aria-disabled'), 'true');
 		await fixture.click(fixture.chapterCheckbox());
 		await fixture.startExport();
-		assert.equal(fixture.requests[0]?.embedLabelChapters, true);
+		assert.equal(fixture.requests[0]?.embedChapters, true);
 	} finally { await fixture.unmount(); }
 });
 
@@ -51,7 +51,7 @@ test('changing output to a selection without chapters clears the displayed and s
 		assert.equal(fixture.chapterCheckbox().getAttribute('aria-disabled'), 'true');
 		assert.equal(fixture.chapterCheckbox().getAttribute('aria-checked'), 'false');
 		await fixture.startExport();
-		assert.equal(fixture.requests[0]?.embedLabelChapters, undefined);
+		assert.equal(fixture.requests[0]?.embedChapters, false);
 		await fixture.chooseOutput('Entire project');
 		assert.notEqual(fixture.chapterCheckbox().getAttribute('aria-disabled'), 'true');
 	} finally { await fixture.unmount(); }

@@ -18,7 +18,7 @@ export interface TimelineAnnotationInterchangeReport {
 	readonly schemaVersion: 1;
 	readonly format: 'riff';
 	readonly direction: 'import' | 'export';
-	readonly source: 'timeline-annotations' | 'label-track' | 'none';
+	readonly source: 'timeline-annotations' | 'label-track' | 'all-label-tracks' | 'none';
 	readonly items: readonly TimelineAnnotationInterchangeItem[];
 	readonly counts: Readonly<Record<TimelineAnnotationInterchangeDisposition, number>>;
 }

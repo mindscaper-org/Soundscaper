@@ -106,7 +106,7 @@ export function ActionHook({ hook, children }) {
 export { SteppedSlider } from './SteppedSlider.tsx';
 
 function dropdownDataHook(hook) {
-	if (['output', 'mode', 'range', 'format', 'bitDepth', 'quality', 'bitRateMode', 'vbrMode', 'sampleRate', 'channelMapping', 'dither', 'loudnessNormalization'].includes(hook)) {
+	if (['output', 'mode', 'range', 'format', 'bitDepth', 'quality', 'bitRateMode', 'vbrMode', 'sampleRate', 'channelMapping', 'dither', 'loudnessNormalization', 'embeddedChapterTrack'].includes(hook)) {
 		return { 'data-export-field': hook };
 	}
 	if (hook === 'clip-pitch-unit') return { 'data-clip-pitch-unit': '' };

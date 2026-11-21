@@ -200,13 +200,13 @@ test('a saved delivery preset keeps embedded label chapters enabled', async ({ p
 	await importFiles(editor, [toneA, captionLabels]);
 	let dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.getByRole('group', { name: 'Format', exact: true }), 'MP3');
-	const chapterOption = dialog.getByRole('checkbox', { name: /Embed labels as chapters/u });
+	const chapterOption = dialog.getByRole('checkbox', { name: /Embed chapters/u });
 	await chapterOption.check();
 	await saveDeliveryPreset(page, dialog, 'Single-file chapters');
 	await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 	dialog = await openExportDialog(page, editor);
 	await applyDeliveryPreset(page, dialog, 'Single-file chapters');
-	await expect(dialog.getByRole('checkbox', { name: /Embed labels as chapters/u })).toBeChecked();
+	await expect(dialog.getByRole('checkbox', { name: /Embed chapters/u })).toBeChecked();
 });
 
 test('switching from a normalized mix to label chapters exports after normalization hides', async ({ page }) => {

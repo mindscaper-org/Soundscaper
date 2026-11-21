@@ -132,6 +132,10 @@
 	white-space: normal;
 }
 
+.audio-editor-export-chapter-track {
+	padding-inline-start: 12px;
+}
+
 .audio-editor-export-section .audio-editor-field > :is(input, .text-input, .dropdown) {
 	min-width: 0;
 	width: 100%;

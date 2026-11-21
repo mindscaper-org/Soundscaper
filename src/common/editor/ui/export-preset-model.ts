@@ -37,7 +37,7 @@ export const PRESET_SETTING_KEYS: Readonly<Record<DeliveryPresetKind, readonly s
 	audio: Object.freeze([
 		'sampleRate', 'channelMapping', 'sampleFormat', 'dither',
 		'bitRate', 'quality', 'compressionLevel', 'mode', 'chapterSource', 'includeTail', 'renderAsLoop', 'binaural', 'earLayout',
-		'loudnessNormalization', 'embedLabelChapters',
+		'loudnessNormalization', 'embedLabelChapters', 'embedChapters', 'embeddedChapterTrack',
 		'bitRateMode', 'bitRatePreset', 'vbrQuality', 'averageBitRate', 'vbrMode',
 	]),
 	// The video canvas is nested rather than flat, so it is translated below
@@ -74,6 +74,7 @@ const VIDEO_CANVAS_LIMIT_KEYS: Readonly<Record<string, string>> = Object.freeze(
 const AUDIO_PRESET_DIALOG_DEFAULTS = Object.freeze({
 	loudnessNormalization: '', bitRatePreset: '2', vbrQuality: '2', averageBitRate: '192',
 	vbrMode: 'on', chapterSource: 'labels', embedLabelChapters: false,
+	embedChapters: undefined, embeddedChapterTrack: undefined,
 	mode: 'mix', channelMapping: 'preserve', channelMatrix: '', dither: 'none', binaural: false, earLayout: '',
 	includeTail: false, renderAsLoop: false, bitRate: '192', quality: '5', compressionLevel: '5',
 });

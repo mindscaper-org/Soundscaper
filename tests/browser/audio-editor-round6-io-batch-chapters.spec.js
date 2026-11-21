@@ -22,7 +22,7 @@ test.describe('chapter preset delivery applicability', () => {
 		await title.press('Enter');
 		const dialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP3');
-		await dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true }).check();
+		await dialog.getByRole('checkbox', { name: 'Embed chapters', exact: true }).check();
 		await dialog.getByRole('button', { name: 'Save preset', exact: true }).click();
 		await page.getByRole('menuitem', { name: 'Save as new preset', exact: true }).click();
 		const prompt = page.getByRole('dialog', { name: 'Save as new preset', exact: true });

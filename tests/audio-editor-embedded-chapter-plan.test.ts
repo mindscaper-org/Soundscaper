@@ -41,6 +41,48 @@ test('embedding labels is opt-in and remains a single compressed mix delivery', 
 	}
 });
 
+test('the chosen chapter track feeds both chapter metadata and PCM cue writers', () => {
+	const range = { startFrame: 0, endFrame: 96_000 };
+	const project = createCurrentAudioEditorProject({
+		sampleRate: 48_000,
+		sources: [{ id: 'source', storageKey: 'source', frameCount: 96_000, channelCount: 2, sampleRate: 48_000 }],
+		clips: [{ id: 'audio-clip', sourceId: 'source', durationFrames: 96_000 }],
+		tracks: [
+			{ id: 'audio', type: 'audio', clipIds: ['audio-clip'] },
+			{ id: 'labels-a', type: 'label', labels: [{ id: 'a', startFrame: 0, endFrame: 0, title: 'Label A' }] },
+			{ id: 'labels-b', type: 'label', labels: [{ id: 'b', startFrame: 24_000, endFrame: 36_000, title: 'Label B' }] },
+		],
+		timelineAnnotations: [0, 48_000].map((positionFrame, index) => ({
+			id: `marker-${index}`, sequenceId: 'main-sequence', name: `Marker ${index + 1}`, kind: 'marker', anchor: 'sample',
+			color: 'auto', batchId: null, opaqueExtensions: {}, positionFrame,
+		})),
+	});
+	for (const format of ['mp3', 'aac-m4a']) {
+		const plan = createExportPlan(project, { format, range, embedChapters: true, embeddedChapterTrack: 'markers' });
+		assert.deepEqual(plan.encoding.embeddedChapters, [
+			{ startFrame: 0, endFrame: 48_000, title: 'Marker 1' },
+			{ startFrame: 48_000, endFrame: 96_000, title: 'Marker 2' },
+		]);
+		assert.deepEqual(plan.markers, []);
+	}
+	const mp3 = createExportPlan(project, { format: 'mp3', range, embedChapters: true, embeddedChapterTrack: 'label:labels-b' });
+	assert.deepEqual(mp3.encoding.embeddedChapters, [{ startFrame: 24_000, endFrame: 36_000, title: 'Label B' }]);
+	const adm = { mode: 'authored', programme: { name: 'Programme' }, content: { name: 'Content' },
+		bed: { name: 'Stereo', layout: 'stereo', assignments: ['L', 'R'].map((bedChannel, sourceChannel) => ({
+			stripKind: 'track', stripId: 'audio', sourceChannel, bedChannel,
+		})) } };
+	for (const format of ['wav', 'bwf', 'bw64', 'aiff']) {
+		const options = { format, range, ...(format === 'bw64' ? { adm } : {}) };
+		const cuePlan = createExportPlan(project, { ...options, embedChapters: true, embeddedChapterTrack: 'label:labels-b' });
+		assert.deepEqual(cuePlan.markers.map(cue => [cue.label, cue.sampleOffset, cue.sampleLength]), [['Label B', 24_000, 12_000]]);
+		const all = createExportPlan(project, { ...options, embedChapters: true, embeddedChapterTrack: 'all-label-tracks' });
+		assert.deepEqual(all.markers.map(cue => cue.label), ['Label A', 'Label B']);
+		const off = createExportPlan(project, { ...options, embedChapters: false });
+		assert.deepEqual(off.markers, []);
+	}
+	assert.throws(() => createExportPlan(project, { format: 'wav', range, embedChapters: true, embeddedChapterTrack: 'label:missing' }), /No chapters occur/u);
+});
+
 test('explicit requests reject unsupported formats, split exports, sequences, and empty ranges', () => {
 	const project = projectWithLabels();
 	const options = { embedLabelChapters: true, range: { startFrame: 0, endFrame: 96_000 } };

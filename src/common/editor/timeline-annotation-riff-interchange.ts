@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { projectForRuntimeConsumers } from './project-current-runtime.ts';
+import { exportChapterLabelTracks } from './export-chapter-track.ts';
 import { isTimelineAnnotationProjectSchema } from './project-schema-version.ts';
 import type { RiffMarker, RiffMarkerInput } from './riff-markers.ts';
 import { createRiffCueDeliveryClock } from './riff-cue-delivery-clock.ts';
@@ -28,7 +29,7 @@ const INVALID_ANNOTATION_NAME_TEXT = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 type DataRecord = Record<string, unknown>;
 type CueClock = ReturnType<typeof createRiffCueDeliveryClock>;
 
-export type RiffMarkerExportSource = 'timeline-annotations' | 'label-track' | 'none';
+export type RiffMarkerExportSource = TimelineAnnotationInterchangeReport['source'];
 
 export interface RiffAnnotationExportOptions {
 	readonly range: Readonly<{ readonly startFrame: number; readonly endFrame: number }>;
@@ -65,7 +66,7 @@ export interface RiffAnnotationImportResult {
 	readonly report: TimelineAnnotationInterchangeReport;
 }
 
-/** Project schema-11-or-12 annotations or one explicitly selected legacy label track into RIFF cues. */
+/** Project timeline annotations or the selected label tracks into RIFF cues. */
 export function createRiffAnnotationExport(
 	projectValue: RuntimeClipProject,
 	options: RiffAnnotationExportOptions,
@@ -105,7 +106,7 @@ export function createRiffAnnotationExport(
 		return frozenExport([], report);
 	}
 	const clock = createRiffCueDeliveryClock(range, inputSampleRate, outputSampleRate);
-	if (source === 'label-track') return frozenExport(labelTrackMarkers(project, range, clock, options, report), report);
+	if (source !== 'timeline-annotations') return frozenExport(labelTrackMarkers(project, range, clock, options, report), report);
 	const annotationProject = project as unknown as Parameters<typeof resolveRuntimeTimelineAnnotationsProjection>[0];
 	const annotations = resolveRuntimeTimelineAnnotationsProjection(annotationProject);
 	const primarySequenceId = canonicalId(project.primarySequenceId, 'project.primarySequenceId');
@@ -138,7 +139,7 @@ function sourceItemCount(
 ): number {
 	return source === 'timeline-annotations'
 		? recordArray(project.timelineAnnotations).length
-		: selectedLabelCount(project, options.markerTrackId);
+		: selectedLabels(project, options).length;
 }
 
 /** Convert parsed RIFF cues into fresh sample-authoritative primary-sequence annotations. */
@@ -369,12 +370,7 @@ function labelTrackMarkers(
 	options: RiffAnnotationExportOptions,
 	report: ReturnType<typeof createTimelineAnnotationInterchangeReport>,
 ): readonly RiffMarkerInput[] {
-	const tracks = recordArray(project.tracks).filter((track) => track.type === 'label');
-	const track = options.markerTrackId == null
-		? tracks[0]
-		: tracks.find((candidate) => candidate.id === options.markerTrackId);
-	if (!track) return [];
-	return recordArray(track.labels).flatMap((label, index) => {
+	return selectedLabels(project, options).flatMap((label, index) => {
 		const startFrame = nonNegativeSafeInteger(label.startFrame, `label ${String(label.id ?? index)} startFrame`);
 		const endFrame = nonNegativeSafeInteger(label.endFrame ?? startFrame, `label ${String(label.id ?? index)} endFrame`);
 		if (endFrame < startFrame) throw new RangeError(`label ${String(label.id ?? index)} endFrame cannot precede startFrame.`);
@@ -425,8 +421,8 @@ function markerSource(project: DataRecord, options: RiffAnnotationExportOptions)
 		throw new TypeError('markerTrackId cannot select a label track while markerSource selects timeline annotations.');
 	}
 	if (options.markerSource !== undefined) {
-		if (!['timeline-annotations', 'label-track', 'none'].includes(options.markerSource)) {
-			throw new RangeError('markerSource must be timeline-annotations, label-track, or none.');
+		if (!['timeline-annotations', 'label-track', 'all-label-tracks', 'none'].includes(options.markerSource)) {
+			throw new RangeError('Unsupported markerSource.');
 		}
 		if (options.markerSource === 'timeline-annotations'
 			&& !isTimelineAnnotationProjectSchema(project)) {
@@ -440,12 +436,11 @@ function markerSource(project: DataRecord, options: RiffAnnotationExportOptions)
 		: 'label-track';
 }
 
-function selectedLabelCount(project: DataRecord, requestedTrackId: string | undefined): number {
-	const tracks = recordArray(project.tracks).filter((track) => track.type === 'label');
-	const track = requestedTrackId === undefined
-		? tracks[0]
-		: tracks.find(({ id }) => id === requestedTrackId);
-	return track ? recordArray(track.labels).length : 0;
+function selectedLabels(project: DataRecord, options: RiffAnnotationExportOptions): readonly DataRecord[] {
+	const tracks = exportChapterLabelTracks(project);
+	if (options.markerSource === 'all-label-tracks') return tracks.flatMap(track => recordArray(track.labels));
+	const track = options.markerTrackId === undefined ? tracks[0] : tracks.find(({ id }) => id === options.markerTrackId);
+	return recordArray(track?.labels);
 }
 
 function allocateCueId(annotationId: string, used: Set<number>): number {

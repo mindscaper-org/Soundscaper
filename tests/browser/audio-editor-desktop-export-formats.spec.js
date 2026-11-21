@@ -156,8 +156,8 @@ test("all audio formats remain visible and missing FFmpeg can be installed from 
 		await title.fill('Opening chapter');
 		await title.press('Enter');
 		const chapterDialog = await openExportDialog(page, editor);
-		const chapters = chapterDialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true });
-		await expect(chapters).toHaveCount(0);
+		const chapters = chapterDialog.getByRole('checkbox', { name: 'Embed chapters', exact: true });
+		await expect(chapters).not.toBeChecked();
 		await chooseDropdown(page, chapterDialog.locator('[data-export-field="format"]'), 'MP3');
 		await expect(chapters).not.toBeChecked();
 		await chapters.check();

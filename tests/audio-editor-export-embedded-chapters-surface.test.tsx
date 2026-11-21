@@ -11,27 +11,27 @@ import { reactProps } from './helpers/react-test-dom.ts';
 test('embedded chapters are opt-in for supported mixed files and hidden for other deliveries', async () => {
 	const fixture = await mountedExportDialog();
 	try {
-		assert.equal(fixture.dom.find('[data-export-field="embedLabelChapters"]'), null);
+		assert.equal(fixture.chapterCheckbox().getAttribute('aria-checked'), 'true');
 		await fixture.chooseFormat('MP3');
 		assert.equal(fixture.chapterCheckbox().getAttribute('aria-checked'), 'false');
 		await fixture.click(fixture.chapterCheckbox());
 		await fixture.startExport();
-		assert.equal(fixture.requests[0]?.embedLabelChapters, true);
+		assert.equal(fixture.requests[0]?.embedChapters, true);
 		await fixture.chooseFormat('AAC / M4A');
 		assert.equal(fixture.chapterCheckbox().getAttribute('aria-checked'), 'true');
 		await fixture.chooseOutput(ENGLISH_COPY.exportOutputStems);
 		assert.equal(fixture.dom.find('[data-export-field="embedLabelChapters"]'), null);
 		await fixture.startExport();
-		assert.equal(Object.hasOwn(fixture.requests[1] ?? {}, 'embedLabelChapters'), false);
+		assert.equal(Object.hasOwn(fixture.requests[1] ?? {}, 'embedChapters'), false);
 		await fixture.chooseOutput(ENGLISH_COPY.exportOutputClips);
 		assert.equal(fixture.dom.find('[data-export-field="embedLabelChapters"]'), null);
 		await fixture.startExport();
-		assert.equal(Object.hasOwn(fixture.requests[2] ?? {}, 'embedLabelChapters'), false);
+		assert.equal(Object.hasOwn(fixture.requests[2] ?? {}, 'embedChapters'), false);
 		await fixture.chooseOutput(ENGLISH_COPY.entireProject);
 		await fixture.chooseFormat('WAV');
-		assert.equal(fixture.dom.find('[data-export-field="embedLabelChapters"]'), null);
+		assert.equal(fixture.chapterCheckbox().getAttribute('aria-checked'), 'true');
 		await fixture.startExport();
-		assert.equal(Object.hasOwn(fixture.requests[3] ?? {}, 'embedLabelChapters'), false);
+		assert.equal(fixture.requests[3]?.embedChapters, true);
 	} finally {
 		await fixture.unmount();
 	}

@@ -4,9 +4,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { normalizeEditorExportSettings } from '../src/common/editor/controller/export/export-settings.ts';
+import { validateDeliveryPreset } from '../src/common/editor/delivery-preset.ts';
 import { createExportDialogInitialSettings } from '../src/common/editor/ui/export-dialog-initial-settings.ts';
 import { createExportDialogRequest } from '../src/common/editor/ui/export-dialog-model.js';
-import { exportDialogHasChapterLabels } from '../src/common/editor/ui/export-dialog-embedded-chapters.ts';
+import { exportDialogHasChapterLabels, exportDialogSupportsEmbeddedChapters } from '../src/common/editor/ui/export-dialog-embedded-chapters.ts';
+import { dialogSettingsFromPreset, presetSettingsFromDialog } from '../src/common/editor/ui/export-preset-model.ts';
 
 test('embedded label chapters are an explicit opt-in in settings and the export dialog', () => {
 	assert.equal(normalizeEditorExportSettings({}, 48_000).embedLabelChapters, false);
@@ -48,4 +50,34 @@ test('chapter embedding sees labels on every label track, independent of the spl
 	for (const project of [null, {}, { tracks: [null, { type: 'audio', labels: ['a'] }, { type: 'label', labels: [] }] }]) {
 		assert.equal(exportDialogHasChapterLabels(project), false);
 	}
+});
+
+test('the picker is available on all maintained cue and chapter writers', () => {
+	for (const format of ['wav', 'bwf', 'bw64', 'aiff', 'mp3', 'aac-m4a']) {
+		assert.equal(exportDialogSupportsEmbeddedChapters({ format, mode: 'mix' }), true, format);
+	}
+	assert.equal(exportDialogSupportsEmbeddedChapters({ format: 'bw64', mode: 'mix', adm: { mode: 'passthrough' } }), false);
+	assert.equal(exportDialogSupportsEmbeddedChapters({ format: 'flac', mode: 'mix' }), false);
+	const embeddedChapterTrack = 'label:chapter-labels';
+	const options = { embedChapters: true, embeddedChapterTrack };
+	const normalized = normalizeEditorExportSettings(options, 48_000);
+	assert.equal(normalized.embedChapters, true);
+	assert.equal(normalized.embeddedChapterTrack, embeddedChapterTrack);
+	const dialog = createExportDialogRequest({ ...createExportDialogInitialSettings({ sampleRate: 48_000 }), ...options });
+	assert.equal(dialog.embedChapters, true);
+	assert.equal(dialog.embeddedChapterTrack, embeddedChapterTrack);
+});
+
+test('chapter source and an explicit opt-out round-trip through delivery presets', () => {
+	const settings = { embedChapters: false, embeddedChapterTrack: 'label:commentary' };
+	const preset = validateDeliveryPreset({
+		schemaVersion: 1, id: 'chapter-cues', label: 'Chapter cues', kind: 'audio', format: 'wav',
+		settings: presetSettingsFromDialog(settings, 'audio'),
+	});
+	const restored = dialogSettingsFromPreset(preset);
+	assert.equal(restored.embedChapters, false);
+	assert.equal(restored.embeddedChapterTrack, 'label:commentary');
+	const ordinary = dialogSettingsFromPreset(validateDeliveryPreset({ ...preset, settings: {} }));
+	assert.equal(ordinary.embedChapters, undefined);
+	assert.equal(ordinary.embeddedChapterTrack, undefined);
 });

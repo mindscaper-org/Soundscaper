@@ -56,9 +56,9 @@ const entries: FoundationRuntimeConsumerEvidence[] = [
 	{
 		id: 'export-dialog-delivered-chapter-admission', surface: 'audio-export',
 		file: 'src/common/editor/ui/export-dialog-embedded-chapters.ts',
-		entryPoint: 'exportDialogHasDeliveredChapterLabels', inputIdentifier: 'selectedProject', projectedIdentifier: 'project',
+		entryPoint: 'resolveDialogChapterDelivery', inputIdentifier: 'selectedProject', projectedIdentifier: 'project',
 		boundary: 'projectForRuntimeConsumers',
-		evidence: 'Chapter availability resolves the authored project before checking the selected delivery span, project duration and label occurrences; it uses the same output-frame rounding and exclusive range as the chapter writer.',
+		evidence: 'Chapter availability resolves the authored project and delivered range before checking marker or label occurrences on the cue or chapter writer’s output clock.',
 	},
 	{
 		id: 'contextual-item-musical-geometry', surface: 'navigation',

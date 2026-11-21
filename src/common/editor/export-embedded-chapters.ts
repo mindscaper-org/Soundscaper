@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { exportChapterLabelTracks, type EmbeddedChapterTrack } from './export-chapter-track.ts';
+import { isTimelineAnnotationProjectSchema } from './project-schema-version.ts';
+import { resolveRuntimeTimelineAnnotationsProjection } from './runtime-timeline-annotation-projection.ts';
+
 type DataRecord = Readonly<Record<string, unknown>>;
 
 // Match label import's limits so names accepted there remain exportable.
@@ -34,7 +38,7 @@ export function mp3ChapterMilliseconds(chapter: EmbeddedExportChapter, sampleRat
 }
 
 /**
- * Read chapters from every label track and clip them to the project-frame range.
+ * Read chapter boundaries from the chosen source and clip them to the project-frame range.
  *
  * Region labels keep their own ends. Point labels extend to the next distinct
  * start, or the export end. Coincident labels retain track and label order;
@@ -45,7 +49,7 @@ export function resolveEmbeddedExportChapters(
 	projectValue: unknown,
 	range: EmbeddedExportRange,
 	outputSampleRate?: number,
-	options: Readonly<{ rangeOutputFrames?: number; deliveryOutputFrames?: number }> = {},
+	options: Readonly<{ rangeOutputFrames?: number; deliveryOutputFrames?: number; track?: EmbeddedChapterTrack }> = {},
 ): readonly EmbeddedExportChapter[] {
 	const project = dataRecord(projectValue);
 	const projectSampleRate = sampleRate(project.sampleRate);
@@ -58,7 +62,7 @@ export function resolveEmbeddedExportChapters(
 		? roundedRangeFrames : outputFrameCount(options.rangeOutputFrames, roundedRangeFrames, 'Range output frames');
 	const deliveryOutputFrames = options.deliveryOutputFrames === undefined
 		? rangeOutputFrames : outputFrameCount(options.deliveryOutputFrames, rangeOutputFrames, 'Delivery output frames');
-	const boundaries = labelBoundaries(project);
+	const boundaries = options.track === 'markers' ? markerBoundaries(project) : labelBoundaries(project, options.track);
 	const chapters: EmbeddedExportChapter[] = [];
 	let nextStart = rangeEnd;
 	// Resolve point ends backwards, so coincident starts share the next distinct
@@ -138,12 +142,11 @@ export function serializeEmbeddedExportChapters(
 	return `${lines.join('\n')}\n`;
 }
 
-function labelBoundaries(project: DataRecord): readonly EmbeddedExportChapter[] {
-	const tracks = Array.isArray(project.tracks) ? project.tracks : [];
+function labelBoundaries(project: DataRecord, source?: Exclude<EmbeddedChapterTrack, 'markers'>): readonly EmbeddedExportChapter[] {
+	const trackId = source?.startsWith('label:') ? source.slice(6) : undefined;
 	const boundaries: EmbeddedExportChapter[] = [];
-	for (const value of tracks) {
-		const track = dataRecord(value);
-		if (track.type !== 'label' || !Array.isArray(track.labels)) continue;
+	for (const track of exportChapterLabelTracks(project)) {
+		if ((trackId !== undefined && track.id !== trackId) || !Array.isArray(track.labels)) continue;
 		for (const value of track.labels) {
 			const label = dataRecord(value);
 			const startFrame = nonNegativeFrame(label.startFrame, 'Label start');
@@ -153,6 +156,15 @@ function labelBoundaries(project: DataRecord): readonly EmbeddedExportChapter[] 
 		}
 	}
 	return boundaries.sort((left, right) => left.startFrame - right.startFrame);
+}
+
+function markerBoundaries(project: DataRecord): readonly EmbeddedExportChapter[] {
+	if (!isTimelineAnnotationProjectSchema(project) || !Array.isArray(project.timelineAnnotations)
+		|| project.timelineAnnotations.length === 0) return [];
+	type AnnotationProject = Parameters<typeof resolveRuntimeTimelineAnnotationsProjection>[0];
+	return resolveRuntimeTimelineAnnotationsProjection(project as unknown as AnnotationProject)
+		.filter(marker => marker.sequenceId === project.primarySequenceId)
+		.map(marker => ({ startFrame: marker.timelineStartFrame, endFrame: marker.timelineEndFrame, title: marker.name }));
 }
 
 function outputFrame(projectFrame: number, projectSampleRate: number, outputSampleRate: number): number {

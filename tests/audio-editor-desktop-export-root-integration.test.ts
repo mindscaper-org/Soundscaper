@@ -175,7 +175,7 @@ test('real sample-rate drafts suppress capability interruptions until blur and a
 
 test('real desktop chapter opt in survives MP3 to M4A and hides for split stems', async context => {
 	const value = await fixture(context, 'available');
-	assert.equal(value.dialog.querySelector('[data-export-field="embedLabelChapters"]') === null, true);
+	assert.equal(value.dialog.querySelector('[data-export-field="embedLabelChapters"]') !== null, true);
 	await value.choose('format', 'MP3'); await value.available();
 	const checkbox = value.dom.element('[data-export-field="embedLabelChapters"] [role="checkbox"]', value.dialog);
 	assert.equal(checkbox.getAttribute('aria-checked'), 'false');

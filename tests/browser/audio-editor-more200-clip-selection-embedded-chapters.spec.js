@@ -17,7 +17,7 @@ test('MP3 selection export embeds an opted-in chapter inside the selected native
 	const dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.locator('[data-export-field="format"]'), 'MP3');
 	await chooseDropdown(page, dialog.locator('[data-export-field="output"]'), 'Current selection');
-	const chapters = dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true });
+	const chapters = dialog.getByRole('checkbox', { name: 'Embed chapters', exact: true });
 	await expect(chapters).toBeEnabled();
 	await chapters.check();
 	await dialog.getByRole('checkbox', { name: /^Include effect tails/u }).uncheck();

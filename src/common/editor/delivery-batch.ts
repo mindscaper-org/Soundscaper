@@ -116,7 +116,11 @@ export function createDeliveryBatch(
 				delete presetOptions.binaural;
 				delete presetOptions.earLayout;
 			}
-			if (mode === 'stems' || resolved.target.kind === 'mastering-sequence') delete presetOptions.embedLabelChapters;
+			if (mode === 'stems' || resolved.target.kind === 'mastering-sequence') {
+				delete presetOptions.embedLabelChapters;
+				delete presetOptions.embedChapters;
+				delete presetOptions.embeddedChapterTrack;
+			}
 			if (mode !== 'mix' || resolved.target.kind !== 'loop') delete presetOptions.renderAsLoop;
 			members.push(Object.freeze({
 				memberId: createMemberId(members.length),

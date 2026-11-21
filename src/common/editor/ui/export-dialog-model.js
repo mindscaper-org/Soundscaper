@@ -1,6 +1,6 @@
 import { resolveSelectionRange } from '../selection-range.ts';
 import { videoExportRequestFormat } from '../video-export-request-format.ts';
-import { exportDialogHasDeliveredChapterLabels, exportDialogSupportsEmbeddedChapters } from './export-dialog-embedded-chapters.ts';
+import { exportDialogEmbeddedChapterRequest } from './export-dialog-embedded-chapters.ts';
 import { exportDialogSupportsLoudnessNormalization } from './export-dialog-loudness.ts';
 import {
 	assertVideoDialogCanvasSize,
@@ -117,9 +117,7 @@ export function createExportDialogRequest(settings, options = {}) {
 		customArguments: settings.customArguments.split(/\r?\n/).map((argument) => argument.trim()).filter(Boolean),
 		includeTail: settings.mode === 'clips' || (settings.range === 'loop' && settings.renderAsLoop) ? false : settings.includeTail,
 		...(settings.range === 'loop' && settings.mode === 'mix' && settings.renderAsLoop === true ? { renderAsLoop: true } : {}),
-		...(settings.embedLabelChapters === true && exportDialogSupportsEmbeddedChapters(settings)
-			&& (options.project === undefined || exportDialogHasDeliveredChapterLabels(options.project, settings))
-			? { embedLabelChapters: true } : {}),
+		...exportDialogEmbeddedChapterRequest(settings, options.project),
 		// Stated only when a target was chosen: there is no default target, and an
 		// untouched dialog must keep producing the request it always produced.
 		...(exportDialogSupportsLoudnessNormalization(settings) && settings.loudnessNormalization ? { loudnessNormalization: settings.loudnessNormalization } : {}),

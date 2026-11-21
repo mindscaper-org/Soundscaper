@@ -21,7 +21,7 @@ async function chapterDialog(page, labelText) {
 // repository/archive, production checkbox and public export preflight.
 test('an in-range chapter still delivers an ordinary chapter-bearing MP3', async ({ page }) => {
 	const { dialog } = await chapterDialog(page, '0\t0\tOpening\n');
-	await dialog.getByRole('checkbox', { name: 'Embed labels as chapters', exact: true }).check();
+	await dialog.getByRole('checkbox', { name: 'Embed chapters', exact: true }).check();
 	const downloaded = page.waitForEvent('download');
 	await dialog.getByRole('button', { name: 'Export', exact: true }).click();
 	const download = await downloaded;

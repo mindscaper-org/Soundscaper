@@ -3,9 +3,11 @@ const LABEL_EXPORT_COPY_ENTRIES = Object.freeze([
 	['exportLabelsSrt', 'As SubRip (SRT)'],
 	['exportLabelsVtt', 'As WebVTT'],
 	['exportLabelsPodcastJson', 'As Podcast 2.0 chapters (JSON)'],
-	['embedLabelChapters', 'Embed labels as chapters'],
-	['embedLabelChaptersHint', 'Include label titles and times in the exported MP3 or M4A file. Only labels in the exported range are included. Chapter display depends on the player.'],
-	['embedLabelChaptersNoLabels', 'Add a label to embed chapters in the exported file.'],
+	['embedLabelChapters', 'Embed chapters'],
+	['embedLabelChaptersHint', 'Write the selected markers or labels as chapters or cues in the exported file. Display depends on the player.'],
+	['embedLabelChaptersNoLabels', 'Add markers or labels in the export range to embed chapters.'],
+	['embeddedChapterTrack', 'Chapter track'],
+	['embeddedChapterAllLabelTracks', 'All label tracks'],
 ]);
 
 export const LABEL_EXPORT_COPY_BY_LOCALE = Object.freeze({

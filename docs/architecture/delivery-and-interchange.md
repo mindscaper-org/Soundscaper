@@ -96,6 +96,11 @@ Audio delivery extends the ordinary export plan and renderer. Format writers,
 channel limits, dither, mapping, resampling, stem archives, and direct
 publication remain shared with ordinary export.
 
+Single-file **Embed chapters** delivery reads timeline markers, one label
+track, or all label tracks. MP3 and M4A write chapter metadata. WAV, BWF,
+authored BW64 and AIFF write cue or point-marker metadata using their existing
+container writers. Pristine BW64 passthrough delivers its original cue chunks.
+
 ### Mastering sequences
 
 A mastering sequence is an ordered view over timeline-annotation regions.

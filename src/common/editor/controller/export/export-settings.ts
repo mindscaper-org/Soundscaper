@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { BextMetadataInput } from '../../broadcast-wave.ts';
+import { readEmbedChapters, readEmbeddedChapterTrack, type EmbeddedChapterTrack } from '../../export-chapter-track.ts';
 import { isEarLayout, type EarLayout } from '../../ear/layouts.ts';
 import {
 	type LoudnessNormalizationTarget,
@@ -59,8 +60,10 @@ export interface EditorExportSettings {
 	readonly customArguments: unknown;
 	readonly includeTail: boolean;
 	readonly renderAsLoop: boolean;
-	/** Browser MP3/M4A only: include label titles and times in the mixed file. */
+	/** Older MP3/M4A requests and presets use this opt-in. */
 	readonly embedLabelChapters?: boolean;
+	readonly embedChapters?: boolean;
+	readonly embeddedChapterTrack?: EmbeddedChapterTrack;
 	readonly measureLoudness: boolean;
 	/** Render an authored ADM programme to two channels for headphones. */
 	readonly binaural: boolean;
@@ -87,6 +90,8 @@ export function normalizeEditorExportSettings(
 		: 24;
 	const quality = numberOrDefault(value.quality, 5);
 	const compressionLevel = numberOrDefault(value.compressionLevel, format === 'flac' ? 5 : 2);
+	const embedChapters = readEmbedChapters(value.embedChapters);
+	const embeddedChapterTrack = readEmbeddedChapterTrack(value.embeddedChapterTrack);
 	return Object.freeze({
 		mode: format === 'bw64' || (value.mode !== 'stems' && value.mode !== 'chapters' && value.mode !== 'clips')
 			? 'mix'
@@ -126,6 +131,8 @@ export function normalizeEditorExportSettings(
 		includeTail: value.includeTail === true,
 		renderAsLoop: value.renderAsLoop === true,
 		embedLabelChapters: value.embedLabelChapters === true,
+		...(embedChapters === undefined ? {} : { embedChapters }),
+		...(embeddedChapterTrack === undefined ? {} : { embeddedChapterTrack }),
 		measureLoudness: value.measureLoudness === true,
 		binaural: value.binaural === true,
 		...(value.earLayout == null || value.earLayout === '' ? {} : { earLayout: normalizeEarLayout(value.earLayout) }),
