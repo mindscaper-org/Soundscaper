@@ -1,6 +1,5 @@
 [data-workspace-panel='web-vcr'] .kw-audio-editor__workspace-panel-content {
 	display: flex;
-	min-height: 360px;
 	padding: 0;
 	overflow: hidden;
 }
