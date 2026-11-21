@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setImmediate } from 'node:timers/promises';
+import { waitFor } from './helpers/async-test-control.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
 import { framescaperNativeServicesStoreFor } from '../src/common/editor/ui/framescaper-native-services-bridge.ts';
@@ -23,7 +23,7 @@ for (const id of ['ordinary-project', 'programme:one', 'Programme one', '映像�
 			assert.equal(publishEvaluatedVideoPreviewFrame({ project, currentProject: () => project, timelineFrame: 0,
 				compositor: { captureEvaluatedRgba: () => ({ width: 1, height: 1, rgba: Uint8Array.of(255, 0, 0, 255) }) },
 			}, { resolveBridge: () => native.bridge }), true);
-			for (let attempts = 0; attempts < 100 && native.frames.length === 0; attempts++) await setImmediate();
+			await waitFor(() => native.settlements.length > 0, 'the native display acknowledgement', { turns: 1200, delayMs: 10 });
 			assert.equal(native.frames.length, 1);
 			assert.equal(native.frames[0]?.windowId, 1);
 			assert.equal(native.settlements[0]?.outcome, 'result');
