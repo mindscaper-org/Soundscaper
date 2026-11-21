@@ -25,18 +25,14 @@ test('mixed legacy project import keeps a standalone Sun AU recording', async ({
 	await expect(editor).toHaveAttribute('data-clip-count', '2');
 });
 
-
-// Node covers both sibling layouts and genuine prior imports through independent Scape stores.
-for (const caseSibling of [true]) test(`selected legacy data directory keeps independent sibling audio; case-only=${String(caseSibling)}`, async ({ page }, testInfo) => {
-	// Directory admission imports both the legacy document and its sibling audio.
-	test.setTimeout(60_000);
+test('opening a legacy AUP folder imports only its referenced audio', async ({ page }, testInfo) => {
 	const root = testInfo.outputPath('Selected');
 	const blocks = join(root, 'Session_data');
-	const independentDirectory = join(root, caseSibling ? 'SESSION_DATA' : 'Other_data');
+	const independentDirectory = join(root, 'SESSION_DATA');
 	await mkdir(blocks, { recursive: true });
 	try { await mkdir(independentDirectory); }
 	catch (error) {
-		if (caseSibling && error.code === 'EEXIST') test.skip(true, 'The filesystem cannot hold case-distinct sibling directories.');
+		if (error.code === 'EEXIST') test.skip(true, 'The filesystem cannot hold case-distinct sibling directories.');
 		throw error;
 	}
 	const { projectFile, dataFile } = legacyAupFiles('utf-8');
@@ -51,19 +47,20 @@ for (const caseSibling of [true]) test(`selected legacy data directory keeps ind
 		buffer: Buffer.from(await projectFile.arrayBuffer()) });
 	await (await choosing).setFiles(root);
 	await expect(editor.locator('.audio-editor-track-row').filter({ hasText: 'Voix 日本語 🎙' })).toBeVisible();
-	await expect(editor).toHaveAttribute('data-clip-count', '2');
-	await expect(clipByName(editor, independent.name)).toBeVisible();
+	await expect(editor).toHaveAttribute('data-clip-count', '1');
+	await expect(clipByName(editor, independent.name)).toHaveCount(0);
 	const downloaded = page.waitForEvent('download');
 	await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await downloaded));
 	const project = JSON.parse(strFromU8(entries['project.json']));
-	expect(project.clips).toHaveLength(2);
-	expect(project.sources).toHaveLength(2);
-	const recording = project.sources.find(source => source.name === independent.name);
-	expect(recording).toMatchObject({ frameCount: 9600, sampleRate: 48000, channelCount: 1 });
+	expect(project.clips).toHaveLength(1);
+	expect(project.sources).toHaveLength(1);
+	const [recording] = project.sources;
+	expect(recording).toMatchObject({ frameCount: 4800, sampleRate: 48000, channelCount: 1 });
 	const pcm = entries[`audio/${recording.id}.f32c`];
 	expect(pcm).toBeDefined();
 	const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-	expect(view.getUint32(0, true)).toBe(9600);
-	expect(view.getFloat32(4 + 1000 * 4, true)).toBe(independent.buffer.readInt16LE(44 + 1000 * 2) / 32768);
+	expect(view.getUint32(0, true)).toBe(4800);
+	expect(view.getFloat32(4, true)).toBe(0.25);
+	expect(view.getFloat32(8, true)).toBe(-0.25);
 });
