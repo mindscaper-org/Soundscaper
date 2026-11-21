@@ -13,6 +13,7 @@ import {
 	type TimelineAnnotationV11,
 } from '../timeline-annotation.ts';
 import { sampleFrameToBeat } from '../timeline-tempo-inverse.ts';
+import { timelineMarkerGroupId, withTimelineMarkerGroup } from '../timeline-marker-groups.ts';
 import { nonNegativeSafeInteger } from './scalar-guards.ts';
 import {
 	addRationals,
@@ -163,12 +164,14 @@ export function stageTimelineAnnotationClipboardPaste(
 		project as unknown as RuntimeTimelineAnnotationProject,
 	);
 	const expanded = expands ? expandAnnotations(project, authoritative, geometry.insertionSpanBySequenceId) : authoritative;
+	const markerGroupIds = new Map<string, string>();
 	const additions = maps === null ? [] : annotations.map((descriptor) => pastedAnnotation(
 		project,
 		descriptor,
 		maps,
 		geometry,
 		clipboard.sampleRate,
+		markerGroupIds,
 	));
 	const canonical = createTimelineAnnotationsV11([...expanded, ...additions], collectionContext(project));
 	const projected = resolveRuntimeTimelineAnnotationsInDocumentOrder({
@@ -278,18 +281,24 @@ function pastedAnnotation(
 	maps: ValidatedAnnotationPasteMaps,
 	geometry: TimelineAnnotationClipboardPasteGeometry,
 	inputSampleRate: number,
+	markerGroupIds: Map<string, string>,
 ): TimelineAnnotationV11 {
 	const sequenceId = maps.sequenceMap[descriptor.sourceSequenceId];
 	const placementFrame = geometry.placementFrameBySequenceId.get(sequenceId);
 	if (placementFrame === undefined) throw new ReferenceError(`Paste geometry is missing target sequence ${sequenceId}.`);
 	const baseBeat = sampleFrameToBeat(placementFrame, project.tempoMap, project.sampleRate);
+	const id = maps.annotationIds[descriptor.key];
+	const sourceGroupId = timelineMarkerGroupId(descriptor);
+	const groupKey = sourceGroupId === null ? null : JSON.stringify([descriptor.sourceSequenceId, sourceGroupId]);
+	const groupId = groupKey === null ? null : markerGroupIds.get(groupKey) ?? `pasted-marker-group:${id}`;
+	if (groupKey !== null && groupId !== null) markerGroupIds.set(groupKey, groupId);
 	const common = {
-		id: maps.annotationIds[descriptor.key],
+		id,
 		sequenceId,
 		name: descriptor.name,
 		color: descriptor.color,
 		batchId: descriptor.batchId === null ? null : maps.annotationBatchIds[descriptor.batchId],
-		opaqueExtensions: descriptor.opaqueExtensions,
+		opaqueExtensions: groupId === null ? descriptor.opaqueExtensions : withTimelineMarkerGroup(descriptor.opaqueExtensions, groupId),
 	};
 	if (descriptor.kind === 'marker' && descriptor.anchor === 'sample') {
 		return { ...common, kind: descriptor.kind, anchor: descriptor.anchor, positionFrame: scaledOffsetPosition(placementFrame, descriptor.positionOffsetFrame, inputSampleRate, project.sampleRate) };

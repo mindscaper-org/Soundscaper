@@ -3,6 +3,7 @@
 import { applyPreparedTimelineAnnotationAppend } from './timeline-annotation-add-batch.ts';
 import { AUDIO_EDITOR_COORDINATE_MAXIMUM_DENOMINATOR } from '../timeline-coordinate-limits.ts';
 import { isTimelineAnnotationProjectSchema } from '../project-schema-version.ts';
+import { withTimelineMarkerGroup } from '../timeline-marker-groups.ts';
 import {
 	createTimelineAnnotationsV11,
 	type TimelineAnnotationCollectionContext,
@@ -58,6 +59,7 @@ const RUNTIME_HANDLERS = defineTimelineAnnotationCommandHandlers({
 	'timeline-annotation/convert': (project, command) => applyProjectedTimelineAnnotationCommand(project, command),
 	'timeline-annotation/remove-many': (project, command) => applyProjectedTimelineAnnotationCommand(project, command),
 	'timeline-annotation/batch-set': (project, command) => applyProjectedTimelineAnnotationCommand(project, command),
+	'timeline-annotation/group-set': (project, command) => applyProjectedTimelineAnnotationCommand(project, command),
 });
 
 export function createTimelineAnnotationRuntimeHandlers(): Readonly<TimelineAnnotationCommandHandlers> {
@@ -107,7 +109,7 @@ export function applyTimelineAnnotationCommand(
 		commandRecord(command, 'timeline annotation command'),
 		[
 			'type', 'annotation', 'annotationIds', 'changes', 'delta',
-			'annotationId', 'edge', 'coordinate', 'coordinates', 'batchId',
+			'annotationId', 'edge', 'coordinate', 'coordinates', 'batchId', 'groupId',
 		],
 		'timeline annotation command',
 	);
@@ -186,6 +188,19 @@ export function applyTimelineAnnotationCommand(
 				'timeline annotation batch-set command',
 			);
 			setBatch(project, exact.annotationIds, exact.batchId, mutationContext(project, context));
+			return;
+		}
+		case 'timeline-annotation/group-set': {
+			const exact = assertOnlyKeys(candidate, ['type', 'annotationIds', 'groupId'], 'timeline marker group command');
+			const ids = targetIds(project, exact.annotationIds);
+			const groupId = exact.groupId === null ? null : stableId(exact.groupId, 'timeline marker group ID');
+			if (groupId !== null && ids.size < 2) throw new RangeError('At least two markers are required to create a group.');
+			const annotations = annotationCollection(project);
+			const sequenceIds = new Set(annotations.filter(({ id }) => ids.has(id)).map(({ sequenceId }) => sequenceId));
+			if (sequenceIds.size !== 1) throw new RangeError('A marker group must belong to one sequence.');
+			commitCandidate(project, annotations.map(marker => ids.has(marker.id)
+				? { ...marker, opaqueExtensions: withTimelineMarkerGroup(marker.opaqueExtensions, groupId) }
+				: marker), mutationContext(project, context));
 			return;
 		}
 		default:

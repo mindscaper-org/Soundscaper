@@ -11,8 +11,10 @@
  */
 
 import { planLabeledAudioJoinRuns, type JoinableClip } from '../../../labeled-audio-join-plan.ts';
+import { resolveRuntimeTimelineAnnotationProjection, type RuntimeTimelineAnnotationProject } from '../../../runtime-timeline-annotation-projection.ts';
 import { createLocalizedError } from '../../../../i18n/presentation-message.ts'; import {
 	labeledAudioSpanRegions,
+	selectLabeledAudioEditTrackIds,
 	selectLabeledAudioTargets,
 	type LabeledAudioRegion,
 	type LabeledAudioTargets,
@@ -39,7 +41,7 @@ export interface LabeledAudioEditRuntime {
 	readonly [name: string]: any;
 }
 
-export type LabeledAudioEditor = (action: LabeledAudioEditAction) => unknown;
+export type LabeledAudioEditor = (action: LabeledAudioEditAction, markerId?: string) => unknown;
 
 /** True for the actions this service owns, so the edit service can hand them over. */
 export function isLabeledAudioEditAction(action: string): action is LabeledAudioEditAction {
@@ -54,9 +56,9 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 		setSessionClipboard, state,
 	} = runtime;
 
-	return function executeLabeledAudioEdit(action: LabeledAudioEditAction): unknown {
+	return function executeLabeledAudioEdit(action: LabeledAudioEditAction, markerId?: string): unknown {
 		try {
-			const targets = resolveTargets();
+			const targets = resolveTargets(markerId);
 			const spans = labeledAudioSpanRegions(targets.regions);
 			if (action === 'labeled-silence') return generateLabeledSilence(spans, targets.trackIds);
 			if (action === 'labeled-disjoin') return disjoinLabeledRegions(spans, targets.trackIds);
@@ -64,7 +66,7 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 			if (action === 'labeled-join') return joinWithinRegions(targets);
 			const publishClipboard = action !== 'labeled-delete' && action !== 'labeled-split-delete'
 				? prepareRegionsClipboard(targets, spans, action !== 'labeled-copy') : null;
-			if (action !== 'labeled-copy') removeRegions(action, targets, spans);
+			if (action !== 'labeled-copy') removeRegions(action, targets, spans, markerId === undefined ? activeSelection()?.startFrame : spans[0]?.startFrame);
 			publishClipboard?.();
 			publishDocumentSnapshot();
 			return undefined;
@@ -75,12 +77,20 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 	};
 
 	/** Resolve the regions and tracks, refusing the edit when there are none. */
-	function resolveTargets(): LabeledAudioTargets {
+	function resolveTargets(markerId?: string): LabeledAudioTargets {
 		const project = getProject();
 		const selectedTrackIds = [
 			...(project?.selection?.trackIds || []),
 			...(state.selectedTrackId ? [state.selectedTrackId] : []),
 		];
+		if (markerId !== undefined) {
+			const marker = (project.timelineAnnotations as RuntimeTimelineAnnotationProject['timelineAnnotations'] | undefined)
+				?.find(item => item.id === markerId && item.sequenceId === project.primarySequenceId);
+			const trackIds = selectLabeledAudioEditTrackIds(project, selectedTrackIds);
+			if (marker?.kind !== 'region' || !trackIds.length) throw createLocalizedError(Error, copy, 'labeledAudioRequired');
+			const region = resolveRuntimeTimelineAnnotationProjection(project, marker);
+			return { regions: [{ startFrame: region.timelineStartFrame, endFrame: region.timelineEndFrame }], trackIds };
+		}
 		const targets = selectLabeledAudioTargets(project, activeSelection(), selectedTrackIds);
 		if (!targets) throw createLocalizedError(Error, copy, 'labeledAudioRequired');
 		return targets;
@@ -109,6 +119,7 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 		action: LabeledAudioEditAction,
 		targets: LabeledAudioTargets,
 		spans: readonly LabeledAudioRegion[],
+		collapseFrame: number | undefined,
 	): void {
 		if (spans.length === 0) throw createLocalizedError(Error, copy, 'labeledAudioRequired');
 		const ripples = action === 'labeled-cut' || action === 'labeled-delete';
@@ -117,16 +128,15 @@ export function createLabeledAudioEditService(runtime: LabeledAudioEditRuntime):
 			trackIds: targets.trackIds,
 			rippleMode: ripples ? 'track' : 'none',
 		});
-		const selection = activeSelection();
-		commit(ripples && selection
+		commit(ripples && collapseFrame !== undefined
 			? {
 				type: 'batch',
 				commands: [
 					...(command.type === 'batch' ? command.commands : [command]),
 					{
 						type: 'selection/set',
-						startFrame: selection.startFrame,
-						endFrame: selection.startFrame,
+						startFrame: collapseFrame,
+						endFrame: collapseFrame,
 						trackIds: targets.trackIds,
 						clipIds: [],
 						frequencyRange: null,

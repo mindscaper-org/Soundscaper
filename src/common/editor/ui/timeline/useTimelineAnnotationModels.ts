@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useMemo } from 'react';
+import { expandTimelineMarkerGroups } from '../../timeline-marker-groups.ts';
 import { createTimelineAnnotationUiModel, type TimelineAnnotationUiModelInput } from './timeline-annotation-ui-model.ts';
 
 /** Timing labels and annotation order do not depend on selection or keyboard focus. */
@@ -12,7 +13,7 @@ export function useTimelineAnnotationModels(input: TimelineAnnotationUiModelInpu
 	const projected = useMemo(() => prepared.rows.map(row => row.annotation), [prepared]);
 	const model = useMemo(() => {
 		if (!Array.isArray(selectedAnnotationIds)) throw new TypeError('Selected annotation IDs must be an array.');
-		const selectedSet = new Set(selectedAnnotationIds.map(id => canonicalId(id, 'Selected annotation ID')));
+		const selectedSet = new Set(expandTimelineMarkerGroups(projected, selectedAnnotationIds.map(id => canonicalId(id, 'Selected annotation ID'))));
 		const requestedFocus = focusedAnnotationId === null ? null : canonicalId(focusedAnnotationId, 'Focused annotation ID');
 		const selectedIds = Object.freeze(prepared.rows.filter(row => selectedSet.has(row.id)).map(row => row.id));
 		const focusedId = requestedFocus !== null && byId.has(requestedFocus)
@@ -23,7 +24,7 @@ export function useTimelineAnnotationModels(input: TimelineAnnotationUiModelInpu
 			return selected === row.selected && focused === row.focused ? row : Object.freeze({ ...row, selected, focused });
 		}));
 		return Object.freeze({ rows, selectedIds, focusedId });
-	}, [byId, focusedAnnotationId, prepared, selectedAnnotationIds]);
+	}, [byId, focusedAnnotationId, prepared, projected, selectedAnnotationIds]);
 	return { model, projected };
 }
 

@@ -2,6 +2,7 @@
 
 import { canJoinClips as canJoinLegacyClips } from './clip-link-runtime.js';
 import { normalizeFrameRange } from '../project.js';
+import { resolveTimelineMarkerGroupTargets } from '../timeline-marker-groups.ts';
 import { clipOwnerIndex, expandRelatedClipIds } from './editing-work-index.ts';
 
 export interface EditingAuthorityClip {
@@ -25,11 +26,14 @@ export interface EditingAuthoritySelection {
 	readonly endFrame?: unknown;
 	readonly clipIds?: readonly unknown[];
 	readonly trackIds?: readonly unknown[];
+	readonly annotationIds?: readonly string[];
 }
 
 export interface EditingAuthorityProject {
 	readonly clips: readonly EditingAuthorityClip[];
 	readonly tracks: readonly EditingAuthorityTrack[];
+	readonly primarySequenceId?: string;
+	readonly timelineAnnotations?: readonly object[];
 	readonly selection?: EditingAuthoritySelection | null;
 }
 
@@ -64,6 +68,7 @@ export interface EditingActionAvailability extends EditingSelectionAuthority {
 	readonly join: boolean;
 	readonly group: boolean;
 	readonly ungroup: boolean;
+	readonly markerIds: readonly string[];
 }
 
 type LegacyJoinPreflight = (
@@ -136,12 +141,14 @@ export function resolveEditingActionAvailability(
 		|| splitTracks.some((track) => track.clipIds.length > 0);
 	// Native image/still/generator leaves deliberately have no editable groupId.
 	const groupingSupported = authority.clips.every(({ kind }) => kind === undefined || kind === 'audio' || kind === 'video');
+	const markers = resolveTimelineMarkerGroupTargets(authority.project);
 	return Object.freeze({
 		...authority,
 		split,
 		join: Boolean(authority.project && canJoinClips(authority.project, authority.clipIds)),
-		group: groupingSupported && authority.clipIds.length > 1,
-		ungroup: authority.clips.some((clip) => typeof clip.groupId === 'string' && clip.groupId.length > 0),
+		group: markers.ids.length ? markers.group : groupingSupported && authority.clipIds.length > 1,
+		ungroup: markers.ids.length ? markers.ungroup : authority.clips.some((clip) => typeof clip.groupId === 'string' && clip.groupId.length > 0),
+		markerIds: markers.ids,
 	});
 }
 

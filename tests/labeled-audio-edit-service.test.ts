@@ -114,6 +114,20 @@ test('cut copies the labelled regions and then closes the gap they leave', () =>
 	assert.deepEqual(command.options.trackIds, ['audio-1']);
 });
 
+test('a marker menu edits only the requested range, independent of selected labels', () => {
+	const fixture = runtime();
+	const marker = { id: 'range', sequenceId: 'main', kind: 'region', anchor: 'sample', startFrame: 2_500, endFrame: 3_500 };
+	const document = { ...fixture.document, sampleRate: 48_000, primarySequenceId: 'main',
+		sequences: [{ id: 'main' }], timelineAnnotations: [marker],
+		tempoMap: { mode: 'musical', events: [{ beat: { num: 0, den: 1 }, bpm: { num: 120, den: 1 } }] } };
+	const edit = createLabeledAudioEditService({ ...fixture.runtime, getProject: () => document });
+	edit('labeled-cut', 'range');
+	assert.deepEqual(fixture.recorded.errors, []);
+	const commit = fixture.recorded.commits[0] as { commands: readonly [unknown, { startFrame: number }] };
+	assert.deepEqual(deleteCommand(commit).options.ranges, [{ startFrame: 2_500, endFrame: 3_500 }]);
+	assert.equal(commit.commands[1].startFrame, 2_500);
+});
+
 test('cut and leave gap keeps the timeline in place, and copy never removes anything', () => {
 	const gapped = runtime();
 	createLabeledAudioEditService(gapped.runtime)('labeled-split-cut');

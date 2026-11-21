@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { useCallback, useEffect, useRef } from 'react';
+import { resolveSelectionRange } from '../../selection-range.ts';
 
 import { usePresentationFeedback } from '../presentation-feedback.ts'; import { timelineAnnotationCreationMessage } from './timeline-annotation-presentation.ts'; import { timelineAnnotationCreationAnnouncement } from './timeline-annotation-ui-model.ts';
 
@@ -18,6 +19,11 @@ export function useTimelineAnnotationCreateFeedback({ controller, copy, locale, 
 	useEffect(() => () => globalThis.clearTimeout(announcementTimerRef.current), []);
 	const createAnnotation = useCallback((kind, focusCreated) => {
 		const annotationId = run(() => {
+			if (kind === 'auto') {
+				const project = controller.getSnapshot().project;
+				const range = resolveSelectionRange(project) ?? project?.selection;
+				kind = range?.endFrame > range?.startFrame ? 'region' : 'marker';
+			}
 			if (kind !== 'marker' && kind !== 'region') throw new RangeError('Annotation creation kind must be marker or region.');
 			return kind === 'marker'
 				? controller.actions.timelineAnnotations.createMarkerAtPlayhead()

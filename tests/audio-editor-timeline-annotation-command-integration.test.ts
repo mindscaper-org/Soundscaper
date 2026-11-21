@@ -14,6 +14,8 @@ import {
 	createUpdateTimelineAnnotationsCommand,
 } from '../src/common/editor/commands.js';
 import { createCurrentAudioEditorProject } from '../src/common/editor/project-current.ts';
+import { createClipboardDescriptor, preparePasteCommand } from '../src/common/editor/commands/clipboard-runtime.js';
+import { timelineMarkerGroupId } from '../src/common/editor/timeline-marker-groups.ts';
 import { PROJECT_OWNED_FEATURE_REQUIREMENT_IDS } from '../src/common/editor/project-owned-feature-requirements.ts';
 import type { TimelineAnnotationV11 } from '../src/common/editor/timeline-annotation.ts';
 import { resolveRuntimeProjectProjection } from '../src/common/editor/runtime-clip-projection.ts';
@@ -25,6 +27,22 @@ import {
 } from '../src/common/editor/history.js';
 
 const NOW = '2026-08-09T18:00:00.000Z';
+
+test('pasted markers keep their relationship with a fresh group identity', () => {
+	const annotationIds = ['sample-marker', 'sample-region'];
+	const project = applyEditorCommand(fixtureProject(), {
+		type: 'timeline-annotation/group-set', annotationIds, groupId: 'original-marker-group',
+	}, { now: NOW });
+	const clipboard = createClipboardDescriptor(project, { startFrame: 0, endFrame: 50, annotationIds });
+	assert.ok(clipboard);
+	let serial = 0;
+	const paste = preparePasteCommand(clipboard, { project, atFrame: 100 }, prefix => `${prefix}-${++serial}`);
+	const pasted = applyEditorCommand(project, paste, { now: NOW }).timelineAnnotations.slice(project.timelineAnnotations.length);
+	const [markerGroup, regionGroup] = pasted.filter(value => value.name === 'sample-marker' || value.name === 'sample-region').map(timelineMarkerGroupId);
+	assert.ok(markerGroup);
+	assert.equal(regionGroup, markerGroup);
+	assert.notEqual(markerGroup, 'original-marker-group');
+});
 
 test('the global runtime applies all seven current annotation commands without leaking transients', () => {
 	let project = fixtureProject();

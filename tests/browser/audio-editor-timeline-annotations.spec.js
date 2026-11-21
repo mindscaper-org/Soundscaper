@@ -69,17 +69,17 @@ test.describe('native timeline annotations', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [toneA]);
 		await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-		const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-		await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+		const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+		await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 
 		let rows = panel.locator('li');
 		await expect(rows).toHaveCount(1);
-		let marker = rows.nth(0).locator('[data-timeline-annotation]');
+		const marker = rows.nth(0).getByRole('button', { name: /Marker/u });
 		await marker.press('Enter');
-		let markerEditor = rows.nth(0).getByRole('group', { name: 'Edit annotation', exact: true });
+		const markerEditor = rows.nth(0).getByRole('group', { name: 'Edit marker', exact: true });
 		await markerEditor.getByRole('textbox', { name: 'Name', exact: true }).fill('Slate');
-		await markerEditor.getByRole('textbox', { name: 'Name', exact: true }).press('Enter');
-		markerEditor = rows.nth(0).getByRole('group', { name: 'Edit annotation', exact: true });
+		await markerEditor.getByRole('textbox', { name: 'Name', exact: true }).press('Tab');
+		await expect(markerEditor.getByRole('combobox', { name: 'Color', exact: true })).toBeFocused();
 		await markerEditor.getByRole('combobox', { name: 'Color', exact: true }).selectOption('blue');
 		await markerEditor.getByRole('combobox', { name: 'Anchor', exact: true }).selectOption('musical');
 
@@ -90,21 +90,28 @@ test.describe('native timeline annotations', () => {
 		await page.mouse.down();
 		await page.mouse.move(rulerBounds.x + 150, rulerBounds.y + 26, { steps: 5 });
 		await page.mouse.up();
-		await expect(panel.getByRole('button', { name: 'Add region from selection', exact: true })).toBeEnabled();
-		await panel.getByRole('button', { name: 'Add region from selection', exact: true }).click();
+		await expect(panel.getByRole('button', { name: '+ New Marker', exact: true })).toBeEnabled();
+		await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 
 		rows = panel.locator('li');
 		await expect(rows).toHaveCount(2);
-		const region = rows.nth(1).locator('[data-timeline-annotation]');
-		await region.press('Enter');
-		const regionEditor = rows.nth(1).getByRole('group', { name: 'Edit annotation', exact: true });
+		const region = rows.nth(1).getByRole('button', { name: /Region/u });
+		await expect(region).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
+		await expect(marker).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(region).toBeFocused();
+		await page.keyboard.press('Enter');
+		const regionEditor = rows.nth(1).getByRole('group', { name: 'Edit marker', exact: true });
 		await regionEditor.getByRole('textbox', { name: 'Name', exact: true }).fill('Verse');
-		await regionEditor.getByRole('textbox', { name: 'Name', exact: true }).press('Enter');
-		marker = rows.nth(0).locator('[data-timeline-annotation]');
-		await marker.click({ modifiers: ['Shift'] });
-		await rows.nth(0).getByRole('button', { name: 'Batch selected annotations', exact: true }).click();
-		await panel.getByRole('button', { name: 'Next annotation', exact: true }).click();
-		await panel.getByRole('button', { name: 'Previous annotation', exact: true }).click();
+		await regionEditor.getByRole('textbox', { name: 'Name', exact: true }).press('Tab');
+		for (const field of ['Color', 'Kind', 'Anchor']) {
+			await expect(regionEditor.getByRole('combobox', { name: field, exact: true })).toBeFocused();
+			await page.keyboard.press('Tab');
+		}
+		await expect(regionEditor.getByRole('group', { name: 'Start sample', exact: true })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(regionEditor.getByRole('group', { name: 'End sample', exact: true })).toBeFocused();
 
 		const exportDialog = await openExportDialog(page, editor);
 		await chooseDropdown(page, exportDialog.locator('[data-export-field="format"]'), 'WAV');
@@ -123,7 +130,7 @@ test.describe('native timeline annotations', () => {
 			timeout: 30_000,
 		});
 		await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 30_000 });
-		const imported = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+		const imported = editor.getByRole('region', { name: 'Markers', exact: true });
 		await expect(imported).toBeVisible();
 		await expect(imported.locator('[data-timeline-annotation]')).toHaveCount(2, { timeout: 30_000 });
 		await expect(imported.getByRole('button', { name: /^Slate.*Marker/u })).toBeVisible();
@@ -159,13 +166,13 @@ test.describe('native timeline annotations', () => {
 		let editor = await bootEditor(page, '/embed/en/');
 		await expect(editor).toHaveAttribute('data-product', 'soundscaper');
 		await expect(editor.locator('.audio-editor-timeline-panel')).toHaveAttribute('data-has-annotations', 'true');
-		await expect(editor.getByRole('region', { name: 'Markers and named regions' })).toHaveCount(0);
+		await expect(editor.getByRole('region', { name: 'Markers' })).toHaveCount(0);
 		await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 		await expect(editor.locator('[data-workspace-panel="markers"]')).toBeVisible();
-		const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+		const panel = editor.getByRole('region', { name: 'Markers', exact: true });
 		await expect(panel).toBeVisible();
-		await expect(panel).toContainText('Shift+M: marker, or region when time is selected');
-		await expect(panel.getByText('The primary sequence has no markers or regions yet.', { exact: true })).toBeVisible();
+		await expect(panel.getByText('No markers yet.', { exact: true })).toBeVisible();
+		await expect(panel.getByRole('button')).toHaveCount(1);
 		// The ruler lane stays absent until Show markers is enabled, from either
 		// the Add Track flyout or the View menu.
 		const laneActions = editor.locator('[data-timeline-annotation-create-actions]');
@@ -177,7 +184,9 @@ test.describe('native timeline annotations', () => {
 		await expect(laneActions).toBeVisible();
 
 		await importFiles(editor, [toneA]);
-		await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+		const addMarker = laneActions.getByRole('button', { name: '+ Marker', exact: true });
+		await expect(laneActions.getByRole('button')).toHaveCount(1);
+		await addMarker.click();
 		let layer = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true });
 		await expect(layer).toBeVisible();
 		await expect(layer).toHaveAttribute('aria-multiselectable', 'true');
@@ -188,7 +197,7 @@ test.describe('native timeline annotations', () => {
 		await expect(marker).toHaveAttribute('aria-selected', 'true');
 		await expect(marker).toHaveAttribute('aria-posinset', '1');
 		await expect(marker).toHaveAttribute('aria-setsize', '1');
-		await expect(panel.locator('[data-timeline-annotation]').first()).toBeFocused();
+		await expect(marker).toBeFocused();
 
 		// The docked panel announces its own creations; the ruler lane keeps the
 		// announcement region that its keyboard shortcuts feed.
@@ -199,31 +208,33 @@ test.describe('native timeline annotations', () => {
 			await expect(status).toHaveAttribute('aria-live', 'polite');
 			await expect(status).toHaveAttribute('aria-atomic', 'true');
 		}
-		await expect(panelCreationStatus).toHaveText(/Created Marker: Unnamed annotation, \d+\.\d{3} s/u);
+		await expect(creationStatus).toHaveText(/Created Marker: Unnamed annotation, \d+\.\d{3} s/u);
 
 		await marker.focus();
-		await marker.press('Enter');
+		await marker.press('Shift+F10');
+		const pointMenu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Edit marker', exact: true }) });
+		await expect(pointMenu.getByRole('menuitem')).toHaveCount(2);
+		await expect(pointMenu.getByRole('menuitem', { name: 'Delete marker', exact: true })).toBeVisible();
+		await pointMenu.getByRole('menuitem', { name: 'Edit marker', exact: true }).click();
 		const rename = editor.locator('.audio-editor-timeline-annotation__rename--overlay');
 		await expect(rename).toBeFocused();
 		await rename.fill('Pointer cue');
 		await rename.press('Enter');
 		await expect(marker).toHaveAttribute('aria-label', /Pointer cue, Marker/u);
 		await expect(marker).toBeFocused();
+		await expect(marker.getByText('Pointer cue', { exact: true })).toBeVisible();
 
 		const ruler = editor.locator('[data-ruler-focus]').first();
 		await ruler.scrollIntoViewIfNeeded();
 		const rulerBounds = await ruler.boundingBox();
 		expect(rulerBounds).not.toBeNull();
+		await page.mouse.click(rulerBounds.x + 360, rulerBounds.y + 50);
+		await expect(editor.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
 		await page.mouse.move(rulerBounds.x + 35, rulerBounds.y + 24);
 		await page.mouse.down();
 		await page.mouse.move(rulerBounds.x + 145, rulerBounds.y + 24, { steps: 5 });
 		await page.mouse.up();
-		await expect(panel.getByRole('button', { name: 'Add region from selection', exact: true })).toBeEnabled();
-
-		await ruler.focus();
-		// The same chord makes a region here because the drag above left a time
-		// selection; without one it would write a point marker.
-		await ruler.press('Shift+M');
+		await addMarker.click();
 		options = layer.getByRole('option');
 		await expect(options).toHaveCount(2);
 		const region = options.nth(1);
@@ -260,6 +271,27 @@ test.describe('native timeline annotations', () => {
 		await marker.click({ modifiers: ['Shift'] });
 		await expect(marker).toHaveAttribute('aria-selected', 'true');
 		await expect(region).toHaveAttribute('aria-selected', 'true');
+		await marker.press('Control+g');
+		await region.click();
+		await expect(marker).toHaveAttribute('aria-selected', 'true');
+		const groupedPoint = await marker.getAttribute('aria-label');
+		await region.press('Control+ArrowRight');
+		await expect(marker).not.toHaveAttribute('aria-label', groupedPoint);
+		await region.press('Control+Shift+g');
+		await region.click();
+		await expect(marker).toHaveAttribute('aria-selected', 'false');
+
+		await marker.click();
+		await region.click({ button: 'right' });
+		await expect(marker).toHaveAttribute('aria-selected', 'true');
+		const rangeMenu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Edit marker', exact: true }) });
+		await expect(rangeMenu.getByRole('menuitem')).toHaveCount(4);
+		await rangeMenu.getByRole('menuitem', { name: /^Labeled audio/u }).hover();
+		await expect(page.getByRole('menuitem', { name: 'Copy', exact: true })).toBeVisible();
+		await rangeMenu.getByRole('menuitem', { name: 'Export range', exact: true }).click();
+		const rangeExport = page.getByRole('dialog', { name: 'Export audio', exact: true });
+		await expect(rangeExport.getByRole('button', { name: 'Output: Current selection', exact: true })).toBeVisible();
+		await closeDialog(rangeExport);
 		// The View command removes and restores both the controls and their lane.
 		await chooseCommandAction(page, editor, 'View', 'Markers');
 		await expect(laneActions).toHaveCount(0);
@@ -267,19 +299,14 @@ test.describe('native timeline annotations', () => {
 		await chooseCommandAction(page, editor, 'View', 'Markers');
 		await expect(laneActions).toBeVisible();
 
-		const laneStatus = editor.locator('[data-timeline-annotation-create-actions] + [role="status"]');
-		await laneActions.getByRole('button', { name: 'Batch selected annotations', exact: true }).click();
-		await expect(laneStatus).toHaveText('Batched 2 annotation(s)');
-		await laneActions.getByRole('button', { name: 'Remove selected annotations from batch', exact: true }).click();
-		await expect(laneStatus).toHaveText('Removed 2 annotation(s) from batch');
 		await expect(editor.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 		await assertNoSeriousAxeViolations(page, '[data-timeline-annotation-panel]');
 		await assertNoSeriousAxeViolations(page, '[data-timeline-annotation-layer]');
 
 		if (browserName === 'chromium') {
 			await page.emulateMedia({ forcedColors: 'active' });
-			await expect(region).toHaveCSS('forced-color-adjust', 'none');
-			await expect(region).toHaveCSS('border-top-width', '2px');
+			const banner = region.getByText('Unnamed annotation', { exact: true });
+			await expect(banner).toHaveCSS('color', 'rgb(0, 0, 0)');
 			await page.emulateMedia({ forcedColors: 'none' });
 		}
 
@@ -294,6 +321,9 @@ test.describe('native timeline annotations', () => {
 		await expect(layer.getByRole('option')).toHaveCount(2);
 		await expect(layer.getByRole('option', { name: /Pointer cue, Marker/u })).toBeVisible();
 		await expect(layer.getByRole('option', { name: /Unnamed annotation, Region/u })).toBeVisible();
+		await layer.getByRole('option', { name: /Pointer cue, Marker/u }).click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Delete marker', exact: true }).click();
+		await expect(layer.getByRole('option')).toHaveCount(1);
 		expect(errors).toEqual([]);
 	});
 
@@ -303,13 +333,13 @@ test.describe('native timeline annotations', () => {
 		const origin = await bootEditor(page, '/embed/en/');
 		await importFiles(origin, [toneA]);
 		await chooseNestedCommandAction(page, origin, 'Window', ['Markers']);
-		const originPanel = origin.getByRole('region', { name: 'Markers and named regions', exact: true });
-		await originPanel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+		const originPanel = origin.getByRole('region', { name: 'Markers', exact: true });
+		await originPanel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 		const originMarker = originPanel.locator('[data-timeline-annotation]');
 		await expect(originMarker).toHaveCount(1);
 		await originMarker.focus();
 		await originMarker.press('Enter');
-		const rename = originPanel.getByRole('group', { name: 'Edit annotation', exact: true })
+		const rename = originPanel.getByRole('group', { name: 'Edit marker', exact: true })
 			.getByRole('textbox', { name: 'Name', exact: true });
 		await rename.fill('Cross-product cue');
 		await rename.press('Enter');
@@ -332,7 +362,7 @@ test.describe('native timeline annotations', () => {
 			await expect(framescaper).toHaveAttribute('data-product', 'framescaper');
 			await expect(framescaper).toHaveAttribute('data-project-id', /^opaque-project-/u);
 			await expect(framescaper).toHaveAttribute('data-edit-block-reason', 'read-only');
-			await expect(framescaper.getByRole('region', { name: 'Markers and named regions' })).toHaveCount(0);
+			await expect(framescaper.getByRole('region', { name: 'Markers' })).toHaveCount(0);
 			await expect(framescaper.getByRole('listbox', { name: 'Markers and named regions' })).toHaveCount(0);
 			await expect(framesPage.getByRole('dialog', { name: 'Project features unavailable' }))
 				.toHaveCount(0);
@@ -347,7 +377,7 @@ test.describe('native timeline annotations', () => {
 			await expect(home).not.toHaveAttribute('data-edit-block-reason', /.+/u);
 			await expect(home.locator('[data-project-feature-compatibility]')).toHaveCount(0);
 			await chooseNestedCommandAction(homePage, home, 'Window', ['Markers']);
-			const returnedPanel = home.getByRole('region', { name: 'Markers and named regions', exact: true });
+			const returnedPanel = home.getByRole('region', { name: 'Markers', exact: true });
 			await expect(returnedPanel.locator('[data-timeline-annotation]')).toHaveCount(1);
 			await expect(returnedPanel.getByRole('button', { name: /^Cross-product cue.*Marker/u })).toBeVisible();
 			expect(homeErrors).toEqual([]);
@@ -372,7 +402,7 @@ test.describe('native timeline annotations', () => {
 						<div class="audio-editor-ruler-corner" style="width:160px">
 							<span>Tracks</span><button class="button">Add track</button>
 							<div class="audio-editor-timeline-annotation-lane-actions" data-actions>
-								<button>+M</button><button>+R</button><button>B</button><button>⇧B</button>
+								<button>+ Marker</button>
 							</div>
 						</div>
 						<div class="audio-editor-ruler-viewport" data-viewport style="width:500px">

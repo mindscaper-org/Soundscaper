@@ -1,6 +1,7 @@
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import { createTimelineMenuModel } from './timeline-menu-model.js';
 import { TimelineWorkspaceView } from './TimelineWorkspaceView.jsx';
+import { createMarkerRangeExporter } from './TimelineMarkerContextMenu.tsx';
 import { useTimelineHitTesting } from './useTimelineHitTesting.js';
 import { useTimelineInteractionState } from './useTimelineInteractionState.js';
 import { useTimelineMenuActions } from './useTimelineMenuActions.js';
@@ -206,6 +207,7 @@ export default function TimelineController({
 		onExportClip,
 		onUploadClipToFreesound,
 		onRevealProjectBin,
+		onExportMarkerRange: createMarkerRangeExporter(onOpenSurface, snapshot.project?.id),
 		automationControls,
 		automationRuntime,
 	};

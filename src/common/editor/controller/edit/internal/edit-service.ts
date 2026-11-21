@@ -26,7 +26,7 @@ export interface EditServiceRuntime {
 }
 
 type RuntimeValue = EditServiceRuntime[string];
-type EditOptions = Readonly<{ propagateErrors?: boolean; folderId?: string; clipId?: string }>;
+type EditOptions = Readonly<{ propagateErrors?: boolean; folderId?: string; clipId?: string; markerId?: string }>;
 export type HandleEditorEdit = (action: string, options?: EditOptions) => RuntimeValue;
 
 // foundation-edit-matrix: duplicate
@@ -106,7 +106,7 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 
 	function handleEdit(action: string, options: EditOptions = {}) {
 		if (!state.history || editingBlocked(action === 'copy')) return;
-		if (isLabeledAudioEditAction(action)) return executeLabeledAudioEdit(action);
+		if (isLabeledAudioEditAction(action)) return executeLabeledAudioEdit(action, options.markerId);
 		try {
 			if (action === 'undo') return travel(undoEditorCommand);
 			if (action === 'redo') return travel(redoEditorCommand);
@@ -303,6 +303,11 @@ export function createEditorEditService(runtime: EditServiceRuntime): HandleEdit
 					focusedClipId: state.selectedClipId,
 					focusedTrackId: state.selectedTrackId,
 				});
+				if (action !== 'join' && availability.markerIds.length) {
+					if (availability[action]) commit({ type: 'timeline-annotation/group-set', annotationIds: availability.markerIds,
+						groupId: action === 'group' ? createStableId('marker-group') : null });
+					return;
+				}
 				if (action === 'join' && availability.join) {
 					commit(
 						{ type: 'clip/join', clipIds: availability.clipIds },

@@ -20,6 +20,15 @@ import { createTimelineAnnotationViewportIndex } from './timeline-annotation-vie
 import { useTimelinePointerFrame } from './useTimelinePointerFrame.ts';
 import { planTimelineAnnotationMove } from './timeline-annotation-move-preview.ts';
 import { editorProjectEditSessionKey } from '../project-edit-session-key.ts';
+import { TimelineLabelChrome } from './TimelineLabelChrome.jsx';
+import { getLabelMetrics } from './label-design-geometry.ts';
+import { pointLabelWidth } from './label-layout-preparation.ts';
+import { useTimelineLabelFontRevision } from './useTimelineLabelFontRevision.ts';
+import { isContextMenuKey } from './context-menu-keyboard.ts';
+import { TimelineMarkerContextMenu } from './TimelineMarkerContextMenu.tsx';
+
+const MARKER_METRICS = getLabelMetrics();
+const MARKER_NAME_MARGIN = MARKER_METRICS.maxPointWidth + MARKER_METRICS.earWidth + MARKER_METRICS.pointFlagGap;
 
 export function TimelineAnnotationLayer(props) {
 	return <TimelineAnnotationLayerSession key={editorProjectEditSessionKey(props.controller, props.project?.id)} {...props} />;
@@ -39,6 +48,8 @@ function TimelineAnnotationLayerSession({
 	blocked,
 	run,
 	createAnnotation,
+	onExportRange,
+	canEditAudio = false,
 }) {
 	// The lane overlays the ruler, which draws time zero CLIP_CONTENT_OFFSET
 	// pixels in from the viewport edge; shifting the lane's scroll origin by the
@@ -61,8 +72,12 @@ function TimelineAnnotationLayerSession({
 		handleRenameBlur,
 		handleRenameKeyDown,
 		itemRefs,
+		markerMenu,
+		openMarkerMenu,
+		closeMarkerMenu,
 		model,
 		projected,
+		remove,
 		select,
 		setDraftName,
 		setStatus,
@@ -86,16 +101,20 @@ function TimelineAnnotationLayerSession({
 	const rowById = React.useMemo(() => new Map(model.rows.map((row) => [row.id, row])), [model.rows]);
 	const ordinalById = React.useMemo(() => new Map(projected.map((annotation, index) => [annotation.id, index])), [projected]);
 	const viewportIndex = React.useMemo(() => projected.length > 128 ? createTimelineAnnotationViewportIndex(projected) : null, [projected]);
+	useTimelineLabelFontRevision();
 	const visibleRows = React.useMemo(() => {
-		if (viewportIndex) return viewportIndex.query(pixelsPerSecond, sampleRate, laneScrollX, viewportWidth, [model.focusedId, editingId])
+		const from = laneScrollX - MARKER_NAME_MARGIN;
+		const width = viewportWidth + MARKER_NAME_MARGIN;
+		if (viewportIndex) return viewportIndex.query(pixelsPerSecond, sampleRate, from, width, [model.focusedId, editingId, markerMenu?.id])
 			.map(annotation => ({ row: rowById.get(annotation.id), index: ordinalById.get(annotation.id) }));
 		const visible = [];
 		for (let index = 0; index < model.rows.length; index++) {
 			const row = model.rows[index];
-			if (row.focused || row.id === editingId || timelineAnnotationIsVisible(row.annotation, pixelsPerSecond, sampleRate, laneScrollX, viewportWidth)) visible.push({ row, index });
+			if (row.focused || row.id === editingId || row.id === markerMenu?.id || timelineAnnotationIsVisible(row.annotation, pixelsPerSecond, sampleRate, from, width)) visible.push({ row, index });
 		}
 		return visible;
-	}, [editingId, laneScrollX, model.focusedId, model.rows, ordinalById, pixelsPerSecond, rowById, sampleRate, viewportIndex, viewportWidth]);
+	}, [editingId, laneScrollX, markerMenu?.id, model.focusedId, model.rows, ordinalById, pixelsPerSecond, rowById, sampleRate, viewportIndex, viewportWidth]);
+	const menuAnnotation = markerMenu ? rowById.get(markerMenu.id)?.annotation : null;
 	const editingRow = editingId ? rowById.get(editingId) : null;
 	const editingLeft = editingRow
 		? editingRow.annotation.timelineStartFrame / sampleRate * pixelsPerSecond - laneScrollX
@@ -105,7 +124,11 @@ function TimelineAnnotationLayerSession({
 		: 2;
 	const pointerDown = (event, eventRow) => {
 		if (blocked || event.button !== 0 || event.isPrimary === false || dragRef.current || event.target.closest?.('input')) return;
-		const edge = timelineAnnotationPointerEdge(event.target.dataset?.annotationEdge);
+		const handle = event.target.closest?.('[data-annotation-edge], [data-label-ear], [data-label-stalk]');
+		const side = handle?.dataset.labelEar ?? handle?.dataset.labelStalk;
+		const edge = eventRow.annotation.kind === 'region'
+			? timelineAnnotationPointerEdge(handle?.dataset.annotationEdge ?? (side === 'left' ? 'start' : side === 'right' ? 'end' : null))
+			: null;
 		let row = eventRow;
 		if (!event.shiftKey && !event.metaKey && !event.ctrlKey) {
 			const bounds = layerRef.current?.getBoundingClientRect();
@@ -239,6 +262,9 @@ function TimelineAnnotationLayerSession({
 			aria-disabled={blocked}
 			tabIndex={model.rows.length && !visibleRows.some(({ row }) => row.focused) ? 0 : -1}
 			style={{ width: viewportWidth }}
+			onClick={(event) => event.stopPropagation()}
+			onDoubleClick={(event) => event.stopPropagation()}
+			onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
 		>
 			{visibleRows.map(({ row, index }) => {
 				const annotation = row.annotation;
@@ -251,7 +277,9 @@ function TimelineAnnotationLayerSession({
 					? Math.max(annotation.timelineStartFrame + 1, annotation.timelineEndFrame + resizing.deltaFrames)
 					: moved?.endFrame ?? annotation.timelineEndFrame;
 				const left = startFrame / sampleRate * pixelsPerSecond - laneScrollX;
-				const width = annotation.kind === 'region'
+				const point = annotation.kind === 'marker';
+				const name = annotation.name || copy.unnamedTimelineAnnotation;
+				const width = !point
 					? timelineAnnotationRegionWidth(endFrame - startFrame, pixelsPerSecond, sampleRate)
 					: 2;
 				return (
@@ -279,21 +307,30 @@ function TimelineAnnotationLayerSession({
 								: row;
 							if (!blocked) beginRename(target?.annotation || annotation);
 						}}
-						onKeyDown={(event) => handleKeyDown(event, row, index)}
+						onContextMenu={(event) => openMarkerMenu(event, annotation)}
+						onKeyDown={(event) => {
+							if (isContextMenuKey(event)) openMarkerMenu(event, annotation, true);
+							else handleKeyDown(event, row, index);
+						}}
 						onPointerDown={(event) => pointerDown(event, row)}
 						onPointerMove={pointerMove}
 						onPointerUp={pointerUp}
 						onPointerCancel={(event) => pointerUp(event, true)}
 					>
-						{annotation.kind === 'region' && <span className="audio-editor-timeline-annotation__handle" data-annotation-edge="start" aria-hidden="true" />}
-						{annotation.kind === 'region' && <span className="audio-editor-timeline-annotation__name" aria-hidden="true">
-							{annotation.name || copy.unnamedTimelineAnnotation}
-						</span>}
-						{annotation.kind === 'region' && <span className="audio-editor-timeline-annotation__handle" data-annotation-edge="end" aria-hidden="true" />}
+						<TimelineLabelChrome text={name} point={point} width={point ? pointLabelWidth(name, MARKER_METRICS) : width}
+							stalkHeight={27} metrics={MARKER_METRICS} trackColor={annotation.color} selected={row.selected} />
+						{!point && <span className="audio-editor-timeline-annotation__handle" data-annotation-edge="start" aria-hidden="true" />}
+						{!point && <span className="audio-editor-timeline-annotation__handle" data-annotation-edge="end" aria-hidden="true" />}
 					</div>
 				);
 			})}
 		</div>
+		{menuAnnotation && <TimelineMarkerContextMenu position={markerMenu} copy={copy} blocked={blocked}
+			range={menuAnnotation.kind === 'region'} canEditAudio={canEditAudio}
+			onEdit={() => beginRename(menuAnnotation)} onDelete={() => remove(menuAnnotation, undefined, true)}
+			onExport={onExportRange && (() => onExportRange(menuAnnotation))}
+			onAudioEdit={(action) => run(() => controller.actions.edit[action](menuAnnotation.id))}
+			onClose={closeMarkerMenu} />}
 		{editingRow && <input
 			className="audio-editor-timeline-annotation__rename audio-editor-timeline-annotation__rename--overlay"
 			data-timeline-annotation-interactive

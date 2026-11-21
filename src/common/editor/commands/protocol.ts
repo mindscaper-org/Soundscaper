@@ -59,6 +59,7 @@ export const AUDIO_EDITOR_COMMAND_TYPES = [
 	'timeline-annotation/convert',
 	'timeline-annotation/remove-many',
 	'timeline-annotation/batch-set',
+	'timeline-annotation/group-set',
 	'time-display/set',
 	'metadata/update',
 	'source/add',
@@ -199,6 +200,10 @@ type LegacyNonBatchAudioEditorCommandPayloads = {
 	readonly 'timeline-annotation/batch-set': {
 		readonly annotationIds: readonly string[];
 		readonly batchId: string | null;
+	};
+	readonly 'timeline-annotation/group-set': {
+		readonly annotationIds: readonly string[];
+		readonly groupId: string | null;
 	};
 	readonly 'time-display/set': { readonly format: string };
 	readonly 'metadata/update': { readonly changes: CommandObject };

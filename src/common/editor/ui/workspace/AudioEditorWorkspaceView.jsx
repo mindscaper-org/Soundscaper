@@ -149,6 +149,7 @@ export default function AudioEditorWorkspaceView({ model }) {
 		showArmControls,
 		displayAudioSupported,
 		onOpenEffects: openEffects,
+		openSurface,
 		onRoutingGraphGesture,
 		onRoutingParameterGesture,
 		effectsPanelTarget,

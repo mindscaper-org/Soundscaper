@@ -3,6 +3,7 @@
 import { selectAudioEditorEditBlock } from '../edit-blocking.ts';
 import { TimelineAnnotationPanel } from '../timeline/TimelineAnnotationPanel.jsx';
 import { useTimelineAnnotationCreateFeedback } from '../timeline/useTimelineAnnotationCreateFeedback.js';
+import { createMarkerRangeExporter, type OpenMarkerRangeExport } from '../timeline/TimelineMarkerContextMenu.tsx';
 
 interface TimelineAnnotationWorkspacePanelProps {
 	readonly controller: unknown;
@@ -10,6 +11,7 @@ interface TimelineAnnotationWorkspacePanelProps {
 	readonly copy: Readonly<Record<string, string>>;
 	readonly locale: string;
 	readonly run: (action: () => unknown) => unknown;
+	readonly openSurface?: OpenMarkerRangeExport;
 }
 
 /**
@@ -23,8 +25,10 @@ export default function TimelineAnnotationWorkspacePanel({
 	copy,
 	locale,
 	run,
+	openSurface,
 }: TimelineAnnotationWorkspacePanelProps) {
-	const project = snapshot.project as { sampleRate?: number } | null | undefined;
+	const project = snapshot.project as { id?: string; sampleRate?: number } | null | undefined;
+	const projectId = project?.id;
 	const sampleRate = project?.sampleRate || 48_000;
 	const { createAnnotation, status } = useTimelineAnnotationCreateFeedback({
 		controller, copy, locale, sampleRate, run,
@@ -43,6 +47,8 @@ export default function TimelineAnnotationWorkspacePanel({
 				blocked={selectAudioEditorEditBlock(snapshot).blocked}
 				run={run}
 				createAnnotation={createAnnotation}
+				canEditAudio={snapshot.productId === 'soundscaper'}
+				onExportRange={createMarkerRangeExporter(openSurface, projectId)}
 			/>
 			<span
 				className="kw-audio-editor-sr-only"

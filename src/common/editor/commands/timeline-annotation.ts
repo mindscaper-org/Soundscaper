@@ -24,6 +24,7 @@ export const TIMELINE_ANNOTATION_COMMAND_TYPES = [
 	'timeline-annotation/convert',
 	'timeline-annotation/remove-many',
 	'timeline-annotation/batch-set',
+	'timeline-annotation/group-set',
 ] as const satisfies readonly AudioEditorCommandType[];
 
 export type TimelineAnnotationCommandType = typeof TIMELINE_ANNOTATION_COMMAND_TYPES[number];

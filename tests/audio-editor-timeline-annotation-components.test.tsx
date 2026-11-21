@@ -6,15 +6,9 @@ import React, { type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import { TimelineAnnotationLayer } from '../src/common/editor/ui/timeline/TimelineAnnotationLayer.jsx';
-import {
-	primarySequenceSelectionIds,
-	TimelineAnnotationLaneActions,
-} from '../src/common/editor/ui/timeline/TimelineAnnotationLaneActions.jsx';
+import { TimelineAnnotationLaneActions } from '../src/common/editor/ui/timeline/TimelineAnnotationLaneActions.tsx';
 import { completeTimelineAnnotationCreation } from '../src/common/editor/ui/timeline/useTimelineAnnotationCreateFeedback.js';
-import {
-	completeTimelineAnnotationNavigation,
-	TimelineAnnotationPanel,
-} from '../src/common/editor/ui/timeline/TimelineAnnotationPanel.jsx';
+import { TimelineAnnotationPanel } from '../src/common/editor/ui/timeline/TimelineAnnotationPanel.jsx';
 import {
 	timelineAnnotationCreateKind,
 	timelineAnnotationsAvailable,
@@ -70,60 +64,24 @@ test('timeline annotation layer renders roving multi-selection semantics and res
 	assert.match(markup, /<\/div><span id="[^"]+" class="kw-audio-editor-sr-only" role="status"/u);
 });
 
-test('ruler-corner lane actions expose pointer create and batch parity outside annotation content', () => {
+test('the ruler corner exposes one marker creation button', () => {
 	const markup = render(<TimelineAnnotationLaneActions
-		controller={controllerFixture()}
-		project={projectFixture()}
-		annotations={[REGION]}
 		copy={ENGLISH_COPY}
 		blocked={false}
-		run={(action: () => unknown) => action()}
 		createAnnotation={createAnnotationFixture}
 		focusCreated={() => undefined}
 	/>);
 	const blockedMarkup = render(<TimelineAnnotationLaneActions
-		controller={controllerFixture()}
-		project={projectFixture()}
-		annotations={[REGION]}
 		copy={ENGLISH_COPY}
 		blocked
-		run={(action: () => unknown) => action()}
 		createAnnotation={createAnnotationFixture}
 		focusCreated={() => undefined}
 	/>);
 
 	assert.match(markup, /data-timeline-annotation-create-actions="true"/u);
-	for (const name of [
-		'Add marker at playhead', 'Add region from selection',
-		'Batch selected annotations', 'Remove selected annotations from batch',
-	]) assert.match(markup, new RegExp(`aria-label="${name}"`, 'u'));
-	assert.equal(blockedMarkup.match(/disabled=""/gu)?.length, 4);
-	assert.match(markup, /<\/div><span id="[^"]+" class="kw-audio-editor-sr-only" role="status"/u);
-});
-
-test('ruler-corner batch actions ignore selected annotations outside the primary sequence', () => {
-	const foreign = Object.freeze({ ...REGION, id: 'foreign', sequenceId: 'secondary' });
-	const project = {
-		...projectFixture(),
-		selection: { ...projectFixture().selection, annotationIds: ['verse', 'foreign'] },
-	};
-	const markup = render(<TimelineAnnotationLaneActions
-		controller={controllerFixture()}
-		project={project}
-		annotations={[REGION, foreign]}
-		copy={ENGLISH_COPY}
-		blocked={false}
-		run={(action: () => unknown) => action()}
-		createAnnotation={createAnnotationFixture}
-		focusCreated={() => undefined}
-	/>);
-
-	assert.deepEqual(
-		primarySequenceSelectionIds([REGION, foreign], 'main', ['verse', 'foreign']),
-		['verse'],
-	);
-	assert.match(markup, /aria-label="Batch selected annotations"[^>]*disabled=""/u);
-	assert.doesNotMatch(markup, /aria-label="Remove selected annotations from batch"[^>]*disabled=""/u);
+	assert.match(markup, />\+ Marker<\/button>/u);
+	assert.equal(markup.match(/<button\b/gu)?.length, 1);
+	assert.equal(blockedMarkup.match(/disabled=""/gu)?.length, 1);
 });
 
 test('annotation creation feedback is success-only, announces the created row, then focuses it', () => {
@@ -190,11 +148,11 @@ test('short annotation regions retain two non-overlapping edge hit targets', () 
 
 
 
-test('annotation list exposes equivalent named editing fields and native workflow actions', () => {
+test('the marker list starts collapsed with one creation button and tabbable rows', () => {
 	const markup = render(<TimelineAnnotationPanel
 		controller={controllerFixture()}
 		project={projectFixture()}
-		annotations={[REGION]}
+		annotations={[REGION, marker('Cue', 12_000)]}
 		selectedAnnotationId="verse"
 		copy={ENGLISH_COPY}
 		locale="en"
@@ -205,18 +163,14 @@ test('annotation list exposes equivalent named editing fields and native workflo
 	/>);
 
 	assert.match(markup, /data-timeline-annotation-panel="true"/u);
-	assert.match(markup, />Add marker at playhead</u);
-	assert.match(markup, />Add region from selection</u);
+	assert.match(markup, />\+ New Marker<\/span><\/button>/u);
 	assert.match(markup, /aria-label="Marker and region list"/u);
-	assert.match(markup, /<label><span class="audio-editor-control-label">Start sample<\/span><span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
-	assert.match(markup, /role="group" aria-label="Start sample"/u);
-	assert.match(markup, /<label><span class="audio-editor-control-label">End sample<\/span><span class="audio-editor-timecode-input" data-timecode-input="samples"/u);
-	assert.doesNotMatch(markup, /defaultValue/u);
-	assert.match(markup, />Batch selected annotations</u);
+	assert.equal(markup.match(/aria-expanded="false"/gu)?.length, 2);
+	assert.doesNotMatch(markup, /tabindex="-1"|Previous annotation|Next annotation|Edit marker|Batch selected annotations/u);
 	assert.match(markup, /role="status"/u);
 });
 
-test('blocked annotation surfaces retain roving focus while exposing disabled mutation state', () => {
+test('blocked annotation surfaces remain focusable while exposing disabled mutation state', () => {
 	const layerMarkup = render(<TimelineAnnotationLayer
 		controller={controllerFixture()}
 		project={projectFixture()}
@@ -246,38 +200,11 @@ test('blocked annotation surfaces retain roving focus while exposing disabled mu
 	/>);
 
 	assert.match(layerMarkup, /role="option"[^>]*aria-disabled="true"[^>]*tabindex="0"/u);
-	assert.match(panelMarkup, /class="audio-editor-timeline-annotation-list__item"[^>]*aria-disabled="true"[^>]*tabindex="0"/u);
+	assert.match(panelMarkup, /class="audio-editor-timeline-annotation-list__item"[^>]*aria-disabled="true"/u);
 	assert.doesNotMatch(panelMarkup, /audio-editor-timeline-annotation-list__item"[^>]*\sdisabled=/u);
-	assert.match(panelMarkup, /<label><span class="audio-editor-control-label">Name<\/span><input disabled=""/u);
-	assert.match(panelMarkup, />Previous annotation<\/button>/u);
 });
 
-test('navigation completion focuses, reveals, and announces targets for editable and read-only action results', () => {
-	for (const mode of ['editable', 'read-only']) {
-		const calls: string[] = [];
-		const statuses: string[] = [];
-		const item = {
-			focus: () => calls.push(`${mode}:focus`),
-			scrollIntoView: () => calls.push(`${mode}:scroll`),
-		};
-		const result = completeTimelineAnnotationNavigation(
-			REGION,
-			[{ id: 'verse', timingLabel: '0.500–1.000 s' }],
-			ENGLISH_COPY,
-			new Map([['verse', item]]),
-			(status: string) => statuses.push(status),
-			(callback: () => void) => {
-				callback();
-				return 0;
-			},
-		);
-		assert.equal(result, 'verse');
-		assert.deepEqual(calls, [`${mode}:focus`, `${mode}:scroll`]);
-		assert.deepEqual(statuses, ['Verse, Region, 0.500–1.000 s']);
-	}
-});
-
-test('cap-scale selection renders one editor and keeps visual-lane controls linear', () => {
+test('cap-scale selection keeps editing fields collapsed and visual-lane controls linear', () => {
 	const annotations = Array.from({ length: 4_096 }, (_, index) => marker(`annotation-${index}`, index * 48_000));
 	const annotationIds = annotations.map(({ id }) => id);
 	const project = {
@@ -312,7 +239,7 @@ test('cap-scale selection renders one editor and keeps visual-lane controls line
 		createAnnotation={createAnnotationFixture}
 	/>);
 
-	assert.equal(panelMarkup.match(/audio-editor-timeline-annotation-list__editor"/gu)?.length, 1);
+	assert.doesNotMatch(panelMarkup, /audio-editor-timeline-annotation-list__editor/u);
 	assert.ok((panelMarkup.match(/<(?:button|input|select)\b/gu)?.length || 0) <= 4_110);
 	assert.ok((layerMarkup.match(/role="option"/gu)?.length || 0) <= 3);
 });
@@ -334,10 +261,6 @@ test('one creation shortcut picks its kind from the time selection and leaves M 
 	for (const modifier of ['altKey', 'ctrlKey', 'metaKey']) {
 		assert.equal(timelineAnnotationCreateKind({ ...shiftM, [modifier]: true }, spanning), null, modifier);
 	}
-	assert.equal(
-		ENGLISH_COPY.timelineAnnotationKeyboardHelp.startsWith('Shift+M: marker, or region when time is selected'),
-		true,
-	);
 });
 
 test('the marker list is a dockable workspace panel that stays closed until it is opened', () => {

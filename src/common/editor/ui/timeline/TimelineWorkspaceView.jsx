@@ -10,7 +10,7 @@ import { TimelineRulerCanvas } from './TimelineRulerCanvas.jsx';
 import { TimelineRulerCornerContent } from './TimelineRulerCornerContent.jsx';
 import { TrackHeaderDrawerToggle } from './TrackHeaderDrawerToggle.jsx';
 import { TimelineAnnotationLayer } from './TimelineAnnotationLayer.jsx';
-import { TimelineAnnotationLaneActions } from './TimelineAnnotationLaneActions.jsx';
+import { TimelineAnnotationLaneActions } from './TimelineAnnotationLaneActions.tsx';
 import {
 	focusCreatedTimelineAnnotation,
 	useTimelineAnnotationCreateFeedback,
@@ -146,6 +146,7 @@ export function TimelineWorkspaceView({
 		setFocusedOutputKey,
 		onOpenEffects,
 		onOpenClipProperties,
+		onExportMarkerRange,
 	} = actions;
 	const { displayedLoop } = menuModel;
 	// One resolved scale feeds the ruler canvas and the grid lines behind the
@@ -267,12 +268,8 @@ export function TimelineWorkspaceView({
 								addTrackTabIndex={addTrackTabIndex}
 								onOpenAddTrackFlyout={openAddTrackFlyout}
 								annotationActions={markerLaneVisible && <TimelineAnnotationLaneActions
-									controller={controller}
-									project={project}
-									annotations={snapshot.timelineAnnotations || []}
 									copy={copy}
 									blocked={mutationsBlocked}
-									run={run}
 									createAnnotation={createAnnotation}
 									focusCreated={focusCreatedInLayer}
 								/>}
@@ -293,7 +290,8 @@ export function TimelineWorkspaceView({
 							style={{ left: panelWidth, width: viewportWidth }}
 							onContextMenu={openTimelineRulerMenu}
 							onKeyDown={(event) => {
-								const createKind = markerLaneVisible && event.target === event.currentTarget
+								if (event.target !== event.currentTarget) return;
+								const createKind = markerLaneVisible
 									? timelineAnnotationCreateKind(event, resolveSelectionRange(project) ?? project.selection)
 									: null;
 								if (createKind) {
@@ -339,6 +337,8 @@ export function TimelineWorkspaceView({
 								blocked={mutationsBlocked}
 								run={run}
 								createAnnotation={createAnnotation}
+								canEditAudio={snapshot.productId === 'soundscaper'}
+								onExportRange={onExportMarkerRange}
 							/>}
 							<RulerPlayhead />
 							<div ref={pointerPosition.timeIndicatorRef} className="audio-editor-ruler-pointer-position" data-time-ruler-pointer-position aria-hidden="true" hidden />

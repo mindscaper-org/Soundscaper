@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { TimelineAnnotationCommand } from '../src/common/editor/commands/timeline-annotation.ts';
+import { expandTimelineMarkerGroups, timelineMarkerGroupId } from '../src/common/editor/timeline-marker-groups.ts';
 import {
 	applyTimelineAnnotationCommand,
 	type MutableTimelineAnnotationProject,
@@ -22,6 +23,23 @@ const CONTEXT: TimelineAnnotationCollectionContext = {
 	},
 	sequenceIds: ['main', 'secondary'],
 };
+
+test('marker groups expand by sequence and preserve legacy batch data through group and ungroup', () => {
+	const project = fixtureProject();
+	const annotationIds = ['sample-marker', 'musical-region'];
+	apply(project, { type: 'timeline-annotation/batch-set', annotationIds, batchId: 'import-batch' });
+	assert.deepEqual(expandTimelineMarkerGroups(project.timelineAnnotations, ['sample-marker']), ['sample-marker']);
+	apply(project, { type: 'timeline-annotation/group-set', annotationIds, groupId: 'marker-group-one' });
+	assert.deepEqual(expandTimelineMarkerGroups(project.timelineAnnotations, ['sample-marker']), annotationIds);
+	assert.equal(timelineMarkerGroupId(requireAnnotation(project, 'musical-region')), 'marker-group-one');
+	const before = structuredClone(project.timelineAnnotations);
+	assert.throws(() => apply(project, { type: 'timeline-annotation/group-set',
+		annotationIds: ['sample-marker', 'secondary-marker'], groupId: 'invalid' }), /one sequence/u);
+	assert.deepEqual(project.timelineAnnotations, before);
+	apply(project, { type: 'timeline-annotation/group-set', annotationIds, groupId: null });
+	assert.equal(timelineMarkerGroupId(requireAnnotation(project, 'sample-marker')), null);
+	assert.equal(requireAnnotation(project, 'sample-marker').batchId, 'import-batch');
+});
 
 test('add and update-many preserve document order and update only names and colors', () => {
 	const project = fixtureProject();

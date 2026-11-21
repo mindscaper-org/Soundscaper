@@ -100,6 +100,7 @@ export default function WorkspacePanelContent({
 	showArmControls,
 	displayAudioSupported,
 	onOpenEffects,
+	openSurface = undefined,
 	onRoutingGraphGesture = /** @type {import('./soundscaper-routing-graph-gesture.ts').SoundscaperRoutingGraphGestureHandler | undefined} */ (undefined),
 	onRoutingParameterGesture = /** @type {import('./soundscaper-routing-graph-gesture.ts').SoundscaperRoutingParameterGestureHandler | undefined} */ (undefined),
 	effectsPanelTarget,
@@ -255,6 +256,7 @@ export default function WorkspacePanelContent({
 				copy={copy}
 				locale={locale}
 				run={run}
+				openSurface={openSurface}
 			/>
 		);
 	}

@@ -23,7 +23,7 @@ export const WORKSPACE_PANEL_DOCK_RUNTIME_KEYS = Object.freeze([
 	'controller', 'snapshot', 'runtimeProject', 'productId', 'capabilities', 'copy', 'locale',
 	'fileService', 'confirmFileSizeWarning', 'importRoutedFiles', 'playbackMeterSettings', 'recordingMeterSettings',
 	'onPlaybackMeterSettingsChange', 'onRecordingMeterSettingsChange', 'clippingEnabled', 'run', 'showArmControls',
-	'displayAudioSupported', 'onOpenEffects', 'onRoutingGraphGesture',
+	'displayAudioSupported', 'onOpenEffects', 'openSurface', 'onRoutingGraphGesture',
 	'onRoutingParameterGesture', 'effectsPanelTarget', 'onEffectWindowChange',
 	'draggedPanelId', 'onPanelDragStart', 'onPanelDragEnd', 'onPanelMove',
 	'onTogglePanel', 'projectBinEffectivelyOpen', 'blocked', 'clipPropertiesFocusRequest',

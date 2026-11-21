@@ -116,7 +116,8 @@ export const EDITING_GUIDES = Object.freeze([
 			marker('Chorus', { see: 'The marker shows in the lane above the tracks and in the panel’s list, with the name you typed.' }),
 		],
 		tips: [
-			'With a time range selected, the same button adds a named region instead of a single point.',
+			'**+ Marker** in the lane and **+ New Marker** in the panel create a region when a time range is selected. With the selection collapsed, they place a point marker at the playhead.',
+			'Shift-click to select markers and regions, then press **Ctrl+G** to group them for moving together. Press **Ctrl+Shift+G** to ungroup them.',
 			'**File → Export other → Export labels** writes the markers as a text file that Audacity and other editors can read.',
 		],
 	},

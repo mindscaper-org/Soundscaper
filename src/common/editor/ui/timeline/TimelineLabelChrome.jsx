@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import React from 'react';
 import './timeline-labels.css';
 
 // Upstream LabelItem's ears, stalks and text straps, with host-owned gestures.
@@ -16,8 +17,9 @@ export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, 
 	selected, leftNeighbor, rightNeighbor, leftNeighborSelected, onGesture, onPointerGesture, onSelect, onEdit, editing, children }) {
 	const color = COLORS[trackColor] || (/^#[\da-f]{3,8}$/iu.test(trackColor || '') ? trackColor : COLORS.blue);
 	const bannerLeft = point ? metrics.earWidth + metrics.pointFlagGap : 0;
+	const interactive = Boolean(onGesture);
 	const ear = (side, left) => <div className={`label-marker__${side}-ear`}
-		data-label-ear={side} style={{ left, width: metrics.earWidth, height: metrics.earHeight }} onMouseDown={(event) => onGesture(event, side)}
+		data-label-ear={side} style={{ left, width: metrics.earWidth, height: metrics.earHeight }} onMouseDown={(event) => onGesture?.(event, side)}
 		onPointerDown={(event) => onPointerGesture?.(event, side)}>
 		<svg width={metrics.earWidth} height={metrics.earHeight} viewBox="0 0 7 14" preserveAspectRatio="none" aria-hidden="true">
 			<path d={EAR_PATHS[side]} />
@@ -27,14 +29,14 @@ export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, 
 		data-label-stalk={side} data-shared-boundary={shared ? 'true' : undefined}
 		style={{ left: left - 4, height: stalkHeight, cursor: point && !shared ? 'move' : 'ew-resize' }}
 		onPointerDown={(event) => onPointerGesture?.(event, shared ? `shared-${side}` : point ? 'move-point' : side)}
-		onMouseDown={(event) => onGesture(event, shared ? `shared-${side}` : point ? 'move-point' : side)}>
+		onMouseDown={(event) => onGesture?.(event, shared ? `shared-${side}` : point ? 'move-point' : side)}>
 		<div className="label-marker__stalk-line" />
 	</div>;
 	return <div className={`label-marker audio-editor-upstream-label ${point ? 'label-marker--point' : 'label-marker--region'} ${selected ? 'label-marker--active' : ''}`}
 		style={{ '--label-track-color': color, '--label-font-size': `${metrics.fontSizePx}px`,
 			'--label-banner-height': `${metrics.bannerHeight}px`, '--label-padding': `${metrics.padX}px`,
 			width: point ? 1 : width, height: stalkHeight }}
-		onClick={(event) => { if (!event.target || event.target.closest('[data-label-banner]')) onSelect(event); }}>
+		onClick={interactive ? (event) => { if (!event.target || event.target.closest('[data-label-banner]')) onSelect(event); } : undefined}>
 		{(!leftNeighbor || selected) && ear('left', -metrics.earWidth)}
 		{!(leftNeighbor && !selected && leftNeighborSelected) && stalk('left', 0, Boolean(leftNeighbor))}
 		{point ? ear('right', 1) : (!rightNeighbor || selected) && <>
@@ -42,18 +44,18 @@ export function TimelineLabelChrome({ text, point, width, stalkHeight, metrics, 
 		</>}
 		<div className="label-marker__label-box" data-label-banner
 			style={{ left: bannerLeft, width }}
-			onPointerDown={(event) => {
+			onPointerDown={interactive ? (event) => {
 				if (event.pointerType === 'mouse' || event.button !== 0 || event.isPrimary === false || editing) return;
 				onSelect(event);
 				onPointerGesture?.(event, 'move');
-			}}
-			onMouseDown={(event) => {
+			} : undefined}
+			onMouseDown={interactive ? (event) => {
 				if (event.button !== 0 || editing) return;
 				onSelect(event);
 				if (event.detail < 2 || event.detail === undefined) onGesture(event, 'move');
-			}}
-			onDoubleClick={(event) => { event.stopPropagation(); onEdit(); }}>
-			{editing ? children : <div className="label-marker__label-text">{text}</div>}
+			} : undefined}
+			onDoubleClick={interactive ? (event) => { event.stopPropagation(); onEdit(); } : undefined}>
+			{editing ? children : React.createElement('div', { className: 'label-marker__label-text' }, text)}
 		</div>
 	</div>;
 }

@@ -72,7 +72,7 @@ test('creates a musical region from the selection and a sample marker at the pla
 	assert.equal(fixture.commitCount(), 2);
 });
 
-test('emits the seven annotation command families through existing application ports', () => {
+test('emits annotation edits through existing application ports', () => {
 	const fixture = serviceFixture({ annotations: annotationFixture() });
 
 	fixture.service.renameAnnotations(['sample-marker', 'musical-marker'], 'Renamed');
@@ -80,7 +80,6 @@ test('emits the seven annotation command families through existing application p
 	fixture.service.moveAnnotations(['sample-marker', 'musical-marker'], 12_000, 'sample-marker');
 	fixture.service.resizeAnnotation('musical-region', 'end', 96_000);
 	fixture.service.convertAnnotation('sample-region', { kind: 'region', anchor: 'musical' });
-	fixture.service.setAnnotationBatch(['sample-marker', 'musical-marker'], 'batch-a');
 	fixture.service.removeAnnotations(['sample-region']);
 
 	assert.deepEqual(fixture.commands, [{
@@ -110,18 +109,13 @@ test('emits the seven annotation command families through existing application p
 			endBeat: { num: 1, den: 2 },
 		},
 	}, {
-		type: 'timeline-annotation/batch-set',
-		annotationIds: ['sample-marker', 'musical-marker'],
-		batchId: 'batch-a',
-	}, {
 		type: 'timeline-annotation/remove-many',
 		annotationIds: ['sample-region'],
 	}]);
-	assert.equal(fixture.commitCount(), 7);
+	assert.equal(fixture.commitCount(), 6);
 	assert.deepEqual(annotation(fixture.project(), 'musical-marker'), {
 		...common('musical-marker'),
 		name: 'Renamed',
-		batchId: 'batch-a',
 		kind: 'marker',
 		anchor: 'musical',
 		positionBeat: { num: 5, den: 2 },

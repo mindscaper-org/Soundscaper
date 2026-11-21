@@ -46,7 +46,9 @@ interface AudioEditorTimelineProps {
 	readonly onUploadClipToFreesound?: (clipId: string) => void;
 	readonly onRevealProjectBin?: () => void;
 	readonly onToggleArmControls?: () => void;
-	readonly onOpenSurface?: (surface: string) => void;
+	readonly onOpenSurface?: (surface: string, options?: Readonly<{
+		projectId?: string; range?: Readonly<{ startFrame: number; endFrame: number }>; section?: string;
+	}>) => void;
 	readonly automationRuntime?: Readonly<TrackAutomationRuntime> | null;
 	readonly freezeRuntime?: Readonly<TrackFreezeRuntime> | null;
 	readonly searchRevealRequest?: TimelineSearchRevealRequest | null;

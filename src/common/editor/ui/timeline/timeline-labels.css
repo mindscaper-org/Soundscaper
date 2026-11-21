@@ -1,4 +1,4 @@
-.audio-editor-label-marker .audio-editor-upstream-label {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label {
 	--label-strap: color-mix(in srgb, var(--label-track-color) 50%, white);
 	--label-chrome: var(--label-track-color);
 	position: relative;
@@ -6,12 +6,12 @@
 	touch-action: none;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label.label-marker--active {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label.label-marker--active {
 	--label-strap: color-mix(in srgb, var(--label-track-color) 30%, white);
 	--label-chrome: color-mix(in srgb, var(--label-track-color) 40%, white);
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label .label-marker__label-box {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label .label-marker__label-box {
 	position: absolute;
 	top: 0;
 	display: flex;
@@ -31,15 +31,15 @@
 	border-radius: 0;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label.label-marker--point .label-marker__label-box {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label.label-marker--point .label-marker__label-box {
 	border-radius: 2px;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label:not(.label-marker--active) .label-marker__label-box:hover {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label:not(.label-marker--active) .label-marker__label-box:hover {
 	background: color-mix(in srgb, var(--label-track-color) 70%, white);
 }
 
-#kw-audio-editor-design-system .audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__label-text, .audio-editor-label-title-input) {
+#kw-audio-editor-design-system :is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__label-text, .audio-editor-label-title-input) {
 	position: absolute;
 	top: 50%;
 	right: 0;
@@ -55,13 +55,13 @@
 	white-space: nowrap;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label .label-marker__label-text {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label .label-marker__label-text {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	pointer-events: none;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label .audio-editor-label-title-input {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label .audio-editor-label-title-input {
 	z-index: 8;
 	border: 0;
 	border-radius: 0;
@@ -75,19 +75,19 @@
 	width: 100%;
 }
 
-#kw-audio-editor-design-system .audio-editor-label-marker .audio-editor-upstream-label textarea.audio-editor-label-title-input {
+#kw-audio-editor-design-system :is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label textarea.audio-editor-label-title-input {
 	white-space: pre;
 	resize: none;
 }
 
-#kw-audio-editor-design-system .audio-editor-label-marker .audio-editor-upstream-label textarea.audio-editor-label-title-input:not([rows='1']) {
+#kw-audio-editor-design-system :is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label textarea.audio-editor-label-title-input:not([rows='1']) {
 	top: 0;
 	height: auto;
 	transform: none;
 	line-height: 1.4;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__left-ear, .label-marker__right-ear) {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__left-ear, .label-marker__right-ear) {
 	position: absolute;
 	top: 0;
 	z-index: 3;
@@ -96,11 +96,11 @@
 	pointer-events: auto;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label svg path {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label svg path {
 	fill: var(--label-chrome);
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__left-stalk, .label-marker__right-stalk) {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__left-stalk, .label-marker__right-stalk) {
 	position: absolute;
 	top: 0;
 	width: 9px;
@@ -113,7 +113,7 @@
 	pointer-events: auto;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label .label-marker__stalk-line {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label .label-marker__stalk-line {
 	position: absolute;
 	top: 0;
 	left: 4px;
@@ -123,20 +123,20 @@
 	pointer-events: none;
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__left-ear:hover, .label-marker__right-ear:hover) svg path,
-.audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__left-stalk:hover, .label-marker__right-stalk:hover) .label-marker__stalk-line,
-.audio-editor-label-marker .audio-editor-upstream-label:has(.label-marker__left-stalk:hover, .label-marker__right-stalk:hover) svg path,
-.audio-editor-label-marker .audio-editor-upstream-label:has(.label-marker__left-ear:hover) .label-marker__left-stalk .label-marker__stalk-line,
-.audio-editor-label-marker .audio-editor-upstream-label:has(.label-marker__right-ear:hover) .label-marker__right-stalk .label-marker__stalk-line {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__left-ear:hover, .label-marker__right-ear:hover) svg path,
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__left-stalk:hover, .label-marker__right-stalk:hover) .label-marker__stalk-line,
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label:has(.label-marker__left-stalk:hover, .label-marker__right-stalk:hover) svg path,
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label:has(.label-marker__left-ear:hover) .label-marker__left-stalk .label-marker__stalk-line,
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label:has(.label-marker__right-ear:hover) .label-marker__right-stalk .label-marker__stalk-line {
 	fill: color-mix(in srgb, var(--label-track-color) 30%, white);
 	background: color-mix(in srgb, var(--label-track-color) 30%, white);
 }
 
-.audio-editor-label-marker .audio-editor-upstream-label.label-marker--active:has([data-label-ear]:hover, [data-label-stalk]:hover) {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label.label-marker--active:has([data-label-ear]:hover, [data-label-stalk]:hover) {
 	--label-chrome: color-mix(in srgb, var(--label-track-color) 10%, white);
 }
 
 
-.audio-editor-label-marker .audio-editor-upstream-label :is(.label-marker__label-box, .label-marker__stalk-line)::before {
+:is(.audio-editor-label-marker, .audio-editor-timeline-annotation) .audio-editor-upstream-label :is(.label-marker__label-box, .label-marker__stalk-line)::before {
 	content: none;
 }

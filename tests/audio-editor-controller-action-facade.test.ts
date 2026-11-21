@@ -286,7 +286,6 @@ test('controller action facade exposes the complete native timeline annotation w
 	const runtime = new Proxy(base, {
 		get(target, name, receiver) {
 			if (name === 'timelineAnnotationService') return service;
-			if (name === 'createStableId') return () => 'annotation-batch-created';
 			return Reflect.get(target, name, receiver);
 		},
 	});
@@ -309,9 +308,6 @@ test('controller action facade exposes the complete native timeline annotation w
 	invoke('move', ['marker'], 48, 'marker');
 	invoke('resize', 'region', 'end', 96);
 	invoke('convert', 'marker', { kind: 'region', anchor: 'sample', regionEndFrame: 144 });
-	invoke('batch', ['marker', 'region'], 'batch');
-	invoke('batch', ['marker', 'region']);
-	invoke('unbatch', ['marker', 'region']);
 	invoke('remove', ['marker']);
 	invoke('previous', 'main-sequence');
 	invoke('next', 'main-sequence');
@@ -329,9 +325,6 @@ test('controller action facade exposes the complete native timeline annotation w
 		['moveAnnotations', ['marker'], 48, 'marker'],
 		['resizeAnnotation', 'region', 'end', 96],
 		['convertAnnotation', 'marker', { kind: 'region', anchor: 'sample', regionEndFrame: 144 }],
-		['setAnnotationBatch', ['marker', 'region'], 'batch'],
-		['setAnnotationBatch', ['marker', 'region'], 'annotation-batch-created'],
-		['setAnnotationBatch', ['marker', 'region'], null],
 		['removeAnnotations', ['marker']],
 		['navigatePreviousAnnotation', 'main-sequence'],
 		['navigateNextAnnotation', 'main-sequence'],

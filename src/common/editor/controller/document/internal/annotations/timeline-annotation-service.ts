@@ -2,7 +2,6 @@
 
 import {
 	createAddTimelineAnnotationCommand,
-	createBatchSetTimelineAnnotationsCommand,
 	createConvertTimelineAnnotationCommand,
 	createMoveTimelineAnnotationsCommand,
 	createRemoveTimelineAnnotationsCommand,
@@ -26,6 +25,7 @@ import {
 } from '../../../../timeline-annotation.ts';
 import { sampleFrameToBeat } from '../../../../timeline-tempo-inverse.ts';
 import { subtractRationals } from '../../../../timeline-time.ts';
+import { expandTimelineMarkerGroups, selectTimelineMarker } from '../../../../timeline-marker-groups.ts';
 import { resolveTimelineAnnotationRegionRange, timelineFrame } from './timeline-annotation-region-range.ts';
 import type { EditorControllerLifetime } from '../../../shared/lifecycle.ts';
 import {
@@ -104,7 +104,6 @@ export interface TimelineAnnotationService {
 	): unknown;
 	resizeAnnotation(annotationId: string, edge: 'start' | 'end', timelineFrame: number): unknown;
 	convertAnnotation(annotationId: string, request: TimelineAnnotationConversionRequest): unknown;
-	setAnnotationBatch(annotationIds: readonly string[], batchId: string | null): unknown;
 	removeAnnotations(annotationIds: readonly string[]): unknown;
 	navigatePreviousAnnotation(sequenceId?: string): RuntimeTimelineAnnotationProjection | null;
 	navigateNextAnnotation(sequenceId?: string): RuntimeTimelineAnnotationProjection | null;
@@ -131,7 +130,6 @@ export function createTimelineAnnotationService(
 		moveAnnotations,
 		resizeAnnotation,
 		convertAnnotation,
-		setAnnotationBatch,
 		removeAnnotations,
 		navigatePreviousAnnotation,
 		navigateNextAnnotation,
@@ -201,9 +199,7 @@ export function createTimelineAnnotationService(
 		const project = requireCurrentProject(dependencies.getProject());
 		const projected = projectedAnnotation(project, annotationId);
 		const current = annotationSelectionIds(project);
-		const next = additive
-			? current.includes(annotationId) ? current : [...current, annotationId]
-			: [annotationId];
+		const next = selectTimelineMarker(annotationCollection(project), current, annotationId, additive ? 'add' : 'replace');
 		return updateDurableSelection(project, next, annotationId, projected);
 	}
 
@@ -229,11 +225,9 @@ export function createTimelineAnnotationService(
 		const projected = projectedAnnotation(project, annotationId);
 		const current = annotationSelectionIds(project);
 		const removing = current.includes(annotationId);
-		const next = removing ? current.filter((id) => id !== annotationId) : [...current, annotationId];
+		const next = selectTimelineMarker(annotationCollection(project), current, annotationId, 'toggle');
 		const nextFocus = removing
-			? dependencies.state.selectedAnnotationId === annotationId
-				? next.at(-1) ?? null
-				: dependencies.state.selectedAnnotationId
+			? next.find(id => id === dependencies.state.selectedAnnotationId) ?? next.at(-1) ?? null
 			: annotationId;
 		return updateDurableSelection(project, next, nextFocus, removing ? null : projected);
 	}
@@ -254,7 +248,7 @@ export function createTimelineAnnotationService(
 		dependencies.lifetime.assertActive();
 		if (dependencies.editingBlocked()) return null;
 		const project = requireCurrentProject(dependencies.getProject());
-		const ids = targetAnnotationIds(project, annotationIds);
+		const ids = expandTimelineMarkerGroups(annotationCollection(project), targetAnnotationIds(project, annotationIds));
 		const primaryId = primaryAnnotationId ?? (
 			dependencies.state.selectedAnnotationId && ids.includes(dependencies.state.selectedAnnotationId)
 				? dependencies.state.selectedAnnotationId
@@ -304,10 +298,6 @@ export function createTimelineAnnotationService(
 			request,
 		);
 		return dependencies.commit(createConvertTimelineAnnotationCommand(annotationId, coordinates));
-	}
-
-	function setAnnotationBatch(annotationIds: readonly string[], batchId: string | null): unknown {
-		return commitMutation(annotationIds, (ids) => createBatchSetTimelineAnnotationsCommand(ids, batchId));
 	}
 
 	function removeAnnotations(annotationIds: readonly string[]): unknown {

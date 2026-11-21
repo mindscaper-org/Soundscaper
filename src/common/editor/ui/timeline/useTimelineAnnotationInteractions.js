@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { resolveSelectionRange } from '../../selection-range.ts';
+import { expandTimelineMarkerGroups, selectTimelineMarker } from '../../timeline-marker-groups.ts';
 
 import { usePresentationFeedback } from '../presentation-feedback.ts';
 import { consumeTimelineAnnotationRenameKey } from './timeline-annotation-rename-keyboard.ts';
@@ -11,7 +12,6 @@ import {
 	timelineAnnotationCreateKind,
 	timelineAnnotationEditBounds,
 	timelineAnnotationEditIds,
-	timelineAnnotationPointerSelectionIds,
 } from './timeline-annotation-ui-model.ts';
 import { useTimelineAnnotationModels } from './useTimelineAnnotationModels.ts';
 import { planTimelineAnnotationMove } from './timeline-annotation-move-preview.ts';
@@ -48,6 +48,7 @@ export function useTimelineAnnotationInteractions({
 	const renameCompletionRef = useRef(null);
 	const [editingId, setEditingId] = useState(null);
 	const [draftName, setDraftName] = useState('');
+	const [markerMenu, setMarkerMenu] = useState(null);
 	const [status, setStatus] = usePresentationFeedback(copy);
 
 	const focusCreated = (annotationId) => {
@@ -57,10 +58,8 @@ export function useTimelineAnnotationInteractions({
 	};
 	const select = (event, annotation) => {
 		if (blocked) return EMPTY_SELECTION;
-		const ids = timelineAnnotationPointerSelectionIds(annotation.id, model.selectedIds, {
-			additive: event.shiftKey,
-			toggle: event.metaKey || event.ctrlKey,
-		});
+		const toggle = event.metaKey || event.ctrlKey;
+		const ids = selectTimelineMarker(projected, model.selectedIds, annotation.id, toggle ? 'toggle' : event.shiftKey ? 'add' : 'replace');
 		run(() => {
 			const result = event.metaKey || event.ctrlKey
 				? actions.toggle(annotation.id)
@@ -77,6 +76,14 @@ export function useTimelineAnnotationInteractions({
 		if (blocked) return;
 		setEditingId(annotation.id);
 		setDraftName(annotation.name);
+	};
+	const openMarkerMenu = (event, annotation, keyboard = false) => {
+		event.preventDefault();
+		event.stopPropagation();
+		const target = event.currentTarget;
+		const bounds = target.getBoundingClientRect();
+		setMarkerMenu({ id: annotation.id, target, x: keyboard ? bounds.left : event.clientX,
+			y: keyboard ? bounds.bottom : event.clientY });
 	};
 	const finishRename = (annotation, save, restoreFocus = false) => {
 		if (!blocked && save && draftName !== annotation.name) {
@@ -106,10 +113,10 @@ export function useTimelineAnnotationInteractions({
 		renameCompletionRef.current = intent;
 		event.currentTarget.blur();
 	};
-	const selectedEditIds = (annotationId) => timelineAnnotationEditIds(annotationId, model.selectedIds);
-	const remove = (annotation, rowIndex) => {
+	const selectedEditIds = (annotationId) => expandTimelineMarkerGroups(projected, timelineAnnotationEditIds(annotationId, model.selectedIds));
+	const remove = (annotation, rowIndex, single = false) => {
 		if (blocked) return;
-		const ids = selectedEditIds(annotation.id);
+		const ids = single ? [annotation.id] : selectedEditIds(annotation.id);
 		const index = rowIndex ?? model.rows.findIndex(({ id }) => id === annotation.id);
 		const removed = new Set(ids);
 		const targetId = model.rows.slice(index + 1).find(({ id }) => !removed.has(id))?.id
@@ -125,7 +132,7 @@ export function useTimelineAnnotationInteractions({
 		});
 	};
 	const moveTo = (annotation, requestedFrame) => {
-		const bounds = timelineAnnotationEditBounds(annotation.id, model.selectedIds, projected);
+		const bounds = timelineAnnotationEditBounds(annotation.id, selectedEditIds(annotation.id), projected);
 		return moveBy(annotation, bounds, integerFrame(requestedFrame) - annotation.timelineStartFrame);
 	};
 	const resizeTo = (annotation, edge, requestedFrame) => {
@@ -163,17 +170,6 @@ export function useTimelineAnnotationInteractions({
 			timelineAnnotationConversionRequest(annotation, changes, sampleRate),
 		));
 	};
-	const batchSelected = (batch) => {
-		if (blocked || !model.selectedIds.length || (batch && model.selectedIds.length < 2)) return;
-		run(() => {
-			const result = batch ? actions.batch(model.selectedIds) : actions.unbatch(model.selectedIds);
-			setStatus(message(
-				batch ? 'timelineAnnotationBatched' : 'timelineAnnotationUnbatched',
-				{ count: model.selectedIds.length },
-			));
-			return result;
-		});
-	};
 	const focusKeyboardTarget = (annotationId) => {
 		const focus = () => {
 			const item = itemRefs.current.get(annotationId);
@@ -185,13 +181,6 @@ export function useTimelineAnnotationInteractions({
 	};
 	const handleKeyDown = (event, row, index) => {
 		const annotation = row.annotation;
-		if (event.key.toLowerCase() === 'b' && !event.altKey && !event.ctrlKey && !event.metaKey
-			&& (event.shiftKey ? model.selectedIds.length > 0 : model.selectedIds.length > 1)) {
-			event.preventDefault();
-			event.stopPropagation();
-			if (!blocked) batchSelected(!event.shiftKey);
-			return;
-		}
 		const createKind = timelineAnnotationCreateKind(event, regionSelection);
 		if (createKind) {
 			event.preventDefault();
@@ -199,7 +188,7 @@ export function useTimelineAnnotationInteractions({
 			if (!blocked) createAnnotation(createKind, focusCreated);
 			return;
 		}
-		const bounds = timelineAnnotationEditBounds(annotation.id, model.selectedIds, projected);
+		const bounds = timelineAnnotationEditBounds(annotation.id, selectedEditIds(annotation.id), projected);
 		const intent = resolveTimelineAnnotationKeyboardIntent(annotation, event, sampleRate, bounds);
 		if (!intent) return;
 		event.preventDefault();
@@ -228,7 +217,6 @@ export function useTimelineAnnotationInteractions({
 
 	return {
 		actions,
-		batchSelected,
 		beginRename,
 		convert,
 		draftName,
@@ -238,6 +226,9 @@ export function useTimelineAnnotationInteractions({
 		handleRenameBlur,
 		handleRenameKeyDown,
 		itemRefs,
+		markerMenu,
+		openMarkerMenu,
+		closeMarkerMenu: () => setMarkerMenu(null),
 		model,
 		moveBy,
 		moveTo,

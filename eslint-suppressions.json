@@ -758,11 +758,6 @@
       "count": 1
     }
   },
-  "src/common/editor/ui/timeline/TimelineAnnotationLaneActions.jsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/common/editor/ui/timeline/TrackFolderRow.jsx": {
     "no-restricted-syntax": {
       "count": 3
