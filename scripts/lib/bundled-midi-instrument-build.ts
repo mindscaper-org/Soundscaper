@@ -82,8 +82,13 @@ function patchWorkingSource(engine: EngineBuild): void {
 		chmodSync(path, 0o600);
 		writeFileSync(path, source.replaceAll(from, to), { mode: 0o600 });
 	};
-	if (engine.id === 'dexed') patch('source/CMakeLists.txt', 'COPY_PLUGIN_AFTER_BUILD TRUE', 'COPY_PLUGIN_AFTER_BUILD FALSE');
-	else {
+	if (engine.id === 'dexed') {
+		patch('source/CMakeLists.txt', 'COPY_PLUGIN_AFTER_BUILD TRUE', 'COPY_PLUGIN_AFTER_BUILD FALSE');
+		if (engine.target === 'mac-arm64') {
+			patch('CMakeLists.txt', 'if (CMAKE_BUILD_TYPE STREQUAL "Release")\n    set(CMAKE_OSX_ARCHITECTURES',
+				'if (NOT DEFINED CMAKE_OSX_ARCHITECTURES AND CMAKE_BUILD_TYPE STREQUAL "Release")\n    set(CMAKE_OSX_ARCHITECTURES');
+		}
+	} else {
 		patch('src/CMakeLists.txt', 'include(cmake/pluginval.cmake)', '# Soundscaper builds only the instrument; upstream pluginval assumes the FX target also exists.');
 		if (engine.target === 'mac-arm64') {
 			const standalone = '\n  add_dependencies(${PROJECT_NAME}_Standalone ${PROJECT_NAME}-cli)';
@@ -114,6 +119,11 @@ function patchWorkingSource(engine: EngineBuild): void {
 			patch(callbacks, 'XI_MOVri | RID_EBP', 'XI_MOVri | (int)RID_EBP');
 		}
 		if (engine.target === 'win-arm64') {
+			patch('src/common/CMakeLists.txt', 'elseif(WIN32)\n  target_compile_definitions',
+				'elseif(WIN32)\n  target_link_libraries(${PROJECT_NAME} PUBLIC surge::simde)\n  target_compile_definitions');
+			// The MSVC widening multiply intrinsic is available on x86 and x64.
+			patch('src/common/dsp/oscillators/WindowOscillator.cpp', '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};',
+				'#if defined(_MSC_VER) && !defined(_M_ARM64)\n    const auto c{__emulu(a, b)};');
 			const cpu = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
 			patch(cpu, '#include "sst/plugininfra/cpufeatures.h"', '#include "sst/plugininfra/cpufeatures.h"\n#include <float.h>');
 			patch(cpu, '#ifdef _WIN32\n#include <intrin.h>', '#if defined(_WIN32) && USING_X86\n#include <intrin.h>');

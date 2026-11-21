@@ -69,16 +69,21 @@ test('Windows Surge XT patches LuaJIT enum operands and UTF-8 paths in the priva
 	await writeFile(join(engine.workSourceRoot, 'src/generated.h'), 'compiler generated');
 });
 
-test('macOS instrument working copies use AppKit snapshots with the current SDK', async context => {
+test('macOS Dexed working copies retain the selected architecture and use AppKit snapshots', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'bundled-instrument-macos-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const dexed = join(root, 'dexed');
+	const cmake = 'if (CMAKE_BUILD_TYPE STREQUAL "Release")\n    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE INTERNAL "")\nendif()\n';
+	await writeFixture(dexed, 'CMakeLists.txt', cmake);
 	await writeFixture(dexed, WINDOWING, SNAPSHOT);
 	await writeFixture(dexed, 'source/CMakeLists.txt', 'COPY_PLUGIN_AFTER_BUILD TRUE\n');
 	const { engines } = createBundledMidiInstrumentBuildPlan({ target: 'mac-arm64', sourceRoots: { 'surge-xt': join(root, 'surge'), dexed },
 		buildRoot: join(root, 'build'), installRoot: join(root, 'install'), macosSdkPath: join(root, 'sdk') });
 	const engine = engines.find(item => item.id === 'dexed')!;
 	prepareBundledMidiInstrumentSources(engine);
+	assert.equal(await readFile(join(dexed, 'CMakeLists.txt'), 'utf8'), cmake);
+	assert.match(await readFile(join(engine.workSourceRoot, 'CMakeLists.txt'), 'utf8'),
+		/if \(NOT DEFINED CMAKE_OSX_ARCHITECTURES AND CMAKE_BUILD_TYPE STREQUAL "Release"\)/u);
 	assert.equal(await readFile(join(dexed, WINDOWING), 'utf8'), SNAPSHOT);
 	const patched = await readFile(join(engine.workSourceRoot, WINDOWING), 'utf8');
 	assert.match(patched, /#if defined \(MAC_OS_VERSION_15_0\)[\s\S]+cacheDisplayInRect[\s\S]+#else[\s\S]+CGWindowListCreateImage[\s\S]+#endif\s+Image createSnapshotOfNativeWindow/u);
@@ -109,11 +114,17 @@ test('macOS Surge XT orders the native LuaJIT archive before VST3 linking and gu
 	assert.match(recipe, /add_dependencies\(luajit-5\.1 soundscaper_luajit_arm64\)[\s\S]+elseif\(APPLE AND NOT CMAKE_CROSSCOMPILING\)/u);
 });
 
-test('Windows ARM64 Surge XT preserves the floating-point control word without x86 CPU instructions', async context => {
+test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floating-point state', async context => {
 	const root = await mkdtemp(join(tmpdir(), 'bundled-surge-win-arm64-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
 	const sourceRoot = join(root, 'surge');
 	await writeSurgeFixture(sourceRoot);
+	const cmakePath = 'src/common/CMakeLists.txt';
+	const cmake = 'elseif(WIN32)\n  target_compile_definitions(${PROJECT_NAME} PUBLIC\n    WINDOWS=1\n  )\nendif()\n';
+	await writeFixture(sourceRoot, cmakePath, cmake);
+	const oscillatorPath = 'src/common/dsp/oscillators/WindowOscillator.cpp';
+	const oscillator = '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};\n#else\n    const auto c{std::uint64_t{a} * std::uint64_t{b}};\n#endif\n';
+	await writeFixture(sourceRoot, oscillatorPath, oscillator);
 	const path = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
 	const cpu = [
 		'#include "sst/plugininfra/cpufeatures.h"',
@@ -128,6 +139,12 @@ test('Windows ARM64 Surge XT preserves the floating-point control word without x
 	const { engines } = createBundledMidiInstrumentBuildPlan({ target: 'win-arm64', sourceRoots: { 'surge-xt': sourceRoot, dexed: join(root, 'dexed') },
 		buildRoot: join(root, 'build'), installRoot: join(root, 'install') });
 	prepareBundledMidiInstrumentSources(engines[0]!);
+	assert.equal(await readFile(join(sourceRoot, cmakePath), 'utf8'), cmake);
+	assert.match(await readFile(join(engines[0]!.workSourceRoot, cmakePath), 'utf8'),
+		/elseif\(WIN32\)\n {2}target_link_libraries\(\$\{PROJECT_NAME\} PUBLIC surge::simde\)/u);
+	assert.equal(await readFile(join(sourceRoot, oscillatorPath), 'utf8'), oscillator);
+	assert.match(await readFile(join(engines[0]!.workSourceRoot, oscillatorPath), 'utf8'),
+		/#if defined\(_MSC_VER\) && !defined\(_M_ARM64\)\n {4}const auto c\{__emulu\(a, b\)\};/u);
 	assert.equal(await readFile(join(sourceRoot, path), 'utf8'), cpu);
 	const patched = await readFile(join(engines[0]!.workSourceRoot, path), 'utf8');
 	assert.doesNotMatch(patched, /Windows only works on X86/u);
