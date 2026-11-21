@@ -22,7 +22,7 @@ test('annotation layer and panel share one interaction lifecycle authority', () 
 			'useTimelineAnnotationModels',
 			'consumeTimelineAnnotationRenameKey',
 			'resolveTimelineAnnotationKeyboardIntent',
-			'timelineAnnotationPointerSelectionIds',
+			'selectTimelineMarker',
 		]) assert.doesNotMatch(consumer, new RegExp(`\\b${authority}\\b`, 'u'), authority);
 	}
 
@@ -33,7 +33,7 @@ test('annotation layer and panel share one interaction lifecycle authority', () 
 	for (const authority of [
 		'consumeTimelineAnnotationRenameKey',
 		'resolveTimelineAnnotationKeyboardIntent',
-		'timelineAnnotationPointerSelectionIds',
+		'selectTimelineMarker',
 	]) assert.match(shared, new RegExp(`\\b${authority}\\b`, 'u'), authority);
 });
 

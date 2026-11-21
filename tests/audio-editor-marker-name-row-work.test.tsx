@@ -20,9 +20,8 @@ test('typing one marker name leaves every other marker row untouched', async () 
 	const noop = () => undefined;
 	try {
 		await act(async () => root.render(<TimelineAnnotationPanel controller={{ actions: { timelineAnnotations: { focus: noop, rename: noop } } }} project={project} annotations={annotations} selectedAnnotationId="marker-0" copy={ENGLISH_COPY} locale="en" sampleRate={48000} blocked={false} run={(operation: () => unknown) => operation()} createAnnotation={noop} />));
+		await act(async () => { reactProps(dom.one('[data-annotation-id="marker-0"]')).onDoubleClick(); });
 		const input = dom.one('input');
-		Object.assign(input, { select: noop });
-		await act(async () => reactProps(input).onFocus?.());
 		const initial = [...reads];
 		for (const text of ['C', 'Cu', 'Cue', 'Cue ', 'Cue 1']) await act(async () => reactProps(input).onChange?.({ target: { value: text } }));
 		assert.deepEqual(reads.slice(1), initial.slice(1));

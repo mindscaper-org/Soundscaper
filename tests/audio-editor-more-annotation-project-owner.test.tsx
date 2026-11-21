@@ -48,7 +48,6 @@ async function fixture(context: TestContext, surface: 'panel' | 'lane') {
 				createAnnotation={() => undefined} />);
 	});
 	await render();
-	if (surface === 'panel') Reflect.defineProperty(dom.one('input'), 'select', { value() {} });
 	return { controller, dom, render, replace: async () => {
 		const saved = await store.loadProject('first'); assert.ok(saved);
 		const archive = await exportScapeProject({ ...saved, title: 'Replacement project' }, store); assert.ok(archive.blob instanceof Blob);
@@ -66,8 +65,7 @@ for (const surface of ['panel', 'lane'] as const) test(`MI27: an unfinished ${su
 	await f.controller.actions.timeline.setExactSelection(12, 24); await f.render();
 	assert.equal(f.dom.one('input').value, 'First project draft', 'same-project selection publications retain the edit');
 	await f.controller.actions.project.openById('second'); await f.render();
-	const current = f.dom.find('input');
-	if (current) await act(async () => { reactProps(current).onBlur({ currentTarget: current }); });
+	assert.equal(f.dom.find('input'), null);
 	assert.equal(f.annotation()?.name, 'Original', 'the native replacement document must not receive the earlier marker draft');
 });
 
@@ -93,7 +91,6 @@ for (const surface of ['panel', 'lane'] as const) test(`MI27 ancillary: ${surfac
 	await f.replace(); await f.render();
 	assert.equal(f.controller.project?.id, 'first');
 	assert.notEqual(f.controller.captureProjectGeneration().generation, generation, 'actual Replace adopts a new native history generation');
-	const current = f.dom.find('input');
-	if (current) await act(async () => { reactProps(current).onBlur({ currentTarget: current }); });
+	assert.equal(f.dom.find('input'), null);
 	assert.equal(f.annotation()?.name, 'Original');
 });

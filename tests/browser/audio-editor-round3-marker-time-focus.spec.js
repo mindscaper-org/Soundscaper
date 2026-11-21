@@ -6,9 +6,10 @@ import { bootEditor, chooseNestedCommandAction } from './audio-editor-test-helpe
 test('committing a marker time retains its field focus for continued keyboard editing', async ({ page }) => {
 	const editor = await bootEditor(page, '/en/');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
-	const start = panel.getByRole('group', { name: 'Start sample', exact: true });
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
+	await panel.getByRole('button', { name: /^Unnamed annotation/u }).press('Enter');
+	const start = panel.getByRole('group', { name: 'Position', exact: true });
 	await start.locator('.timecode-digit').last().click();
 	await page.keyboard.press('1');
 	await page.keyboard.press('Enter');

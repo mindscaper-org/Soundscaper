@@ -26,8 +26,8 @@ test('removing mastering entries focuses the next entry then Add region', async 
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	await editor.getByRole('region', { name: 'Markers and named regions', exact: true })
-		.getByRole('button', { name: 'Add region from selection', exact: true }).click();
+	await editor.getByRole('region', { name: 'Markers', exact: true })
+		.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	await chooseCommandAction(page, editor, 'Tools', 'Mastering sequences');
 	const dialog = page.getByRole('dialog', { name: 'Mastering sequences', exact: true });
 	await dialog.getByRole('button', { name: 'New sequence', exact: true }).click();

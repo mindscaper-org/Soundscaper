@@ -13,7 +13,7 @@ test('ordinary libsndfile WAV cue indices become timeline markers', async ({ pag
 	await (await choosing).setFiles({ name: 'marked-recording.wav', mimeType: 'audio/wav', buffer: Buffer.from(encoded, 'base64') });
 	await expect(editor).toHaveAttribute('data-clip-count', '1');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
 	await expect(panel).toBeVisible();
 	await expect(panel.getByRole('button', { name: /^Unnamed annotation/u })).toHaveCount(2);
 	await expect(panel.getByRole('button', { name: /^Unnamed annotation.*Marker.*0\.025 s/u })).toBeVisible();

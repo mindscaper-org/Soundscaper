@@ -183,8 +183,8 @@ test('a saved marker chapter preset keeps its marker source', async ({ page }) =
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA, captionLabels]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	await editor.getByRole('region', { name: 'Markers and named regions', exact: true })
-		.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+	await editor.getByRole('region', { name: 'Markers', exact: true })
+		.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	let dialog = await openExportDialog(page, editor);
 	await chooseDropdown(page, dialog.getByRole('group', { name: 'Output', exact: true }), 'Chapters (split by markers)');
 	await saveDeliveryPreset(page, dialog, 'Marker programme');

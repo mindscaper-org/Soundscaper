@@ -108,10 +108,10 @@ test.describe('audio editor React/design-system workflows', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
 		await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-		const markers = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-		await markers.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+		const markers = editor.getByRole('region', { name: 'Markers', exact: true });
+		await markers.getByRole('button', { name: '+ New Marker', exact: true }).click();
 		await seekOnRuler(page, editor, 220);
-		await markers.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+		await markers.getByRole('button', { name: '+ New Marker', exact: true }).click();
 		await expect(markers.locator('[data-timeline-annotation]')).toHaveCount(2);
 
 		const exportDialog = await openExportDialog(page, editor);

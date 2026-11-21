@@ -8,8 +8,8 @@ test('undoing a held marker creation permits the next ordinary marker move', asy
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	const add = panel.getByRole('button', { name: 'Add region from selection', exact: true });
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	const add = panel.getByRole('button', { name: '+ New Marker', exact: true });
 	await add.click();
 	await chooseCommandAction(page, editor, 'View', 'Markers');
 	const region = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true }).getByRole('option');

@@ -8,8 +8,8 @@ test('Undo of a named region range retires its held move and retains Redo', asyn
 	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Select', 'Select all');
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add region from selection', exact: true }).click();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	await chooseCommandAction(page, editor, 'View', 'Markers');
 	const region = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true }).getByRole('option');
 	const left = () => region.evaluate(element => parseFloat(element.style.left));

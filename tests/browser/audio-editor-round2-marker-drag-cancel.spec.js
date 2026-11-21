@@ -7,8 +7,8 @@ test('Escape cancels a timeline marker move before pointer release', async ({ pa
 	const editor = await bootEditor(page, '/embed/en/');
 	await importFiles(editor, [toneA]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	await chooseCommandAction(page, editor, 'View', 'Markers');
 	const marker = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true }).getByRole('option').first();
 	const position = () => marker.evaluate(element => element.style.left);

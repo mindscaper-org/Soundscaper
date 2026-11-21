@@ -201,6 +201,8 @@ export class ReactTestElement extends ReactTestNode {
 	getAttribute(name: string): string | null { return this.attributes.get(name) ?? null; }
 	hasAttribute(name: string): boolean { return this.attributes.has(name); }
 	focus(): void { this.ownerDocument.activeElement = this; }
+	// The fake tree does not track text selections.
+	select(): void {}
 	// Layout stays empty, so scrolling a selected overlay row has no effect.
 	scrollIntoView(_options?: ScrollIntoViewOptions): void {}
 	// Nothing dispatches here, so a programmatic click is only ever recorded.

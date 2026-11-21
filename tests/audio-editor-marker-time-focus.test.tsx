@@ -29,6 +29,7 @@ test('annotation time publication preserves focused start and end control identi
 		blocked={false} run={(operation: () => unknown) => operation()} createAnnotation={() => undefined} />);
 	try {
 		await act(async () => { render(); });
+		await act(async () => { reactProps(dom.one('[data-annotation-id="item"]')).onDoubleClick(); });
 		for (const label of ['Start sample', 'End sample']) {
 			const control = dom.one(`[aria-label="${label}"]`);
 			control.focus();
@@ -67,7 +68,8 @@ test('editing a selected marker time respects the earliest marker in the selecte
 		await act(async () => root.render(<TimelineAnnotationPanel controller={controller} project={snapshot.project}
 			annotations={snapshot.timelineAnnotations} selectedAnnotationId="verse" copy={ENGLISH_COPY} locale="en" sampleRate={48_000}
 			blocked={false} run={(operation: () => unknown) => operation()} createAnnotation={() => undefined} />));
-		const digit = dom.one('[aria-label="Start sample"]').querySelector('.timecode-digit');
+		await act(async () => { reactProps(dom.one('[data-annotation-id="verse"]')).onDoubleClick(); });
+		const digit = dom.one('[aria-label="Position"]').querySelector('.timecode-digit');
 		assert.ok(digit);
 		digit.focus();
 		await act(async () => { reactProps(digit).onClick(); });

@@ -13,8 +13,8 @@ import {
 test('F2 in the docked Markers list focuses the annotation name for renaming', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	const marker = panel.getByRole('button', { name: /^Unnamed annotation/u });
 	await expect(marker).toBeFocused();
 	await marker.press('F2');

@@ -34,21 +34,19 @@ for (const surface of ['panel', 'ruler']) test(`a launched native project retire
 	await launch(page, await markerFile('marker-origin'));
 	await expect(editor).toHaveAttribute('data-project-id', 'marker-origin');
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	let input = panel.locator('input').first();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	const row = panel.getByRole('button', { name: /^Original.*Marker/u });
+	let input = panel.getByRole('textbox', { name: 'Name', exact: true });
 	if (surface === 'ruler') {
 		await chooseCommandAction(page, editor, 'View', 'Markers');
 		const marker = editor.getByRole('listbox', { name: 'Markers and named regions', exact: true }).getByRole('option');
 		await marker.focus();
 		await marker.press('F2');
 		input = editor.locator('.audio-editor-timeline-annotation__rename');
-	}
+	} else await row.press('F2');
 	await input.fill('Origin-only draft');
 	await launch(page, await markerFile('marker-replacement'));
 	await expect(editor).toHaveAttribute('data-project-id', 'marker-replacement');
-	if (surface === 'panel') {
-		await expect(input).toHaveValue('Original');
-		await input.press('Tab');
-	} else await expect(input).toHaveCount(0);
-	await expect(panel.locator('[data-annotation-id="marker"]')).toContainText('Original');
+	await expect(input).toHaveCount(0);
+	await expect(row).toBeVisible();
 });

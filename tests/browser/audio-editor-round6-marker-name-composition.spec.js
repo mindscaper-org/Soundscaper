@@ -6,14 +6,14 @@ import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js'
 test('marker renaming retains its composing Enter until the name is complete', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	const marker = panel.locator('[data-timeline-annotation]').first();
 	const originalLabel = await marker.textContent();
 	expect(originalLabel).toBeTruthy();
 	await marker.focus();
 	await marker.press('F2');
-	const input = panel.getByRole('group', { name: 'Edit annotation', exact: true }).getByRole('textbox');
+	const input = panel.getByRole('group', { name: 'Edit marker', exact: true }).getByRole('textbox');
 	await expect(input).toBeFocused();
 	await input.fill('とう');
 	const prevented = await input.evaluate(field => {

@@ -15,7 +15,7 @@ test('AIFF delivery reports a normal marker name shortened to its Pascal-string 
 		Float32Array.from({ length: 24_000 }, (_, index) => 0.2 * Math.sin(index * Math.PI * 880 / 48_000)),
 	], { sampleRate: 48_000, bitDepth: 16, markers: [{ sampleOffset: 0, label: 'Opening' }] })) }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const markers = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+	const markers = editor.getByRole('region', { name: 'Markers', exact: true });
 	await markers.locator('[data-timeline-annotation]').press('Enter');
 	const fullName = `${'Opening chapter '.repeat(18)}Résumé`;
 	const name = markers.getByRole('textbox', { name: 'Name', exact: true });

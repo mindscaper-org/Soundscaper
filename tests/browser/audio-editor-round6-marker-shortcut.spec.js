@@ -15,9 +15,9 @@ test('marker navigation releases configured modified commands', async ({ page })
 	await expect(command.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	await chooseCommandAction(page, editor, 'Window', 'Markers');
-	const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
-	await panel.getByRole('button', { name: 'Add marker at playhead', exact: true }).click();
+	const panel = editor.getByRole('region', { name: 'Markers', exact: true });
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	const markers = panel.locator('[data-timeline-annotation]');
 	await expect(markers).toHaveCount(2);
 	await markers.first().focus();

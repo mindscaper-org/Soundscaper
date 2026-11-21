@@ -57,7 +57,7 @@ test.describe('Soundscaper mastering sequence delivery', () => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [longTone]);
 		await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-		const panel = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+		const panel = editor.getByRole('region', { name: 'Markers', exact: true });
 		await addNamedRegion(page, editor, panel, 40, 150, 'Opening');
 		await addNamedRegion(page, editor, panel, 170, 280, 'Reprise');
 
@@ -143,9 +143,8 @@ test.describe('Soundscaper mastering sequence delivery', () => {
 			await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
 		}
 		const removedRegion = panel.getByRole('button', { name: /^Opening.*Region/u });
-		await removedRegion.press('Enter');
-		await panel.getByRole('group', { name: 'Edit annotation', exact: true })
-			.getByRole('button', { name: 'Remove selected annotations', exact: true }).click();
+		await removedRegion.click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Delete marker', exact: true }).click();
 		await expect(panel.getByRole('button', { name: /^Opening.*Region/u })).toHaveCount(0);
 		await chooseCommandAction(page, editor, 'Tools', 'Mastering sequences');
 		mastering = page.getByRole('dialog', { name: 'Mastering sequences', exact: true });
@@ -167,12 +166,12 @@ async function addNamedRegion(page, editor, panel, startX, endX, name) {
 	await page.mouse.down();
 	await page.mouse.move(bounds.x + endX, bounds.y + 26, { steps: 5 });
 	await page.mouse.up();
-	await expect(panel.getByRole('button', { name: 'Add region from selection', exact: true }))
+	await expect(panel.getByRole('button', { name: '+ New Marker', exact: true }))
 		.toBeEnabled();
-	await panel.getByRole('button', { name: 'Add region from selection', exact: true }).click();
+	await panel.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	const row = panel.locator('li').last();
 	await row.locator('[data-timeline-annotation]').press('Enter');
-	const input = row.getByRole('group', { name: 'Edit annotation', exact: true })
+	const input = row.getByRole('group', { name: 'Edit marker', exact: true })
 		.getByRole('textbox', { name: 'Name', exact: true });
 	await input.fill(name);
 	await input.press('Enter');

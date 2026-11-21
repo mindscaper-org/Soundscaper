@@ -18,13 +18,13 @@ test('a mastering sequence rebases a radio cue to its delivered region', async (
 		cart: { title: 'Radio programme', postTimers: [{ usage: 'SEC1', value: 24_000 }] },
 	})) }]);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Markers']);
-	const markers = editor.getByRole('region', { name: 'Markers and named regions', exact: true });
+	const markers = editor.getByRole('region', { name: 'Markers', exact: true });
 	await selectClipRange(page, editor, clipByName(editor, 'radio-sequence.wav'), 0.25, 0.75);
 	await chooseNestedCommandAction(page, editor, 'View', ['Skip to', 'Selection start']);
 	const start = Number(await editor.getByRole('slider', { name: 'Playhead', exact: true }).getAttribute('aria-valuenow'));
 	expect(start).toBeGreaterThan(0);
 	expect(start).toBeLessThan(24_000);
-	await markers.getByRole('button', { name: 'Add region from selection', exact: true }).click();
+	await markers.getByRole('button', { name: '+ New Marker', exact: true }).click();
 	const row = markers.locator('li').last();
 	await row.locator('[data-timeline-annotation]').press('Enter');
 	const name = row.getByRole('textbox', { name: 'Name', exact: true });
