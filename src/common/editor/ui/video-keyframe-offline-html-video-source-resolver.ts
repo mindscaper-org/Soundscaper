@@ -245,6 +245,8 @@ export function createVideoKeyframeOfflineHtmlVideoSourceResolver(
 			const port = options.createSeekPort(video, Object.freeze({
 				assertCurrent: () => { assertLifecycleCurrent(lifecycle!); },
 				timeoutMs: options.timeoutMs,
+				preferInitialFrameStart: globalThis.navigator?.vendor === 'Apple Computer, Inc.'
+					&& /^video\/webm(?:;|$)/iu.test(decoderSource.type),
 			}));
 			lifecycle.port = port;
 			lifecycle.presentation = createPresentation(lifecycle);

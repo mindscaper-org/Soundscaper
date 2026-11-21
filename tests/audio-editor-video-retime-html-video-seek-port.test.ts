@@ -47,7 +47,8 @@ class PausedVideo extends EventTarget {
 	}
 }
 
-function fixture(context: TestContext, intervalStartSeconds = .04, intervalEndSeconds = .13, targetSeconds = .085) {
+function fixture(context: TestContext, intervalStartSeconds = .04, intervalEndSeconds = .13, targetSeconds = .085,
+	{ drawableSourceFrame = 1, preferInitialFrameStart = false } = {}) {
 	for (const name of ['HTMLVideoElement', 'HTMLMediaElement']) {
 		const original = Object.getOwnPropertyDescriptor(globalThis, name);
 		Object.defineProperty(globalThis, name, { configurable: true, value: PausedVideo });
@@ -59,14 +60,24 @@ function fixture(context: TestContext, intervalStartSeconds = .04, intervalEndSe
 	const video = new PausedVideo();
 	const controller = new AbortController();
 	const port = createVideoRetimeHtmlVideoSeekPort(video as unknown as HTMLVideoElement, {
-		assertCurrent: () => {}, timeoutMs: 1_000,
+		assertCurrent: () => {}, timeoutMs: 1_000, preferInitialFrameStart,
 	});
 	context.after(() => { controller.abort(); video.drain(); });
-	const result = Promise.resolve(port.present({ drawableSourceFrame: 1,
+	const result = Promise.resolve(port.present({ drawableSourceFrame,
 		intervalStartSeconds, intervalEndSeconds, targetSeconds,
 		signal: controller.signal,
 	})).then((value) => ({ value }), (error: unknown) => ({ error }));
 	return { video, controller, result };
+}
+
+for (const preferInitialFrameStart of [true, false]) {
+	test(`the zero-origin seek follows the initial-frame preference (${preferInitialFrameStart})`, async context => {
+		const { video, result } = fixture(context, 0, .067, .0335, { drawableSourceFrame: 0, preferInitialFrameStart });
+		assert.deepEqual(video.seeks, [preferInitialFrameStart ? .001 : .0335]);
+		video.presentFrame(0);
+		video.drain();
+		assert.deepEqual(await result, { value: { mediaTime: 0 } });
+	});
 }
 
 test('a compositor timestamp rounded down to microseconds still authenticates its own picture', async (context) => {

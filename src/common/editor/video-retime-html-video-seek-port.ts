@@ -17,6 +17,7 @@ export type {
 export interface VideoRetimeHtmlVideoSeekPortOptions {
 	readonly assertCurrent: () => void;
 	readonly timeoutMs?: number;
+	readonly preferInitialFrameStart?: boolean;
 }
 
 interface ActiveSeek {
@@ -80,7 +81,7 @@ export function createVideoRetimeHtmlVideoSeekPort(
 		optionsValue,
 		'video retime HTML seek options',
 		['assertCurrent'],
-		['timeoutMs'],
+		['timeoutMs', 'preferInitialFrameStart'],
 	);
 	const assertGeneration = functionValue(
 		options.assertCurrent,
@@ -89,6 +90,9 @@ export function createVideoRetimeHtmlVideoSeekPort(
 	const timeoutMs = options.timeoutMs === undefined
 		? DEFAULT_TIMEOUT_MS
 		: boundedTimeout(options.timeoutMs);
+	if (options.preferInitialFrameStart !== undefined && typeof options.preferInitialFrameStart !== 'boolean') {
+		throw new TypeError('The initial-frame seek preference must be a boolean.');
+	}
 	const sourceIdentity = videoSourceIdentity(video);
 	const requestVideoFrameCallback = video.requestVideoFrameCallback;
 	const cancelVideoFrameCallback = video.cancelVideoFrameCallback;
@@ -144,8 +148,13 @@ export function createVideoRetimeHtmlVideoSeekPort(
 		// Seek inside their intersection; the frame callback must still prove
 		// that the decoded picture belongs to the original requested interval.
 		const interiorTarget = request.intervalStartSeconds + (duration - request.intervalStartSeconds) / 2;
-		const targetSeconds = request.targetSeconds < duration ? request.targetSeconds
+		const requestedTarget = request.targetSeconds < duration ? request.targetSeconds
 			: interiorTarget < duration ? interiorTarget : request.intervalStartSeconds;
+		// A pending presentation from the initial load can report the first
+		// frame even if an interior seek snaps forward. Stay near the loaded frame.
+		const targetSeconds = options.preferInitialFrameStart === true
+			&& request.drawableSourceFrame === 0 && request.intervalStartSeconds === 0 && video.currentTime === 0
+			? Math.min(requestedTarget, MAXIMUM_RETRY_INSET_SECONDS) : requestedTarget;
 		// rVFC reports newly presented frames only. A repeated paused-frame
 		// request can therefore reuse the last compositor-authenticated result
 		// when both the exact request and the media element still name that frame.
