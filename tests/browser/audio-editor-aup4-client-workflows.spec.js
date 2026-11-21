@@ -3,7 +3,9 @@
 import {
 	aup4NativeRichFixture,
 	expect,
+	initSqlJs,
 	test,
+	writeAup4Document,
 } from './audio-editor-test-fixtures.js';
 import {
 	bootEditor,
@@ -12,9 +14,11 @@ import {
 	collectClientErrors,
 	trackNameText,
 } from './audio-editor-test-helpers.js';
+import { decodeAudacityBinaryXml, encodeAudacityBinaryXml } from '../../src/common/editor/audacity-binary-xml.js';
+import { readAup4Document } from '../../src/common/editor/aup4-database.js';
 
 test.describe('Audacity project worker client workflows', () => {
-	test('opens streamed AUP4 audio and publishes a staged snapshot through the File menu', async ({ page }) => {
+	test('opens streamed AUP4 audio with opaque binary state and exports through the File menu', async ({ page }) => {
 		test.setTimeout(90_000);
 		await installAup4BrowserProbe(page);
 		const errors = collectClientErrors(page);
@@ -25,7 +29,7 @@ test.describe('Audacity project worker client workflows', () => {
 		await (await chooser).setFiles({
 			name: 'worker-client-round-trip.aup4',
 			mimeType: 'application/x-audacity-project',
-			buffer: Buffer.from(aup4NativeRichFixture()),
+			buffer: await aup4FixtureWithOpaqueBinary(),
 		});
 		await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 30_000 });
 		await expect(editor).toHaveAttribute('data-track-count', '2');
@@ -165,6 +169,20 @@ test.describe('Audacity project worker client workflows', () => {
 		expect(await page.evaluate(() => globalThis.__aup4BrowserProbe.pickerOptions)).toHaveLength(3);
 	});
 });
+
+async function aup4FixtureWithOpaqueBinary() {
+	const SQL = await initSqlJs();
+	const database = new SQL.Database(aup4NativeRichFixture());
+	try {
+		const { dictionary, document } = readAup4Document(database);
+		const { root } = decodeAudacityBinaryXml(dictionary, document);
+		root.content.push({ kind: 'blob', name: 'opaque-state', value: Uint8Array.of(0, 1, 128, 255) });
+		writeAup4Document(database, encodeAudacityBinaryXml(root), { autosave: false, now: 0 });
+		return Buffer.from(database.export());
+	} finally {
+		database.close();
+	}
+}
 
 async function installAup4BrowserProbe(page) {
 	await page.addInitScript(() => {

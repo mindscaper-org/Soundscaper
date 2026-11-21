@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { definePublishedBinaryProperty } from '../../../../published-project-binary.ts';
+
 /** Detach plain snapshot data from recursive read-only state proxies. */
 export function materializeSnapshotValue<Value>(
 	value: Value,
@@ -12,7 +14,7 @@ export function materializeSnapshotValue<Value>(
 	if (Array.isArray(value)) {
 		const copy: unknown[] = [];
 		seen.set(value, copy);
-		for (const entry of value) copy.push(materializeSnapshotValue(entry, seen, strict));
+		for (const [index, entry] of value.entries()) defineSnapshotProperty(copy, String(index), entry, seen, strict);
 		return Object.freeze(copy) as Value;
 	}
 	if (value instanceof Map) {
@@ -47,12 +49,23 @@ export function materializeSnapshotValue<Value>(
 	const copy = Object.create(prototype) as Record<string, unknown>;
 	seen.set(value, copy);
 	for (const key of Object.keys(value)) {
-		Object.defineProperty(copy, key, {
-			value: materializeSnapshotValue((value as Record<string, unknown>)[key], seen, strict),
-			enumerable: true, configurable: true, writable: true,
-		});
+		defineSnapshotProperty(copy, key, (value as Record<string, unknown>)[key], seen, strict);
 	}
 	return Object.freeze(copy) as Value;
+}
+
+function defineSnapshotProperty(
+	target: object, key: string, value: unknown, seen: WeakMap<object, object>, strict: boolean,
+): void {
+	if (strict && ((value instanceof Uint8Array && Object.getPrototypeOf(value) === Uint8Array.prototype)
+		|| (value instanceof ArrayBuffer && Object.getPrototypeOf(value) === ArrayBuffer.prototype))) {
+		definePublishedBinaryProperty(target, key, value);
+		return;
+	}
+	Object.defineProperty(target, key, {
+		value: materializeSnapshotValue(value, seen, strict),
+		enumerable: true, configurable: true, writable: true,
+	});
 }
 
 function rejectSnapshotMutation(): never {

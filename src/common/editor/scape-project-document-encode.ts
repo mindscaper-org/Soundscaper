@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { projectDataPropertyDescriptor } from './published-project-binary.ts';
+
 import type { ScapeProjectBinaryLimits } from './scape-project-document.ts';
 import { SCAPE_BINARY_TAG, encodeScapeLiteralKey } from './scape-literal-json-keys.ts';
 
@@ -138,7 +140,7 @@ function encodeArray(value: unknown[], depth: number, budget: EncodeBudget, emit
 		emit?.(OPEN_ARRAY);
 		for (let index = 0; index < value.length; index += 1) {
 			if (index) emit?.(COMMA);
-			const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+			const descriptor = projectDataPropertyDescriptor(value, String(index));
 			if (!descriptor) {
 				admitTraversal(depth + 1, budget);
 				encoded?.push(null);
@@ -179,7 +181,7 @@ function encodeObject(
 		let separated = false;
 		for (const key of keys) {
 			const encodedKey = budget.literalKeys ? encodeScapeLiteralKey(key) : key;
-			const descriptor = Object.getOwnPropertyDescriptor(value, key);
+			const descriptor = projectDataPropertyDescriptor(value, key);
 			if (!descriptor) throw new TypeError(`Scape project property ${key} is unavailable.`);
 			const child = dataPropertyValue(descriptor, `property ${key}`);
 			if (stream && child !== undefined && typeof child !== 'function' && typeof child !== 'symbol') {
@@ -227,7 +229,7 @@ function dataPropertyValue(descriptor: PropertyDescriptor, name: string): unknow
 }
 
 function assertNoToJSONHook(value: Record<string, unknown>): void {
-	const descriptor = Object.getOwnPropertyDescriptor(value, 'toJSON');
+	const descriptor = projectDataPropertyDescriptor(value, 'toJSON');
 	if (!descriptor) return;
 	const candidate = dataPropertyValue(descriptor, 'toJSON');
 	if (typeof candidate === 'function') {

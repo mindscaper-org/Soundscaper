@@ -2407,10 +2407,11 @@ Binary opaque state and JSON-compatible opaque preservation are type-specific.
   aggregate. Import and inspection validate every descriptor, unique positive
   payload ID, base64 form, declared length, collision, and aggregate budget
   before allocating decoded bytes or starting collision and persistence work.
-  Serialization copies the bytes and rejects reserved-tag collisions,
-  project-container accessors, cycles, and callable container `toJSON` hooks
-  rather than activating project code. Other `ArrayBuffer` views are
-  unsupported and reject instead of being converted silently.
+  Published editor views retain both binary types and return a fresh byte copy
+  on each read. The serializer recognizes those fields on the original
+  published object and applies the same binary limits. It rejects reserved-tag
+  collisions, unregistered accessors, cycles, callable container `toJSON`
+  hooks, and unsupported `ArrayBuffer` views.
 - Future-schema tag-shaped data is structurally counted by the all-schema raw
   preflight but is neither decoded nor interpreted as a binary descriptor;
   unchanged future `.scape` re-export remains a separate planned guarantee.

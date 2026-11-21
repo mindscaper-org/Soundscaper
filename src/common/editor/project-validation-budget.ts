@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { SCAPE_PROJECT_BINARY_HARD_LIMITS } from './scape-project-document.ts';
+import { projectDataPropertyDescriptor } from './published-project-binary.ts';
 
 const ARRAY_BUFFER_BYTE_LENGTH_GETTER = requiredGetter<number>(ArrayBuffer.prototype, 'byteLength');
 const ARRAY_BUFFER_SLICE = requiredMethod(ArrayBuffer.prototype, 'slice');
@@ -207,7 +208,7 @@ function admitArray(
 	assertCanonicalArrayProperties(value);
 	enterContainer(stack, value, budget);
 	for (let index = value.length - 1; index >= 0; index -= 1) {
-		const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+		const descriptor = projectDataPropertyDescriptor(value, String(index));
 		const child = descriptor ? dataPropertyValue(descriptor, `array index ${String(index)}`) : undefined;
 		scheduleVisit(stack, child, depth + 1, budget);
 	}
@@ -234,7 +235,7 @@ function admitObject(
 		if (typeof key !== 'string') {
 			throw new TypeError('Audio editor project properties must use string keys.');
 		}
-		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		const descriptor = projectDataPropertyDescriptor(value, key);
 		if (!descriptor) throw new TypeError(`Audio editor project property ${key} is unavailable.`);
 		scheduleVisit(stack, enumerableDataPropertyValue(descriptor), depth + 1, budget);
 	}
@@ -246,7 +247,7 @@ function assertCanonicalArrayProperties(value: unknown[]): void {
 		if (typeof key !== 'string' || !isCanonicalArrayIndex(key, value.length)) {
 			throw new TypeError('Audio editor project arrays cannot carry named or symbol properties.');
 		}
-		const descriptor = Object.getOwnPropertyDescriptor(value, key);
+		const descriptor = projectDataPropertyDescriptor(value, key);
 		if (!descriptor) throw new TypeError(`Audio editor project array index ${key} is unavailable.`);
 		enumerableDataPropertyValue(descriptor);
 	}
@@ -290,7 +291,7 @@ function assertChildrenFit(childCount: number, budget: ValidationStructureBudget
 }
 
 function assertNoToJsonHook(value: Record<string, unknown>): void {
-	const descriptor = Object.getOwnPropertyDescriptor(value, 'toJSON');
+	const descriptor = projectDataPropertyDescriptor(value, 'toJSON');
 	if (!descriptor) return;
 	const candidate = dataPropertyValue(descriptor, 'toJSON');
 	if (typeof candidate === 'function') {

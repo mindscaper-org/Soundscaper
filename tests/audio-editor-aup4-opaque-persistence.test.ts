@@ -7,6 +7,8 @@ import {
 	audacityXmlAttribute,
 	audacityXmlChildren,
 	createAudacityXmlNode,
+	decodeAudacityBinaryXml,
+	encodeAudacityBinaryXml,
 } from '../src/common/editor/audacity-binary-xml.js';
 import { decodeAup4ProjectTree } from '../src/common/editor/aup4-conversion.js';
 import {
@@ -14,6 +16,10 @@ import {
 	rehydrateAup4OpaqueInt64Attribute,
 } from '../src/common/editor/aup4-opaque-persistence.ts';
 import { createAup4ProjectTree } from '../src/common/editor/aup4-profile.js';
+import { publishProjectView } from '../src/common/editor/controller/document/document-snapshot.ts';
+import { parseScapeProjectDocument, serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
+import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 
 const xmlChildren = audacityXmlChildren as unknown as (node: unknown, name: string) => unknown[];
 
@@ -60,4 +66,41 @@ test('AUP4 conversion persists nested int64 attributes safely and re-exports exa
 		audacityXmlAttribute(xmlChildren(rewritten, 'plugin-state')[0], 'revision'),
 		integer,
 	);
+});
+
+test('imported Audacity plug-in bytes survive immutable publication, Scape reopen, and native export', async () => {
+	const bytes = Uint8Array.of(0, 1, 128, 255);
+	const nativeEffect = createAudacityXmlNode('effect', [
+		{ kind: 'attribute', name: 'id', type: 'string', value: 'Effect_VST3_Acme_PlugIn_Path' },
+	], [{ kind: 'blob', name: 'state', value: bytes }]);
+	const rack = createAudacityXmlNode('effects', [], [{ kind: 'node', node: nativeEffect }]);
+	const native = encodeAudacityBinaryXml(createAudacityXmlNode('project', [
+		{ kind: 'attribute', name: 'version', type: 'string', value: '2.0.0' },
+		{ kind: 'attribute', name: 'audacityversion', type: 'string', value: '4.0.0' },
+	], [{ kind: 'node', node: rack }]));
+	const decoded = await decodeAup4ProjectTree(decodeAudacityBinaryXml(native.dictionary, native.document).root, async () => null);
+	const imported = importSoundscaperAudacityProject(decoded.project);
+	const published = publishProjectView(imported);
+	assert.strictEqual(publishProjectView(imported), published);
+	assert.ok(validateSoundscaperProject(published));
+	const effect = published.master.effects[0];
+	assert.ok(effect);
+	assert.equal(effect.type, 'missing');
+	const opaque = effect.opaqueAudacityNode as { node: { content: { value: unknown }[] } };
+	const state = opaque.node.content.at(-1);
+	assert.ok(state?.value instanceof Uint8Array);
+	assert.ok(Object.isFrozen(state));
+	assert.deepEqual(state.value, bytes);
+	state.value.fill(42);
+	assert.deepEqual(state.value, bytes);
+
+	const serialized = serializeScapeProjectDocument(published);
+	assert.equal(serialized, serializeScapeProjectDocument(imported));
+	const reopened = parseScapeProjectDocument(serialized);
+	assert.ok(validateSoundscaperProject(reopened));
+	const rewritten = createAup4ProjectTree(reopened);
+	const exported = encodeAudacityBinaryXml(rewritten);
+	const reparsed = decodeAudacityBinaryXml(exported.dictionary, exported.document).root;
+	const effects = xmlChildren(xmlChildren(reparsed, 'effects').at(-1), 'effect');
+	assert.deepEqual(effects[0], nativeEffect);
 });

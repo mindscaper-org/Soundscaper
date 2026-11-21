@@ -8,6 +8,8 @@ import {
 	SOUNDSCAPER_PROJECT_SCHEMA_FAMILY,
 } from '../src/common/editor/project-schema-identity.ts';
 import * as codecModule from '../src/common/editor/scape-project-document.ts';
+import { publishProjectView } from '../src/common/editor/controller/document/document-snapshot.ts';
+import { admitAudioEditorProjectValidationStructure, AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS } from '../src/common/editor/project-validation-budget.ts';
 import { preflightScapeProjectJsonStructure } from '../src/common/editor/scape-project-json-preflight.ts';
 
 interface BinaryDescriptor extends Record<string, unknown> {
@@ -26,6 +28,31 @@ const EXPECTED_HARD_LIMITS = Object.freeze({
 	maximumTotalPayloadBytes: 8 * MIB,
 	maximumTraversalNodes: 100_000,
 	maximumTraversalDepth: 128,
+});
+
+test('published binary fields retain exact bytes and archive limits through private copies', () => {
+	const storage = Uint8Array.of(255, 0, 128, 255);
+	const buffer = Uint8Array.of(7, 13).buffer;
+	const input = currentProject({ inputs: [storage.subarray(1, 3), buffer] });
+	const published = publishProjectView(input);
+	const { serialize } = codecFunctions();
+	const text = serialize(input);
+	const { inputs } = published.opaqueExtensions as { inputs: [Uint8Array, ArrayBuffer] };
+	assert.ok(Object.isFrozen(inputs));
+	storage.fill(42);
+	new Uint8Array(buffer).fill(42);
+	inputs[0].fill(99);
+	new Uint8Array(inputs[1]).fill(99);
+	assert.deepEqual(inputs[0], Uint8Array.of(0, 128));
+	assert.deepEqual(inputs[1], Uint8Array.of(7, 13).buffer);
+	assert.deepEqual(structuredClone(inputs), [Uint8Array.of(0, 128), Uint8Array.of(7, 13).buffer]);
+	admitAudioEditorProjectValidationStructure(published, AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS);
+	assert.equal(serialize(published), text);
+	assert.throws(() => serialize(published, { limits: { maximumPayloadBytes: 1 } }), /payload exceeds its byte limit/u);
+
+	const copiedAccessor = Object.defineProperty({}, 'untrusted', Object.getOwnPropertyDescriptor(inputs, '0')!);
+	assert.throws(() => serialize(currentProject(copiedAccessor)), /accessors are not supported/u);
+	assert.throws(() => admitAudioEditorProjectValidationStructure(copiedAccessor, AUDIO_EDITOR_PROJECT_VALIDATION_HARD_LIMITS), /enumerable data properties/u);
 });
 
 test('the Scape project binary codec exposes frozen lower-only production limits', () => {
