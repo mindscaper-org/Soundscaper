@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { assertNoSeriousAxeViolations, bootEditor, chooseNestedCommandAction, collectClientErrors, commitInput, waitForEditor } from './audio-editor-test-helpers.js';
+import { assertNoSeriousAxeViolations, bootEditor, chooseCommandAction, chooseNestedCommandAction, collectClientErrors, commitInput, waitForEditor } from './audio-editor-test-helpers.js';
 import { installOscillatorMicrophone } from './helpers/complex-editing-workflows.js';
 
 test('Record options edits lead-in with the standard time formats and retries a take', async ({ page }) => {
@@ -48,14 +48,27 @@ test('Record options edits lead-in with the standard time formats and retries a 
 	await expect(duration.locator('.timecode__display')).toHaveText('000,003.000s');
 	await page.keyboard.press('Escape');
 	await page.keyboard.press('Escape');
+	// Reopening the microphone lets the test distinguish the retry from the first capture.
+	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
+	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
+	await preferences.getByRole('tab', { name: /Playback\/Recording/u }).click();
+	await preferences.getByRole('checkbox', { name: 'Keep input devices open between recordings', exact: true }).uncheck();
+	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
 	const record = editor.locator('[data-transport="record"] .kw-audio-editor__split-button-main button');
+	const preview = editor.locator('[data-clip-id^="recording-preview-"]');
+	const capturedAudio = /, (?:0\.[1-9]\d*|[1-9]\d*(?:\.\d+)?) seconds? long$/u;
+	const microphoneCount = () => page.evaluate(() => globalThis.__complexWorkflowStreams.length);
 	await record.click();
 	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
+	await expect(preview).toHaveAccessibleName(capturedAudio);
+	const firstCaptureMicrophones = await microphoneCount();
 	options = await openOptions();
 	await expect(options.getByRole('button', { name: 'Lead-in time settings', exact: true })).toBeDisabled();
 	await options.getByRole('button', { name: 'Punch again', exact: true }).click();
 	await expect(options).toBeHidden();
+	await expect.poll(microphoneCount).toBeGreaterThan(firstCaptureMicrophones);
 	await expect(record).toHaveAttribute('aria-label', 'Pause recording');
+	await expect(preview).toHaveAccessibleName(capturedAudio);
 	await editor.getByRole('button', { name: 'Stop', exact: true }).click();
 	await expect(record).toHaveAttribute('aria-pressed', 'false');
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', /.+/u);
