@@ -65,8 +65,11 @@ test.describe('Soundscaper mastering sequence delivery', () => {
 		let mastering = page.getByRole('dialog', { name: 'Mastering sequences', exact: true });
 		await mastering.getByRole('button', { name: 'New sequence', exact: true }).click();
 		const nameForm = mastering.getByRole('form', { name: 'Sequence name', exact: true });
-		await nameForm.getByRole('textbox').fill('Album order');
+		const sequenceName = nameForm.getByRole('textbox');
+		await expect(sequenceName).toHaveValue('New sequence');
+		await sequenceName.fill('Album order');
 		await nameForm.getByRole('button', { name: 'Sequence name', exact: true }).click();
+		await expect(mastering.getByRole('option', { name: 'Album order', exact: true })).toHaveCount(1);
 		const regionPicker = mastering.getByRole('combobox', { name: 'Add region', exact: true });
 		await regionPicker.selectOption({ label: 'Opening' });
 		await mastering.getByRole('button', { name: 'Add region', exact: true }).click();
