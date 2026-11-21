@@ -48,7 +48,10 @@ test('a short MIDI note retains a body that can be dragged', async ({ page }) =>
 	const x = bounds.x + bounds.width / 2, y = bounds.y + bounds.height / 2;
 	await page.mouse.move(x, y);
 	await page.mouse.down();
-	await page.mouse.move(x + 25, y, { steps: 3 });
+	// Let the first preview render before sending the next native move.
+	await page.mouse.move(x + 12, y);
+	await expect(note).toHaveCSS('left', '12.5px');
+	await page.mouse.move(x + 25, y);
 	await expect(note).toHaveCSS('left', '25px');
 	await page.mouse.up();
 	await expect(noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true })).toHaveValue('0.25');
