@@ -121,6 +121,9 @@ function patchWorkingSource(engine: EngineBuild): void {
 		if (engine.target === 'win-arm64') {
 			patch('src/common/CMakeLists.txt', 'elseif(WIN32)\n  target_compile_definitions',
 				'elseif(WIN32)\n  target_link_libraries(${PROJECT_NAME} PUBLIC surge::simde)\n  target_compile_definitions');
+			// MSVC's C math header can define HUGE_VAL before the std overloads are declared.
+			patch('libs/simde/simde/simde-math.h', '#if defined(HUGE_VAL)',
+				'#if defined(_MSC_VER) && defined(__cplusplus)\n  #include <cmath>\n  #define SIMDE_MATH_HAVE_CMATH\n#elif defined(HUGE_VAL)');
 			// The MSVC widening multiply intrinsic is available on x86 and x64.
 			patch('src/common/dsp/oscillators/WindowOscillator.cpp', '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};',
 				'#if defined(_MSC_VER) && !defined(_M_ARM64)\n    const auto c{__emulu(a, b)};');

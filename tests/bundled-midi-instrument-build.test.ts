@@ -125,6 +125,9 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	const oscillatorPath = 'src/common/dsp/oscillators/WindowOscillator.cpp';
 	const oscillator = '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};\n#else\n    const auto c{std::uint64_t{a} * std::uint64_t{b}};\n#endif\n';
 	await writeFixture(sourceRoot, oscillatorPath, oscillator);
+	const mathPath = 'libs/simde/simde/simde-math.h';
+	const math = '#if defined(HUGE_VAL)\n  /* A math header was already included. */\n#endif\n';
+	await writeFixture(sourceRoot, mathPath, math);
 	const path = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
 	const cpu = [
 		'#include "sst/plugininfra/cpufeatures.h"',
@@ -145,6 +148,9 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	assert.equal(await readFile(join(sourceRoot, oscillatorPath), 'utf8'), oscillator);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, oscillatorPath), 'utf8'),
 		/#if defined\(_MSC_VER\) && !defined\(_M_ARM64\)\n {4}const auto c\{__emulu\(a, b\)\};/u);
+	assert.equal(await readFile(join(sourceRoot, mathPath), 'utf8'), math);
+	assert.match(await readFile(join(engines[0]!.workSourceRoot, mathPath), 'utf8'),
+		/^#if defined\(_MSC_VER\) && defined\(__cplusplus\)\n {2}#include <cmath>\n {2}#define SIMDE_MATH_HAVE_CMATH\n#elif defined\(HUGE_VAL\)/u);
 	assert.equal(await readFile(join(sourceRoot, path), 'utf8'), cpu);
 	const patched = await readFile(join(engines[0]!.workSourceRoot, path), 'utf8');
 	assert.doesNotMatch(patched, /Windows only works on X86/u);
