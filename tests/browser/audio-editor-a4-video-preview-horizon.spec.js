@@ -25,17 +25,20 @@ for (const audioSeconds of [2, 10]) test(`video File Import previews only its 2s
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
 	expect(await page.evaluate(() => globalThis.__pictureDurations)).toContain(audioSeconds);
 	const image = editor.locator('.audio-editor-video-clip__filmstrip img').first();
-	await expect.poll(() => image.evaluate(value => value.complete && value.naturalWidth === 64 && value.naturalHeight === 32)).toBe(true);
-	const rgba = await image.evaluate(value => {
+	// Derivatives publish after the import, replacing the first filmstrip image as they arrive.
+	await expect.poll(() => image.evaluate(value => {
+		if (!value.complete || value.naturalWidth !== 64 || value.naturalHeight !== 32) return null;
 		const canvas = document.createElement('canvas'); canvas.width = value.naturalWidth; canvas.height = value.naturalHeight;
-		const context = canvas.getContext('2d'); context.drawImage(value, 0, 0); return [...context.getImageData(32, 16, 1, 1).data];
-	});
-	expect(rgba[0]).toBeLessThan(40); expect(rgba[1]).toBeGreaterThan(60); expect(rgba[1]).toBeLessThan(100);
-	expect(rgba[2]).toBeGreaterThan(200); expect(rgba[3]).toBe(255);
+		const context = canvas.getContext('2d'); context.drawImage(value, 0, 0);
+		const [red, green, blue, alpha] = context.getImageData(32, 16, 1, 1).data;
+		return red < 40 && green > 60 && green < 100 && blue > 200 && alpha === 255
+			? 'blue frame' : [red, green, blue, alpha];
+	})).toBe('blue frame');
 	const saving = page.waitForEvent('download'); await chooseExportProjectFileAction(page, editor);
 	const entries = unzipSync(await downloadBytes(await saving)), project = JSON.parse(strFromU8(entries['project.json']));
 	const video = project.sources.find(source => source.kind === 'video');
 	expect(video).toMatchObject({ sourceFrameCount: 60, sampleFrameCount: 96000, sampleRate: 48000, frameRate: { num: 30, den: 1 } });
 	expect(Buffer.from(entries[`media/${video.id}/original`]).equals(original)).toBe(true);
+	expect(await page.evaluate(() => globalThis.__pictureSeeks.filter(time => time > 2))).toEqual([]);
 	await expect(editor.locator('[data-editor-toast="workspace-status-error"]')).toHaveCount(0);
 });
