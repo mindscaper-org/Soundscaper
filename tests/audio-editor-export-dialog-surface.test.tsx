@@ -205,7 +205,7 @@ test('dither and loudness normalization are rendering decisions, not audio-forma
 	const fixture = await mountedExportDialog();
 	try {
 		const sections = fixture.sectionFields();
-		assert.deepEqual(sections[ENGLISH_COPY.audioOptionsSection], ['channelMapping', 'bitDepth', 'sampleRate']);
+		assert.deepEqual(sections[ENGLISH_COPY.audioOptionsSection], ['channelMapping', 'bitDepth', 'sampleRate', 'embedLabelChapters']);
 		assert.deepEqual(sections[ENGLISH_COPY.exportSection], ['format', 'output']);
 		assert.deepEqual(sections[ENGLISH_COPY.renderingSection], ['loudnessNormalization', 'dither', 'tails']);
 	} finally {
