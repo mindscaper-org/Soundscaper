@@ -17,8 +17,9 @@ test('flyout content resizes defer bounds updates outside observer delivery and 
 	Object.assign(window, { innerWidth: 1280, innerHeight: 900 });
 	let notify = (): void => undefined;
 	let disconnected = false;
+	let observerCount = 0;
 	Object.defineProperty(globalThis, 'ResizeObserver', { configurable: true, value: class implements ResizeObserver {
-		constructor(callback: ResizeObserverCallback) { notify = () => callback([], this); }
+		constructor(callback: ResizeObserverCallback) { observerCount++; notify = () => callback([], this); }
 		observe(): void {}
 		unobserve(): void {}
 		disconnect(): void { disconnected = true; }
@@ -34,8 +35,8 @@ test('flyout content resizes defer bounds updates outside observer delivery and 
 	const measure = context.mock.method(ReactTestElement.prototype, 'getBoundingClientRect', () => (
 		{ x: 0, y: 0, left: 0, top: 0, right: width, bottom: 30, width, height: 30, toJSON() {} }
 	));
-	const render = (open: boolean) => root.render(<Flyout isOpen={open} x={500} y={100}
-		closeOnOutsideClick={false} closeOnEscape={false} onClose={() => undefined}>Tooltip</Flyout>);
+	const render = (open: boolean, text = 'Tooltip') => root.render(<Flyout isOpen={open} x={500} y={100}
+		closeOnOutsideClick={false} closeOnEscape={false} onClose={() => undefined}>{text}</Flyout>);
 	try {
 		await act(async () => { render(true); });
 		const flyout = dom.one('.flyout');
@@ -50,6 +51,11 @@ test('flyout content resizes defer bounds updates outside observer delivery and 
 		});
 		assert.equal(Reflect.get(flyout.style, 'left'), '400px', 'the next frame uses the new content bounds');
 		assert.equal(measure.mock.callCount(), initialMeasures + 1);
+		width = 240;
+		await act(async () => { render(true, 'Changed tooltip content'); });
+		assert.equal(Reflect.get(flyout.style, 'left'), '380px', 'updated children are measured before paint');
+		assert.equal(observerCount, 1, 'content updates retain the active observer');
+		assert.equal(disconnected, false);
 		notify();
 		assert.equal(frames.size, 1);
 		await act(async () => { render(false); });

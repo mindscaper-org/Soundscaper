@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, collectClientErrors } from './audio-editor-test-helpers.js';
 
 for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '/framescaper/embed/en/']]) {
 	test(`${product} tooltips show current shortcuts on toolbar buttons and menu commands`, async ({ page }) => {
@@ -26,6 +26,25 @@ for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '
 		await expect(explanation.locator('kbd')).toHaveText('Ctrl+N');
 	});
 }
+
+test('a button tooltip keeps its width when the button is at the viewport edge', async ({ page }) => {
+	const errors = collectClientErrors(page);
+	const editor = await bootEditor(page, '/embed/en/');
+	const button = editor.getByRole('button', { name: 'Customize toolbar', exact: true });
+	const tooltip = editor.getByRole('tooltip', { name: 'Customize toolbar', exact: true });
+	await button.hover();
+	await expect(tooltip).toBeVisible();
+	const initial = await tooltip.boundingBox();
+	await page.mouse.move(0, 0);
+	await expect(tooltip).toHaveCount(0);
+	await button.evaluate(element => Object.assign(element.style, { position: 'fixed', top: '20px', right: '0', zIndex: '1000' }));
+	await button.hover();
+	await expect(tooltip).toBeVisible();
+	const atEdge = await tooltip.boundingBox();
+	expect(atEdge.width).toBeCloseTo(initial.width, 1);
+	expect(atEdge.x + atEdge.width).toBeLessThanOrEqual(page.viewportSize().width);
+	expect(errors).toEqual([]);
+});
 
 test('button and menu tooltips follow shortcut reassignment and removal', async ({ page }) => {
 	const editor = await bootEditor(page, '/embed/en/');

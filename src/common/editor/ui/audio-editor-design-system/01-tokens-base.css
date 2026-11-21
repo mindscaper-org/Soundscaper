@@ -228,6 +228,8 @@
 	 * viewport coordinates. The package fade creates a transient contrast
 	 * failure over dark content. */
 	position: fixed;
+	/* Keep the intrinsic width when Flyout adjusts its inset to fit the viewport. */
+	width: max-content;
 	z-index: 10010;
 	pointer-events: none;
 	background: var(--panel);

@@ -954,8 +954,9 @@ are the places where the two keyboard models meet, so a future sync should re-ch
      Upstream-PR candidate.
 
 127. `Flyout` defers content resize repositioning to one animation frame so it
-     cannot change its own bounds during ResizeObserver delivery. Initial
-     placement stays synchronous, and closing cancels pending position work.
+     cannot change its own bounds during ResizeObserver delivery. Initial and
+     updated content are measured before paint. Renders retain the same observer
+     while the anchor stays fixed, and closing cancels pending position work.
      Covered by `tests/vendored-design-system-flyout-observer.test.tsx` and the
      production transcript-editing and macro workflows. Upstream-PR candidate.
 

@@ -136,6 +136,13 @@ export const Flyout: React.FC<FlyoutProps> = ({
     }
 
     updatePosition();
+  }, [children, isOpen, updatePosition]);
+
+  React.useLayoutEffect(() => {
+    if (!isOpen) return;
+
+    // Keep the observer attached when React renders new children. Re-observing
+    // the same surface can queue another delivery while layout is settling.
     window.addEventListener('resize', updatePosition);
 
     // Updating the observed surface during delivery can trigger another layout
@@ -158,7 +165,7 @@ export const Flyout: React.FC<FlyoutProps> = ({
       resizeObserver?.disconnect();
       if (resizeFrame !== null) cancelAnimationFrame(resizeFrame);
     };
-  }, [children, isOpen, updatePosition]);
+  }, [isOpen, updatePosition]);
 
   React.useEffect(() => {
     if (!isOpen || !closeOnOutsideClick) return;
