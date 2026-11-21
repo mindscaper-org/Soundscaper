@@ -60,12 +60,14 @@ test('the icon inventory identifies every name without a bundled glyph', () => {
 		.filter(([, codepoint]) => !codepoints.has(codepoint)).map(([name]) => name), ['NONE']);
 });
 
-test('the updated upstream font carries video, filled status, page lock and fade handles', () => {
+test('the upstream font carries video, filled status, page lock, track heights and fade handles', () => {
 	const codepoints = readIconFontCodepoints(readFileSync(ICON_FONT));
-	assert.equal(codepoints.size, 564);
+	assert.equal(codepoints.size, 587);
 	for (const [name, codepoint] of [
 		['VIDEO', 0xf4c2], ['PAGE_LOCK', 0xf4c3], ['TICK_FILLED', 0xf4c4], ['ERROR_FILLED', 0xf4c6],
-		['WARNING_FILLED', 0xf4c8], ['INFO_FILLED', 0xf4cc], ['FADE_HANDLE_IN', 0xf4cd], ['FADE_HANDLE_OUT', 0xf4ce],
+		['WARNING_FILLED', 0xf4c8], ['INFO_FILLED', 0xf4cc],
+		['TRACKS_COLLAPSE', 0xf4cd], ['TRACKS_FIT_HEIGHT', 0xf4ce], ['TRACKS_EXPAND', 0xf4cf],
+		['FADE_HANDLE_IN', 0xf4d0], ['FADE_HANDLE_OUT', 0xf4d1],
 	] as const) {
 		assert.equal(iconNameToChar(name), String.fromCodePoint(codepoint), name);
 		assert.ok(codepoints.has(codepoint), `${name} must exist in the bundled font.`);

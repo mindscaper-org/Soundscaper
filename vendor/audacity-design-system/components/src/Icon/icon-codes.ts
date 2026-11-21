@@ -6,9 +6,9 @@
  * editor. The enum values are UTF-16 code points in MusescoreIcon.ttf.
  *
  * Upstream source:
- * https://github.com/musescore/muse_framework/blob/7a278749964388ba774fe972bc1a9824260fa2ed/framework/ui/view/iconcodes.h
- * Source SHA-256: 90a6542bd9c48adf3ac0d16778636f69c86fe023f60cb9abf2ce81f432ed82d2
- * Pinned font SHA-256: 716257e539614bc0aaeb5896a2139fb53000bcc9508b33d5f293470094c37f8f
+ * https://github.com/musescore/muse_framework/blob/6fb1f4c1ac19f7e484c3cc044de96f1c604864f4/framework/ui/view/iconcodes.h
+ * Source SHA-256: 541bb9ddc51b6253cfafb351aca2cd6ac8ab92bb5f8f3e072c2a3f501c6c445f
+ * Pinned font SHA-256: 3d228a208b7e6e2ad8bae76eaea5974ba1776d7a4c9473b278c9536cee24e645
  * Font source, derivative and license pins: config/musescore-icon-font.json.
  *
  * Local adaptations: GRADUATION_CAP aliases the bundled MORTAR_BOARD glyph;
@@ -436,8 +436,31 @@ export const MUSESCORE_ICON_CODES = Object.freeze({
 	ERROR_FILLED: 0xF4C6,
 	WARNING_FILLED: 0xF4C8,
 	INFO_FILLED: 0xF4CC,
-	FADE_HANDLE_IN: 0xF4CD,
-	FADE_HANDLE_OUT: 0xF4CE,
+	TRACKS_COLLAPSE: 0xF4CD,
+	TRACKS_FIT_HEIGHT: 0xF4CE,
+	TRACKS_EXPAND: 0xF4CF,
+	FADE_HANDLE_IN: 0xF4D0,
+	FADE_HANDLE_OUT: 0xF4D1,
+	MINIMAL_UI: 0xF4D2,
+	MINIMAL_UI_CLEF: 0xF4D3,
+	MINIMAL_UI_TIME_SIGNATURE: 0xF4D4,
+	MINIMAL_UI_TEMPO: 0xF4D5,
+	MINIMAL_UI_DYNAMICS: 0xF4D6,
+	MINIMAL_UI_TEXT: 0xF4D7,
+	MINIMAL_UI_KEYBOARD: 0xF4D8,
+	MINIMAL_UI_REPEATS: 0xF4D9,
+	MINIMAL_UI_ORNAMENTS: 0xF4DA,
+	MINIMAL_UI_GRACE_NOTES: 0xF4DB,
+	MINIMAL_UI_BREATHS_PAUSES: 0xF4DC,
+	MINIMAL_UI_NOTEHEADS: 0xF4DD,
+	MINIMAL_UI_ARPEGGIOS: 0xF4DE,
+	MINIMAL_UI_TREMOLOS: 0xF4DF,
+	MINIMAL_UI_HARP: 0xF4E0,
+	MINIMAL_UI_GUITAR: 0xF4E1,
+	MINIMAL_UI_FINGERINGS: 0xF4E2,
+	MINIMAL_UI_ACCORDION: 0xF4E3,
+	MINIMAL_UI_BAGPIPE: 0xF4E4,
+	SQUARE: 0xF4E5,
 	NONE: 0xFFFF,
 });
 

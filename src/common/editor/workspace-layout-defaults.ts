@@ -19,9 +19,9 @@ export const DEFAULT_TOOLBAR_BUTTONS = Object.freeze({
 	play: true,
 	'play-at-speed': true,
 	varispeed: false,
-	'decrease-track-heights': false,
-	'increase-track-heights': false,
-	'fit-tracks-height': false,
+	'decrease-track-heights': true,
+	'increase-track-heights': true,
+	'fit-tracks-height': true,
 	stop: true,
 	record: true,
 	'jump-start': true,
@@ -63,7 +63,7 @@ const MODERN_TOOLBAR_BUTTONS = Object.freeze({
 
 // Audacity 4.0.0 Modern workspace: play, stop, record, rewind, loop |
 // split, spectrogram, zoom in/out | timecode | snap | meters, plus the
-// "Workspace" dropdown in the action bar.
+// "Workspace" dropdown in the action bar. Includes the shared track-height controls.
 export const AUDACITY_TOOLBAR_BUTTONS = Object.freeze({
 	...MODERN_TOOLBAR_BUTTONS,
 	'play-at-speed': false,

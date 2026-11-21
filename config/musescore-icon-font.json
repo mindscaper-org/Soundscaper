@@ -1,11 +1,11 @@
 {
 	"schemaVersion": 1,
 	"repository": "https://github.com/musescore/muse_framework",
-	"revision": "7a278749964388ba774fe972bc1a9824260fa2ed",
+	"revision": "6fb1f4c1ac19f7e484c3cc044de96f1c604864f4",
 	"iconCodes": {
 		"upstreamPath": "framework/ui/view/iconcodes.h",
-		"byteLength": 13389,
-		"sha256": "90a6542bd9c48adf3ac0d16778636f69c86fe023f60cb9abf2ce81f432ed82d2"
+		"byteLength": 13981,
+		"sha256": "541bb9ddc51b6253cfafb351aca2cd6ac8ab92bb5f8f3e072c2a3f501c6c445f"
 	},
 	"generator": "wawoff2@2.0.1",
 	"artifacts": [
@@ -13,14 +13,14 @@
 			"kind": "source-ttf",
 			"path": "vendor/audacity-design-system/components/src/assets/fonts/MusescoreIcon.ttf",
 			"upstreamPath": "framework/ui/data/MusescoreIcon.ttf",
-			"byteLength": 177304,
-			"sha256": "716257e539614bc0aaeb5896a2139fb53000bcc9508b33d5f293470094c37f8f"
+			"byteLength": 184816,
+			"sha256": "3d228a208b7e6e2ad8bae76eaea5974ba1776d7a4c9473b278c9536cee24e645"
 		},
 		{
 			"kind": "browser-woff2",
 			"path": "vendor/audacity-design-system/components/src/assets/fonts/MusescoreIcon.woff2",
-			"byteLength": 70280,
-			"sha256": "649e5299cca1b799f7ea37722df4b509e9f8145041d30d06fa6da0dfc4b62fdf"
+			"byteLength": 74988,
+			"sha256": "68e7341223d0ca88f5980074fd7ab59a350a640ae419f3b26d889dfec8442dad"
 		},
 		{
 			"kind": "license",

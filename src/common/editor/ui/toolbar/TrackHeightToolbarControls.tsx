@@ -24,7 +24,6 @@ interface Props {
 	readonly run: (operation: () => unknown) => unknown;
 }
 
-/** The optional trio reuses the native relative height steps and fits the measured viewport. */
 export function TrackHeightToolbarControls({ buttons, copy, disabled, controller, run }: Props) {
 	const root = useRef<HTMLDivElement>(null);
 	const options = trackHeightToolbarOptions(copy).filter(option => buttons[option.id] === true);

@@ -5,29 +5,27 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createAudioEditorPreferencesV1 } from '../src/common/editor/preferences.js';
 import { TrackHeightToolbarControls, trackHeightToolbarOptions } from '../src/common/editor/ui/toolbar/TrackHeightToolbarControls.tsx';
-import { Icon } from '../vendor/audacity-design-system/components/src/Icon/Icon.tsx';
 import { createTrackHeightMenu } from '../src/common/editor/ui/timeline/track-height-menu.ts';
 
 Object.assign(globalThis, { React });
 
-test('every workspace leaves the three height buttons off until opted in', () => {
+test('every workspace shows the three height buttons by default and honors explicit visibility', () => {
 	for (const id of ['classic', 'music', 'modern', 'audacity', 'video-editor']) {
 		const preferences = createAudioEditorPreferencesV1({ workspace: { activeId: id } });
-		for (const option of trackHeightToolbarOptions({})) assert.equal(preferences.workspace.toolbarButtons[option.id], false);
+		for (const option of trackHeightToolbarOptions({})) assert.equal(preferences.workspace.toolbarButtons[option.id], true, `${id}: ${option.id}`);
 	}
-	const empty = renderToStaticMarkup(<TrackHeightToolbarControls buttons={{}} copy={{}} disabled={false}
-		controller={{ actions: { track: { decreaseAllHeights() {}, increaseAllHeights() {} }, timeline: { fitTracksToHeight() {} } } }} run={operation => operation()} />);
-	assert.equal(empty, '');
+	const preferences = createAudioEditorPreferencesV1({ workspace: { toolbarButtons: { 'fit-tracks-height': false } } });
+	assert.equal(preferences.workspace.toolbarButtons['decrease-track-heights'], true);
+	assert.equal(preferences.workspace.toolbarButtons['fit-tracks-height'], false);
 });
 
-test('opted in height buttons keep native arrows beside the upstream fit glyph', () => {
+test('the height toolbar pairs the existing action labels with the upstream track glyphs', () => {
 	const markup = renderToStaticMarkup(<TrackHeightToolbarControls buttons={{ 'decrease-track-heights': true, 'increase-track-heights': true, 'fit-tracks-height': true }}
 		copy={{}} disabled={false} controller={{ actions: { track: { decreaseAllHeights() {}, increaseAllHeights() {} }, timeline: { fitTracksToHeight() {} } } }} run={operation => operation()} />);
-	for (const label of ['Decrease all track heights', 'Increase all track heights', 'Fit tracks to height']) assert.match(markup, new RegExp(`aria-label="${label}"`, 'u'));
-	for (const name of ['track-fit-height'] as const) {
-		const icon = renderToStaticMarkup(<Icon name={name} />);
-		assert.match(icon, /<svg/u);
-		assert.match(icon, /stroke-width="1"/u);
+	for (const [label, codepoint] of [
+		['Decrease all track heights', 0xf4cd], ['Increase all track heights', 0xf4cf], ['Fit tracks to height', 0xf4ce],
+	] as const) {
+		assert.match(markup, new RegExp(`aria-label="${label}"><span[^>]*>${String.fromCodePoint(codepoint)}</span></button>`, 'u'));
 	}
 });
 
