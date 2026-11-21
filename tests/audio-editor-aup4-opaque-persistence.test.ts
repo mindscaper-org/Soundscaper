@@ -15,13 +15,33 @@ import {
 	cloneAup4OpaqueProjectValue,
 	rehydrateAup4OpaqueInt64Attribute,
 } from '../src/common/editor/aup4-opaque-persistence.ts';
+import { SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE } from '../src/common/editor/audacity-binary-xml-values.ts';
 import { createAup4ProjectTree } from '../src/common/editor/aup4-profile.js';
 import { publishProjectView } from '../src/common/editor/controller/document/document-snapshot.ts';
+import { fitAudacityOpaqueBinary } from '../src/common/editor/controller/document/internal/native-project/audacity-import-opaque-budget.ts';
 import { parseScapeProjectDocument, serializeScapeProjectDocument } from '../src/common/editor/scape-project-document.ts';
 import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 
 const xmlChildren = audacityXmlChildren as unknown as (node: unknown, name: string) => unknown[];
+
+test('opaque Audacity binary omissions apply consistently across the project and its native template', () => {
+	const small = { kind: 'blob', name: 'small-state', value: Uint8Array.of(1, 255) };
+	const copies = Array.from({ length: 257 }, () => ({ kind: 'blob', name: 'mirrored-state', value: Uint8Array.of(17) }));
+	const carrier = { kind: 'node', node: { name: SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE, content: [copies[256]] } };
+	const master = { kind: 'node', node: { name: 'effects', content: [] } };
+	const project = { state: [small, ...copies.slice(0, 256)], opaqueExtensions: {
+		aup4RootTemplate: { node: { content: [carrier, master] } }, aup4UnknownNodes: [carrier], aup4MasterEffectsContentIndex: 1,
+	} };
+	const { project: fitted, omission } = fitAudacityOpaqueBinary(project);
+	assert.deepEqual(fitted, { state: [small], opaqueExtensions: {
+		aup4RootTemplate: { node: { content: [master] } }, aup4UnknownNodes: [], aup4MasterEffectsContentIndex: 0,
+	} });
+	assert.equal(omission?.code, 'AUDACITY_OPAQUE_BINARY_OMITTED');
+	assert.equal(project.state.length, 257);
+	assert.equal(project.opaqueExtensions.aup4RootTemplate.node.content.length, 2);
+	assert.strictEqual(fitAudacityOpaqueBinary(fitted).project, fitted);
+});
 
 test('opaque AUP4 int64 values persist as exact JSON-safe decimals and rehydrate for export', () => {
 	const imported = {

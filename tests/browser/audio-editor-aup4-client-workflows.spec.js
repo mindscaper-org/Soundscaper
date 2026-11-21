@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { createHash } from 'node:crypto';
 import {
 	aup4NativeRichFixture,
 	expect,
@@ -16,6 +17,8 @@ import {
 } from './audio-editor-test-helpers.js';
 import { decodeAudacityBinaryXml, encodeAudacityBinaryXml } from '../../src/common/editor/audacity-binary-xml.js';
 import { readAup4Document } from '../../src/common/editor/aup4-database.js';
+import { embedSoundscaperNativePluginStatesInAup4 } from '../../src/soundscaper/editor-native-plugin-state-aup4.ts';
+import { createSoundscaperProject } from '../../src/soundscaper/editor-project.ts';
 
 test.describe('Audacity project worker client workflows', () => {
 	test('opens streamed AUP4 audio with opaque binary state and exports through the File menu', async ({ page }) => {
@@ -79,6 +82,23 @@ test.describe('Audacity project worker client workflows', () => {
 		expect(publication.writes[0].size).toBeGreaterThan(0);
 		expect(publication.abortCalls).toBe(0);
 		expect(errors).toEqual([]);
+	});
+
+	test('opens and saves Audacity audio when opaque binary state exceeds the persistence limit', async ({ page }) => {
+		test.setTimeout(90_000);
+		const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
+		const chooser = page.waitForEvent('filechooser');
+		await chooseFileAction(page, editor, 'Open');
+		await (await chooser).setFiles({
+			name: 'large-state.aup4', mimeType: 'application/x-audacity-project',
+			buffer: await aup4FixtureWithOpaqueBinary(4 * 1024 * 1024 + 1),
+		});
+		await expect(editor.locator('[data-status]')).toContainText('Audacity project opened', { timeout: 60_000 });
+		await expect(editor.getByRole('region', { name: 'AUP4 Compatibility Report', exact: true })).toContainText('1 omitted');
+		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
+		await page.reload();
+		await expect(editor.getByRole('tab', { name: 'large-state', exact: true })).toHaveAttribute('aria-selected', 'true');
+		await expect(editor).toHaveAttribute('data-clip-count', '5');
 	});
 
 	test('reports a corrupt AUP4 worker response and recovers through another File Open', async ({ page }) => {
@@ -170,18 +190,32 @@ test.describe('Audacity project worker client workflows', () => {
 	});
 });
 
-async function aup4FixtureWithOpaqueBinary() {
+async function aup4FixtureWithOpaqueBinary(length = 4) {
 	const SQL = await initSqlJs();
 	const database = new SQL.Database(aup4NativeRichFixture());
 	try {
 		const { dictionary, document } = readAup4Document(database);
 		const { root } = decodeAudacityBinaryXml(dictionary, document);
-		root.content.push({ kind: 'blob', name: 'opaque-state', value: Uint8Array.of(0, 1, 128, 255) });
+		const value = new Uint8Array(length);
+		value.set([0, 1, 128, 255]);
+		root.content.push({ kind: 'blob', name: 'opaque-state', value }, await nativePluginStateFixture());
 		writeAup4Document(database, encodeAudacityBinaryXml(root), { autosave: false, now: 0 });
 		return Buffer.from(database.export());
 	} finally {
 		database.close();
 	}
+}
+
+async function nativePluginStateFixture() {
+	const bytes = Uint8Array.of(1, 7, 128, 255);
+	const sha256 = createHash('sha256').update(bytes).digest('hex');
+	const project = createSoundscaperProject({ nativePluginStates: [{
+		instanceId: 'test-insert', format: 'vst3', stablePluginId: 'com.example.test', binarySha256: 'ab'.repeat(32),
+		stateBody: { kind: 'native-plugin-state', bodyId: `native-plugin-state:${sha256}`, byteLength: bytes.byteLength, sha256 },
+		enabled: true, bypassed: false, continuity: 'live', latencySamples: 0,
+	}] });
+	const carrier = await embedSoundscaperNativePluginStatesInAup4(project, { loadNativePluginStateBody: () => bytes });
+	return carrier.opaqueExtensions.aup4UnknownNodes[0];
 }
 
 async function installAup4BrowserProbe(page) {

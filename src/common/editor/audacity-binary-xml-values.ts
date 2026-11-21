@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+export const SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE = 'soundscaper-native-plugin-states-v1';
+
 export class AudacityBinaryXmlError extends Error {
 	readonly code: string;
 	constructor(message: string, code = 'INVALID_BINARY_XML', options?: ErrorOptions) {

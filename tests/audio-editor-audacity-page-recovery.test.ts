@@ -4,7 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { recoverAudacityProjectWithPages } from '../src/common/editor/audacity-project-page-recovery.ts';
 import { decodeAudacityProjectTree } from '../src/common/editor/aup4-conversion.js';
+import { upgradeAudacityProjectDatabase } from '../src/common/editor/aup4-database.js';
 import { streamAup4SourceAudio } from '../src/common/editor/aup4-import-audio.ts';
+import { estimateProjectRevisionPublication } from '../src/common/editor/project-publication-admission.ts';
+import { importSoundscaperAudacityProject } from '../src/soundscaper/editor-audacity-project-import.ts';
 import { createAup3Fixture } from './aup3-fixture.js';
 import { SQL } from './helpers/aup4-database-harness.js';
 import { createAudacityDamagedOverflowFixture } from './helpers/audacity-damaged-overflow-fixture.ts';
@@ -34,21 +37,24 @@ test('normal Audacity recovery salvages broken overflow prefixes and streams exa
 	} finally { database.close(); }
 });
 
-test('large recovery drops only native clip XML and boundary hints, reports that loss, and retains the editable timeline', async () => {
+test('a large Audacity project retains editable audio and timing within the editor document limits', async () => {
 	const bytes = await createAup3Fixture({ tracks: [{ name: 'Long edit', clips: Array.from({ length: 771 }, (_, index) => ({
 		offset: index * 2, samples: [0.25, -0.5], envelope: true,
 	})) }] });
 	const database = new SQL.Database(bytes);
 	try {
-		const recovered = await recoverAudacityProjectWithPages(database, new Blob([bytes]));
-		await assert.rejects(decodeAudacityProjectTree(recovered.validation.document.root, () => assert.fail(), { planAudio: true }), /node limit/);
-		const decoded = await decodeAudacityProjectTree(recovered.validation.document.root, () => assert.fail(), { planAudio: true, recover: true });
-		assert.equal(decoded.project.tracks[0].name, 'Long edit');
-		assert.equal(decoded.project.clips.length, 771);
-		assert.equal(decoded.project.clips[770].timelineStartFrame, 1540 * 48000);
-		assert.equal(decoded.project.clips[770].durationFrames, 2);
-		assert.ok(decoded.project.clips[770].opaqueExtensions.aup4Envelope);
-		assert.ok(decoded.compatibilityReport.items.some((item: { code: string }) => item.code === 'RECOVERY_NATIVE_CLIP_METADATA_OMITTED'));
+		const { validation } = upgradeAudacityProjectDatabase(database);
+		for (const recover of [false, true]) {
+			const decoded = await decodeAudacityProjectTree(validation.document.root, () => assert.fail(), { planAudio: true, recover });
+			assert.equal(decoded.project.tracks[0].name, 'Long edit');
+			assert.equal(decoded.project.clips.length, 771);
+			assert.equal(decoded.project.clips[770].timelineStartFrame, 1540 * 48000);
+			assert.equal(decoded.project.clips[770].durationFrames, 2);
+			assert.ok(decoded.project.clips[770].opaqueExtensions.aup4Envelope);
+			const code = recover ? 'RECOVERY_NATIVE_CLIP_METADATA_OMITTED' : 'NATIVE_CLIP_METADATA_OMITTED';
+			assert.ok(decoded.compatibilityReport.items.some((item: { code: string }) => item.code === code));
+			assert.doesNotThrow(() => estimateProjectRevisionPublication(importSoundscaperAudacityProject(decoded.project)));
+		}
 	} finally { database.close(); }
 });
 

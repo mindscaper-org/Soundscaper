@@ -345,11 +345,16 @@ capability owns scratch cleanup through release and renderer revocation. Recover
 save targets refuse the original input path and hard-link aliases. Browsers
 continue to accept a single project file without companion discovery.
 
-Recovery first retains all imported metadata. If native clip XML exceeds the
-editor document node budget, it retries without native-only clip XML and source
-block-boundary hints, reporting that omission. Editable audio, timing, envelopes,
-track state and project/track extension data remain. Ordinary imports do not use
-this fallback, and all existing document limits remain in force.
+Normal import and recovery first retain all imported metadata. If native clip
+XML exceeds the editor document node budget, they retry with the editable
+audio, timing, envelopes, track state and project/track extensions. The
+compatibility report identifies the omitted native-only clip XML and source
+block-boundary hints. Writable Audacity imports also apply the existing Scape
+binary limits to optional Audacity XML records and report any omissions.
+Desktop Soundscaper moves its own native plug-in state to plug-in storage
+before this step and removes its duplicate bytes from the positional XML
+template. The browser keeps that state as a complete, inactive XML record
+when it fits. The original Audacity file still holds every omitted record.
 
 Soundscaper Scape recovery reads the owning-family document through the bounded
 archive reader, verifies its digest, and streams media verification before

@@ -6,6 +6,7 @@ import {
 	audacityXmlChildren,
 	createAudacityXmlNode,
 } from '../common/editor/audacity-binary-xml.js'
+import { SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE } from '../common/editor/audacity-binary-xml-values.ts'
 import { digestBytes as digestScapeBytes } from '../common/media/bytes.ts';
 import {
 	normalizeSoundscaperNativePluginStates,
@@ -26,8 +27,7 @@ import {
 } from './editor-native-plugin-playback.ts'
 import { reconcileSoundscaperProjectFeatureRequirements } from './editor-project-feature-requirements.ts'
 
-export const SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE =
-	'soundscaper-native-plugin-states-v1'
+export { SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE } from '../common/editor/audacity-binary-xml-values.ts'
 export const SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_MAXIMUM_BYTES = 128 * 1024 * 1024
 
 export interface SoundscaperAup4NativePluginStateStore {
@@ -81,10 +81,10 @@ export async function embedSoundscaperNativePluginStatesInAup4(
 	const states = normalizeSoundscaperNativePluginStates(project.nativePluginStates)
 	const draft = cloneSoundscaperProject(project) as unknown as Record<string, unknown>
 	const extensions = dataRecord(draft.opaqueExtensions, 'project.opaqueExtensions')
-	const existing = extensionEntries(extensions.aup4UnknownNodes)
-	const retained = existing.filter((entry) => !isOwnedExtension(entry))
 	if (states.length === 0) {
-		draft.opaqueExtensions = { ...extensions, aup4UnknownNodes: retained }
+		if (typeof store?.loadNativePluginStateBody !== 'function'
+			&& typeof store?.persistNativePluginStateBody !== 'function') return draft as unknown as SoundscaperProject
+		draft.opaqueExtensions = replaceNativeStateExtension(extensions)
 		validateSoundscaperProject(draft)
 		return draft as unknown as SoundscaperProject
 	}
@@ -111,11 +111,7 @@ export async function embedSoundscaperNativePluginStatesInAup4(
 		}
 		bodies.push(Object.freeze({ descriptor, bytes }))
 	}
-	const node = createExtensionNode(states, bodies, totalBytes)
-	draft.opaqueExtensions = {
-		...extensions,
-		aup4UnknownNodes: Object.freeze([...retained, Object.freeze({ kind: 'node', node })]),
-	}
+	draft.opaqueExtensions = replaceNativeStateExtension(extensions, createExtensionNode(states, bodies, totalBytes))
 	validateSoundscaperProject(draft)
 	return draft as unknown as SoundscaperProject
 }
@@ -132,10 +128,9 @@ export async function recoverSoundscaperNativePluginStatesFromAup4(
 	if (candidates.length !== 1) {
 		throw new Error('AUP4 native plug-in-state custody is ambiguous.')
 	}
-	if (typeof store?.persistNativePluginStateBody !== 'function') {
-		throw new TypeError('AUP4 native plug-in-state import requires body persistence authority.')
-	}
 	const parsed = parseExtensionNode(candidates[0]!.node)
+	// Web editors can carry verified native state as inert Audacity XML.
+	if (typeof store?.persistNativePluginStateBody !== 'function') return project
 	for (const body of parsed.bodies.values()) {
 		const persisted = await store.persistNativePluginStateBody(Uint8Array.from(body.bytes), body.descriptor)
 		if (persisted.bodyId !== body.descriptor.bodyId
@@ -145,12 +140,7 @@ export async function recoverSoundscaperNativePluginStatesFromAup4(
 		}
 	}
 	const draft = structuredClone(project) as unknown as Record<string, unknown>
-	const draftExtensions = dataRecord(draft.opaqueExtensions, 'project.opaqueExtensions')
-	draft.opaqueExtensions = {
-		...draftExtensions,
-		aup4UnknownNodes: extensionEntries(draftExtensions.aup4UnknownNodes)
-			.filter((entry) => !isOwnedExtension(entry)),
-	}
+	draft.opaqueExtensions = replaceNativeStateExtension(extensions)
 	draft.nativePluginStates = parsed.states
 	draft.featureRequirements = reconcileSoundscaperProjectFeatureRequirements(
 		draft,
@@ -158,6 +148,30 @@ export async function recoverSoundscaperNativePluginStatesFromAup4(
 	)
 	validateSoundscaperProject(draft)
 	return draft as unknown as SoundscaperProject
+}
+
+/** The unknown-node inventory and positional XML template represent the same root entries. */
+function replaceNativeStateExtension(extensions: Record<string, unknown>, node?: AudacityNode): Record<string, unknown> {
+	const replacement = node ? Object.freeze({ kind: 'node', node }) : undefined
+	const unknownNodes = extensionEntries(extensions.aup4UnknownNodes).filter((entry) => !isOwnedExtension(entry))
+	if (replacement) unknownNodes.push(replacement)
+	const result = { ...extensions, aup4UnknownNodes: Object.freeze(unknownNodes) }
+	const template = extensions.aup4RootTemplate as Readonly<{ node?: AudacityNode }> | null | undefined
+	if (!template?.node || !Array.isArray(template.node.content)) return result
+	const source = template.node.content as readonly AudacityContent[]
+	const masterIndex = extensions.aup4MasterEffectsContentIndex
+	const content: AudacityContent[] = []
+	let replaced = false
+	for (const [index, entry] of source.entries()) {
+		if (index === masterIndex) Object.assign(result, { aup4MasterEffectsContentIndex: content.length })
+		if (!isOwnedExtension(entry)) content.push(entry)
+		else if (replacement && !replaced) {
+			content.push(replacement)
+			replaced = true
+		}
+	}
+	if (replacement && !replaced) content.push(replacement)
+	return { ...result, aup4RootTemplate: { ...template, node: { ...template.node, content } } }
 }
 
 function normalizeAup4CarrierProject(value: unknown): SoundscaperProject {
@@ -327,8 +341,8 @@ function extensionEntries(value: unknown): readonly Readonly<{ kind: 'node'; nod
 	))
 }
 
-function isOwnedExtension(entry: Readonly<{ kind: 'node'; node: AudacityNode }>): boolean {
-	return entry.node.name === SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE
+function isOwnedExtension(entry: AudacityContent): boolean {
+	return entry?.kind === 'node' && nodeEntry(entry)?.name === SOUNDSCAPER_AUP4_NATIVE_PLUGIN_STATE_NODE
 }
 
 function nodeEntry(value: AudacityContent): AudacityNode {
@@ -345,7 +359,7 @@ async function exactBytes(value: Blob | Uint8Array): Promise<Uint8Array> {
 }
 
 function ordinaryBytes(value: unknown): Uint8Array {
-	if (!(value instanceof Uint8Array) || value.buffer instanceof SharedArrayBuffer) {
+	if (!(value instanceof Uint8Array) || !(value.buffer instanceof ArrayBuffer)) {
 		throw new TypeError('AUP4 native plug-in-state storage returned non-ordinary bytes.')
 	}
 	return Uint8Array.from(value)

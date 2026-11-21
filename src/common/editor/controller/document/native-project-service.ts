@@ -342,9 +342,13 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				},
 			});
 			assertOwnership(operation.task, operation.projectToken);
-			importedProject = runtime.adaptAudacityProject
+			const adapted = runtime.adaptAudacityProject
 				? await runtime.adaptAudacityProject(decoded.project)
 				: runtime.loadProject(decoded.project).project;
+			const { fitAudacityOpaqueBinary } = await import('./internal/native-project/audacity-import-opaque-budget.ts');
+			const { project, omission } = opened.readOnly ? { project: adapted, omission: null } : fitAudacityOpaqueBinary(adapted);
+			importedProject = project;
+			assertOwnership(operation.task, operation.projectToken);
 			const decodedBytes = decoded.sampleBlockStorage?.pcmBytes ?? (streaming
 				? importedProject.sources.filter((source) => isAudioMediaKind(source.kind)).reduce(
 					(total, source) => total + runtime.sourcePcmBytes(source as NativeProjectAudioSource), 0)
@@ -395,14 +399,15 @@ export function createNativeProjectService(runtime: NativeProjectServiceRuntime)
 				? rawCompatibilityValue as Readonly<Record<string, unknown>>
 				: {};
 			const compatibilityReport = rememberAup4CompatibilityReport(
-				{ ...rawCompatibilityReport, format: 'audacity-project', sourceGeneration },
+				{ ...rawCompatibilityReport, format: 'audacity-project', sourceGeneration,
+					...(omission ? { counts: null, items: [...(Array.isArray(rawCompatibilityReport.items) ? rawCompatibilityReport.items : []), omission] } : {}) },
 				'open',
 				importedProject.id,
 			);
 			const validationWarnings = compatibilityIssues
 				.filter((issue) => issue.level === 'warning')
 				.map((issue) => issue.message || '');
-			const allWarnings = [...validationWarnings, ...(decoded.warnings || [])].filter(Boolean);
+			const allWarnings = [...validationWarnings, ...(decoded.warnings || []), ...(omission ? [omission.message] : [])].filter(Boolean);
 			publishAup4OpenStatus(runtime, opened.readOnly, readOnlyIssue, allWarnings);
 			return Object.freeze({
 				project: importedProject,
