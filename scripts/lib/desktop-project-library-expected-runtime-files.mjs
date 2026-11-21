@@ -171,6 +171,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/commands/protocol.js',
 	'src/common/editor/commands/protocol-values.js',
 	'src/common/editor/ear/layouts.js',
+	'src/common/editor/export-chapter-track.js',
 	'src/common/editor/export-embedded-chapter-encoding.js',
 	'src/common/editor/export-embedded-chapters.js',
 	'src/common/editor/ffmpeg-video-source-characteristics.js',
