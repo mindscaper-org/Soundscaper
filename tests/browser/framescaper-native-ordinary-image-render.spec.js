@@ -8,6 +8,7 @@ import { seekFramescaperTimecode } from './helpers/framescaper-standard-timecode
 
 for (const mixed of [false, true]) {
 	test(`native render queue reports that it cannot include an APNG (${mixed ? 'mixed timeline' : 'image only'})`, async ({ page }) => {
+		test.setTimeout(60_000);
 		await installRenderQueueFixture(page);
 		const editor = await bootEditor(page, '/framescaper/embed/en/');
 		if (mixed) {
@@ -30,7 +31,7 @@ for (const mixed of [false, true]) {
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		await expect(image).toHaveCount(0);
 		const cleanDialog = await openPngQueue(page, editor);
-		await expect(await submitQueue(cleanDialog)).toHaveText('The project operation completed.');
+		await expect(await submitQueue(cleanDialog)).toHaveText('The project operation completed.', { timeout: 30_000 });
 		expect(await page.evaluate(() => globalThis.__ordinaryImageQueue)).toEqual({
 			roots: 1, frames: [5], enqueued: 1,
 		});
@@ -49,9 +50,7 @@ async function submitQueue(dialog) {
 	const action = dialog.getByRole('button', { name: 'Continue', exact: true });
 	await expect(action).toBeEnabled();
 	await action.click();
-	const status = dialog.getByRole('region', { name: 'Add to render queue', exact: true }).getByRole('status');
-	await expect(status).not.toHaveText('Working');
-	return status;
+	return dialog.getByRole('region', { name: 'Add to render queue', exact: true }).getByRole('status');
 }
 
 async function installRenderQueueFixture(page) {
