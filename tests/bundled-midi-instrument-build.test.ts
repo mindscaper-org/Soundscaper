@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { createBundledMidiInstrumentBuildPlan, prepareBundledMidiInstrumentSources } from '../scripts/lib/bundled-midi-instrument-build.ts';
+import { createBundledMidiInstrumentBuildPlan, prepareBundledMidiInstrumentSources, stageBundledMidiInstrument } from '../scripts/lib/bundled-midi-instrument-build.ts';
 
 const STORAGE = 'datapath = fs::path{suppliedDataPath};\ndatapath = suppliedDataPath;\ndatapath = suppliedDataPath;\n'
 	+ '    if (auto *c = getenv("SURGE_DATA_HOME"))\n    {\n        r = true;\n        v = c;\n    }';
@@ -45,6 +45,25 @@ test('unqualified targets and nonabsolute source paths cannot form a build recip
 	const options = { target: 'linux-x64', sourceRoots: { 'surge-xt': '/surge', dexed: '/dexed' }, buildRoot: '/build', installRoot: '/install' };
 	assert.throws(() => createBundledMidiInstrumentBuildPlan({ ...options, target: 'win-ia32' }), /target/iu);
 	assert.throws(() => createBundledMidiInstrumentBuildPlan({ ...options, sourceRoots: { ...options.sourceRoots, dexed: '../dexed' } }), /absolute/iu);
+});
+
+test('Windows VST3 staging omits JUCE shell decoration and preserves payload files for validation', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'bundled-instrument-stage-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const { engines, installRoot } = createBundledMidiInstrumentBuildPlan({ target: 'win-x64',
+		sourceRoots: { 'surge-xt': join(root, 'surge'), dexed: join(root, 'dexed') },
+		buildRoot: join(root, 'build'), installRoot: join(root, 'install') });
+	const dexed = engines.find(engine => engine.id === 'dexed')!;
+	await writeFixture(dexed.output, 'desktop.ini', '[.ShellClassInfo]');
+	await writeFixture(dexed.output, 'Plugin.ico', 'shell icon');
+	await writeFixture(dexed.output, 'Contents/x86_64-win/Dexed.vst3', 'instrument');
+	await writeFixture(dexed.output, 'Contents/Resources/moduleinfo.json', '{}');
+	await writeFixture(dexed.output, 'unexpected.txt', 'validation still sees unexpected files');
+	stageBundledMidiInstrument(dexed, installRoot);
+	const bundle = join(installRoot, 'runtime/instruments/Dexed.vst3');
+	assert.deepEqual((await readdir(bundle)).sort(), ['Contents', 'unexpected.txt']);
+	assert.equal(await readFile(join(bundle, 'Contents/x86_64-win/Dexed.vst3'), 'utf8'), 'instrument');
+	assert.equal(await readFile(join(bundle, 'Contents/Resources/moduleinfo.json'), 'utf8'), '{}');
 });
 
 test('Windows Surge XT patches LuaJIT enum operands and UTF-8 paths in the private working copy', async context => {
@@ -125,6 +144,10 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	const oscillatorPath = 'src/common/dsp/oscillators/WindowOscillator.cpp';
 	const oscillator = '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};\n#else\n    const auto c{std::uint64_t{a} * std::uint64_t{b}};\n#endif\n';
 	await writeFixture(sourceRoot, oscillatorPath, oscillator);
+	const interpolation = '__m128 lipol128 = _mm_cvtsi32_ss(lipol128, lipolui16);';
+	const interpolationFiles = ['ClassicOscillator', 'SampleAndHoldOscillator', 'WavetableOscillator']
+		.map(name => `src/common/dsp/oscillators/${name}.cpp`);
+	for (const file of interpolationFiles) await writeFixture(sourceRoot, file, `${interpolation}\n`);
 	const mathPath = 'libs/simde/simde/simde-math.h';
 	const math = '#if defined(HUGE_VAL)\n  /* A math header was already included. */\n#endif\n';
 	await writeFixture(sourceRoot, mathPath, math);
@@ -148,6 +171,11 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	assert.equal(await readFile(join(sourceRoot, oscillatorPath), 'utf8'), oscillator);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, oscillatorPath), 'utf8'),
 		/#if defined\(_MSC_VER\) && !defined\(_M_ARM64\)\n {4}const auto c\{__emulu\(a, b\)\};/u);
+	for (const file of interpolationFiles) {
+		assert.equal(await readFile(join(sourceRoot, file), 'utf8'), `${interpolation}\n`);
+		assert.equal(await readFile(join(engines[0]!.workSourceRoot, file), 'utf8'),
+			'__m128 lipol128 = _mm_cvtsi32_ss(_mm_setzero_ps(), lipolui16);\n');
+	}
 	assert.equal(await readFile(join(sourceRoot, mathPath), 'utf8'), math);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, mathPath), 'utf8'),
 		/^#if defined\(_MSC_VER\) && defined\(__cplusplus\)\n {2}#include <cmath>\n {2}#define SIMDE_MATH_HAVE_CMATH\n#elif defined\(HUGE_VAL\)/u);

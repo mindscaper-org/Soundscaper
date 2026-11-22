@@ -54,12 +54,19 @@ export function executeBundledMidiInstrumentBuild(plan: ReturnType<typeof create
 			if (result.error) throw result.error;
 			if (result.status !== 0) throw new Error(`Bundled ${engine.id} native build failed (${result.status}).`);
 		}
-		const destination = join(plan.installRoot, 'runtime/instruments', engine.id === 'dexed' ? 'Dexed.vst3' : 'Surge XT.vst3');
-		mkdirSync(destination, { recursive: true });
-		cpSync(engine.output, destination, { recursive: true });
-		if (engine.id === 'surge-xt') cpSync(join(engine.sourceRoot, 'resources/data'),
-			join(plan.installRoot, 'runtime', BUNDLED_SURGE_DATA_PATH), { recursive: true });
+		stageBundledMidiInstrument(engine, plan.installRoot);
 	}
+}
+
+export function stageBundledMidiInstrument(engine: EngineBuild, installRoot: string): void {
+	const destination = join(installRoot, 'runtime/instruments', engine.id === 'dexed' ? 'Dexed.vst3' : 'Surge XT.vst3');
+	// JUCE adds these files for Explorer folder icons. The VST3 runtime does not use them.
+	const shellDecoration = new Set(engine.target.startsWith('win-')
+		? ['desktop.ini', 'Plugin.ico'].map(name => join(engine.output, name)) : []);
+	mkdirSync(destination, { recursive: true });
+	cpSync(engine.output, destination, { recursive: true, filter: path => !shellDecoration.has(path) });
+	if (engine.id === 'surge-xt') cpSync(join(engine.sourceRoot, 'resources/data'),
+		join(installRoot, 'runtime', BUNDLED_SURGE_DATA_PATH), { recursive: true });
 }
 
 export function prepareBundledMidiInstrumentSources(engine: EngineBuild): void {
@@ -127,6 +134,11 @@ function patchWorkingSource(engine: EngineBuild): void {
 			// The MSVC widening multiply intrinsic is available on x86 and x64.
 			patch('src/common/dsp/oscillators/WindowOscillator.cpp', '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};',
 				'#if defined(_MSC_VER) && !defined(_M_ARM64)\n    const auto c{__emulu(a, b)};');
+			// The conversion replaces lane zero, which is then broadcast. Initialize the unused lanes.
+			for (const name of ['ClassicOscillator', 'SampleAndHoldOscillator', 'WavetableOscillator']) {
+				patch(`src/common/dsp/oscillators/${name}.cpp`, '_mm_cvtsi32_ss(lipol128, lipolui16)',
+					'_mm_cvtsi32_ss(_mm_setzero_ps(), lipolui16)');
+			}
 			const cpu = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
 			patch(cpu, '#include "sst/plugininfra/cpufeatures.h"', '#include "sst/plugininfra/cpufeatures.h"\n#include <float.h>');
 			patch(cpu, '#ifdef _WIN32\n#include <intrin.h>', '#if defined(_WIN32) && USING_X86\n#include <intrin.h>');
