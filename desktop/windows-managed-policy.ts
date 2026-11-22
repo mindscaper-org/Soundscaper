@@ -17,8 +17,15 @@ const REGISTRY_QUERY_TIMEOUT_MS = 30_000;
 // UTF-16 code unit, in addition to the fixed registry envelope.
 const MAXIMUM_REGISTRY_OUTPUT_BYTES = 2 * 65_536 * 6 + 16 * 1024;
 
+export function executeWindowsRegistryQuery(path: string, args: string[], options: QueryOptions): Promise<{ stdout: string }> {
+	const query = executeFile(path, args, options);
+	// Windows PowerShell can wait for EOF on redirected stdin even with -EncodedCommand.
+	query.child.stdin?.end();
+	return query;
+}
+
 /** Read local GPO registry material; do not contact a domain controller or run a shell command. */
-export async function loadWindowsManagedPolicy({ platform = process.platform, productId, environment = process.env, execute = executeFile }: Options): Promise<ManagedPolicy> {
+export async function loadWindowsManagedPolicy({ platform = process.platform, productId, environment = process.env, execute = executeWindowsRegistryQuery }: Options): Promise<ManagedPolicy> {
 	if (!['soundscaper', 'framescaper'].includes(productId)) throw new TypeError('Unknown managed-policy product.');
 	if (platform !== 'win32') return resolveManagedPolicy();
 	const systemRoot = environment.SystemRoot ?? environment.SYSTEMROOT;

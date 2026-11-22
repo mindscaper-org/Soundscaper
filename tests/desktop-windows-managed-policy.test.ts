@@ -1,19 +1,31 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { execFile } from 'node:child_process';
 import { win32 } from 'node:path';
-import { promisify } from 'node:util';
-import { loadWindowsManagedPolicy } from '../desktop/windows-managed-policy.ts';
+import { executeWindowsRegistryQuery, loadWindowsManagedPolicy } from '../desktop/windows-managed-policy.ts';
 
-test('combined valid Unicode launch presets fit the registry query output budget', async () => {
-	const preset = JSON.stringify({ schemaVersion: 1, editor: { workspace: { custom: [{ id: 'custom', name: '漢'.repeat(60_000), layout: {} }] } } });
-	assert.ok(preset.length < 65_536);
-	const script = `const preset = JSON.stringify({schemaVersion:1,editor:{workspace:{custom:[{id:'custom',name:'漢'.repeat(60000),layout:{}}]}}});process.stdout.write(JSON.stringify({machine:{LaunchPreferences:preset},user:{LaunchPreferences:preset},msi:false}));`;
-	const execute = promisify(execFile);
+test('the registry subprocess receives EOF and can return both Unicode launch presets', async () => {
+	const script = `
+		const preset = JSON.stringify({
+			schemaVersion: 1,
+			editor: { workspace: { custom: [{ id: 'custom', name: '漢'.repeat(60_000), layout: {} }] } },
+		});
+		process.stdin.resume();
+		process.stdin.once('end', () => {
+			process.stdout.write(JSON.stringify({ machine: { LaunchPreferences: preset }, user: { LaunchPreferences: preset }, msi: false }));
+		});
+	`;
 	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
-		execute: async (_path, _args, options) => execute(process.execPath, ['-e', script], options) });
+		execute: (_path, _args, options) => executeWindowsRegistryQuery(process.execPath, ['-e', script], { ...options, timeout: 5_000 }) });
 	assert.ok(policy.editorPreferences);
+});
+
+test('Windows PowerShell completes concurrent policy reads', { skip: process.platform !== 'win32' }, async () => {
+	const policies = await Promise.all([
+		loadWindowsManagedPolicy({ productId: 'soundscaper' }),
+		loadWindowsManagedPolicy({ productId: 'framescaper' }),
+	]);
+	for (const policy of policies) assert.equal(typeof policy.allows('OnlineFeaturesAllowed'), 'boolean');
 });
 
 test('Windows reads machine/user policy and MSI ownership through a bounded native registry query', async () => {
@@ -38,13 +50,12 @@ test('a registry query timeout reports the deadline instead of the encoded comma
 });
 
 test('native Windows registry policy resolves scope and rejects a mistyped restriction', { skip: process.platform !== 'win32' }, async context => {
-	const execute = promisify(execFile);
 	const powershell = win32.join(process.env.SystemRoot!, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
 	async function run(script: string): Promise<void> {
-		await execute(powershell, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(`$ErrorActionPreference='Stop'\n${script}`, 'utf16le').toString('base64')],
-			{ timeout: 10_000, windowsHide: true });
+		await executeWindowsRegistryQuery(powershell, ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(`$ErrorActionPreference='Stop'\n${script}`, 'utf16le').toString('base64')],
+			{ timeout: 10_000, maxBuffer: 64 * 1024, windowsHide: true, encoding: 'utf8' });
 	}
-	const key = String.raw`Software\Policies\Mindscaper\Soundscaper`;
+	const key = 'Software\\Policies\\Mindscaper\\Soundscaper';
 	await run(`foreach ($hive in @([Microsoft.Win32.Registry]::LocalMachine,[Microsoft.Win32.Registry]::CurrentUser)) {
  $existing=$hive.OpenSubKey('${key}'); if ($null -ne $existing) { $existing.Dispose(); throw 'Test requires an unconfigured disposable Windows machine' }
 }`);
