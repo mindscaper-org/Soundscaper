@@ -141,6 +141,9 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	const cmakePath = 'src/common/CMakeLists.txt';
 	const cmake = 'elseif(WIN32)\n  target_compile_definitions(${PROJECT_NAME} PUBLIC\n    WINDOWS=1\n  )\nendif()\n';
 	await writeFixture(sourceRoot, cmakePath, cmake);
+	const juceCmakePath = 'libs/JUCE/extras/Build/CMake/JUCEUtils.cmake';
+	const juceCmake = '_juce_create_windows_package(${shared_code_target} ${target_name} vst3 "" x86-win x86_64-win)\n';
+	await writeFixture(sourceRoot, juceCmakePath, juceCmake);
 	const oscillatorPath = 'src/common/dsp/oscillators/WindowOscillator.cpp';
 	const oscillator = '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};\n#else\n    const auto c{std::uint64_t{a} * std::uint64_t{b}};\n#endif\n';
 	await writeFixture(sourceRoot, oscillatorPath, oscillator);
@@ -173,6 +176,9 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	assert.equal(await readFile(join(sourceRoot, cmakePath), 'utf8'), cmake);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, cmakePath), 'utf8'),
 		/elseif\(WIN32\)\n {2}target_link_libraries\(\$\{PROJECT_NAME\} PUBLIC surge::simde\)/u);
+	assert.equal(await readFile(join(sourceRoot, juceCmakePath), 'utf8'), juceCmake);
+	assert.equal(await readFile(join(engines[0]!.workSourceRoot, juceCmakePath), 'utf8'),
+		'_juce_create_windows_package(${shared_code_target} ${target_name} vst3 "" x86-win arm64-win)\n');
 	assert.equal(await readFile(join(sourceRoot, oscillatorPath), 'utf8'), oscillator);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, oscillatorPath), 'utf8'),
 		/#if defined\(_MSC_VER\) && !defined\(_M_ARM64\)\n {4}const auto c\{__emulu\(a, b\)\};/u);

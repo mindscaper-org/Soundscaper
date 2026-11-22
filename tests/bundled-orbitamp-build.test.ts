@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { ORBITAMP_SOURCE_IDS } from '../desktop/bundled-native-plugins.ts';
-import { createBundledOrbitAmpBuildPlan, prepareBundledOrbitAmpSources, stageOrbitAmpFactory } from '../scripts/lib/bundled-orbitamp-build.ts';
+import { createBundledOrbitAmpBuildPlan, prepareBundledOrbitAmpSources, stageBundledOrbitAmp, stageOrbitAmpFactory } from '../scripts/lib/bundled-orbitamp-build.ts';
 
 test('OrbitAmp builds only the native VST3 from the exact local inputs', () => {
 	const root = tmpdir();
@@ -43,6 +43,27 @@ test('the factory staging copies the listed amp and cabinet files into the bundl
 		writeFileSync(join(factory, manifestPath), manifest + invalid + '\n');
 		assert.throws(() => stageOrbitAmpFactory(factory, staged), /factory inventory is invalid/u);
 	}
+});
+
+test('the Windows OrbitAmp bundle stages only the VST3 runtime and factory data', context => {
+	const root = mkdtempSync(join(tmpdir(), 'soundscaper-orbitamp-bundle-'));
+	context.after(() => rmSync(root, { force: true, recursive: true }));
+	const plan = createBundledOrbitAmpBuildPlan({ target: 'win-x64',
+		sourceRoots: Object.fromEntries(ORBITAMP_SOURCE_IDS.map(id => [id, join(root, id)])),
+		buildRoot: join(root, 'build'), installRoot: join(root, 'install') });
+	mkdirSync(join(plan.output, 'Contents/x86_64-win'), { recursive: true });
+	writeFileSync(join(plan.output, 'Contents/x86_64-win/OrbitAmp.vst3'), 'plugin');
+	writeFileSync(join(plan.output, 'desktop.ini'), '[.ShellClassInfo]');
+	writeFileSync(join(plan.output, 'Plugin.ico'), 'icon');
+	mkdirSync(join(plan.factory, 'sets'), { recursive: true });
+	mkdirSync(join(plan.factory, 'IRs'));
+	writeFileSync(join(plan.factory, 'sets/OrbitAmp.txt'), 'Amp.orbitrig.zip\nIRs/Cab.wav\n');
+	writeFileSync(join(plan.factory, 'Amp.orbitrig.zip'), 'amp');
+	writeFileSync(join(plan.factory, 'IRs/Cab.wav'), 'cabinet');
+	stageBundledOrbitAmp(plan);
+	assert.deepEqual(readdirSync(plan.destination), ['Contents']);
+	assert.equal(readFileSync(plan.binary, 'utf8'), 'plugin');
+	assert.equal(readFileSync(join(plan.factoryDestination, 'IRs/Cab.wav'), 'utf8'), 'cabinet');
 });
 
 test('the build patches a working copy for local factory lookup and immediate rendering', context => {

@@ -3,6 +3,7 @@ import { chmodSync, cpSync, lstatSync, mkdirSync, readdirSync, readFileSync, wri
 import { isAbsolute, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { BUNDLED_SURGE_DATA_PATH, bundledNativePlugins } from '../../desktop/bundled-native-plugins.ts';
+import { stageBundledVst3 } from './bundled-vst3-staging.ts';
 
 interface EngineBuild {
 	readonly id: 'surge-xt' | 'dexed';
@@ -60,11 +61,7 @@ export function executeBundledMidiInstrumentBuild(plan: ReturnType<typeof create
 
 export function stageBundledMidiInstrument(engine: EngineBuild, installRoot: string): void {
 	const destination = join(installRoot, 'runtime/instruments', engine.id === 'dexed' ? 'Dexed.vst3' : 'Surge XT.vst3');
-	// JUCE adds these files for Explorer folder icons. The VST3 runtime does not use them.
-	const shellDecoration = new Set(engine.target.startsWith('win-')
-		? ['desktop.ini', 'Plugin.ico'].map(name => join(engine.output, name)) : []);
-	mkdirSync(destination, { recursive: true });
-	cpSync(engine.output, destination, { recursive: true, filter: path => !shellDecoration.has(path) });
+	stageBundledVst3(engine.output, destination, engine.target);
 	if (engine.id === 'surge-xt') cpSync(join(engine.sourceRoot, 'resources/data'),
 		join(installRoot, 'runtime', BUNDLED_SURGE_DATA_PATH), { recursive: true });
 }
@@ -126,6 +123,9 @@ function patchWorkingSource(engine: EngineBuild): void {
 			patch(callbacks, 'XI_MOVri | RID_EBP', 'XI_MOVri | (int)RID_EBP');
 		}
 		if (engine.target === 'win-arm64') {
+			// This JUCE version uses the x64 directory name for all 64-bit Windows VST3 builds.
+			patch('libs/JUCE/extras/Build/CMake/JUCEUtils.cmake', 'vst3 "" x86-win x86_64-win)',
+				'vst3 "" x86-win arm64-win)');
 			patch('src/common/CMakeLists.txt', 'elseif(WIN32)\n  target_compile_definitions',
 				'elseif(WIN32)\n  target_link_libraries(${PROJECT_NAME} PUBLIC surge::simde)\n  target_compile_definitions');
 			// MSVC's C math header can define HUGE_VAL before the std overloads are declared.

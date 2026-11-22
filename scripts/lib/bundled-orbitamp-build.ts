@@ -7,6 +7,7 @@ import {
 	BUNDLED_ORBITAMP_FACTORY_PATH, BUNDLED_ORBITAMP_PATH, ORBITAMP_FETCHCONTENT,
 	bundledNativePlugins, isOrbitAmpFactoryFile,
 } from '../../desktop/bundled-native-plugins.ts';
+import { stageBundledVst3 } from './bundled-vst3-staging.ts';
 
 interface Options {
 	readonly target: string;
@@ -33,7 +34,7 @@ export function createBundledOrbitAmpBuildPlan(options: Options) {
 		? ['-DCMAKE_OSX_ARCHITECTURES=arm64', `-DCMAKE_OSX_SYSROOT=${absolute(options.macosSdkPath)}`]
 		: [];
 	return Object.freeze({
-		source, build,
+		target: options.target, source, build,
 		upstream: absolute(options.sourceRoots['orbit-amp']),
 		clapSources: Object.freeze([
 			Object.freeze([absolute(options.sourceRoots['orbit-clap-extensions']), clap] as const),
@@ -111,7 +112,11 @@ export function executeBundledOrbitAmpBuild(plan: ReturnType<typeof createBundle
 		if (result.error) throw result.error;
 		if (result.status !== 0) throw new Error(`OrbitAmp VST3 build failed (${result.status}).`);
 	}
-	cpSync(plan.output, plan.destination, { recursive: true });
+	stageBundledOrbitAmp(plan);
+}
+
+export function stageBundledOrbitAmp(plan: ReturnType<typeof createBundledOrbitAmpBuildPlan>): void {
+	stageBundledVst3(plan.output, plan.destination, plan.target);
 	if (!lstatSync(plan.binary).isFile()) throw new Error('OrbitAmp built without the target VST3 binary.');
 	stageOrbitAmpFactory(plan.factory, plan.factoryDestination);
 }
