@@ -24,10 +24,17 @@ test('Windows reads machine/user policy and MSI ownership through a bounded nati
 	assert.equal(policy.allows('WebVcrAllowed'), false);
 	assert.equal(calls.length, 1);
 	assert.equal(calls[0]![0], 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
+	assert.equal((calls[0]![2] as { timeout: number }).timeout, 30_000);
 	const script = Buffer.from((calls[0]![1] as string[]).at(-1)!, 'base64').toString('utf16le');
 	assert.match(script, /Registry64/u);
 	assert.match(script, /Software\\Policies\\Mindscaper\\Framescaper/u);
 	assert.match(script, /ManagedByWindowsInstaller/u);
+});
+
+test('a registry query timeout reports the deadline instead of the encoded command', async () => {
+	const timedOut = Object.assign(new Error('Command failed: powershell.exe -EncodedCommand payload'), { killed: true, signal: 'SIGTERM', code: null });
+	await assert.rejects(loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute: async () => { throw timedOut; } }), { message: 'The Windows registry policy query timed out after 30 seconds.' });
 });
 
 test('native Windows registry policy resolves scope and rejects a mistyped restriction', { skip: process.platform !== 'win32' }, async context => {
