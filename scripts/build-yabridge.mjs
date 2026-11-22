@@ -28,11 +28,11 @@ export async function buildYabridge(repositoryRoot) {
 			return { manifest: previous, runtimeRoot: join(root, 'runtime') };
 		}
 	} catch { /* Rebuild an absent, stale or corrupt cache from its exact source. */ }
-	const programs = ['git', 'meson', 'ninja', 'wine', 'winegcc', 'wineg++', 'cc', 'tar'];
+	const programs = ['git', 'meson', 'ninja', 'wine', 'winegcc', 'wineg++', 'cc', 'tar', 'pkg-config'];
 	if (process.env.CI === 'true' && (programs.some((program) => spawnSync(program, ['--version'], { stdio: 'ignore' }).status !== 0)
 		|| spawnSync('pkg-config', ['--exists', 'xcb', 'dbus-1'], { stdio: 'ignore' }).status !== 0)) {
 		run('bash', [join(repositoryRoot, 'scripts/ci-apt-install.sh'), 'meson', 'ninja-build', 'wine',
-			'wine64-tools', 'libwine-dev', 'libxcb1-dev', 'libdbus-1-dev'], repositoryRoot);
+			'wine64-tools', 'libwine-dev', 'libxcb1-dev', 'libdbus-1-dev', 'pkg-config'], repositoryRoot);
 	}
 	for (const program of programs) {
 		run(program, ['--version'], repositoryRoot);
@@ -46,6 +46,12 @@ export async function buildYabridge(repositoryRoot) {
 	const wrap = join(source, 'subprojects/vst3.wrap');
 	await writeFile(wrap, (await readFile(wrap, 'utf8')).replace(/^revision = .*$/mu,
 		`revision = ${specification.source.vst3SdkCommit}`));
+	const crossFile = join(source, 'cross-wine.conf');
+	const crossConfig = await readFile(crossFile, 'utf8');
+	const pkgConfig = "pkg-config = 'pkg-config'";
+	if (!crossConfig.includes(pkgConfig)) throw new Error('The pinned Yabridge cross file no longer declares pkg-config.');
+	// Ubuntu 22.04 ships Meson 0.61, which looks up the legacy key.
+	await writeFile(crossFile, crossConfig.replace(pkgConfig, `${pkgConfig}\npkgconfig = 'pkg-config'`));
 	const build = join(root, 'build');
 	run('meson', ['setup', build, '--buildtype=release', '--cross-file=cross-wine.conf', '--wrap-mode=forcefallback',
 		'-Dbitbridge=false', '-Dclap=false', '-Dvst3=true', '-Db_lto=false'], source);
@@ -81,7 +87,7 @@ export async function buildYabridge(repositoryRoot) {
 function run(program, args, cwd) {
 	const result = spawnSync(program, args, { cwd, shell: false, encoding: 'utf8', maxBuffer: 16 * 1024 ** 2 });
 	if (result.error || result.status !== 0) throw new Error(
-		`Yabridge build failed (${program}). Install Meson, Ninja, Wine, wine64-tools, libwine-dev, libxcb1-dev and libdbus-1-dev.\n${result.error?.message ?? ''}\n${result.stdout}\n${result.stderr}`);
+		`Yabridge build failed (${program}). Install Meson, Ninja, Wine, wine64-tools, libwine-dev, libxcb1-dev, libdbus-1-dev and pkg-config.\n${result.error?.message ?? ''}\n${result.stdout}\n${result.stderr}`);
 	return result.stdout;
 }
 function digest(bytes) { return createHash('sha256').update(bytes).digest('hex'); }

@@ -108,10 +108,10 @@ detection. Other desktop targets and Framescaper do not bundle this runtime.
 
 Desktop preparation builds yabridge from
 `config/yabridge-native-payload.json` and stages the authenticated result under
-`runtime/native/yabridge/linux-x64/`. Local packaging needs Meson, Ninja, Wine,
-`wine64-tools`, `libwine-dev`, `libxcb1-dev` and `libdbus-1-dev`; CI preparation
-uses the repository's APT installer when the tools are missing. The build uses
-two compilation jobs. Before-pack and installed-resource checks verify the exact
+`runtime/native/yabridge/linux-x64/`. Local packaging needs Meson, Ninja,
+pkg-config, Wine, `wine64-tools`, `libwine-dev`, `libxcb1-dev` and `libdbus-1-dev`.
+CI preparation uses the repository's APT installer when tools are missing. The
+build uses two compilation jobs. Before-pack and installed-resource checks verify the exact
 file inventory. The bundle includes GPL notices, source identities and the
 complete corresponding-source archive, including the pinned Meson dependencies
 and the repository-owned Wine process launcher. Generated binaries stay under
