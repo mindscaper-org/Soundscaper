@@ -131,6 +131,12 @@ function patchWorkingSource(engine: EngineBuild): void {
 			// MSVC's C math header can define HUGE_VAL before the std overloads are declared.
 			patch('libs/simde/simde/simde-math.h', '#if defined(HUGE_VAL)',
 				'#if defined(_MSC_VER) && defined(__cplusplus)\n  #include <cmath>\n  #define SIMDE_MATH_HAVE_CMATH\n#elif defined(HUGE_VAL)');
+			// Use the ARM64 intrinsic without bringing Win32 macros and names into JUCE headers.
+			const sse = 'libs/simde/simde/x86/sse.h';
+			patch(sse, '  #define NOMINMAX\n  #include <windows.h>',
+				'  #define NOMINMAX\n  #if defined(_M_ARM64)\n    #include <intrin.h>\n  #else\n    #include <windows.h>\n  #endif');
+			patch(sse, '  #elif defined(_MSC_VER)\n    MemoryBarrier();',
+				'  #elif defined(_MSC_VER) && defined(_M_ARM64)\n    __dmb(_ARM64_BARRIER_SY);\n  #elif defined(_MSC_VER)\n    MemoryBarrier();');
 			// The MSVC widening multiply intrinsic is available on x86 and x64.
 			patch('src/common/dsp/oscillators/WindowOscillator.cpp', '#ifdef _MSC_VER\n    const auto c{__emulu(a, b)};',
 				'#if defined(_MSC_VER) && !defined(_M_ARM64)\n    const auto c{__emulu(a, b)};');

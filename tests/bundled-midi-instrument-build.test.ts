@@ -151,6 +151,11 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	const mathPath = 'libs/simde/simde/simde-math.h';
 	const math = '#if defined(HUGE_VAL)\n  /* A math header was already included. */\n#endif\n';
 	await writeFixture(sourceRoot, mathPath, math);
+	const ssePath = 'libs/simde/simde/x86/sse.h';
+	const sse = '#if defined(_WIN32) && !defined(SIMDE_X86_SSE_NATIVE) && defined(_MSC_VER)\n'
+		+ '  #define NOMINMAX\n  #include <windows.h>\n#endif\n'
+		+ '#if defined(SIMDE_X86_SSE_NATIVE)\n    _mm_sfence();\n  #elif defined(_MSC_VER)\n    MemoryBarrier();\n#endif\n';
+	await writeFixture(sourceRoot, ssePath, sse);
 	const path = 'libs/sst/sst-plugininfra/src/cpufeatures.cpp';
 	const cpu = [
 		'#include "sst/plugininfra/cpufeatures.h"',
@@ -179,6 +184,10 @@ test('Windows ARM64 Surge XT links the pinned SIMDe headers and preserves floati
 	assert.equal(await readFile(join(sourceRoot, mathPath), 'utf8'), math);
 	assert.match(await readFile(join(engines[0]!.workSourceRoot, mathPath), 'utf8'),
 		/^#if defined\(_MSC_VER\) && defined\(__cplusplus\)\n {2}#include <cmath>\n {2}#define SIMDE_MATH_HAVE_CMATH\n#elif defined\(HUGE_VAL\)/u);
+	assert.equal(await readFile(join(sourceRoot, ssePath), 'utf8'), sse);
+	const patchedSse = await readFile(join(engines[0]!.workSourceRoot, ssePath), 'utf8');
+	assert.match(patchedSse, /#if defined\(_M_ARM64\)\n {4}#include <intrin\.h>\n {2}#else\n {4}#include <windows\.h>/u);
+	assert.match(patchedSse, /#elif defined\(_MSC_VER\) && defined\(_M_ARM64\)\n {4}__dmb\(_ARM64_BARRIER_SY\);\n {2}#elif defined\(_MSC_VER\)\n {4}MemoryBarrier\(\);/u);
 	assert.equal(await readFile(join(sourceRoot, path), 'utf8'), cpu);
 	const patched = await readFile(join(engines[0]!.workSourceRoot, path), 'utf8');
 	assert.doesNotMatch(patched, /Windows only works on X86/u);
