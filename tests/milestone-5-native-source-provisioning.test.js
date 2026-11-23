@@ -23,11 +23,13 @@ const provisioner = resolve(repositoryRoot, 'scripts/provision-milestone-5-nativ
  * reports a cache as authenticated unless the auditor would, and never leaves
  * unauthenticated bytes behind where the auditor would later read them.
  */
-function provision(args) {
+function provision(args, nodeOptions = []) {
 	try {
 		return {
 			status: 0,
-			output: execFileSync(process.execPath, [provisioner, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }),
+			output: execFileSync(process.execPath, [...nodeOptions, provisioner, ...args], {
+				encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+			}),
 		};
 	} catch (error) {
 		return { status: error.status, output: `${error.stdout ?? ''}${error.stderr ?? ''}` };
@@ -55,6 +57,18 @@ test('the Soundscaper professional cache covers exactly the inputs to all native
 		.flatMap(soundscaperProfessionalNativeSourceIdsForTarget));
 	const reportedIds = new Set([...output.matchAll(/^absent\s+(\S+)/gmu)].map(([, id]) => id));
 	assert.deepEqual(reportedIds, expectedIds);
+});
+
+test('retained OrbitAmp source archives provision and authenticate without their upstream URLs', async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'm5-provision-retained-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const args = ['--source', 'orbit-core', '--source', 'orbit-appkit', '--root', root];
+	const provisioned = provision(args, ['--permission', '--allow-fs-read=*', '--allow-fs-write=*']);
+	assert.equal(provisioned.status, 0, provisioned.output);
+	for (const id of ['orbit-core', 'orbit-appkit']) assert.match(provisioned.output, new RegExp(`provisioned\\s+${id}\\b`, 'u'));
+	const checked = provision(['--check', ...args]);
+	assert.equal(checked.status, 0, checked.output);
+	assert.match(checked.output, /2\/2 exact archive\/extracted-tree inputs authenticated/u);
 });
 
 test('an archive that does not match its pin provisions nothing', async (context) => {

@@ -29,9 +29,8 @@ import { githubReleaseDownload } from './lib/ci-github-release-fetch.mjs';
  * cache must contain but nothing assembled one, so the audit reported zero authenticated inputs on
  * every machine and native builds could not use the pinned source set.
  *
- * The cache is deliberately outside the repository and outside the product's
- * dependency graph. Nothing provisioned here is committed, bundled, linked, or
- * redistributed. Authenticating a source enables that exact source for build
+ * The cache is untracked and outside the product's dependency graph.
+ * Authenticating a source enables that exact source for build
  * and test use, but grants no redistribution, trademark, or patent permission.
  * Package source, notice, architecture, payload, and runtime checks remain
  * independent.
@@ -44,13 +43,14 @@ import { githubReleaseDownload } from './lib/ci-github-release-fetch.mjs';
  *   node scripts/provision-milestone-5-native-sources.mjs --archive-directory ~/m5-archives
  *
  * `--archive-directory` is the offline/repeatable path for any pinned archive.
- * The ordinary path, including the Steinberg ASIO SDK used by target-native CI,
- * downloads the registered HTTPS URL and verifies the exact archive and
- * extracted-tree identities before admitting it to the cache.
+ * Without that option, use a retained archive from the repository when present
+ * and download the registered HTTPS URL otherwise. Both paths verify the exact
+ * archive and extracted-tree identities before admitting it to the cache.
  */
 
 const repositoryRoot = resolve(import.meta.dirname, '..');
 const DEFAULT_CACHE_DIRECTORY = 'vendor/milestone-5-native-sources';
+const repositoryArchiveDirectory = resolve(repositoryRoot, 'vendor/milestone-5-source-archives');
 const DOWNLOAD_TIMEOUT_MS = 300_000;
 // Declared before the provisioning run below, which would otherwise reach this
 // binding's temporal dead zone on its first download.
@@ -113,7 +113,7 @@ async function provision(source) {
 	try {
 		const archiveBytes = options.archiveDirectory
 			? readLocalArchive(source)
-			: await downloadArchive(source, staging);
+			: await acquireArchive(source, staging);
 		authenticateArchiveBytes(source, archiveBytes);
 		const evidence = await materializeMilestone5SourceArchive({
 			archiveBytes,
@@ -147,15 +147,17 @@ async function provision(source) {
 }
 
 /**
- * Fetch one pinned archive, bounded by its own pinned byte length so a server
- * answering a pinned URL with an endless body is refused while it streams.
+ * Read a retained archive or fetch it from its registered URL. Limit downloads
+ * to the pinned byte length so an endless response is refused while it streams.
  *
  * `curl` is preferred over `fetch` because two of the ten upstreams are behind
  * bot protection that answers Node's TLS client with HTTP 406 while serving the
  * identical request from curl, and because curl honours the proxy environment a
  * build host may require. `fetch` remains the fallback where curl is absent.
  */
-async function downloadArchive(source, staging) {
+async function acquireArchive(source, staging) {
+	const retained = resolve(repositoryArchiveDirectory, source.archive.fileName);
+	if (existsSync(retained)) return readFileSync(retained);
 	// GitHub's public release route may fail while its exact asset API works.
 	if (githubReleaseDownload(source.archive.url)) return downloadArchiveWithFetch(source);
 	if (curlExecutable()) return downloadArchiveWithCurl(source, staging);

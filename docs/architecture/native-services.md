@@ -119,9 +119,12 @@ stage only the matching result for the current source revision, target, and
 build plan. A `ci-generated` manifest row with no payload remains unavailable
 and must report that fact.
 
-The optional native source cache is uncommitted build input. Provisioning proves
-the downloaded archives and extracted trees match their pins; it does not bundle
-them, grant redistribution rights, enable a feature, or approve a release.
+The optional native source cache is uncommitted build input. Provisioning verifies
+each archive and extracted tree against the [acquisitions register](../../config/milestone-5-native-source-acquisitions.json).
+The original `orbit-core` and `orbit-appkit` archives are retained under
+[`vendor/milestone-5-source-archives/`](../../vendor/milestone-5-source-archives/)
+with their upstream licenses and notices so builds can use the pinned revisions
+while the upstream archives are unavailable.
 
 Licensing, corresponding-source, patent, trademark, and notice requirements are
 distribution controls. They neither fabricate a payload nor replace runtime
