@@ -92,6 +92,21 @@ test('Windows dependency closure admits only the exact registry capability API s
 		/undeclared runtime dependency api-ms-win-security-base-l1-2-1\.dll/iu);
 });
 
+test('Windows dependency closure admits OrbitAmp’s exact synchronization API set on both architectures', async () => {
+	const arm64 = { ...WINDOWS_ARCHITECTURE, target: 'win-arm64', architecture: 'arm64', machine: 'IMAGE_FILE_MACHINE_ARM64' };
+	for (const architecture of [WINDOWS_ARCHITECTURE, arm64]) {
+		const binaryDirectory = architecture.architecture === 'arm64' ? 'arm64-win' : 'x86_64-win';
+		const artifact = { path: `payload/runtime/effects/OrbitAmp.vst3/Contents/${binaryDirectory}/OrbitAmp.vst3` };
+		const validate = (imports) => validateSoundscaperProfessionalNativeDependencyClosure({
+			target: architecture.target, artifacts: [artifact], runtimeArtifacts: [], root: '/candidate',
+			inspectDependencies: async () => ({ architecture, imports, rpaths: [] }),
+		});
+		const admitted = await validate(['API-MS-Win-Core-Synch-l1-2-0.dll']);
+		assert.deepEqual(admitted[0].imports, ['API-MS-Win-Core-Synch-l1-2-0.dll']);
+		await assert.rejects(validate(['api-ms-win-core-synch-l1-2-9.dll']), /undeclared runtime dependency/u);
+	}
+});
+
 test('Linux dependency closure admits only slash-free case-sensitive system SONAMEs', async () => {
 	const artifacts = [{
 		path: 'payload/soundscaper_professional_peer', absolutePath: '/unused',
