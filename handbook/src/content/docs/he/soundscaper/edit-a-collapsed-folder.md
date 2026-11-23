@@ -3,7 +3,7 @@ title: "עריכת רצועות בתוך תיקייה מכווצת"
 description: "חתכו או הוסיפו קטע לרצועות מקוננות בתיקייה בלי להרחיב כל רצועה."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"fd8133599ee12edc8c0a2f7e6a53c585f9fd13ede306c99a58ccfb4bb40f39c1","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fd8133599ee12edc8c0a2f7e6a53c585f9fd13ede306c99a58ccfb4bb40f39c1","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"fd8133599ee12edc8c0a2f7e6a53c585f9fd13ede306c99a58ccfb4bb40f39c1","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"fd8133599ee12edc8c0a2f7e6a53c585f9fd13ede306c99a58ccfb4bb40f39c1","targetLocale":"he"} -->
 
 חתכו או הוסיפו קטע לרצועות מקוננות בתיקייה בלי להרחיב כל רצועה.
 
@@ -16,7 +16,7 @@ diataxis: how-to
 1. בחרו את התיקייה המכווצת ובחרו **עריכה > Edit folder contents > Select folder contents**. אותה תת-תפריט זמינה גם מתפריט ההקשר של התיקייה.
 2. גררו טווח זמן בסקירת התיקייה ובדקו את תחילת הבחירה ואת סופה.
 3. בחרו **Cut from folder and close gap** מתוך **Edit folder contents** כדי להסיר את הקטע ולדחוף קדימה חומר מאוחר יותר בתוך התיקייה.
-4. השתמשו ב-**Insert clipboard into folder** כדי להוסיף חומר שהועתק, או ב-**ביטול־ביצוע** כדי לבטל את הפעולה.
+4. השתמשו ב-**Insert clipboard into folder** כדי להוסיף חומר שהועתק, או ב-**ביטול** כדי לבטל את הפעולה.
 
 ## בדיקת התוצאה
 

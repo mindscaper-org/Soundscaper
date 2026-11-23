@@ -3,7 +3,7 @@ title: "שמירה ושחזור של תמונת מצב מהסשן"
 description: "שמרו גרסה בעלת שם של הסידור לפני שתנסו עריכה אחרת."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"586a6024abb3c071bed6969c39294819701ee4a38a48352c412f72dc4fb77827","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"586a6024abb3c071bed6969c39294819701ee4a38a48352c412f72dc4fb77827","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"586a6024abb3c071bed6969c39294819701ee4a38a48352c412f72dc4fb77827","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"586a6024abb3c071bed6969c39294819701ee4a38a48352c412f72dc4fb77827","targetLocale":"he"} -->
 
 שמרו גרסה בעלת שם של הסידור לפני שתנסו עריכה אחרת.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-הסידור הקודם והאודיו שנשמר בו חוזרים. סגרו את תיבת הדו-שיח והשמיעו את הקטע ששוחזר. **ביטול־ביצוע** מבטל את השחזור, ו-**ביצוע מחדש** משחזר אותו שוב.
+הסידור הקודם והאודיו שנשמר בו חוזרים. סגרו את תיבת הדו-שיח והשמיעו את הקטע ששוחזר. **ביטול** מבטל את השחזור, ו-**ביצוע מחדש** משחזר אותו שוב.
 
 ## מגבלות ושחזור
 

@@ -3,7 +3,7 @@ title: "עריכת דיבור באמצעות התמליל"
 description: "בחרו מילים בתמליל מתוזמן כדי לנווט לאודיו ולערוך אותו."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"35cf6dc5dcd0c0b08f82de0511870ac68a3552b5375fd9b5a15e3c0c1d667760","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"35cf6dc5dcd0c0b08f82de0511870ac68a3552b5375fd9b5a15e3c0c1d667760","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"35cf6dc5dcd0c0b08f82de0511870ac68a3552b5375fd9b5a15e3c0c1d667760","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"35cf6dc5dcd0c0b08f82de0511870ac68a3552b5375fd9b5a15e3c0c1d667760","targetLocale":"he"} -->
 
 בחרו מילים בתמליל מתוזמן כדי לנווט לאודיו ולערוך אותו.
 
@@ -16,7 +16,7 @@ diataxis: how-to
 1. פתחו **עריכה > Transcript-based editing**.
 2. בחרו **Generate transcript** כשהאפשרות זמינה ופעלו לפי בקשות המודל וההרשאה. המתינו לסיום העיבוד של רצועות האודיו.
 3. לחצו על מילה כדי לנווט לאודיו שלה. לחצו עליה פעמיים כדי לבחור אותה, ובדקו את הטווח המודגש בציר הזמן.
-4. כשהמיקוד בתמליל, לחצו **Backspace** או **מחיקה** כדי להסיר את המילים שנבחרו ואת האודיו המשויך. האזינו לחיבור והשתמשו ב-**ביטול־ביצוע** במידת הצורך.
+4. כשהמיקוד בתמליל, לחצו **Backspace** או **מחיקה** כדי להסיר את המילים שנבחרו ואת האודיו המשויך. האזינו לחיבור והשתמשו ב-**ביטול** במידת הצורך.
 
 ## בדיקת התוצאה
 

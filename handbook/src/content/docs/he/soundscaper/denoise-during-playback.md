@@ -3,7 +3,7 @@ title: "הפחתת רעש במהלך ההפעלה"
 description: "הוסיפו אפקט AI להפחתת רעשים בזמן אמת לרצועת דיאלוג."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","targetLocale":"he"} -->
 
 הוסיפו אפקט AI להפחתת רעשים בזמן אמת לרצועת דיאלוג.
 
@@ -14,7 +14,7 @@ diataxis: how-to
 ## שלבים
 
 1. בחרו את רצועת הדיאלוג הרועשת ופתחו את ה-rack של האפקטים בזמן אמת.
-2. בחרו **הוסף אפקט** ואז **AI denoising (DPDFNet2)**.
+2. בחרו **הוספת אפקט** ואז **AI denoising (DPDFNet2)**.
 3. התחילו לנגן והשוו כשהאפקט מעוקף באמצעות לחצן ההפעלה שלו.
 4. התאימו את המיקס סביב הרצועה הנקייה והאזינו לייצוא לפני המסירה. שמרו את הפרויקט כדי לשמור את ה-rack.
 

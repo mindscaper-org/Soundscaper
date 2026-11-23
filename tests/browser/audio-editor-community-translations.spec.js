@@ -87,10 +87,11 @@ test('menu-only drafts preview, survive reopening and export without project dat
 	let surface = await openTranslator(page, editor);
 	await expect(surface.getByRole('combobox', { name: en.language, exact: true })).toHaveValue('de');
 	await expect(surface.getByRole('combobox', { name: en.language, exact: true }).getByRole('option', { name: 'English (UK)', exact: true })).toHaveAttribute('value', 'en-GB');
+	await selectMessage(surface, 'undo');
+	await expect(surface.getByText(en.originAudacity, { exact: true })).toBeVisible();
 	await selectMessage(surface, 'play');
 	await expect(surface.getByText(en.owner, { exact: true })).toBeVisible();
 	await expect(surface.getByText('editor', { exact: true })).toBeVisible();
-	await expect(surface.getByText(en.originAudacity, { exact: true })).toBeVisible();
 	await surface.getByRole('textbox', { name: en.translation, exact: true }).fill('Probe play');
 	await surface.getByRole('button', { name: en.save, exact: true }).click();
 	const jsonDownload = page.waitForEvent('download');

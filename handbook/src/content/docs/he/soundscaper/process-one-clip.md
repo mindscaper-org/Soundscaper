@@ -3,7 +3,7 @@ title: "החלת אפקטים בזמן אמת על קליפ אחד"
 description: "תנו לקליפ אודיו אחד rack אפקטים משלו בלי לעבד כל קליפ ברצועה."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"0d37cd5c96e28ec54b0e1f2cb991c996e77e1e10a9b8583b806ac616d53a87f2","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"0d37cd5c96e28ec54b0e1f2cb991c996e77e1e10a9b8583b806ac616d53a87f2","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"0d37cd5c96e28ec54b0e1f2cb991c996e77e1e10a9b8583b806ac616d53a87f2","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"0d37cd5c96e28ec54b0e1f2cb991c996e77e1e10a9b8583b806ac616d53a87f2","targetLocale":"he"} -->
 
 תנו לקליפ אודיו אחד rack אפקטים משלו בלי לעבד כל קליפ ברצועה.
 
@@ -14,9 +14,9 @@ diataxis: how-to
 ## שלבים
 
 1. פתחו **חלון > מאפייני קטע** והרחיבו את **אפקטים**. זהו ה-rack של אפקטי הקליפ.
-2. בחרו **הוסף אפקט**, בחרו אפקט ושנו את ההגדרות שלו. השמיעו את הקליפ כדי להאזין לו.
+2. בחרו **הוספת אפקט**, בחרו אפקט ושנו את ההגדרות שלו. השמיעו את הקליפ כדי להאזין לו.
 3. השתמשו בלחצן ההפעלה של האפקט כדי להשוות בין צליל מעובד לצליל עוקף. סדרו מחדש אפקטים או הסירו אותם לפי הצורך.
-4. שמרו את הפרויקט והאזינו לקליפ יחד עם שכניו. אם השינוי לא עוזר, השתמשו ב-**ביטול־ביצוע**.
+4. שמרו את הפרויקט והאזינו לקליפ יחד עם שכניו. אם השינוי לא עוזר, השתמשו ב-**ביטול**.
 
 ## בדיקת התוצאה
 

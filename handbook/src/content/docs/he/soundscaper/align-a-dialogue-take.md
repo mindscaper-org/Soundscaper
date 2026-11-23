@@ -3,7 +3,7 @@ title: "יישור טייק חלופי של דיאלוג"
 description: "התאימו ביצוע שני של אותן מילים לקליפ ייחוס."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"c6041204950f16f97736a1197c2d7dd2e48d6324df69324ce5364ae015a90928","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"c6041204950f16f97736a1197c2d7dd2e48d6324df69324ce5364ae015a90928","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"c6041204950f16f97736a1197c2d7dd2e48d6324df69324ce5364ae015a90928","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"c6041204950f16f97736a1197c2d7dd2e48d6324df69324ce5364ae015a90928","targetLocale":"he"} -->
 
 התאימו ביצוע שני של אותן מילים לקליפ ייחוס.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-רצועה חדשה מכילה עותק מיושר בתחילת הייחוס ובמשכו. המקוריים נשארים זמינים. **ביטול־ביצוע** מסיר את העותק שנוצר בצעד אחד. שמרו את הפרויקט ופתחו אותו מחדש כדי להמשיך להשתמש בתוצאה המרונדרת בלי לחזור על הניתוח.
+רצועה חדשה מכילה עותק מיושר בתחילת הייחוס ובמשכו. המקוריים נשארים זמינים. **ביטול** מסיר את העותק שנוצר בצעד אחד. שמרו את הפרויקט ופתחו אותו מחדש כדי להמשיך להשתמש בתוצאה המרונדרת בלי לחזור על הניתוח.
 
 ## מגבלות ושחזור
 

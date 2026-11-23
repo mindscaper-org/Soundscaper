@@ -3,7 +3,7 @@ title: "הקלטה מחדש של קריינות עם פתיח"
 description: "שמעו פתיח קצר לפני ההקלטה ונסו שוב במהירות."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"409dbdf6cda696a863b525ad29ca381ac5e050a23d3ce466e44ba5c25b9074a0","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"409dbdf6cda696a863b525ad29ca381ac5e050a23d3ce466e44ba5c25b9074a0","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"409dbdf6cda696a863b525ad29ca381ac5e050a23d3ce466e44ba5c25b9074a0","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"409dbdf6cda696a863b525ad29ca381ac5e050a23d3ce466e44ba5c25b9074a0","targetLocale":"he"} -->
 
 שמעו פתיח קצר לפני ההקלטה ונסו שוב במהירות.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-האזינו מנקודת הכניסה עד לאחר המשפט שהוקלט. הניסיון החוזר אמור להשתמש באותו מיקום punch ובפתיח שהוגדר. **ביטול־ביצוע** יחזיר לעריכה הקודמת.
+האזינו מנקודת הכניסה עד לאחר המשפט שהוקלט. הניסיון החוזר אמור להשתמש באותו מיקום punch ובפתיח שהוגדר. **ביטול** יחזיר לעריכה הקודמת.
 
 ## מגבלות ושחזור
 

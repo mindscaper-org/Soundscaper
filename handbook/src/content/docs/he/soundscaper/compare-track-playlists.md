@@ -3,7 +3,7 @@ title: "השוואת עריכות חלופיות ברצועה אחת"
 description: "שמרו כמה סידורים של אותה רצועה ועברו ביניהם."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"8c79a03859a4d9d2082884e1a7ea71d11b90b021b834a5e4699f7a01b7a3b029","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"8c79a03859a4d9d2082884e1a7ea71d11b90b021b834a5e4699f7a01b7a3b029","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"8c79a03859a4d9d2082884e1a7ea71d11b90b021b834a5e4699f7a01b7a3b029","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"8c79a03859a4d9d2082884e1a7ea71d11b90b021b834a5e4699f7a01b7a3b029","targetLocale":"he"} -->
 
 שמרו כמה סידורים של אותה רצועה ועברו ביניהם.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-רק רשימת ההשמעה הפעילה מופיעה ברצועה. **ביטול־ביצוע** מבטל מעבר בין גרסאות. המתינו לשמירת הפרויקט, פתחו אותו מחדש ואשרו ששתי הגרסאות בעלות השם עדיין זמינות.
+רק רשימת ההשמעה הפעילה מופיעה ברצועה. **ביטול** מבטל מעבר בין גרסאות. המתינו לשמירת הפרויקט, פתחו אותו מחדש ואשרו ששתי הגרסאות בעלות השם עדיין זמינות.
 
 ## מגבלות ושחזור
 

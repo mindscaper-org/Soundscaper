@@ -3,7 +3,7 @@ title: "המרת תווים מוקלטים ל-MIDI שניתן לערוך"
 description: "נתחו הקלטה מוזיקלית בעזרת Basic Pitch ושמרו תווים שניתנים לעריכה לצד האודיו."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"181c19e5cd65ab9072edb6fd6211bd2006656197182553009771a0e0f4262552","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"181c19e5cd65ab9072edb6fd6211bd2006656197182553009771a0e0f4262552","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"181c19e5cd65ab9072edb6fd6211bd2006656197182553009771a0e0f4262552","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"181c19e5cd65ab9072edb6fd6211bd2006656197182553009771a0e0f4262552","targetLocale":"he"} -->
 
 נתחו הקלטה מוזיקלית בעזרת Basic Pitch ושמרו תווים שניתנים לעריכה לצד האודיו.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-רצועת MIDI חדשה מופיעה לצד האודיו המקורי. בחרו כלי נגינה והאזינו לו מול ההקלטה. **ביטול־ביצוע** מסיר את ההצעה שאושרה בלי למחוק את אודיו המקור.
+רצועת MIDI חדשה מופיעה לצד האודיו המקורי. בחרו כלי נגינה והאזינו לו מול ההקלטה. **ביטול** מסיר את ההצעה שאושרה בלי למחוק את אודיו המקור.
 
 ## מגבלות ושחזור
 

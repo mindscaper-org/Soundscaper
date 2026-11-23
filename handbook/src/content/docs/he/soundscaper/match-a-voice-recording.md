@@ -3,7 +3,7 @@ title: "התאמת הגוון של הקלטת קול"
 description: "למדו ייחוס גווני והשתמשו ב-Match EQ כדי לקרב אליו הקלטה אחרת."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"2b6667d165ad26e0b7420dc98e595da9045ad4ca45fdda417a37a2d3e697c0e4","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"2b6667d165ad26e0b7420dc98e595da9045ad4ca45fdda417a37a2d3e697c0e4","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"2b6667d165ad26e0b7420dc98e595da9045ad4ca45fdda417a37a2d3e697c0e4","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"2b6667d165ad26e0b7420dc98e595da9045ad4ca45fdda417a37a2d3e697c0e4","targetLocale":"he"} -->
 
 למדו ייחוס גווני והשתמשו ב-Match EQ כדי לקרב אליו הקלטה אחרת.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-האזינו בעוצמת קול דומה כדי להשוות את האיזון הגווני. האודיו שעובד שומר על משכו ומספר הערוצים שלו. **ביטול־ביצוע** מבטל את ההחלה.
+האזינו בעוצמת קול דומה כדי להשוות את האיזון הגווני. האודיו שעובד שומר על משכו ומספר הערוצים שלו. **ביטול** מבטל את ההחלה.
 
 ## מגבלות ושחזור
 

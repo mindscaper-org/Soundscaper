@@ -3,7 +3,7 @@ title: "צמצום זליגת צליל בין מיקרופונים של דיאל
 description: "צרו מעטפות gain הניתנות לעריכה כדי להנמיך זליגה מתואמת במיקרופונים לא פעילים."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"5c9e85ea0bae3f0c6489f0b5a3235c11e843612c88fa8c2076a4c00e82937752","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"5c9e85ea0bae3f0c6489f0b5a3235c11e843612c88fa8c2076a4c00e82937752","targetLocale":"he"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"5c9e85ea0bae3f0c6489f0b5a3235c11e843612c88fa8c2076a4c00e82937752","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"5c9e85ea0bae3f0c6489f0b5a3235c11e843612c88fa8c2076a4c00e82937752","targetLocale":"he"} -->
 
 צרו מעטפות gain הניתנות לעריכה כדי להנמיך זליגה מתואמת במיקרופונים לא פעילים.
 
@@ -20,7 +20,7 @@ diataxis: how-to
 
 ## בדיקת התוצאה
 
-נקודות gain מפחיתות זליגה תוך שמירה על המקורות המקוריים ומיקומי הקליפים. בדקו את הכניסות של כל דובר ואת גבולות הבחירה. **ביטול־ביצוע** מסיר את הפעולה; **ביצוע מחדש** מחיל אותה שוב.
+נקודות gain מפחיתות זליגה תוך שמירה על המקורות המקוריים ומיקומי הקליפים. בדקו את הכניסות של כל דובר ואת גבולות הבחירה. **ביטול** מסיר את הפעולה; **ביצוע מחדש** מחיל אותה שוב.
 
 ## מגבלות ושחזור
 

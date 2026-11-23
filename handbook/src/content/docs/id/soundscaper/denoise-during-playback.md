@@ -3,7 +3,7 @@ title: "Kurangi derau saat pemutaran"
 description: "Tambahkan efek pengurangan derau AI waktu nyata ke trek dialog."
 diataxis: how-to
 ---
-<!-- docs-ai-provenance: {"factPacketSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","model":"gpt-6-luna","modelProvider":"codex-subagent","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","targetLocale":"id"} -->
+<!-- docs-ai-provenance: {"basedOnProvenance":{"model":"gpt-6-luna","modelProvider":"codex-subagent"},"factPacketSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","model":"gpt-6","modelProvider":"codex","operation":"translate","promptVersion":"docs-translate-v1","schemaVersion":1,"sourceLocale":"en","sourceSha256":"48233da1a6a6383c3a32842c992910b81829a02ec6bf2017024cbda63dfe01d6","targetLocale":"id"} -->
 
 Tambahkan efek pengurangan derau AI waktu nyata ke trek dialog.
 
@@ -14,7 +14,7 @@ Gunakan Soundscaper desktop. Buka **Alat > Manajer Model** dan instal model peng
 ## Langkah-langkah
 
 1. Pilih trek dialog yang bising dan buka rak efek waktu nyatanya.
-2. Pilih **Menambahkan efek**, lalu pilih **AI denoising (DPDFNet2)**.
+2. Pilih **Tambahkan efek**, lalu pilih **AI denoising (DPDFNet2)**.
 3. Mulai pemutaran dan bandingkan dengan efek yang dinonaktifkan menggunakan tombol dayanya.
 4. Sesuaikan miks di sekitar trek yang dibersihkan dan dengarkan hasil ekspor sebelum mengirimkannya. Simpan proyek untuk mempertahankan rak tersebut.
 
