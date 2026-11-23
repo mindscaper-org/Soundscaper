@@ -3,7 +3,7 @@
 	"locale": "hi",
 	"provenance": {
 		"machine": {"model":"gpt-6-luna","modelDigest":"sha256:65bf2a504ae8c3f93aa820ec8625c4beb85a7c017d697e741f42aea6188b981d","promptVersion":"i18n-machine-v1"},
-		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
+		"audacity": {"repository":"audacity/audacity","headSha":"90ca9ed02aaab7a75edaf56cb6457ea03530b930","runId":45144219072,"artifactId":14803227546,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/45144219072","archiveName":"Audacity_locale_263270910.zip","archiveSha256":"152faaeb16c9c3add22df2e827165df37a407a80e9e5563998f37ae4bf27bc24","archiveByteLength":16422439,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/90ca9ed02aaab7a75edaf56cb6457ea03530b930/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":4,"mappingSha256":"797820fac1c286d704e84032b05d8eccfb117944f07bc4c0f4502566ef70de11"}
 	},
 	"entries": {
 		"aboutEditor": ["machine","About Soundscaper","Soundscaper के बारे में"],
@@ -2233,7 +2233,7 @@
 		"parameterRangeError": ["machine","{label} must be between {minimum} and {maximum}.","{label} {minimum} और {maximum} के बीच होना चाहिए।"],
 		"parametricEq": ["machine","Parametric EQ","पैरामीट्रिक EQ"],
 		"parametricEqGraph": ["machine","Parametric equalizer response","पैरामीट्रिक इक्वलाइज़र रिस्पॉन्स"],
-		"paste": ["machine","Paste","चिपकाएं"],
+		"paste": ["audacity","Paste","चिपकाएं"],
 		"pasteEffects": ["machine","Paste effects","प्रभाव चिपकाएं"],
 		"pasteInsert": ["machine","Insert","सम्मिलित करें"],
 		"pasteSync": ["machine","Insert and preserve synchronisation","सम्मिलित करें और सिंक्रनाइज़ेशन बनाए रखें"],
@@ -2243,7 +2243,6 @@
 		"peak": ["machine","Peak","पीक"],
 		"pinnedPlayhead": ["human","Pinned playhead","पिन किया गया प्लेबैक कर्सर"],
 		"pitchTempo": ["machine","Pitch and tempo","पिच और टेम्पो"],
-		"play": ["audacity","Play","बजाएं"],
 		"playAtSpeed": ["machine","Play at speed","गति से बजाएं"],
 		"playAtSpeedMode": ["machine","Play-at-speed pitch behavior","गति से बजाने पर पिच व्यवहार"],
 		"playAtSpeedNaive": ["machine","Change speed and pitch","गति और पिच बदलें"],

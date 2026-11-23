@@ -171,19 +171,30 @@ export function auditQtMappingCandidates(englishCopy, sourceCatalog, mapping = A
 }
 
 export function validateMappingAgainstSourceCatalog(sourceCatalog, mapping = AUDACITY_QT_MAPPING) {
+	const { skipped } = auditQtMappingSource(sourceCatalog, mapping);
+	const first = skipped[0];
+	if (first?.reason === 'missing') fail('QT_MAPPING_SOURCE_MISSING', `Mapped Audacity source is missing for ${first.key}.`);
+	if (first) fail('QT_MAPPING_SOURCE_AMBIGUOUS', `Mapped Audacity source is ambiguous for ${first.key}.`);
+	return true;
+}
+
+export function auditQtMappingSource(sourceCatalog, mapping = AUDACITY_QT_MAPPING) {
 	validateAudacityQtMapping(mapping);
 	if (!sourceCatalog || !Array.isArray(sourceCatalog.messages)) fail('QT_SOURCE_CATALOG', 'Audacity English source catalog is missing.');
 	const counts = new Map();
 	for (const message of sourceCatalog.messages) {
+		if (message.translationType === 'vanished' || message.translationType === 'obsolete') continue;
 		const identity = qtIdentity(message.context, message.source, message.comment || '');
 		counts.set(identity, (counts.get(identity) || 0) + 1);
 	}
+	const matched = [];
+	const skipped = [];
 	for (const entry of mapping) {
 		const count = counts.get(qtIdentity(entry.context, entry.source, entry.comment)) || 0;
-		if (count === 0) fail('QT_MAPPING_SOURCE_MISSING', `Mapped Audacity source is missing for ${entry.key}.`);
-		if (count !== 1) fail('QT_MAPPING_SOURCE_AMBIGUOUS', `Mapped Audacity source is ambiguous for ${entry.key}.`);
+		if (count === 1) matched.push(entry);
+		else skipped.push({ key: entry.key, reason: count === 0 ? 'missing' : 'ambiguous' });
 	}
-	return true;
+	return { matched, skipped };
 }
 
 

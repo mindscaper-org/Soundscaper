@@ -25,6 +25,15 @@ the runtime falls back to English. Regenerate automatic entries with
 `npm run i18n:translate -- --all` or the Audacity sync. Human entries remain
 owned by their authors and are reported stale for manual correction.
 
+The Audacity sync verifies the published Qt archive and imports a mapped
+translation only when its exact context, source and comment identify one
+active upstream English message. The converter reports missing or ambiguous
+identities as `skippedSourceKeys` in the workflow log. Old Audacity entries for
+those keys retire with the rest of the superseded snapshot, so the editor uses
+its English fallback when no translation remains. Review upstream changes
+before updating the mappings. The import stops if the English catalog is
+missing, no mapping matches it, or no supported locale has a usable translation.
+
 See the [editor translation tooling](../../scripts/i18n-ai/README.md) for
 catalog schemas, locale routes, model selection, commands, and provenance, and
 [community contributions](../../CONTRIBUTING.md#community-translations) for

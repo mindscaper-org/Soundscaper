@@ -46,7 +46,7 @@ const EDITING_PREFERENCE_KEYS_BY_CONTEXT = Object.freeze({
 });
 
 test('Audacity 4 editing preferences use the reviewed Qt identities', () => {
-	assert.equal(AUDACITY_QT_MAPPING_VERSION, 3);
+	assert.equal(AUDACITY_QT_MAPPING_VERSION, 4);
 	const byKey = new Map(AUDACITY_QT_MAPPING.map((entry) => [entry.key, entry]));
 
 	for (const [context, keys] of Object.entries(EDITING_PREFERENCE_KEYS_BY_CONTEXT)) {

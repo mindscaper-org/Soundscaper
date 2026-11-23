@@ -84,6 +84,42 @@ test('the archive is held to its verified digest, length and licence', () => {
 	assert.throws(() => buildAudacityLayer({ ...options, source: { ...options.source, repository: 'someone/else' } }), /audacity\/audacity/u);
 });
 
+test('the layer imports unique active source identities and reports mapping drift', () => {
+	const mapping = numberedMapping(5);
+	const english = numberedCatalog('en_US', [mapping[0], mapping[2], mapping[2], mapping[3], mapping[4]], 0)
+		.replace('<source>Source 3</source><translation type="unfinished">', '<source>Source 3</source><translation type="vanished">')
+		.replace('<source>Source 4</source><translation type="unfinished">', '<source>Source 4</source><translation type="obsolete">');
+	const archiveBytes = makeStoredZip([
+		{ name: 'audacity_en.ts', data: english },
+		{ name: 'audacity_fr.ts', data: numberedCatalog('fr', mapping, 5) },
+	]);
+	const layer = buildAudacityLayer(layerOptions(archiveBytes, mapping));
+	assert.deepEqual(layer.messagesByLocale.get('fr'), { key000: 'Translation 0' });
+	assert.deepEqual(layer.skippedSourceKeys, [
+		{ key: 'key001', reason: 'missing' },
+		{ key: 'key002', reason: 'ambiguous' },
+		{ key: 'key003', reason: 'missing' },
+		{ key: 'key004', reason: 'missing' },
+	]);
+});
+
+test('the layer rejects an absent English catalog or a mapping with no active matches', () => {
+	const mapping = numberedMapping(2);
+	const french = { name: 'audacity_fr.ts', data: numberedCatalog('fr', mapping, 2) };
+	assert.throws(() => buildAudacityLayer(layerOptions(makeStoredZip([french]), mapping)), { code: 'QT_SOURCE_CATALOG' });
+	const english = { name: 'audacity_en.ts', data: numberedCatalog('en_US', [], 0) };
+	assert.throws(() => buildAudacityLayer(layerOptions(makeStoredZip([english, french]), mapping)), { code: 'QT_MAPPING_SOURCE_EMPTY' });
+});
+
+test('mapping drift cannot leave the whole imported layer empty', () => {
+	const mapping = numberedMapping(2);
+	const archiveBytes = makeStoredZip([
+		{ name: 'audacity_en.ts', data: numberedCatalog('en_US', [mapping[1]], 0) },
+		{ name: 'audacity_fr.ts', data: numberedCatalog('fr', mapping, 1) },
+	]);
+	assert.throws(() => buildAudacityLayer(layerOptions(archiveBytes, mapping)), { code: 'QT_MAPPED_TRANSLATIONS_EMPTY' });
+});
+
 test('a legacy alias beside the canonical catalog is left alone instead of failing the archive', () => {
 	const mapping = numberedMapping(2);
 	const canonical = makeStoredZip([

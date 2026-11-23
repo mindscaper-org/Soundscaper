@@ -18,7 +18,7 @@ test('German uses only its JSON catalog and the common English fallback', async 
 	assert.equal(german['ui.macroManager.runProgram'], 'Programm ausführen');
 	const catalog = await readTranslationCatalog('de');
 	assert.deepEqual(catalog.entries.fileMenu, ['machine', 'File', 'Datei']);
-	assert.equal(catalog.entries.play[0], 'audacity');
+	assert.deepEqual(catalog.entries.copy, ['audacity', 'Copy', 'Kopieren']);
 	const missing = await resolveCatalog('de', { translationLoaders: {} });
 	assert.deepEqual(missing, EDITOR_ENGLISH_COPY);
 	const stale = await resolveCatalog('de', { translationLoaders: {

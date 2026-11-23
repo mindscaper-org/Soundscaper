@@ -80,6 +80,7 @@ async function runCommit(flags) {
 		locales: [...layer.messagesByLocale.keys()],
 		messages: Object.fromEntries([...layer.messagesByLocale].map(([locale, messages]) => [locale, Object.keys(messages).length])),
 		changed: summaries.filter((summary) => summary.written || summary.removed).map((summary) => summary.locale),
+		skippedSourceKeys: layer.skippedSourceKeys,
 		headSha: layer.provenance.headSha,
 		artifactId: layer.provenance.artifactId,
 	})}\n`);

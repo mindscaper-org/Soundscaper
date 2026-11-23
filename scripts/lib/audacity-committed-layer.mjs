@@ -18,9 +18,8 @@ import { EDITOR_ENGLISH_COPY as ENGLISH_COPY } from '../../src/common/i18n/edito
 import { LOCALE_BY_TAG } from '../../src/common/i18n/locales.js';
 import { asBytes, readAudacityQtCatalogsFromZip } from './audacity-qt-catalog.mjs';
 import {
+	auditQtMappingSource,
 	convertQtCatalog,
-	validateAudacityQtMapping,
-	validateMappingAgainstSourceCatalog,
 } from './audacity-qt-conversion.mjs';
 import { encodeCanonicalJson, fail, sha256 } from './audacity-qt-values.mjs';
 import { compareCodeUnits } from './canonical-json.mjs';
@@ -40,8 +39,6 @@ const MAX_LICENSE_BYTES = 2 * 1024 * 1024;
 /** Verify the upstream artifact and convert every locale that carries a reviewed string. */
 export function buildAudacityLayer(options) {
 	const mapping = options?.mapping || AUDACITY_QT_MAPPING;
-	validateAudacityQtMapping(mapping);
-	const mappingSha256 = sha256(encodeCanonicalJson(mapping));
 	const source = validateLayerSource(options?.source);
 	const archiveBytes = asBytes(options?.archiveBytes, 'SOURCE_ARCHIVE_TYPE');
 	if (archiveBytes.byteLength !== source.expectedByteLength) fail('SOURCE_ARCHIVE_LENGTH', 'Audacity artifact byte length does not match verified metadata.');
@@ -50,7 +47,8 @@ export function buildAudacityLayer(options) {
 	const licenseBytes = asBytes(options?.licenseBytes, 'SOURCE_LICENSE_TYPE');
 	if (licenseBytes.byteLength === 0 || licenseBytes.byteLength > MAX_LICENSE_BYTES) fail('SOURCE_LICENSE_SIZE', 'Audacity license has an invalid size.');
 	const { catalogs } = readAudacityQtCatalogsFromZip(archiveBytes, options?.archiveOptions);
-	validateMappingAgainstSourceCatalog(catalogs.get('en'), mapping);
+	const { matched, skipped: skippedSourceKeys } = auditQtMappingSource(catalogs.get('en'), mapping);
+	if (matched.length === 0) fail('QT_MAPPING_SOURCE_EMPTY', 'No reviewed Audacity mapping matches the active English source catalog.');
 	const provenance = Object.freeze({
 		repository: source.repository,
 		headSha: source.headSha,
@@ -65,7 +63,7 @@ export function buildAudacityLayer(options) {
 		upstreamLicenseUrl: `https://github.com/audacity/audacity/blob/${source.headSha}/LICENSE.txt`,
 		modificationNotice: AUDACITY_TRANSLATION_MODIFICATION_NOTICE,
 		mappingVersion: AUDACITY_QT_MAPPING_VERSION,
-		mappingSha256,
+		mappingSha256: sha256(encodeCanonicalJson(mapping)),
 	});
 	const messagesByLocale = new Map();
 	const audit = {};
@@ -77,7 +75,7 @@ export function buildAudacityLayer(options) {
 			unknownLocales.push(locale);
 			continue;
 		}
-		const result = convertQtCatalog(catalog, mapping, { locale });
+		const result = convertQtCatalog(catalog, matched, { locale });
 		audit[locale] = { mapped: result.audit.mapped, total: result.audit.total, skipped: result.audit.skipped };
 		// A reviewed string keeps its wording; only the whitespace around it goes.
 		const messages = Object.fromEntries(Object.entries(result.messages)
@@ -85,7 +83,15 @@ export function buildAudacityLayer(options) {
 			.filter(([, value]) => value.length > 0));
 		if (Object.keys(messages).length) messagesByLocale.set(locale, Object.freeze(messages));
 	}
-	return Object.freeze({ messagesByLocale, provenance, audit: Object.freeze(audit), unknownLocales: Object.freeze(unknownLocales), licenseBytes });
+	if (messagesByLocale.size === 0) fail('QT_MAPPED_TRANSLATIONS_EMPTY', 'No reviewed Audacity translations are available for supported locales.');
+	return Object.freeze({
+		messagesByLocale,
+		provenance,
+		audit: Object.freeze(audit),
+		skippedSourceKeys: Object.freeze(skippedSourceKeys.map(Object.freeze)),
+		unknownLocales: Object.freeze(unknownLocales),
+		licenseBytes,
+	});
 }
 
 export function validateLayerSource(source) {

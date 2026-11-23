@@ -2,7 +2,7 @@
 	"schemaVersion": 2,
 	"locale": "sk",
 	"provenance": {
-		"audacity": {"repository":"audacity/audacity","headSha":"de2e43dc13474ba712ade5ea8e47550eba0e8bfb","runId":35327911264,"artifactId":10539339149,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/35327911264","archiveName":"Audacity_locale_262610911.zip","archiveSha256":"13b1ff11c39a677c711a1d29738a394aaca7a200533927aab3f45bbd76c1ff8e","archiveByteLength":15413913,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/de2e43dc13474ba712ade5ea8e47550eba0e8bfb/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":3,"mappingSha256":"f4cf0434f47eaa9434d079a1623b9d9501e9c8da0d83f0c73344f7765113b57c"}
+		"audacity": {"repository":"audacity/audacity","headSha":"90ca9ed02aaab7a75edaf56cb6457ea03530b930","runId":45144219072,"artifactId":14803227546,"workflowUrl":"https://github.com/audacity/audacity/actions/runs/45144219072","archiveName":"Audacity_locale_263270910.zip","archiveSha256":"152faaeb16c9c3add22df2e827165df37a407a80e9e5563998f37ae4bf27bc24","archiveByteLength":16422439,"licenseSpdx":"GPL-3.0-only","upstreamProjectUrl":"https://github.com/audacity/audacity","upstreamLicenseUrl":"https://github.com/audacity/audacity/blob/90ca9ed02aaab7a75edaf56cb6457ea03530b930/LICENSE.txt","modificationNotice":"Soundscaper converts reviewed Audacity Qt TS messages to per-locale JSON catalogs, excludes unsafe or inapplicable entries, adapts reviewed placeholders and mnemonics, and removes ellipsis punctuation.","mappingVersion":4,"mappingSha256":"797820fac1c286d704e84032b05d8eccfb117944f07bc4c0f4502566ef70de11"}
 	},
 	"entries": {
 		"addEffect": ["audacity","Add effect","Pridať efekt"],
@@ -10,9 +10,11 @@
 		"applyEffectPreset": ["audacity","Apply preset","Použiť predvoľbu"],
 		"clearLoopRegion": ["audacity","Clear loop region","Vymazať oblasť slučky"],
 		"clipping": ["audacity","Clipping","Prebudenie"],
+		"closeProject": ["audacity","Close project","Zavrieť projekt"],
 		"copy": ["audacity","Copy","Kopírovať"],
 		"cut": ["audacity","Cut","Vystrihnúť"],
 		"delay": ["audacity","Delay","Delay"],
+		"deleteTrack": ["audacity","Delete track","Vymazať stopu"],
 		"duplicateAudio": ["audacity","Duplicate","Duplikovať"],
 		"editingAlwaysConvertToMono": ["audacity","Always convert to mono without prompt","Vždy konvertovať na mono bez výzvy"],
 		"editingAlwaysPasteAsNewClip": ["audacity","Always paste audio as a new clip","Vždy prilepiť nové audio ako nový strih"],
@@ -60,10 +62,12 @@
 		"effectParamFrequency": ["audacity","Frequency","Frekvencia"],
 		"effectParamRatio": ["audacity","Ratio","Pomer"],
 		"exportAudio": ["audacity","Export audio","Exportovať audio"],
+		"exportEffectPreset": ["audacity","Export preset","Exportovať predvoľbu"],
 		"gain": ["audacity","Gain","Hlasitosť"],
 		"generatorFrequency": ["audacity","Frequency (Hz)","Frekvencia (Hz)"],
 		"generatorPink": ["audacity","Pink","Ružový"],
 		"generatorWhite": ["audacity","White","Biely"],
+		"importEffectPreset": ["audacity","Import preset","Importovať predvoľbu"],
 		"level": ["audacity","Level","Úroveň"],
 		"loopToSelection": ["audacity","Set loop region to selection","Nastaviť oblasť slučky na výber"],
 		"metadataComments": ["audacity","Comments","Komentáre"],
@@ -77,8 +81,8 @@
 		"newProject": ["audacity","New project","Nový projekt"],
 		"pan": ["audacity","Pan","Vyváženie"],
 		"panelHistory": ["audacity","History","História"],
+		"paste": ["audacity","Paste","Prilepiť"],
 		"pause": ["audacity","Pause","Pozastaviť"],
-		"play": ["audacity","Play","Prehrať"],
 		"preferences": ["audacity","Preferences","Nastavenia"],
 		"project": ["audacity","Project","Projekt"],
 		"projectSaving": ["audacity","Saving project","Ukladanie projektu"],
