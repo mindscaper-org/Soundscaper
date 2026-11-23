@@ -44,7 +44,7 @@ test('Linux dependency inspection reads both GNU readelf RPATH labels', () => {
 
 test('Windows dependency closure admits the exact JUCE system libraries', async () => {
 	const imports = [
-		'api-ms-win-shcore-scaling-l1-1-1.DLL', 'COMCTL32.dll', 'D2D1.dll', 'D3D11.dll', 'DCOMP.dll',
+		'api-ms-win-shcore-scaling-l1-1-1.DLL', 'COMCTL32.dll', 'D2D1.dll', 'D3D11.dll', 'DbgHelp.dll', 'DCOMP.dll',
 		'DWRITE.dll', 'DXGI.dll', 'SHCORE.dll', 'VFW32.dll', 'WININET.dll',
 	];
 	const inspections = await validateSoundscaperProfessionalNativeDependencyClosure({
@@ -66,6 +66,14 @@ test('Windows dependency closure admits the exact JUCE system libraries', async 
 			architecture: WINDOWS_ARCHITECTURE, imports: ['foreign.dll'], rpaths: [],
 		}),
 	}), /undeclared runtime dependency foreign\.dll/iu);
+});
+
+test('Windows dependency inspection identifies every missing DLL in the build result', async () => {
+	const artifacts = ['first', 'second'].map(name => ({ path: `payload/${name}.vst3`, absolutePath: name }));
+	await assert.rejects(validateSoundscaperProfessionalNativeDependencyClosure({
+		target: 'win-x64', artifacts, runtimeArtifacts: [], root: '/candidate',
+		inspectDependencies: async ({ path }) => ({ architecture: WINDOWS_ARCHITECTURE, imports: [`${path}.dll`], rpaths: [] }),
+	}), /first\.vst3 has undeclared runtime dependency first\.dll\.[\s\S]+second\.vst3 has undeclared runtime dependency second\.dll\./u);
 });
 
 test('Windows dependency closure admits only the exact registry capability API set', async () => {

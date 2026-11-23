@@ -23,7 +23,7 @@ const MAXIMUM_OUTPUT_BYTES = 1024 * 1024;
 const WINDOWS_SYSTEM_LIBRARIES = new Set([
 	'advapi32.dll', 'api-ms-win-security-base-l1-2-2.dll', 'api-ms-win-shcore-scaling-l1-1-1.dll',
 	'avrt.dll', 'bcrypt.dll', 'cfgmgr32.dll', 'comctl32.dll',
-	'comdlg32.dll', 'd2d1.dll', 'd3d11.dll', 'dcomp.dll', 'dwrite.dll', 'dwmapi.dll',
+	'comdlg32.dll', 'd2d1.dll', 'd3d11.dll', 'dbghelp.dll', 'dcomp.dll', 'dwrite.dll', 'dwmapi.dll',
 	'dxgi.dll', 'gdi32.dll', 'imm32.dll', 'kernel32.dll', 'mf.dll', 'mfplat.dll',
 	'mfreadwrite.dll', 'mfuuid.dll', 'ole32.dll', 'oleaut32.dll', 'powrprof.dll',
 	'propsys.dll', 'rpcrt4.dll', 'secur32.dll', 'setupapi.dll', 'shell32.dll',
@@ -37,6 +37,7 @@ export async function validateSoundscaperProfessionalNativeDependencyClosure({
 	const byBasename = new Map(runtimeArtifacts.map((entry) =>
 		[basename(entry.path).toLowerCase(), entry]));
 	const inspections = [];
+	const undeclared = [];
 	for (const artifact of artifacts) {
 		const inspected = await inspectDependencies({
 			target, path: artifact.absolutePath ?? resolveBuildResultPath(root, artifact.path),
@@ -65,7 +66,7 @@ export async function validateSoundscaperProfessionalNativeDependencyClosure({
 			}
 			const name = basename(imported.replaceAll('\\', '/')).toLowerCase();
 			if (!byBasename.has(name)) {
-				throw new Error(`${artifact.path} has undeclared runtime dependency ${imported}.`);
+				undeclared.push(`${artifact.path} has undeclared runtime dependency ${imported}.`);
 			}
 		}
 		inspections.push(Object.freeze({
@@ -74,6 +75,7 @@ export async function validateSoundscaperProfessionalNativeDependencyClosure({
 			rpaths: Object.freeze([...rpaths].sort()),
 		}));
 	}
+	if (undeclared.length) throw new Error(undeclared.join('\n'));
 	return Object.freeze(inspections.sort((left, right) => left.artifactPath === right.artifactPath
 		? 0 : left.artifactPath < right.artifactPath ? -1 : 1));
 }
