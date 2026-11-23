@@ -46,11 +46,20 @@ test('held MIDI note placement follows source time after a wheel pan', async ({ 
 	await chooseNestedCommandAction(page, editor, 'Window', ['Piano roll (beta)']);
 	const panel = editor.getByLabel('Piano roll (beta)', { exact: true });
 	const grid = panel.locator('.kw-audio-editor__piano-roll-notes > [tabindex="0"]');
+	const position = { x: 150, y: 100 };
+	await grid.hover({ position });
 	const bounds = await grid.boundingBox(); if (!bounds) throw new Error('Piano-roll grid is not visible');
-	const x = bounds.x + 150, y = bounds.y + 100;
-	await page.mouse.move(x, y); await page.mouse.down();
-	await panHeldGesture(page, panel.locator('.note-rect[data-note-id="1"]'), '-50px');
-	await page.mouse.move(x + 25, y, { steps: 3 }); await page.mouse.up();
+	const preview = grid.locator('.note-rect[data-note-id="-1"]').locator('..');
+	await page.mouse.down();
+	await expect(preview).toHaveCSS('left', '150px');
+	// Send each queued event to the grid so headless Chromium delivers the full held gesture.
+	await grid.dispatchEvent('wheel', { deltaY: 50, shiftKey: true });
+	await expect(panel.locator('.note-rect[data-note-id="1"]')).toHaveCSS('left', '-50px');
+	const clientX = bounds.x + position.x + 25, clientY = bounds.y + position.y;
+	await grid.dispatchEvent('mousemove', { buttons: 1, clientX, clientY });
+	await expect(preview).toHaveCSS('left', '175px');
+	await grid.dispatchEvent('mouseup', { button: 0, clientX, clientY });
+	await page.mouse.up();
 	const fields = panel.getByRole('group', { name: 'Note editor', exact: true });
 	await expect(fields.getByRole('combobox', { name: 'Selected note', exact: true }).locator('option')).toHaveCount(3);
 	await expect(fields.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true })).toHaveValue('2.25');
