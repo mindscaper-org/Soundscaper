@@ -80,7 +80,15 @@ test('Packaged Electron completes concurrent Windows policy reads', { skip: proc
 test('Windows reads machine/user policy and MSI ownership through a bounded native registry query', async () => {
 	const calls: unknown[][] = [];
 	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'framescaper', environment: { SystemRoot: 'C:\\Windows' },
-		execute: async (...args) => { calls.push(args); return { stdout: JSON.stringify({ machine: { OnlineFeaturesAllowed: 0 }, user: {}, msi: true }) }; } });
+		execute: (path, args, options) => {
+			if (path.endsWith('reg.exe')) {
+				const parent = args[1];
+				const child = parent?.endsWith('Mindscaper') ? 'Framescaper' : parent?.endsWith('Policies') ? 'Mindscaper' : 'Policies';
+				return { stdout: `${parent}\\${child}\r\n` };
+			}
+			calls.push([path, args, options]);
+			return { stdout: JSON.stringify({ machine: { OnlineFeaturesAllowed: 0 }, user: {}, msi: true }) };
+		} });
 	assert.equal(policy.msi, true);
 	assert.equal(policy.allows('WebVcrAllowed'), false);
 	assert.equal(calls.length, 1);
@@ -92,6 +100,67 @@ test('Windows reads machine/user policy and MSI ownership through a bounded nati
 	assert.match(script, /Registry64/u);
 	assert.match(script, /Software\\Policies\\Mindscaper\\Framescaper/u);
 	assert.match(script, /ManagedByWindowsInstaller/u);
+});
+
+test('a clean Windows profile starts without PowerShell when the native 64-bit registry lists no product keys', async () => {
+	const calls: string[] = [];
+	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute: (path, [command, key, registryView]) => {
+			assert.equal(path, 'C:\\Windows\\System32\\reg.exe');
+			assert.equal(command, 'query');
+			assert.equal(registryView, '/reg:64');
+			assert.ok(key);
+			calls.push(key);
+			const children: Record<string, string[]> = {
+				'HKEY_LOCAL_MACHINE\\Software': ['Policies', 'Mindscaper'],
+				'HKEY_LOCAL_MACHINE\\Software\\Policies': ['Microsoft'],
+				'HKEY_CURRENT_USER\\Software': ['Policies'],
+				'HKEY_CURRENT_USER\\Software\\Policies': ['Mindscaper'],
+				'HKEY_CURRENT_USER\\Software\\Policies\\Mindscaper': ['Framescaper'],
+				'HKEY_LOCAL_MACHINE\\Software\\Mindscaper': ['Soundscaper'],
+				'HKEY_LOCAL_MACHINE\\Software\\Mindscaper\\Soundscaper': [],
+			};
+			assert.ok(Object.hasOwn(children, key), `Unexpected registry key ${key}`);
+			return { stdout: children[key]!.map(child => `${key}\\${child}`.toUpperCase()).join('\r\n') };
+		} });
+	assert.equal(policy.msi, false);
+	assert.equal(policy.allows('ApplicationUpdatesAllowed'), true);
+	assert.ok(calls.includes('HKEY_LOCAL_MACHINE\\Software\\Mindscaper\\Soundscaper'));
+});
+
+test('a failed native registry enumeration cannot establish that a policy key is absent', async () => {
+	let readPolicy = false;
+	await assert.rejects(loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute: (path) => {
+			if (path.endsWith('reg.exe')) throw new Error('Registry enumeration denied');
+			readPolicy = true;
+			throw new Error('Registry read denied');
+		} }), /registry policy query failed/u);
+	assert.equal(readPolicy, true);
+});
+
+test('the native check preserves MSI restrictions when neither policy key exists', async () => {
+	const children: Record<string, string> = {
+		'HKEY_LOCAL_MACHINE\\Software': 'Mindscaper',
+		'HKEY_LOCAL_MACHINE\\Software\\Mindscaper': 'Soundscaper',
+		'HKEY_LOCAL_MACHINE\\Software\\Mindscaper\\Soundscaper': 'Installation',
+	};
+	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute(path, [, key]) {
+			if (!path.endsWith('reg.exe')) return { stdout: '{"machine":{},"user":{},"msi":true}' };
+			const child = key && children[key];
+			return { stdout: child ? `${key}\\${child}\r\n` : '' };
+		} });
+	assert.equal(policy.msi, true);
+	assert.equal(policy.allows('ApplicationUpdatesAllowed'), false);
+});
+
+test('unrecognized native registry output falls back to the policy reader', async () => {
+	const policy = await loadWindowsManagedPolicy({ platform: 'win32', productId: 'soundscaper', environment: { SystemRoot: 'C:\\Windows' },
+		execute: path => ({ stdout: path.endsWith('reg.exe')
+			? 'Unexpected registry output\r\n'
+			: JSON.stringify({ machine: {}, user: { ModelDownloadsAllowed: 0 }, msi: false }) }) });
+	assert.equal(policy.allows('ModelDownloadsAllowed'), false);
 });
 
 test('a registry query timeout reports the deadline instead of the command', async () => {

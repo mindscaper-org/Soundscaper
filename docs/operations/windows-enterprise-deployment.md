@@ -56,7 +56,9 @@ The application reads the following 64-bit registry keys at startup:
 
 Framescaper uses `Framescaper` as the final key component. Machine values take
 precedence over user values per setting. Reading uses local registry state and
-requires no connection to the domain controller. Run `gpupdate` to refresh
+requires no connection to the domain controller. The startup reader can use
+default policy when native 64-bit registry listings confirm the product's
+policy and installer keys are absent. Run `gpupdate` to refresh
 Windows policy material, then restart the application to apply changes.
 Policy applies equally to EXE, MSI and portable launches. No policy means normal
 application behavior; invalid policy or a registry-query failure stops startup
