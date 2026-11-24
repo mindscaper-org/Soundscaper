@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	TracktionClipPage, TracktionEditResult, TracktionProjectPage,
+	TracktionClipPage, TracktionEditResult, TracktionProjectPage, TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 
@@ -22,10 +22,14 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'split'; clipId: string; frame: number }>)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
-	| (Revision & Readonly<{ kind: 'archive'; asset: string }>);
+	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
+	| TracktionTransportCommand;
 
 export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
-	: Command extends { kind: 'clips' } ? TracktionClipPage : TracktionEditResult;
+	: Command extends { kind: 'clips' } ? TracktionClipPage
+		: Command extends TracktionTransportCommand ? TracktionTransportView : TracktionEditResult;
+
+const transportKinds = new Set<TracktionCommand['kind']>(['transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop']);
 
 export class TracktionRejectedCommand extends Error {}
 
@@ -58,6 +62,8 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	// The command's discriminator selects the closed reply schema.
 	if (command.kind === 'project') return readTracktionProjectPage(value, command.offset) as TracktionReply<Command>;
 	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
+	if (transportKinds.has(command.kind)) return readTracktionTransportView(value) as TracktionReply<Command>;
+	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
 	const revision = nonnegativeInteger(result.revision);
 	if (revision < command.revision || revision > command.revision + 1) {
@@ -69,6 +75,12 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
 	}
 	return Object.freeze({ revision, itemId }) as TracktionReply<Command>;
+}
+
+function readTracktionTransportView(value: unknown): TracktionTransportView {
+	const { ready, playing, frame } = readClosedDomainRecord(value, 'Tracktion transport', ['ready', 'playing', 'frame']);
+	if (typeof ready !== 'boolean' || typeof playing !== 'boolean') throw new TypeError('Invalid Tracktion transport state.');
+	return Object.freeze({ ready, playing, frame: nonnegativeInteger(frame) });
 }
 
 function readTracktionProjectPage(value: unknown, offset: number): TracktionProjectPage {

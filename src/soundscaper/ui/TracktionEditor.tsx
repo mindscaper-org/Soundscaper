@@ -4,20 +4,24 @@ import { useEffect, useRef, useState } from 'react';
 
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
-import type { TracktionDesktopBridge } from '../tracktion-project-contract.ts';
+import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
+import type { TracktionDesktopBridge, TracktionTransportView } from '../tracktion-project-contract.ts';
+import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
+const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
 export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopBridge }) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
+	const [transport, setTransport] = useState<TracktionTransportView | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
 	const pending = useRef(false);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
-	const menu = useRef<HTMLDetailsElement>(null);
+	const menuBar = useRef<HTMLElement>(null);
 
 	useEffect(() => {
 		if (!dirty) return;
@@ -32,7 +36,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 		setBusy(true);
 		setFailure('');
 		setStatus('');
-		if (menu.current) menu.current.open = false;
+		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) menu.open = false;
 		void work().catch((error: unknown) => {
 			setFailure(error instanceof Error ? error.message : String(error));
 		}).finally(() => {
@@ -51,6 +55,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 			const opened = await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readTracktionWorkspace(bridge, opened);
+			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(next.project.revision);
 		});
@@ -61,6 +66,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 		run(async () => {
 			await bridge.request({ kind: 'close', sessionId: workspace.sessionId });
 			setWorkspace(null);
+			setTransport(null);
 			setSavedRevision(null);
 		});
 	}
@@ -86,9 +92,20 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 		});
 	}
 
+	function controlPlayback(kind: 'play' | 'stop' | 'seek'): void {
+		if (!workspace) return;
+		const { sessionId } = workspace;
+		run(async () => {
+			const next = kind === 'play' ? await startTracktionPlayback(bridge, sessionId)
+				: await bridge.request(kind === 'seek' ? { kind, sessionId, frame: 0 } : { kind, sessionId });
+			setTransport(next);
+			setStatus(next.playing ? 'Playing' : 'Stopped');
+		});
+	}
+
 	return <>
-		<nav aria-label="Application menu">
-			<details ref={menu}>
+		<nav ref={menuBar} aria-label="Application menu">
+			<details>
 				<summary>File</summary>
 				<div>
 					<button type="button" disabled={busy} onClick={() => open('create')}>{copy.newProject}</button>
@@ -96,6 +113,20 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 					<button type="button" disabled={busy || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
 					<button type="button" disabled={busy || !workspace} onClick={save}>{copy.saveProject}</button>
 					<button type="button" disabled={busy || !workspace} onClick={close}>{copy.closeProject}</button>
+				</div>
+			</details>
+			<details>
+				<summary>{transportCopy.transport}</summary>
+				<div>
+					<button type="button" disabled={busy || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
+						{transportCopy.play}
+					</button>
+					<button type="button" disabled={busy || !transport?.playing} onClick={() => controlPlayback('stop')}>
+						{transportCopy.stop}
+					</button>
+					<button type="button" disabled={busy || !workspace} onClick={() => controlPlayback('seek')}>
+						{transportCopy.jumpStart}
+					</button>
 				</div>
 			</details>
 		</nav>

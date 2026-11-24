@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-export function wavFixture(): Buffer {
-	const samples = 64;
+export function wavFixture(samples = 64): Buffer {
 	const rate = 48_000;
 	const pcm = Buffer.alloc(44 + samples * 4);
 	pcm.write('RIFF');

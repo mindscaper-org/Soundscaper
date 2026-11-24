@@ -40,6 +40,17 @@ export interface TracktionOpenedProject {
 	readonly project: TracktionProjectPage;
 }
 
+export interface TracktionTransportView {
+	readonly ready: boolean;
+	readonly playing: boolean;
+	readonly frame: number;
+}
+
+export type TracktionTransportCommand =
+	| Readonly<{ kind: 'transportStatus' | 'prepareOutput' | 'stop' }>
+	| Readonly<{ kind: 'play' | 'seek'; frame: number }>
+	| Readonly<{ kind: 'setLoop'; enabled: boolean; start: number; end: number }>;
+
 type Session = Readonly<{ sessionId: string }>;
 type Edit = Session & Readonly<{ revision: number }>;
 
@@ -55,6 +66,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)
+	| (Session & TracktionTransportCommand)
 	| (Session & Readonly<{ kind: 'close' }>);
 
 export type TracktionProjectReply<Command extends TracktionProjectCommand> =
@@ -62,7 +74,8 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 		: Command extends { kind: 'project' } ? TracktionProjectPage
 			: Command extends { kind: 'clips' } ? TracktionClipPage
 				: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
-					: Command extends { kind: 'close' } ? null : TracktionEditResult;
+					: Command extends TracktionTransportCommand ? TracktionTransportView
+						: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionDesktopBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -94,6 +96,66 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 		await rejection;
 		await assert.rejects(cancelled.request({ kind: 'project', offset: 0 }), /closed/u);
 	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test('Tracktion sends live project audio to the Linux ALSA output', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-device-'));
+	const config = join(root, 'alsa.conf');
+	const output = join(root, 'device.raw');
+	const previous = process.env.ALSA_CONFIG_PATH;
+	const exchangeDirectory = join(root, 'exchange');
+	try {
+		await writeAlsaOutputFixture(config, output);
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(4096));
+		process.env.ALSA_CONFIG_PATH = config;
+		const peer = launchTracktionPeer({
+			executable, mode: 'create', sampleRate: 48_000,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings'), exchangeDirectory,
+		});
+		try {
+			assert.deepEqual(await peer.request({ kind: 'transportStatus' }), { ready: false, playing: false, frame: 0 });
+			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+			assert.ok(track);
+			await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Output check', start: 0 });
+			let transport = await peer.request({ kind: 'prepareOutput' });
+			for (let attempt = 0; attempt < 100 && !transport.ready; attempt += 1) {
+				await sleep(10);
+				transport = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.equal(transport.ready, true);
+			assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, true);
+			for (let attempt = 0; attempt < 100; attempt += 1) {
+				transport = await peer.request({ kind: 'transportStatus' });
+				if (transport.frame >= 4096) break;
+				await sleep(5);
+			}
+			assert.ok(transport.frame >= 4096, 'the live device advances the Tracktion playhead');
+			assert.equal((await peer.request({ kind: 'stop' })).playing, false);
+			assert.equal((await peer.request({ kind: 'seek', frame: 10 })).frame, 10);
+			assert.equal((await peer.request({ kind: 'project', offset: 0 })).revision, 1);
+		} finally {
+			await peer.close();
+		}
+		const file = await open(output, 'r');
+		try {
+			const sample = Buffer.alloc(4 * 1024 * 1024);
+			const { bytesRead } = await file.read(sample);
+			let matchingFrames = 0;
+			for (let offset = 0; offset + 8 <= bytesRead; offset += 8) {
+				const left = sample.readFloatLE(offset);
+				const right = sample.readFloatLE(offset + 4);
+				if (Math.abs(left - 0.125) < 0.001 && Math.abs(right + 0.0625) < 0.001) matchingFrames += 1;
+			}
+			assert.ok(matchingFrames >= 2048, 'ALSA output has the independent expected stereo PCM');
+		} finally {
+			await file.close();
+		}
+	} finally {
+		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
+		else process.env.ALSA_CONFIG_PATH = previous;
 		await rm(root, { recursive: true, force: true });
 	}
 });

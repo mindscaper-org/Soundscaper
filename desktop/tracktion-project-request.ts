@@ -19,6 +19,12 @@ const fields = {
 	save: ['kind', 'sessionId', 'revision'],
 	render: ['kind', 'sessionId', 'revision', 'start', 'end'],
 	archive: ['kind', 'sessionId', 'revision'],
+	transportStatus: ['kind', 'sessionId'],
+	prepareOutput: ['kind', 'sessionId'],
+	play: ['kind', 'sessionId', 'frame'],
+	stop: ['kind', 'sessionId'],
+	seek: ['kind', 'sessionId', 'frame'],
+	setLoop: ['kind', 'sessionId', 'enabled', 'start', 'end'],
 	close: ['kind', 'sessionId'],
 } as const satisfies Record<TracktionProjectCommand['kind'], readonly string[]>;
 
@@ -42,6 +48,8 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 			if (typeof field !== 'string' || !field.trim() || Buffer.byteLength(field) > 128 || field.includes('\0')) {
 				throw new TypeError('Invalid Tracktion track name.');
 			}
+		} else if (key === 'enabled') {
+			if (typeof field !== 'boolean') throw new TypeError('The Tracktion loop toggle must be a boolean.');
 		} else if (typeof field !== 'number' || !Number.isSafeInteger(field) || field < 0) {
 			throw new TypeError('Tracktion requires a nonnegative safe integer.');
 		}
@@ -49,7 +57,7 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (kind === 'create' && (Number(request.sampleRate) < 8_000 || Number(request.sampleRate) > 192_000)) {
 		throw new TypeError('Invalid Tracktion sample rate.');
 	}
-	if ((kind === 'render' || kind === 'trim') && Number(request.start) >= Number(request.end)) {
+	if ((kind === 'render' || kind === 'trim' || kind === 'setLoop') && Number(request.start) >= Number(request.end)) {
 		throw new RangeError('The Tracktion range is empty.');
 	}
 	return request as TracktionProjectCommand;

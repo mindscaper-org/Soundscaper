@@ -74,7 +74,9 @@ public:
 	// Setup and transport commands run on the message thread. The host stops
 	// delivering blocks before tearing down the session.
 	void preparePlayback(int blockFrames);
+	void prepareSystemOutput();
 	bool playbackReady() const;
+	bool isPlaying() const;
 	void play(Frame start);
 	void seek(Frame);
 	void setLoop(bool enabled, Frame start, Frame end);

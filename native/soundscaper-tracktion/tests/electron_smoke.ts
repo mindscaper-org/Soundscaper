@@ -10,6 +10,7 @@ import { app, type BrowserWindow } from 'electron/main';
 
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
+import { writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
@@ -44,6 +45,10 @@ async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 		const archive = join(scratch, 'Project.zip');
 		await mkdir(projectDirectory);
 		await writeFile(wave, wavFixture());
+		if (process.platform === 'linux') {
+			process.env.ALSA_CONFIG_PATH = join(scratch, 'alsa.conf');
+			await writeAlsaOutputFixture(process.env.ALSA_CONFIG_PATH, join(scratch, 'output.raw'));
+		}
 		editor = await openTracktionWindow({
 			bundleRoot, peer: binaryPath, scratchRoot: join(scratch, 'sessions'),
 			show: false,
@@ -106,6 +111,14 @@ async function runEditorWorkflow(window: BrowserWindow): Promise<void> {
 	await click('File');
 	await click('Save project');
 	await waitForVisible('All changes saved locally');
+	if (process.platform === 'linux') {
+		await click('Playback and recording');
+		await click('Play');
+		await waitForVisible('Playing');
+		await click('Playback and recording');
+		await click('Stop');
+		await waitForVisible('Stopped');
+	}
 }
 
 async function runRendererWorkflow(

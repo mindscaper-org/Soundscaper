@@ -145,6 +145,36 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		requireFields(request, {"offset"});
 		return projectPage(session.snapshot(), static_cast<size_t>(integer("offset")));
 	}
+	if (kind == "transportStatus" || kind == "prepareOutput" || kind == "play" || kind == "stop" || kind == "seek" || kind == "setLoop")
+	{
+		if (kind == "play" || kind == "seek")
+		{
+			requireFields(request, {"frame"});
+			const auto frame = integer("frame");
+			if (kind == "seek") session.seek(frame);
+			else if (session.playbackReady()) session.play(frame);
+		}
+		else if (kind == "setLoop")
+		{
+			requireFields(request, {"enabled", "start", "end"});
+			const auto& enabled = request.getProperty("enabled");
+			if (!enabled.isBool()) throw std::invalid_argument("The Tracktion loop toggle must be a boolean");
+			const auto start = integer("start");
+			const auto end = integer("end");
+			if (end <= start) throw std::invalid_argument("The Tracktion loop range is empty");
+			session.setLoop(static_cast<bool>(enabled), start, end);
+		}
+		else
+		{
+			requireFields(request, {});
+			if (kind == "prepareOutput") session.prepareSystemOutput();
+			if (kind == "stop") session.stop();
+		}
+		return record({
+			{"ready", session.playbackReady()}, {"playing", session.isPlaying()},
+			{"frame", number(std::max(Frame{}, session.playbackPosition()))},
+		});
+	}
 
 	const auto revision = static_cast<Revision>(integer("revision"));
 	if (revision != session.revision())

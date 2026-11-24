@@ -10,6 +10,7 @@ body {
 }
 
 nav {
+	display: flex;
 	min-height: 2rem;
 	border-bottom: 1px solid GrayText;
 }
@@ -26,6 +27,7 @@ summary {
 
 details > div {
 	position: absolute;
+	z-index: 1;
 	padding: 0.25rem;
 	min-width: max-content;
 	border: 1px solid GrayText;
