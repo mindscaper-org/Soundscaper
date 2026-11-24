@@ -65,6 +65,29 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			assert.equal(bytes.subarray(0, 4).toString(), 'RIFF');
 			assert.equal(bytes.subarray(8, 12).toString(), 'WAVE');
 			assert.ok(bytes.includes(Buffer.from([0, 16, 0, 248])), 'output contains independent expected PCM');
+			const mix = { gainDb: -6, pan: 0.5, muted: true, solo: false } as const;
+			await assert.rejects(peer.request({ kind: 'setTrackMix', revision: 4, trackId: initialTrack.id, ...mix, gainDb: 7 }), /range/u);
+			const changed = await peer.request({ kind: 'setTrackMix', revision: 4, trackId: initialTrack.id, ...mix });
+			assert.equal(changed.revision, 5);
+			const trackMix = await peer.request({ kind: 'trackMix', revision: 5, trackId: initialTrack.id });
+			assert.ok(Math.abs(trackMix.gainDb - mix.gainDb) < 0.01);
+			assert.equal(trackMix.pan, mix.pan);
+			assert.equal(trackMix.muted, true);
+			assert.equal((await peer.request({ kind: 'setTrackMix', revision: 5, trackId: initialTrack.id, ...mix })).revision, 5);
+			const mutedAsset = '1'.repeat(32);
+			await peer.request({ kind: 'render', revision: 5, start: 0, end: 87, asset: mutedAsset });
+			const mutedWave = await readFile(join(exchangeDirectory, 'output', `${mutedAsset}.wav`));
+			const data = mutedWave.indexOf('data', 12, 'ascii');
+			assert.ok(data >= 36);
+			const pcm = mutedWave.subarray(data + 8, data + 8 + mutedWave.readUInt32LE(data + 4));
+			assert.ok(pcm.length > 0 && pcm.every((byte) => byte === 0), 'muting the track renders silence');
+			await peer.request({ kind: 'undo', revision: 5 });
+			const originalMix = await peer.request({ kind: 'trackMix', revision: 6, trackId: initialTrack.id });
+			assert.ok(Math.abs(originalMix.gainDb) < 0.01);
+			assert.equal(originalMix.pan, 0);
+			assert.equal(originalMix.muted, false);
+			await peer.request({ kind: 'redo', revision: 6 });
+			assert.deepEqual(await peer.request({ kind: 'trackMix', revision: 7, trackId: initialTrack.id }), trackMix);
 		} finally {
 			await peer.close();
 		}

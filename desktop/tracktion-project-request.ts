@@ -11,6 +11,8 @@ const fields = {
 	project: ['kind', 'sessionId', 'offset'],
 	clips: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
 	addTrack: ['kind', 'sessionId', 'revision', 'name'],
+	trackMix: ['kind', 'sessionId', 'revision', 'trackId'],
+	setTrackMix: ['kind', 'sessionId', 'revision', 'trackId', 'gainDb', 'pan', 'muted', 'solo'],
 	import: ['kind', 'sessionId', 'revision', 'trackId', 'start'],
 	trim: ['kind', 'sessionId', 'revision', 'clipId', 'start', 'end'],
 	split: ['kind', 'sessionId', 'revision', 'clipId', 'frame'],
@@ -50,8 +52,14 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 			if (typeof field !== 'string' || !field.trim() || Buffer.byteLength(field) > 128 || field.includes('\0')) {
 				throw new TypeError('Invalid Tracktion track name.');
 			}
-		} else if (key === 'enabled' || key === 'discard') {
+		} else if (key === 'enabled' || key === 'discard' || key === 'muted' || key === 'solo') {
 			if (typeof field !== 'boolean') throw new TypeError('The Tracktion toggle must be a boolean.');
+		} else if (key === 'gainDb' || key === 'pan') {
+			const low = key === 'gainDb' ? -100 : -1;
+			const high = key === 'gainDb' ? 6 : 1;
+			if (typeof field !== 'number' || !Number.isFinite(field) || field < low || field > high) {
+				throw new RangeError('The Tracktion mixer value is out of range.');
+			}
 		} else if (typeof field !== 'number' || !Number.isSafeInteger(field) || field < 0) {
 			throw new TypeError('Tracktion requires a nonnegative safe integer.');
 		}

@@ -7,10 +7,11 @@ import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-reco
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
-import type { TracktionProjectBridge, TracktionTransportView } from '../tracktion-project-contract.ts';
+import type { TracktionProjectBridge, TracktionTrackMix, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 import { TracktionClipEditDialog, type TracktionClipEdit } from './TracktionClipEditDialog.tsx';
+import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
@@ -28,6 +29,7 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
 	const [clipEdit, setClipEdit] = useState<TracktionClipEdit['kind'] | null>(null);
+	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const pending = useRef(false);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
@@ -133,6 +135,24 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 		});
 	}
 
+	function showMixer(): void {
+		if (!workspace?.selectedTrack) return;
+		const trackId = workspace.selectedTrack.id;
+		run(async () => setMixer(await bridge.request({
+			kind: 'trackMix', trackId, sessionId: workspace.sessionId, revision: workspace.project.revision,
+		})));
+	}
+
+	function applyMixer(mix: TracktionTrackMix): void {
+		setMixer(null);
+		if (!workspace?.selectedTrack) return;
+		const trackId = workspace.selectedTrack.id;
+		run(async () => {
+			await bridge.request({ ...mix, kind: 'setTrackMix', trackId, sessionId: workspace.sessionId, revision: workspace.project.revision });
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId));
+		});
+	}
+
 	function exportProject(format: 'archive' | 'render'): void {
 		if (!workspace) return;
 		run(async () => {
@@ -212,6 +232,7 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => editProject('addTrack')}>{trackCopy.addTrack}</button>
 					<button type="button" disabled={busy || recording || splittable.length === 0} onClick={() => chooseClipEdit('split')}>{editCopy.tracktionSplitClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('trim')}>{editCopy.tracktionTrimClip}</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={showMixer}>{trackCopy.mixer}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
@@ -242,6 +263,8 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 		</nav>
 		{clipEdit && workspace && <TracktionClipEditDialog kind={clipEdit}
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}
+		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
+			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}

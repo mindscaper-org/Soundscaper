@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	TracktionClipPage, TracktionEditResult, TracktionProjectPage, TracktionRecordingCommand,
+	TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -15,6 +15,7 @@ export type TracktionCommand =
 	| Readonly<{ kind: 'project'; offset: number }>
 	| (Revision & Readonly<{ kind: 'clips'; trackId: string; offset: number }>)
 	| (Revision & Readonly<{ kind: 'addTrack'; name: string }>)
+	| TracktionMixCommand
 	| (Revision & Readonly<{
 		kind: 'import'; trackId: string; asset: string; name: string; start: number; sourceOffset: number; frames: number;
 	}>)
@@ -29,7 +30,8 @@ export type TracktionCommand =
 
 export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
 	: Command extends { kind: 'clips' } ? TracktionClipPage
-		: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
+		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
+			: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -66,6 +68,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	// The command's discriminator selects the closed reply schema.
 	if (command.kind === 'project') return readTracktionProjectPage(value, command.offset) as TracktionReply<Command>;
 	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
+	if (command.kind === 'trackMix') return readTracktionTrackMix(value) as TracktionReply<Command>;
 	if (transportKinds.has(command.kind)) return readTracktionTransportView(value) as TracktionReply<Command>;
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
@@ -84,6 +87,14 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
 	}
 	return Object.freeze({ revision, itemId }) as TracktionReply<Command>;
+}
+
+function readTracktionTrackMix(value: unknown): TracktionTrackMix {
+	const { gainDb, pan, muted, solo } = readClosedDomainRecord(value, 'Tracktion mixer state', ['gainDb', 'pan', 'muted', 'solo']);
+	if (typeof gainDb !== 'number' || !Number.isFinite(gainDb) || gainDb < -100 || gainDb > 6
+		|| typeof pan !== 'number' || !Number.isFinite(pan) || pan < -1 || pan > 1
+		|| typeof muted !== 'boolean' || typeof solo !== 'boolean') throw new TypeError('Invalid Tracktion mixer state.');
+	return Object.freeze({ gainDb, pan, muted, solo });
 }
 
 function readTracktionTransportView(value: unknown): TracktionTransportView {

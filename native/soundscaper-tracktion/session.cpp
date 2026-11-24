@@ -60,6 +60,40 @@ void endTransaction(te::Edit& edit)
 	edit.dispatchPendingUpdatesSynchronously();
 	edit.getUndoManager().beginNewTransaction();
 }
+
+class TrackMixChange final : public juce::UndoableAction
+{
+public:
+	TrackMixChange(te::Edit& owner, te::EditItemID id, TrackMix before, TrackMix after)
+		: edit(owner), trackId(id), original(before), updated(after) {}
+
+	bool perform() override { return apply(updated); }
+	bool undo() override { return apply(original); }
+
+private:
+	bool apply(TrackMix mix)
+	{
+		auto* track = dynamic_cast<te::AudioTrack*>(te::findTrackForID(edit, trackId));
+		if (!track) return false;
+		if (auto* volume = track->getVolumePlugin())
+		{
+			// This action owns the transaction. Update the parameter cache without
+			// asking JUCE to record another action on the same UndoManager.
+			volume->volume.setValue(te::decibelsToVolumeFaderPosition(mix.gainDb), nullptr);
+			volume->pan.setValue(mix.pan, nullptr);
+			volume->volParam->updateFromAttachedValue();
+			volume->panParam->updateFromAttachedValue();
+		}
+		track->setMute(mix.muted);
+		track->setSolo(mix.solo);
+		return true;
+	}
+
+	te::Edit& edit;
+	te::EditItemID trackId;
+	TrackMix original;
+	TrackMix updated;
+};
 }
 
 Session::State::State(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int requestedSampleRate)
@@ -218,6 +252,37 @@ TrackId Session::addTrack(Revision expected, const std::string& name)
 	track->setName(juce::String::fromUTF8(name.data(), static_cast<int>(name.size())));
 	s.commit();
 	return track->itemID.getRawID();
+}
+
+TrackMix Session::trackMix(Revision expected, TrackId id) const
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	auto& track = s.track(id);
+	const auto* volume = track.getVolumePlugin();
+	return {volume ? volume->getVolumeDb() : 0.0f, volume ? volume->getPan() : 0.0f,
+	        track.isMuted(false), track.isSolo(false)};
+}
+
+void Session::setTrackMix(Revision expected, TrackId id, TrackMix mix)
+{
+	if (!std::isfinite(mix.gainDb) || mix.gainDb < -100.0f || mix.gainDb > 6.0f
+	    || !std::isfinite(mix.pan) || mix.pan < -1.0f || mix.pan > 1.0f)
+		throw std::invalid_argument("Tracktion mixer gain or pan is out of range");
+	if (std::abs(mix.pan) <= 0.005f) mix.pan = 0.0f;
+	const auto current = trackMix(expected, id);
+	const auto gainChanged = std::abs(current.gainDb - mix.gainDb) > 0.0001f;
+	const auto panChanged = current.pan != mix.pan;
+	if (!gainChanged && !panChanged && current.muted == mix.muted && current.solo == mix.solo) return;
+	auto& s = *state;
+	auto& track = s.track(id);
+	auto* volume = track.getVolumePlugin();
+	if (!volume && (gainChanged || panChanged))
+		throw std::invalid_argument("This Tracktion track has no volume and pan plugin");
+	s.begin("Adjust track mix");
+	if (!s.edit->getUndoManager().perform(new TrackMixChange(*s.edit, track.itemID, current, mix)))
+		throw std::runtime_error("Cannot apply the Tracktion track mix");
+	s.commit();
 }
 
 ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File& source, Frame start,

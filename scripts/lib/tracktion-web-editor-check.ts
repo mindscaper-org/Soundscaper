@@ -55,6 +55,25 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	}));
 	await Promise.all([upload, fileCommand('Import audio')]);
 	await page.getByText('Tracktion web media (0–96000)', { exact: true }).waitFor();
+	const editing = page.getByText('Editing tools', { exact: true });
+	await editing.click();
+	await button('Mixer').click();
+	const mixer = page.getByRole('dialog', { name: 'Mixer' });
+	await mixer.getByRole('spinbutton', { name: /Gain/u }).fill('-6');
+	await mixer.getByRole('spinbutton', { name: 'Pan' }).fill('0.5');
+	await mixer.getByRole('checkbox', { name: 'Mute' }).check();
+	await mixer.getByRole('checkbox', { name: 'Solo' }).check();
+	await mixer.getByRole('button', { name: 'Apply' }).click();
+	await editing.click();
+	await button('Mixer').click();
+	assert.equal(await mixer.getByRole('spinbutton', { name: /Gain/u }).inputValue(), '-6');
+	assert.equal(await mixer.getByRole('spinbutton', { name: 'Pan' }).inputValue(), '0.5');
+	assert.equal(await mixer.getByRole('checkbox', { name: 'Mute' }).isChecked(), true);
+	assert.equal(await mixer.getByRole('checkbox', { name: 'Solo' }).isChecked(), true);
+	await mixer.getByRole('button', { name: 'Cancel' }).click();
+	await editing.click();
+	await button('Undo').click();
+
 	const transport = page.getByText('Playback and recording', { exact: true });
 	await transport.click();
 	await button('Play').click();
@@ -77,7 +96,6 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	await transport.click();
 	await button('Stop').click();
 	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
-	const editing = page.getByText('Editing tools', { exact: true });
 	await editing.click();
 	await button('Split clip').click();
 	const split = page.getByRole('dialog', { name: 'Split clip' });

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <initializer_list>
 #include <limits>
 #include <stdexcept>
@@ -54,6 +55,15 @@ size_t pageOffset(const juce::DynamicObject& request)
 	if (offset > std::numeric_limits<size_t>::max())
 		throw std::invalid_argument("The Tracktion page offset is outside the project");
 	return static_cast<size_t>(offset);
+}
+
+float mixerValue(const juce::DynamicObject& request, const char* field, double low, double high)
+{
+	const auto& value = request.getProperty(field);
+	const auto number = static_cast<double>(value);
+	if ((!value.isDouble() && !value.isInt() && !value.isInt64()) || !std::isfinite(number) || number < low || number > high)
+		throw std::invalid_argument("The Tracktion mixer value is out of range");
+	return static_cast<float>(number);
 }
 
 juce::String text(const juce::DynamicObject& request, const char* field, int maxBytes)
@@ -206,6 +216,12 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		requireFields(request, {"revision", "trackId", "offset"});
 		return clipPage(session.snapshot(), itemId(request, "trackId"), pageOffset(request));
 	}
+	if (kind == "trackMix")
+	{
+		requireFields(request, {"revision", "trackId"});
+		const auto mix = session.trackMix(revision, itemId(request, "trackId"));
+		return record({{"gainDb", mix.gainDb}, {"pan", mix.pan}, {"muted", mix.muted}, {"solo", mix.solo}});
+	}
 	if (kind == "finishRecording")
 	{
 		requireFields(request, {"revision", "discard"});
@@ -217,6 +233,16 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	{
 		requireFields(request, {"revision", "name"});
 		created = session.addTrack(revision, text(request, "name", 128).toStdString());
+	}
+	else if (kind == "setTrackMix")
+	{
+		requireFields(request, {"revision", "trackId", "gainDb", "pan", "muted", "solo"});
+		const auto& muted = request.getProperty("muted");
+		const auto& solo = request.getProperty("solo");
+		if (!muted.isBool() || !solo.isBool()) throw std::invalid_argument("The Tracktion mixer toggles must be booleans");
+		session.setTrackMix(revision, itemId(request, "trackId"),
+		                    {mixerValue(request, "gainDb", -100.0, 6.0), mixerValue(request, "pan", -1.0, 1.0),
+		                     static_cast<bool>(muted), static_cast<bool>(solo)});
 	}
 	else if (kind == "import")
 	{

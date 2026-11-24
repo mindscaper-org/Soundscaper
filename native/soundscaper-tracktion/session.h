@@ -50,6 +50,14 @@ struct ProjectView
 	std::vector<TrackView> tracks;
 };
 
+struct TrackMix
+{
+	float gainDb;
+	float pan;
+	bool muted;
+	bool solo;
+};
+
 // A host creates and drives the session on the JUCE message thread.
 // Paths are supplied by the host after granting access to the project and media.
 class Session
@@ -61,6 +69,8 @@ public:
 	ProjectView snapshot() const;
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);
+	TrackMix trackMix(Revision, TrackId) const;
+	void setTrackMix(Revision, TrackId, TrackMix);
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
 	                  std::optional<Frame> frameCount, const std::string& name = {});
 	void trim(Revision, ClipId, Frame start, Frame end);
