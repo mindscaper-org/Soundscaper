@@ -13,10 +13,12 @@
 static_assert(JUCE_ASIO && JUCE_ASIO_USE_EXTERNAL_SDK, "Use the authenticated external ASIO SDK on Windows");
 #endif
 
+#include <array>
 #include <chrono>
 #include <iostream>
 #include <thread>
 #include <stdexcept>
+#include <utility>
 
 using namespace soundscaper::tracktion_backend;
 
@@ -255,6 +257,100 @@ void verifyHostedRecording(const juce::File& root)
 	require(!session.finishRecording(3, true) && session.revision() == 3, "discard hosted input without publishing a revision");
 	require(project.getChildFile("media").getNumberOfChildFiles(juce::File::findFiles) == 1, "discard removes just the new hosted media");
 }
+
+class EffectFixtureHost final : public OfflineEffectHost
+{
+public:
+	explicit EffectFixtureHost(OfflineEffectIdentity key, bool fails = false) : identity(std::move(key)), failing(fails) {}
+
+	std::unique_ptr<OfflineEffectInstance> openStereo(const OfflineEffectIdentity& key, int rate, int frames) override
+	{
+		require(key == identity && rate == 48000 && frames == 128, "render must admit the exact effect and geometry");
+		++opened;
+		return std::make_unique<Instance>(failing);
+	}
+
+	int opened = 0;
+
+private:
+	struct Instance final : OfflineEffectInstance
+	{
+		explicit Instance(bool fails) : failing(fails) {}
+		int latencyFrames() const override { return static_cast<int>(leftDelay.size()); }
+		bool process(std::span<float> left, std::span<float> right) override
+		{
+			for (std::size_t frame = 0; frame < left.size(); ++frame)
+			{
+				left[frame] = std::exchange(leftDelay[cursor], left[frame] * 2.0f);
+				right[frame] = std::exchange(rightDelay[cursor], right[frame] * 2.0f);
+				cursor = (cursor + 1) % leftDelay.size();
+			}
+			return !failing;
+		}
+		std::array<float, 32> leftDelay{};
+		std::array<float, 32> rightDelay{};
+		std::size_t cursor = 0;
+		bool failing;
+	};
+
+	OfflineEffectIdentity identity;
+	bool failing;
+};
+
+void verifyOfflineEffect(const juce::File& root)
+{
+	const auto project = root.getChildFile("offline-effect-project");
+	const auto runtime = root.getChildFile("offline-effect-runtime");
+	const auto source = root.getChildFile("offline-effect-source.wav");
+	writeFixture(source);
+	const OfflineEffectIdentity effect{"clap", "org.soundscaper.fixture.deterministic-gain", std::string(64, 'a')};
+	TrackId track;
+	std::uint64_t slot;
+	{
+		Session session(project, runtime, OpenMode::create, 48000);
+		track = session.snapshot().tracks.front().id;
+		session.insertAudio(0, track, source, 0, 0, 1024);
+		slot = session.insertOfflineEffect(1, track, effect);
+		const auto added = session.offlineEffects(2, track);
+		require(added.size() == 1 && added.front().id == slot, "Tracktion owns the effect slot ID");
+		require(session.undo(2) && session.offlineEffects(3, track).empty(), "undo removes the Tracktion effect");
+		require(session.redo(3), "redo the Tracktion effect");
+		const auto redone = session.offlineEffects(4, track);
+		require(redone.size() == 1 && redone.front().id == slot, "redo restores the same effect ID");
+		session.save(4);
+	}
+	Session reopened(project, runtime, OpenMode::open, 0);
+	const auto slots = reopened.offlineEffects(0, track);
+	require(slots.size() == 1 && slots.front().id == slot && slots.front().effect == effect,
+		"reopening preserves the effect's portable installation identity");
+	const auto missing = root.getChildFile("missing-effect.wav");
+	bool rejected = false;
+	try { reopened.render(0, missing, 0, 1024); }
+	catch (const std::invalid_argument&) { rejected = true; }
+	require(rejected && !missing.exists(), "an unavailable effect must not silently export a dry mix");
+
+	EffectFixtureHost host(effect);
+	const auto output = root.getChildFile("isolated-effect.wav");
+	reopened.render(0, output, 0, 1024, nullptr, &host);
+	require(host.opened == 1, "one effect processor is opened per detached render");
+	juce::WavAudioFormat format;
+	std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(output.createInputStream().release(), true));
+	juce::AudioBuffer<float> samples(2, 1024);
+	require(reader && reader->read(&samples, 0, 1024, 0, true, true), "read the completed effect render");
+	constexpr auto pcmTolerance = 2.0f / 32768;
+	require(std::abs(samples.getSample(0, 128) - 0.25f) < pcmTolerance
+		&& std::abs(samples.getSample(1, 512) + 0.375f) < pcmTolerance, "effect result belongs in the Tracktion mix");
+	if (std::abs(samples.getSample(0, 310) - 0.25f) >= pcmTolerance
+		|| std::abs(samples.getSample(0, 311) - 0.75f) >= pcmTolerance)
+		throw std::runtime_error("Tracktion did not compensate the isolated effect delay around frame 311: "
+			+ std::to_string(samples.getSample(0, 310)) + ", " + std::to_string(samples.getSample(0, 311)));
+	EffectFixtureHost failedHost(effect, true);
+	const auto failed = root.getChildFile("failed-effect.wav");
+	rejected = false;
+	try { reopened.render(0, failed, 0, 1024, nullptr, &failedHost); }
+	catch (const std::invalid_argument&) { rejected = true; }
+	require(rejected && !failed.exists(), "failed effect PCM must not be published");
+}
 }
 
 int main()
@@ -276,6 +372,7 @@ int main()
 #endif
 		runSessionTest(root);
 		verifyHostedRecording(root);
+		verifyOfflineEffect(root);
 		root.deleteRecursively();
 		std::cout << "Tracktion session editing, rendering and hosted playback passed.\n";
 		return 0;

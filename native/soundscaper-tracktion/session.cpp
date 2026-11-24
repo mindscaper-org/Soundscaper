@@ -101,6 +101,7 @@ Session::State::State(const juce::File& directory, const juce::File& stateDirect
 	  engine(std::make_unique<HeadlessSettings>(stateDirectory),
 	         nullptr, std::make_unique<SessionBehaviour>())
 {
+	registerOfflineEffectPlugin(engine);
 	auto tree = mode == OpenMode::create ? newProject(requestedSampleRate) : openProject();
 	sampleRate = static_cast<int>(tree[projectSampleRate]);
 	if (!admitsSampleRate(sampleRate))
@@ -437,44 +438,4 @@ void Session::archive(Revision expected, const juce::File& output)
 		throw std::runtime_error("Cannot publish the Tracktion archive");
 }
 
-void Session::render(Revision expected, const juce::File& output, Frame start, Frame end,
-                     const std::atomic_bool* cancelled)
-{
-	auto& s = *state;
-	s.checkRevision(expected);
-	const auto from = s.position(start);
-	const auto until = s.position(end);
-	if (end <= start || output.exists() || output.isSymbolicLink() || !output.hasFileExtension("wav"))
-		throw std::invalid_argument("Render requires a valid range and a new WAV file");
-	const auto isCancelled = [cancelled] { return cancelled != nullptr && cancelled->load(); };
-	if (isCancelled())
-		throw std::runtime_error("The Tracktion render was cancelled");
-	s.edit->flushState();
-	const auto renderEdit = s.makeEdit(s.edit->state.createCopy(), te::Edit::forRendering);
-	if (renderEdit == nullptr)
-		throw std::runtime_error("Cannot detach the Tracktion Edit for rendering");
-
-	juce::TemporaryFile staging(output);
-	te::Renderer::Parameters params(*renderEdit);
-	params.destFile = staging.getFile();
-	params.audioFormat = s.engine.getAudioFileFormatManager().getWavFormat();
-	params.time = {from, until};
-	params.tracksToDo = te::toBitSet(te::getAllTracks(*renderEdit));
-	params.sampleRateForAudio = s.sampleRate;
-	params.blockSizeForAudio = 128;
-	params.bitDepth = 16;
-	params.canRenderInMono = false;
-	params.checkNodesForAudio = false;
-	params.useMasterPlugins = true;
-	auto task = te::render_utils::createRenderTask(params, "Soundscaper render", nullptr, nullptr);
-	if (task == nullptr)
-		throw std::runtime_error("Tracktion could not prepare the render");
-	task->setCancellationCheck(isCancelled);
-	while (task->runJob() != juce::ThreadPoolJob::jobHasFinished) {}
-	if (isCancelled())
-		throw std::runtime_error("The Tracktion render was cancelled");
-	if (task->errorMessage.isNotEmpty() || !staging.getFile().existsAsFile()
-	    || !staging.overwriteTargetFileWithTemporary())
-		throw std::runtime_error("Tracktion could not render the Edit");
-}
 }

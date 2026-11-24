@@ -205,13 +205,13 @@ juce::var transportView(Session& session)
 	return view;
 }
 
-juce::var dispatch(Session& session, const juce::File& exchange, const juce::var& value)
+juce::var dispatch(Session& session, const juce::File& exchange, const juce::var& value, OfflineEffectHost* effects)
 {
 	const auto* payload = value.getDynamicObject();
 	if (payload == nullptr)
 		throw std::invalid_argument("The Tracktion command must be an object");
 	const auto& request = *payload;
-	const auto kind = text(request, "kind", 16);
+	const auto kind = text(request, "kind", 20);
 	const auto integer = [&request](const char* field) { return boundedInteger(request, field); };
 #if ! JUCE_WASM
 	if (kind == "audioHosts")
@@ -355,8 +355,16 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	else if (kind == "render")
 	{
 		requireFields(request, {"revision", "start", "end", "asset"});
-		session.render(revision, exchangeFile(exchange, request, "output", ".wav"), integer("start"), integer("end"));
+		session.render(revision, exchangeFile(exchange, request, "output", ".wav"), integer("start"), integer("end"), nullptr, effects);
 	}
+#if ! JUCE_WASM
+	else if (kind == "insertOfflineEffect")
+	{
+		requireFields(request, {"revision", "trackId", "format", "stableId", "sha256"});
+		created = session.insertOfflineEffect(revision, itemId(request, "trackId"),
+			{text(request, "format", 5).toStdString(), text(request, "stableId", 512).toStdString(), text(request, "sha256", 64).toStdString()});
+	}
+#endif
 	else if (kind == "archive")
 	{
 		requireFields(request, {"revision", "asset"});

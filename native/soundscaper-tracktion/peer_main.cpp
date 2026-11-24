@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "peer_commands.h"
+#include "peer_effects.h"
 #include "session.h"
 
 #include <juce_events/juce_events.h>
@@ -92,7 +93,7 @@ void writeFrame(std::FILE* output, const juce::String& body)
 		throw std::runtime_error("Cannot write the Tracktion response");
 }
 
-juce::String respond(Session& session, const juce::File& exchange, const std::string& body)
+juce::String respond(Session& session, const juce::File& exchange, const std::string& body, std::FILE* output)
 {
 	auto answer = std::make_unique<juce::DynamicObject>();
 	try
@@ -100,7 +101,16 @@ juce::String respond(Session& session, const juce::File& exchange, const std::st
 		juce::var request;
 		if (!juce::JSON::parse(juce::String::fromUTF8(body.data(), static_cast<int>(body.size())), request).wasOk())
 			throw std::invalid_argument("The Tracktion command is malformed");
-		answer->setProperty("value", dispatch(session, exchange, request));
+		PeerEffectHost effects([output](const juce::var& event)
+		{
+			writeFrame(output, juce::JSON::toString(event, true));
+			const auto reply = readFrame();
+			juce::var decoded;
+			if (!reply || !juce::JSON::parse(juce::String::fromUTF8(reply->data(), static_cast<int>(reply->size())), decoded).wasOk())
+				throw std::runtime_error("The Tracktion effect response is unavailable");
+			return decoded;
+		});
+		answer->setProperty("value", dispatch(session, exchange, request, &effects));
 		answer->setProperty("ok", true);
 	}
 	catch (const std::invalid_argument& error)
@@ -132,7 +142,7 @@ int runPeer(std::FILE* output, const juce::File& project, const juce::File& stat
 		{
 			while (const auto body = readFrame())
 			{
-				const auto answer = juce::MessageManager::callSync([&] { return respond(session, exchange, *body); });
+				const auto answer = juce::MessageManager::callSync([&] { return respond(session, exchange, *body, output); });
 				if (!answer)
 					throw std::runtime_error("The Tracktion message thread stopped");
 				writeFrame(output, *answer);

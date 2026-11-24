@@ -3,6 +3,7 @@
 import type { utilityProcess } from 'electron/main';
 
 import { readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
+import { createTracktionOfflineRender, type TracktionOfflineEffectHost, type TracktionOfflineEffectRender } from './tracktion-offline-effects.ts';
 import {
 	inspectTracktionReply, tracktionCommandTimeout, TracktionRejectedCommand, type TracktionCommand, type TracktionReply,
 } from './tracktion-peer-contract.ts';
@@ -16,6 +17,7 @@ export async function startTracktionUtilitySession(
 	fork: typeof utilityProcess.fork,
 	entry: string,
 	options: TracktionLaunch,
+	effects?: TracktionOfflineEffectHost,
 ) {
 	const child = fork(entry, [
 		options.mode, options.executable, options.projectDirectory,
@@ -26,6 +28,8 @@ export async function startTracktionUtilitySession(
 	let exited = false;
 	let closed = false;
 	let pending: { resolve: (value: unknown) => void; reject: (error: Error) => void } | undefined;
+	let effectRender: TracktionOfflineEffectRender | undefined;
+	let effectInFlight = false;
 	let closing: Promise<void> | undefined;
 	const exit = deferred<void>();
 
@@ -50,9 +54,24 @@ export async function startTracktionUtilitySession(
 		try {
 			if (!pending) throw new TypeError('The Tracktion utility sent an unsolicited message.');
 			const ready = sequence === 0;
-			const envelope = readClosedDomainRecord(
-				value, 'Tracktion utility reply', ready ? ['kind'] : ['kind', 'sequence', 'reply'],
-			);
+			const envelope = readClosedDomainRecord(value, 'Tracktion utility response',
+				['kind', 'sequence', 'reply', 'request'], ['kind']);
+			if (envelope.kind === 'effect') {
+				readClosedDomainRecord(value, 'Tracktion utility effect request', ['kind', 'sequence', 'request']);
+				if (!effectRender || effectInFlight || envelope.sequence !== sequence) {
+					throw new TypeError('The Tracktion utility sent an unexpected effect request.');
+				}
+				effectInFlight = true;
+				const renderPending = pending;
+				const renderSequence = sequence;
+				void effectRender.respond(envelope.request).then((reply) => {
+					effectInFlight = false;
+					if (!closed && pending === renderPending) child.postMessage({ kind: 'effectReply', sequence: renderSequence, reply });
+				}).catch((error: unknown) => { fail(error instanceof Error ? error : new Error('Invalid Tracktion effect request.')); });
+				return;
+			}
+			if (effectInFlight) throw new TypeError('The Tracktion utility finished before its effect request.');
+			readClosedDomainRecord(value, 'Tracktion utility reply', ready ? ['kind'] : ['kind', 'sequence', 'reply']);
 			if (ready ? envelope.kind !== 'ready' : envelope.kind !== 'reply' || envelope.sequence !== sequence) {
 				throw new TypeError('The Tracktion utility replied out of sequence.');
 			}
@@ -91,6 +110,7 @@ export async function startTracktionUtilitySession(
 		busy = true;
 		sequence += 1;
 		try {
+			effectRender = command.kind === 'render' ? createTracktionOfflineRender(effects) : undefined;
 			const reply = await waitForReply(tracktionCommandTimeout(command) + 1_000, () => {
 				child.postMessage({ kind: 'request', sequence, command });
 			});
@@ -101,7 +121,11 @@ export async function startTracktionUtilitySession(
 			}
 			throw error;
 		} finally {
-			busy = false;
+			try { await effectRender?.dispose(); }
+			finally {
+				effectRender = undefined;
+				busy = false;
+			}
 		}
 	}
 

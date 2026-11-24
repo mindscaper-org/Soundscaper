@@ -1,0 +1,115 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline';
+import { test } from 'node:test';
+
+import { createTracktionOfflineRender, type TracktionOfflineEffectHost } from '../../../desktop/tracktion-offline-effects.ts';
+import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
+
+const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
+if (!executable) throw new Error('Run the Tracktion effect regression through CTest.');
+
+const effect = { format: 'clap', stableId: 'org.soundscaper.fixture.gain', sha256: 'a'.repeat(64) };
+const gainFixture = `
+	const lines = require('node:readline').createInterface({ input: process.stdin });
+	lines.on('line', (line) => {
+		const { samples, fail } = JSON.parse(line);
+		if (fail) process.exit(1);
+		const output = samples.map(plane => plane.map(sample => sample * 2));
+		process.stdout.write(JSON.stringify({ pid: process.pid, samples: output }) + '\\n');
+	});
+`;
+
+test('the Tracktion peer renders an admitted effect through a separate process and releases it on refusal', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-effect-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const options = { executable, projectDirectory: join(root, 'edit'), stateDirectory: join(root, 'state'), exchangeDirectory };
+	const asset = '1'.repeat(32);
+	const opens: string[] = [];
+	const closes: string[] = [];
+	let blockCount = 0;
+	let refuse = false;
+	const host: TracktionOfflineEffectHost = {
+		async openStereo(identity, rate, maximumFrames) {
+			assert.deepEqual(identity, effect);
+			assert.equal(rate, 48_000);
+			assert.equal(maximumFrames, 128);
+			opens.push(identity.sha256);
+			const child = spawn(process.execPath, ['-e', gainFixture], { windowsHide: true, stdio: ['pipe', 'pipe', 'inherit'] });
+			child.on('error', () => { child.stdout.destroy(); });
+			child.stdin.on('error', () => { child.stdout.destroy(); });
+			const done = new Promise<void>((resolve) => { child.once('close', () => resolve()); });
+			const lines = createInterface({ input: child.stdout });
+			const answers = lines[Symbol.asyncIterator]();
+			return {
+				latencyFrames: 0,
+				async process(input, output) {
+					blockCount += 1;
+					child.stdin.write(`${JSON.stringify({ fail: refuse, samples: input.map((plane) => [...plane]) })}\n`);
+					const answer = await answers.next();
+					if (answer.done) throw new Error('The gain fixture process stopped.');
+					const result = JSON.parse(answer.value) as { pid: number; samples: [number[], number[]] };
+					assert.notEqual(result.pid, process.pid);
+					assert.equal(result.pid, child.pid);
+					output[0].set(result.samples[0]);
+					output[1].set(result.samples[1]);
+				},
+				async close() {
+					child.stdin.end();
+					lines.close();
+					await done;
+					closes.push(identity.sha256);
+				},
+			};
+		},
+	};
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		const output = join(exchangeDirectory, 'output');
+		await mkdir(output);
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(256));
+		const peer = launchTracktionPeer({ ...options, mode: 'create', sampleRate: 48_000 }, () => createTracktionOfflineRender(host));
+		try {
+			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+			assert.ok(track);
+			await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Effect input', start: 0 });
+			const result = await peer.request({ kind: 'insertOfflineEffect', revision: 1, trackId: track.id, ...effect });
+			assert.ok(result.itemId);
+			await assert.rejects(peer.request({ kind: 'startRecording', revision: 2, trackId: track.id, frame: 0 }),
+				/requires offline rendering/u);
+			await peer.request({ kind: 'save', revision: 2 });
+			const render = { kind: 'render', revision: 2, start: 0, end: 256, asset } as const;
+			await peer.request(render);
+			const pcm = waveData(await readFile(join(output, `${asset}.wav`)));
+			assert.equal(pcm.length, 256 * 4);
+			assert.equal(pcm.readInt16LE(128 * 4), 8192);
+			assert.equal(pcm.readInt16LE(128 * 4 + 2), -4096);
+			assert.ok(blockCount >= 2);
+			assert.deepEqual(opens, [effect.sha256]);
+			assert.deepEqual(closes, opens);
+			refuse = true;
+			await assert.rejects(peer.request({ ...render, asset: '2'.repeat(32) }), /effect failed/u);
+			assert.equal((await peer.request({ kind: 'project', offset: 0 })).revision, 2);
+			assert.equal(opens.length, 2);
+			assert.deepEqual(closes, opens);
+		} finally {
+			await peer.close();
+		}
+		const reopened = launchTracktionPeer({ ...options, mode: 'open' });
+		try {
+			await assert.rejects(reopened.request({ kind: 'render', revision: 0, start: 0, end: 256, asset: '3'.repeat(32) }),
+				/isolated Tracktion effect is unavailable/u);
+			assert.deepEqual(await readdir(output), [`${asset}.wav`]);
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});

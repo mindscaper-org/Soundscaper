@@ -12,6 +12,9 @@ namespace te = tracktion::engine;
 
 inline constexpr auto mediaDirectory = "media";
 
+void registerOfflineEffectPlugin(te::Engine&);
+void requireLiveEffectSupport(const te::Edit&);
+
 class SessionBehaviour final : public te::EngineBehaviour
 {
 public:

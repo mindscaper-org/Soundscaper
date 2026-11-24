@@ -4,8 +4,9 @@ import { spawn } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 
 import { bindNativeChildProcess } from './native-child-framed-control.ts';
+import { createTracktionOfflineRender, type TracktionOfflineEffectRender } from './tracktion-offline-effects.ts';
 import {
-	readTracktionReply, TRACKTION_CONTROL_BYTES, tracktionCommandTimeout, TracktionRejectedCommand,
+	inspectTracktionReply, TRACKTION_CONTROL_BYTES, tracktionCommandTimeout, TracktionRejectedCommand,
 	type TracktionCommand, type TracktionReply,
 } from './tracktion-peer-contract.ts';
 
@@ -19,7 +20,7 @@ export type TracktionLaunch = Readonly<{
 const SHUTDOWN_TIMEOUT_MS = 3_000;
 
 /** Launch input belongs to the trusted host process, outside the renderer bridge. */
-export function launchTracktionPeer(options: TracktionLaunch) {
+export function launchTracktionPeer(options: TracktionLaunch, createEffectRender: () => TracktionOfflineEffectRender = createTracktionOfflineRender) {
 	const executable = checkedPath(options.executable);
 	const rate = options.mode === 'create' ? options.sampleRate : 0;
 	if (options.mode === 'create' && (!Number.isInteger(rate) || rate < 8000 || rate > 192_000)) {
@@ -54,16 +55,25 @@ export function launchTracktionPeer(options: TracktionLaunch) {
 		}
 
 		inFlight = true;
+		let effectRender: TracktionOfflineEffectRender | undefined;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		try {
+			effectRender = command.kind === 'render' ? createEffectRender() : undefined;
 			const deadline = new Promise<never>((_, reject) => {
 				timer = setTimeout(() => { reject(new Error('The Tracktion command timed out.')); }, tracktionCommandTimeout(command));
 				timer.unref();
 			});
 			const exchange = async () => {
 				await framed.send(bytes);
-				const reply = await framed.receive();
-				return readTracktionReply(reply, command);
+				for (;;) {
+					const frame = await framed.receive();
+					const reply: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(frame));
+					if (!effectRender || !reply || typeof reply !== 'object' || !('kind' in reply) || reply.kind !== 'offlineEffect') {
+						return inspectTracktionReply(reply, command);
+					}
+					const response = await effectRender.respond(reply);
+					await framed.send(new TextEncoder().encode(JSON.stringify(response)));
+				}
 			};
 			return await Promise.race([exchange(), deadline]);
 		} catch (error) {
@@ -74,7 +84,8 @@ export function launchTracktionPeer(options: TracktionLaunch) {
 			throw error;
 		} finally {
 			clearTimeout(timer);
-			inFlight = false;
+			try { await effectRender?.dispose(); }
+			finally { inFlight = false; }
 		}
 	}
 

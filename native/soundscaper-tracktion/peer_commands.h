@@ -7,5 +7,6 @@
 namespace soundscaper::tracktion_backend
 {
 class Session;
-juce::var dispatch(Session&, const juce::File& exchange, const juce::var& request);
+class OfflineEffectHost;
+juce::var dispatch(Session&, const juce::File& exchange, const juce::var& request, OfflineEffectHost* = nullptr);
 }

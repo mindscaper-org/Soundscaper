@@ -3,18 +3,19 @@
 import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { app, type BrowserWindow } from 'electron/main';
+import { app, utilityProcess, type BrowserWindow } from 'electron/main';
 
+import { startTracktionUtilitySession } from '../../../desktop/tracktion-utility-session.ts';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
 import {
 	removePipeWireFixtureSink, removePipeWireFixtureSource, restorePipeWireFixtureSink, restorePipeWireFixtureSource,
 } from './pipewire_fixture.ts';
-import { wavFixture } from './wave_fixture.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
 const binary = process.argv.find((value) => value.startsWith(executableFlag))?.slice(executableFlag.length);
@@ -68,6 +69,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		assert.equal(await editor.window.webContents.executeJavaScript('typeof require'), 'undefined');
 		const sessionId = await runRendererWorkflow(editor.window, { scratch, projectFile, output, archive });
 		await runEditorWorkflow(editor.window, sessionId);
+		await verifyUtilityEffect(binaryPath, scratch);
 		console.log('The Electron renderer created, edited, saved, exported and reopened a Tracktion project.');
 	} catch (error) {
 		console.error(error);
@@ -82,6 +84,46 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		} finally {
 			app.exit(exitCode);
 		}
+	}
+}
+
+async function verifyUtilityEffect(executable: string, scratch: string): Promise<void> {
+	const exchangeDirectory = join(scratch, 'effect-exchange');
+	const asset = 'a'.repeat(32);
+	const identity = { format: 'clap', stableId: 'org.soundscaper.fixture.gain', sha256: 'b'.repeat(64) };
+	await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+	await mkdir(join(exchangeDirectory, 'output'));
+	await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(256));
+	let released = false;
+	const peer = await startTracktionUtilitySession(utilityProcess.fork,
+		resolve(import.meta.dirname, '../../../desktop/tracktion-utility-process.ts'), {
+			executable, exchangeDirectory, mode: 'create', sampleRate: 48_000,
+			projectDirectory: join(scratch, 'effect-project'), stateDirectory: join(scratch, 'effect-state'),
+		}, {
+			async openStereo(request) {
+				assert.deepEqual(request, identity);
+				return {
+					latencyFrames: 0,
+					async process(input, output) {
+						output[0].set(input[0].map((sample) => sample * 2));
+						output[1].set(input[1].map((sample) => sample * 2));
+					},
+					async close() { released = true; },
+				};
+			},
+		});
+	try {
+		const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+		assert.ok(track);
+		await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Effect input', start: 0 });
+		await peer.request({ kind: 'insertOfflineEffect', revision: 1, trackId: track.id, ...identity });
+		await peer.request({ kind: 'render', revision: 2, start: 0, end: 256, asset });
+		const pcm = waveData(await readFile(join(exchangeDirectory, 'output', `${asset}.wav`)));
+		assert.equal(pcm.readInt16LE(128 * 4), 8192);
+		assert.equal(pcm.readInt16LE(128 * 4 + 2), -4096);
+		assert.equal(released, true);
+	} finally {
+		await peer.close();
 	}
 }
 

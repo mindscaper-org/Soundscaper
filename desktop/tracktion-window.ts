@@ -8,6 +8,7 @@ import { app, BrowserWindow, dialog, ipcMain, protocol, session, utilityProcess 
 import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
 import { resolveStaticFile, securityHeaders } from './protocol.js';
 import { tracktionAudioPreferences } from './tracktion-audio-preferences.ts';
+import type { TracktionOfflineEffectHost } from './tracktion-offline-effects.ts';
 import { registerTracktionProjectIpc, TRACKTION_PROJECT_REQUEST } from './tracktion-project-ipc.ts';
 import { TracktionProjectService } from './tracktion-project-service.ts';
 import { startTracktionUtilitySession } from './tracktion-utility-session.ts';
@@ -35,6 +36,7 @@ export async function openTracktionWindow(options: {
 	readonly peer: string;
 	readonly show?: boolean;
 	readonly dialogs?: TracktionProjectDialogs;
+	readonly offlineEffects?: TracktionOfflineEffectHost;
 }) {
 	const [bundleRoot, executable] = await Promise.all([realpath(options.bundleRoot), realpath(options.peer)]);
 	const browserSession = session.fromPartition(PARTITION);
@@ -65,6 +67,7 @@ export async function openTracktionWindow(options: {
 		isOwnerCurrent: (owner) => owner === window && !window.isDestroyed(),
 		startPeer: (launch) => startTracktionUtilitySession(
 			utilityProcess.fork, resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },
+			options.offlineEffects,
 		),
 	});
 	const { handle } = createTrustedDesktopIpc({

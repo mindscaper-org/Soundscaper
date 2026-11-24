@@ -184,6 +184,7 @@ void Session::play(Frame start)
 {
 	auto& s = *state;
 	s.requireNoRecording();
+	requireLiveEffectSupport(*s.edit);
 	if (s.playback == nullptr && !s.hasSystemOutput())
 		throw std::invalid_argument("Prepare the Tracktion playback device before playing");
 	auto& transport = s.edit->getTransport();

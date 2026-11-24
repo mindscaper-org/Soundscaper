@@ -125,6 +125,7 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
+	requireLiveEffectSupport(*s.edit);
 	const auto start = s.position(frame);
 	const auto target = s.track(trackId).itemID;
 	auto& transport = s.edit->getTransport();

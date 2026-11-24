@@ -3,6 +3,7 @@
 #pragma once
 
 #include "session_device_types.h"
+#include "offline_effect.h"
 
 #include <atomic>
 #include <cstdint>
@@ -80,6 +81,8 @@ public:
 	TrackId addTrack(Revision, const std::string& name);
 	TrackMix trackMix(Revision, TrackId) const;
 	void setTrackMix(Revision, TrackId, TrackMix);
+	std::uint64_t insertOfflineEffect(Revision, TrackId, const OfflineEffectIdentity&);
+	std::vector<OfflineEffectSlot> offlineEffects(Revision, TrackId) const;
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
 	                  std::optional<Frame> frameCount, const std::string& name = {});
 	void trim(Revision, ClipId, Frame start, Frame end);
@@ -115,7 +118,7 @@ public:
 	std::optional<ClipId> finishRecording(Revision, bool discard);
 
 	void render(Revision, const juce::File& output, Frame start, Frame end,
-	            const std::atomic_bool* cancelled = nullptr);
+	            const std::atomic_bool* cancelled = nullptr, OfflineEffectHost* effects = nullptr);
 
 private:
 	void watchAudioDevice();

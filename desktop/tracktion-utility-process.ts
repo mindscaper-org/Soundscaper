@@ -14,7 +14,24 @@ if (!parent || !executable || !projectDirectory || !stateDirectory || !exchangeD
 }
 
 const launch = { executable, projectDirectory, stateDirectory, exchangeDirectory };
-const peer = launchTracktionPeer(mode === 'create' ? { ...launch, mode, sampleRate: Number(rate) } : { ...launch, mode });
+const port = parent;
+let stopping = false;
+let lastRequest = 0;
+let effectReply: { resolve: (value: unknown) => void; reject: (error: Error) => void } | undefined;
+
+const peer = launchTracktionPeer(mode === 'create' ? { ...launch, mode, sampleRate: Number(rate) } : { ...launch, mode }, () => ({
+	async respond(request) {
+		if (stopping || effectReply) throw new Error('The Tracktion utility effect relay is busy.');
+		return new Promise<unknown>((resolve, reject) => {
+			port.postMessage({ kind: 'effect', sequence: lastRequest, request });
+			effectReply = { resolve, reject };
+		});
+	},
+	async dispose() {
+		effectReply?.reject(new Error('The Tracktion render ended during an effect request.'));
+		effectReply = undefined;
+	},
+}));
 
 try {
 	await peer.request({ kind: 'project', offset: 0 });
@@ -23,18 +40,22 @@ try {
 	throw new Error('The Tracktion utility could not open its Edit.', { cause });
 }
 
-const port = parent;
-let stopping = false;
-let lastRequest = 0;
-
 async function accept(message: unknown): Promise<void> {
 	if (stopping) return;
 	const envelope = readClosedDomainRecord(
-		message, 'Tracktion utility message', ['kind', 'sequence', 'command'], ['kind'],
+		message, 'Tracktion utility message', ['kind', 'sequence', 'command', 'reply'], ['kind'],
 	);
 	if (envelope.kind === 'close') {
 		readClosedDomainRecord(message, 'Tracktion utility close', ['kind']);
 		await stop(0);
+		return;
+	}
+	if (envelope.kind === 'effectReply') {
+		readClosedDomainRecord(message, 'Tracktion utility effect reply', ['kind', 'sequence', 'reply']);
+		if (!effectReply || envelope.sequence !== lastRequest) throw new TypeError('Invalid Tracktion utility effect reply sequence.');
+		const pending = effectReply;
+		effectReply = undefined;
+		pending.resolve(envelope.reply);
 		return;
 	}
 	readClosedDomainRecord(message, 'Tracktion utility request', ['kind', 'sequence', 'command']);
