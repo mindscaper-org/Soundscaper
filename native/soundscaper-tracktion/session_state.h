@@ -65,5 +65,9 @@ struct Session::State
 	juce::String systemInputName, systemOutputName, systemHostName;
 	bool hasSystemOutput() const;
 	std::optional<Recording> recording;
+	std::optional<InterruptedTake> recoveredRecording;
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	std::unique_ptr<juce::Timer> recordingLossMonitor;
+#endif
 };
 }

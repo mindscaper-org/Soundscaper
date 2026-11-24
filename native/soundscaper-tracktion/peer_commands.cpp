@@ -192,10 +192,16 @@ juce::var clipPage(const ProjectView& project, TrackId id, size_t start)
 
 juce::var transportView(Session& session)
 {
-	return record({
+	auto view = record({
 		{"ready", session.playbackReady()}, {"playing", session.isPlaying()}, {"recording", session.isRecording()},
 		{"frame", number(std::max(Frame{}, session.playbackPosition()))},
 	});
+	if (const auto take = session.interruptedTake())
+		view.getDynamicObject()->setProperty("interruptedTake", record({
+			{"revision", number(take->revision)},
+			{"itemId", take->item ? juce::var(juce::String(std::to_string(*take->item))) : juce::var{}},
+		}));
+	return view;
 }
 
 juce::var dispatch(Session& session, const juce::File& exchange, const juce::var& value)
@@ -264,7 +270,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	}
 
 	const auto revision = static_cast<Revision>(integer("revision"));
-	if (revision != session.revision())
+	if (revision != session.revision() && kind != "finishRecording")
 		throw std::invalid_argument("The Tracktion Edit revision has changed");
 
 	std::uint64_t created = 0;

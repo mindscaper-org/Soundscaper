@@ -12,6 +12,7 @@ import { app, type BrowserWindow } from 'electron/main';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
+import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
@@ -195,14 +196,20 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Playback and recording');
 		await click('Record onto the active track');
 		await waitForVisible('Recording');
-		let transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
-		for (let attempt = 0; attempt < 100 && transport.frame < 4096; attempt += 1) {
-			await sleep(10);
-			transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
+		if (process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE === '1') {
+			await sleep(280);
+			removePipeWireFixtureSource();
+			await waitForVisible('Recording added to the track');
+		} else {
+			let transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
+			for (let attempt = 0; attempt < 100 && transport.frame < 4096; attempt += 1) {
+				await sleep(10);
+				transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
+			}
+			assert.ok(transport.recording && transport.frame >= 4096);
+			await click('Playback and recording');
+			await click('Stop');
 		}
-		assert.ok(transport.recording && transport.frame >= 4096);
-		await click('Playback and recording');
-		await click('Stop');
 		await waitForVisible('4 clips');
 		await click('File');
 		await click('Save project');

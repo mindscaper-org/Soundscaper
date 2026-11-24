@@ -10,6 +10,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { writeAlsaCaptureFixture, writeAlsaOutputFixture, writeAlsaRoutingFixture } from './alsa_fixture.ts';
+import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -423,10 +424,7 @@ test('Tracktion streams through the named PipeWire source and sink', {
 				}
 				assert.ok(ready, 'the speaker monitor and Tracktion playback are both ready');
 				assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, true);
-				while ((await peer.request({ kind: 'transportStatus' })).frame < 8192 && performance.now() < cacheDeadline) await sleep(20);
-				assert.ok((await peer.request({ kind: 'transportStatus' })).frame >= 8192);
-				// A playhead read directly after Play can still describe the previous take.
-				// Wait for the real sink to consume fresh output before stopping.
+				// Wait for the monitor to capture fresh output before stopping.
 				const beforePlayback = (await stat(monitorFile)).size;
 				const speakerDeadline = performance.now() + 3000;
 				while ((await stat(monitorFile)).size < beforePlayback + 12_288 * 4 && performance.now() < speakerDeadline) await sleep(20);
@@ -448,6 +446,54 @@ test('Tracktion streams through the named PipeWire source and sink', {
 				if (left > 1024 && right > 1024) stereoFrames += 1;
 			}
 			assert.ok(stereoFrames > 2048, `the named sink received ${stereoFrames} audible stereo frames, peak ${peak} in ${played.length} bytes`);
+
+			const recoveryInput = devices.inputs.find(({ name }) => name === 'tracktion.test.recovery-microphone');
+			assert.ok(recoveryInput, JSON.stringify(devices));
+			await peer.request({ kind: 'setAudioSetup', ...setup, inputId: recoveryInput.id });
+			const secondStart = 24_000;
+			let capture = await peer.request({ kind: 'startRecording', revision: 1, trackId: track.id, frame: secondStart });
+			const captureDeadline = performance.now() + 3000;
+			while (capture.recording && capture.frame < secondStart + 8192 && performance.now() < captureDeadline) {
+				await sleep(20);
+				capture = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.ok(capture.recording && capture.frame >= secondStart + 8192, JSON.stringify(capture));
+			removePipeWireFixtureSource('tracktion.test.recovery-microphone');
+
+			const recoveryDeadline = performance.now() + 3000;
+			let recovered = await peer.request({ kind: 'transportStatus' });
+			while (recovered.recording && performance.now() < recoveryDeadline) {
+				await sleep(20);
+				recovered = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.equal(recovered.recording, false, 'a removed source ends the take');
+			assert.ok(recovered.interruptedTake?.itemId, 'the captured audio is committed before reporting input loss');
+			assert.equal(recovered.interruptedTake.revision, 2);
+			const replayedStop = await peer.request({ kind: 'finishRecording', revision: 1, discard: false });
+			assert.deepEqual(replayedStop, recovered.interruptedTake, 'a racing Stop can read the same take');
+			const recoveredProject = await peer.request({ kind: 'project', offset: 0 });
+			assert.equal(recoveredProject.tracks[0]?.clipCount, 2);
+			assert.equal((await peer.request({ kind: 'undo', revision: 2 })).revision, 3);
+			const afterUndo = await peer.request({ kind: 'clips', revision: 3, trackId: track.id, offset: 0 });
+			assert.deepEqual(afterUndo.clips.map(({ id }) => id), [take.itemId]);
+			assert.equal((await peer.request({ kind: 'redo', revision: 3 })).revision, 4);
+			const afterRedo = await peer.request({ kind: 'clips', revision: 4, trackId: track.id, offset: 0 });
+			const redoneTake = afterRedo.clips.find(({ id }) => id === recovered.interruptedTake?.itemId);
+			assert.ok(redoneTake && redoneTake.start === secondStart && redoneTake.end > redoneTake.start);
+			const readyDeadline = performance.now() + 3000;
+			let outputStatus = await peer.request({ kind: 'prepareOutput' });
+			while (!outputStatus.ready && performance.now() < readyDeadline) {
+				await sleep(20);
+				outputStatus = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.equal(outputStatus.ready, true, 'the recovered take is playable on the same sink');
+			const recoveredAsset = 'd'.repeat(32);
+			await peer.request({ kind: 'render', revision: 4, asset: recoveredAsset, start: secondStart, end: secondStart + 8192 });
+			const recoveredPcm = waveData(await readFile(join(exchangeDirectory, 'output', `${recoveredAsset}.wav`)));
+			let recoveredFrames = 0;
+			for (let offset = 0; offset + 4 <= recoveredPcm.length; offset += 4)
+				if (Math.abs(recoveredPcm.readInt16LE(offset)) > 1024) recoveredFrames += 1;
+			assert.ok(recoveredFrames > 4096, 'undo and redo retain the audible captured prefix');
 		} finally {
 			await peer.close();
 		}

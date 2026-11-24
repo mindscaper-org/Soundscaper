@@ -60,6 +60,7 @@ export interface TracktionTransportView {
 	readonly playing: boolean;
 	readonly recording: boolean;
 	readonly frame: number;
+	readonly interruptedTake?: TracktionEditResult;
 }
 
 export type TracktionTransportCommand =

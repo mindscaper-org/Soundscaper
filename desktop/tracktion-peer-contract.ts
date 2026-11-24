@@ -106,11 +106,21 @@ function readTracktionTrackMix(value: unknown): TracktionTrackMix {
 }
 
 function readTracktionTransportView(value: unknown): TracktionTransportView {
-	const { ready, playing, recording, frame } = readClosedDomainRecord(value, 'Tracktion transport', ['ready', 'playing', 'recording', 'frame']);
+	const { ready, playing, recording, frame, interruptedTake } = readClosedDomainRecord(
+		value, 'Tracktion transport', ['ready', 'playing', 'recording', 'frame', 'interruptedTake'],
+		['ready', 'playing', 'recording', 'frame'],
+	);
 	if (typeof ready !== 'boolean' || typeof playing !== 'boolean' || typeof recording !== 'boolean') {
 		throw new TypeError('Invalid Tracktion transport state.');
 	}
-	return Object.freeze({ ready, playing, recording, frame: nonnegativeInteger(frame) });
+	const transport = { ready, playing, recording, frame: nonnegativeInteger(frame) };
+	if (interruptedTake === undefined) return Object.freeze(transport);
+	if (recording) throw new TypeError('An interrupted Tracktion recording is still armed.');
+	const { revision, itemId } = readClosedDomainRecord(interruptedTake, 'Interrupted Tracktion take', ['revision', 'itemId']);
+	return Object.freeze({
+		...transport,
+		interruptedTake: Object.freeze({ revision: nonnegativeInteger(revision), itemId: itemId === null ? null : readItemId(itemId) }),
+	});
 }
 
 function readTracktionProjectPage(value: unknown, offset: number): TracktionProjectPage {

@@ -27,6 +27,13 @@ using TrackId = std::uint64_t;
 
 enum class OpenMode { create, open };
 
+struct InterruptedTake
+{
+	Revision previousRevision;
+	Revision revision;
+	std::optional<ClipId> item;
+};
+
 struct ClipView
 {
 	ClipId id;
@@ -93,6 +100,7 @@ public:
 	bool playbackReady() const;
 	bool isPlaying() const;
 	bool isRecording() const;
+	std::optional<InterruptedTake> interruptedTake() const;
 	void play(Frame start);
 	void seek(Frame);
 	void setLoop(bool enabled, Frame start, Frame end);

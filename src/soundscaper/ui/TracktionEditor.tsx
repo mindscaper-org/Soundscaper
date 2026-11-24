@@ -36,6 +36,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const pending = useRef(false);
+	const captureProbe = useRef<Promise<void> | null>(null);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
 	const menuBar = useRef<HTMLElement>(null);
@@ -53,6 +54,32 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	});
 	useEffect(() => bridge.onRecordingInterrupted?.(() => recoverMicrophone()), [bridge]);
 
+	const observeNativeCapture = useEffectEvent((isCurrent: () => boolean) => {
+		if (!workspace || pending.current || captureProbe.current) return;
+		const probe = bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }).then(async (next) => {
+			const take = next.interruptedTake;
+			if (!take || !isCurrent() || pending.current) return;
+			const updated = take.itemId ? await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id) : workspace;
+			if (!isCurrent() || pending.current) return;
+			setWorkspace(updated);
+			setTransport(next);
+			setStatus(take.itemId ? 'Recording added to the track' : 'No audio was recorded');
+		}).catch((error: unknown) => {
+			if (isCurrent() && !pending.current) setFailure(error instanceof Error ? error.message : String(error));
+		});
+		captureProbe.current = probe;
+		void probe.finally(() => { captureProbe.current = null; });
+	});
+	useEffect(() => {
+		if (!desktopAudioSetup || !recording) return;
+		let mounted = true;
+		const interval = window.setInterval(() => observeNativeCapture(() => mounted), 250);
+		return () => {
+			mounted = false;
+			window.clearInterval(interval);
+		};
+	}, [desktopAudioSetup, recording]);
+
 	function run(work: () => Promise<void>): void {
 		if (pending.current) return;
 		pending.current = true;
@@ -60,7 +87,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setFailure('');
 		setStatus('');
 		closeMenus();
-		void work().catch((error: unknown) => {
+		// A desktop command can share the request channel with the recording status read.
+		const probe = captureProbe.current;
+		const result = probe ? probe.then(work) : work();
+		void result.catch((error: unknown) => {
 			setFailure(error instanceof Error ? error.message : String(error));
 		}).finally(() => {
 			pending.current = false;

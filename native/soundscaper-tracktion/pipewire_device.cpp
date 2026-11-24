@@ -2,6 +2,7 @@
 
 #include "session_state.h"
 #include "pipewire_inventory.h"
+#include "pipewire_device.h"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,7 @@ uint32_t soundscaper_pipewire_buffered_frames(const soundscaper_pipewire_session
 uint32_t soundscaper_pipewire_capacity_frames(const soundscaper_pipewire_session*);
 uint32_t soundscaper_pipewire_quantum(const soundscaper_pipewire_session*);
 int soundscaper_pipewire_disconnected(const soundscaper_pipewire_session*);
+int soundscaper_pipewire_capture_interrupted(const soundscaper_pipewire_session*);
 uint32_t soundscaper_pipewire_read_interleaved(soundscaper_pipewire_session*, float*, uint32_t);
 }
 
@@ -127,10 +129,21 @@ public:
 
 	void stop() override
 	{
+		quiesce();
+		if (auto* previous = std::exchange(callback, nullptr)) previous->audioDeviceStopped();
+	}
+
+	PipeWireCapture capture()
+	{
+		if (!inputStream) return PipeWireCapture::inactive;
+		return isOpen() ? PipeWireCapture::active : PipeWireCapture::interrupted;
+	}
+
+	void quiesce()
+	{
 		signalThreadShouldExit();
 		notify();
 		waitForThreadToExit(-1);
-		if (auto* previous = std::exchange(callback, nullptr)) previous->audioDeviceStopped();
 	}
 
 private:
@@ -169,9 +182,8 @@ private:
 			const bool outputNeedsBlock = outputAvailable && outputBuffered + block <= queueTarget;
 			if (inputStream)
 			{
+				const bool inputLost = soundscaper_pipewire_capture_interrupted(inputStream.get());
 				const auto readable = soundscaper_pipewire_buffered_frames(inputStream.get());
-				const bool inputLost = soundscaper_pipewire_disconnected(inputStream.get())
-					|| soundscaper_pipewire_lost_frames(inputStream.get()) != 0;
 				if (readable >= static_cast<uint32_t>(blockSize) || (inputLost && readable > 0))
 				{
 					const auto count = std::min(readable, static_cast<uint32_t>(blockSize));
@@ -300,6 +312,20 @@ private:
 
 	std::vector<Endpoint> inputs, outputs;
 };
+}
+
+PipeWireCapture pipeWireCapture(juce::AudioIODevice* device)
+{
+	if (auto* pipewire = dynamic_cast<PipeWireDevice*>(device)) return pipewire->capture();
+	return PipeWireCapture::inactive;
+}
+
+bool quiescePipeWireCapture(juce::AudioIODevice* device)
+{
+	auto* pipewire = dynamic_cast<PipeWireDevice*>(device);
+	if (!pipewire || pipewire->capture() == PipeWireCapture::inactive) return false;
+	pipewire->quiesce();
+	return true;
 }
 
 void SessionBehaviour::addHostAudioIODeviceTypes(juce::OwnedArray<juce::AudioIODeviceType>& types)

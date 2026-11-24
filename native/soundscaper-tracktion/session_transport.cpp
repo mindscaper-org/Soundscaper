@@ -8,6 +8,9 @@ namespace soundscaper::tracktion_backend
 {
 Session::~Session()
 {
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	if (state->recordingLossMonitor) state->recordingLossMonitor->stopTimer();
+#endif
 	if (state->recording)
 	{
 		state->edit->getTransport().stop(true, true, false);

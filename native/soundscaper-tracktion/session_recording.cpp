@@ -7,6 +7,13 @@
 #include <algorithm>
 #include <stdexcept>
 
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+#include "pipewire_device.h"
+
+#include <functional>
+#include <iostream>
+#endif
+
 namespace soundscaper::tracktion_backend
 {
 juce::File SessionBehaviour::getFileForNewAudioRecording(te::Track&, const juce::String& extension)
@@ -16,6 +23,18 @@ juce::File SessionBehaviour::getFileForNewAudioRecording(te::Track&, const juce:
 
 namespace
 {
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+class RecordingLossMonitor final : public juce::Timer
+{
+public:
+	explicit RecordingLossMonitor(std::function<void()> poll) : inspect(std::move(poll)) { startTimer(40); }
+
+private:
+	void timerCallback() override { inspect(); }
+	std::function<void()> inspect;
+};
+#endif
+
 juce::String defaultInput(juce::AudioDeviceManager& devices)
 {
 	if (const auto* type = devices.getCurrentDeviceTypeObject())
@@ -92,6 +111,12 @@ void Session::State::requireNoRecording() const
 
 bool Session::isRecording() const { return state->recording.has_value(); }
 
+std::optional<InterruptedTake> Session::interruptedTake() const
+{
+	const auto& recovered = state->recoveredRecording;
+	return recovered && recovered->revision == state->revision && !isRecording() ? recovered : std::nullopt;
+}
+
 void Session::State::releaseRecordingInput()
 {
 	const auto target = track(recording->track).itemID;
@@ -145,6 +170,7 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	s.recording.emplace(State::Recording{trackId, file, std::move(outputSetup), {}});
 	auto& behaviour = static_cast<SessionBehaviour&>(s.engine.getEngineBehaviour());
 	behaviour.recordingFile = file;
+	s.recoveredRecording.reset();
 	try
 	{
 		const auto channel = s.systemAudioSetup ? s.systemAudioSetup->setup.inputChannel : 0;
@@ -171,6 +197,27 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 			if (auto* head = context->getNodePlayHead())
 				head->setPosition(tracktion::toSamples(transport.getPosition(), s.sampleRate));
 		}
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+		if (pipeWireCapture(devices.deviceManager.getCurrentAudioDevice()) != PipeWireCapture::inactive)
+		{
+			s.recordingLossMonitor = std::make_unique<RecordingLossMonitor>([this]
+			{
+				auto& s = *state;
+				auto& manager = s.engine.getDeviceManager().deviceManager;
+				if (pipeWireCapture(manager.getCurrentAudioDevice()) != PipeWireCapture::interrupted) return;
+				const auto before = s.revision;
+				try
+				{
+					const auto item = finishRecording(before, false);
+					s.recoveredRecording = InterruptedTake{before, s.revision, item};
+				}
+				catch (const std::exception& error)
+				{
+					std::cerr << "Could not recover the interrupted Tracktion recording. " << error.what() << '\n';
+				}
+			});
+		}
+#endif
 	}
 	catch (...)
 	{
@@ -185,6 +232,9 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 {
 	auto& s = *state;
+	if (!discard)
+		if (const auto recovered = interruptedTake(); recovered && recovered->previousRevision == expected)
+			return recovered->item;
 	s.checkRevision(expected, true);
 	if (!s.recording)
 		throw std::invalid_argument("There is no active Tracktion recording");
@@ -193,11 +243,17 @@ std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 	const te::Edit::UndoTransactionInhibitor transaction(*s.edit);
 	s.begin("Record audio");
 	auto& transport = s.edit->getTransport();
-	if (!discard && s.hostedMonoInput)
+	auto alignWithCapture = s.hostedMonoInput;
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	if (s.recordingLossMonitor) s.recordingLossMonitor->stopTimer();
+	if (s.recording->outputSetup)
+		alignWithCapture = quiescePipeWireCapture(s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice());
+#endif
+	if (!discard && alignWithCapture)
 		if (auto* head = transport.getCurrentPlaybackContext()->getNodePlayHead(); head && head->isPlaying())
 		{
 			// Tracktion stops at the start of the most recent device block.
-			// The hosted caller drains complete capture before stopping.
+			// Use the end of the last delivered capture block.
 			const auto end = head->getReferenceSampleRange().getEnd();
 			head->setReferenceSampleRange({end, end});
 		}
@@ -206,16 +262,9 @@ std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 
 	if (!discard && file.existsAsFile() && !file.isSymbolicLink())
 	{
-		// Tracktion derives the base from an Edit file that might not exist until
-		// the first save. Match its generated reference before storing our portable one.
-		const auto recordedReference = te::SourceFileReference::findPathFromFile(*s.edit, file, true);
-		const auto ownedReference = juce::String(mediaDirectory) + "/" + file.getFileName();
 		for (auto* clip : track.getClips())
-			if (clip->state[te::IDs::source].toString() == recordedReference
-			    || clip->getSourceFileReference().getFile() == file)
+			if (clip->getSourceFileReference().getFile() == file)
 			{
-				// The insertion owns the undo action and retains this clip state.
-				clip->state.setProperty(te::IDs::source, ownedReference, nullptr);
 				s.commit();
 				return clip->itemID.getRawID();
 			}

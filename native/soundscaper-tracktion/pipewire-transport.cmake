@@ -36,6 +36,16 @@ function(soundscaper_add_pipewire target)
 	string(REPLACE "soundscaper_ring_init(&session->ring, period_frames, channel_count)"
 		"soundscaper_ring_init(&session->ring, period_frames < 256u ? 256u : period_frames, channel_count)" code "${code}")
 
+	string(REPLACE "if (state == PW_STREAM_STATE_ERROR || state == PW_STREAM_STATE_UNCONNECTED) {"
+		"if (state == PW_STREAM_STATE_ERROR || state == PW_STREAM_STATE_UNCONNECTED
+		|| (session->direction == SOUNDSCAPER_DEVICE_INPUT && old == PW_STREAM_STATE_STREAMING && state == PW_STREAM_STATE_PAUSED)) {"
+		code "${code}")
+
+	string(REPLACE "const uint32_t moved = atomic_load_explicit(&session->lost_frames, memory_order_relaxed) == 0u"
+		"const uint32_t moved = !atomic_load_explicit(&session->lost_device, memory_order_acquire)
+			&& atomic_load_explicit(&session->lost_frames, memory_order_relaxed) == 0u"
+		code "${code}")
+
 	string(APPEND code [=[
 
 uint32_t soundscaper_pipewire_buffered_frames(const soundscaper_pipewire_session *session)
@@ -59,6 +69,11 @@ uint32_t soundscaper_pipewire_quantum(const soundscaper_pipewire_session *sessio
 int soundscaper_pipewire_disconnected(const soundscaper_pipewire_session *session)
 {
 	return atomic_load_explicit(&session->lost_device, memory_order_acquire);
+}
+
+int soundscaper_pipewire_capture_interrupted(const soundscaper_pipewire_session *session)
+{
+	return soundscaper_pipewire_disconnected(session) || atomic_load_explicit(&session->lost_frames, memory_order_acquire) != 0u;
 }
 
 uint32_t soundscaper_pipewire_read_interleaved(soundscaper_pipewire_session *session, float *samples, uint32_t frames)
