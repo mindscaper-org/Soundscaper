@@ -350,6 +350,11 @@ void verifyOfflineEffect(const juce::File& root)
 	try { reopened.render(0, failed, 0, 1024, nullptr, &failedHost); }
 	catch (const std::invalid_argument&) { rejected = true; }
 	require(rejected && !failed.exists(), "failed effect PCM must not be published");
+	reopened.removeOfflineEffect(0, track, slot);
+	require(reopened.offlineEffects(1, track).empty(), "remove the saved offline effect");
+	require(reopened.undo(1), "undo effect removal");
+	const auto restored = reopened.offlineEffects(2, track);
+	require(restored.size() == 1 && restored.front().id == slot, "undo removal restores the same effect slot");
 }
 }
 

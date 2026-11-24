@@ -90,6 +90,12 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	await Promise.all([keepProject, fileCommand('Close project')]);
 	await page.getByRole('heading', { name }).waitFor();
 	const editing = page.getByText('Editing tools', { exact: true });
+	await editing.click();
+	await button('Offline track effects').click();
+	const effects = page.getByRole('dialog', { name: 'Offline track effects' });
+	await effects.getByText('This track has no offline effects.').waitFor();
+	assert.equal(await effects.getByRole('button', { name: 'Scan allowed plug-in folders' }).count(), 0);
+	await effects.getByRole('button', { name: 'Close' }).click();
 	const transport = page.getByText('Playback and recording', { exact: true });
 	const recordingStatus = page.getByRole('status').filter({ hasText: /^Recording$/u });
 	async function beginRecording(): Promise<void> {

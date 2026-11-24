@@ -298,6 +298,26 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		const auto mix = session.trackMix(revision, itemId(request, "trackId"));
 		return record({{"gainDb", mix.gainDb}, {"pan", mix.pan}, {"muted", mix.muted}, {"solo", mix.solo}});
 	}
+	if (kind == "offlineEffects")
+	{
+		requireFields(request, {"revision", "trackId", "offset"});
+		const auto effects = session.offlineEffects(revision, itemId(request, "trackId"));
+		const auto start = pageOffset(request);
+		if (start > effects.size()) throw std::invalid_argument("The Tracktion offline effects page is outside the track");
+		const auto end = std::min(effects.size(), start + pageSize);
+		juce::Array<juce::var> slots;
+		for (auto i = start; i < end; ++i)
+		{
+			const auto& slot = effects[i];
+			const auto name = juce::String(slot.effect.stableId).substring(0, 128);
+			const auto format = juce::String(slot.effect.format).substring(0, 16);
+			constexpr auto labelCharacters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._:-";
+			slots.add(record({{"id", juce::String(std::to_string(slot.id))},
+			                  {"name", name.isNotEmpty() && name.containsOnly(labelCharacters) ? name : juce::String("Offline effect")},
+			                  {"format", format.containsOnly(labelCharacters) ? format : juce::String()}}));
+		}
+		return record({{"revision", number(session.revision())}, {"slots", juce::var(slots)}, {"nextOffset", pageCursor(end, effects.size())}});
+	}
 	if (kind == "finishRecording")
 	{
 		requireFields(request, {"revision", "discard"});
@@ -369,6 +389,11 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	{
 		requireFields(request, {"revision", "asset"});
 		session.archive(revision, exchangeFile(exchange, request, "output", ".zip"));
+	}
+	else if (kind == "removeOfflineEffect")
+	{
+		requireFields(request, {"revision", "trackId", "slotId"});
+		session.removeOfflineEffect(revision, itemId(request, "trackId"), itemId(request, "slotId"));
 	}
 	else
 	{

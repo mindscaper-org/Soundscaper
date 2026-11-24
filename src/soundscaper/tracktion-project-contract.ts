@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from './tracktion-audio-device-contract.ts';
+import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffectPage } from './tracktion-effect-contract.ts';
 
 export interface TracktionTrackView {
 	readonly id: string;
@@ -90,6 +91,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)
 	| (Session & TracktionAudioDeviceCommand)
+	| (Session & TracktionEffectCommand)
 	| (Session & TracktionTransportCommand)
 	| (Session & TracktionRecordingCommand)
 	| (Session & Readonly<{ kind: 'close' }>);
@@ -98,6 +100,8 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 	Command extends { kind: 'create' | 'open' } ? TracktionOpenedProject | null
 		: Command extends { kind: 'project' } ? TracktionProjectPage
 			: Command extends { kind: 'clips' } ? TracktionClipPage
+				: Command extends { kind: 'offlineEffects' } ? TracktionEffectPage
+					: Command extends { kind: 'offlineEffectCatalog' | 'scanOfflineEffects' } ? readonly TracktionEffectInstallation[] | null
 				: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 					: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
 						: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null

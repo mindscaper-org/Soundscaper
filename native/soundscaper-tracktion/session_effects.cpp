@@ -174,6 +174,22 @@ std::vector<OfflineEffectSlot> Session::offlineEffects(Revision expected, TrackI
 	return result;
 }
 
+void Session::removeOfflineEffect(Revision expected, TrackId track, std::uint64_t slot)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	if (s.edit->getTransport().isPlaying()) throw std::invalid_argument("Stop Tracktion playback before removing an offline effect");
+	for (auto* plugin : s.track(track).pluginList.getPlugins())
+		if (auto* effect = dynamic_cast<OfflineEffectPlugin*>(plugin); effect && effect->itemID.getRawID() == slot)
+		{
+			s.begin("Remove isolated effect");
+			effect->deleteFromParent();
+			s.commit();
+			return;
+		}
+	throw std::invalid_argument("The selected Tracktion effect slot is unavailable");
+}
+
 void Session::render(Revision expected, const juce::File& output, Frame start, Frame end,
                      const std::atomic_bool* cancelled, OfflineEffectHost* effects)
 {

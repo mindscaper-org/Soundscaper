@@ -9,6 +9,7 @@ import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
 import { resolveStaticFile, securityHeaders } from './protocol.js';
 import { tracktionAudioPreferences } from './tracktion-audio-preferences.ts';
 import type { TracktionOfflineEffectHost } from './tracktion-offline-effects.ts';
+import type { TracktionPluginLibrary } from './tracktion-plugin-library.ts';
 import { registerTracktionProjectIpc, TRACKTION_PROJECT_REQUEST } from './tracktion-project-ipc.ts';
 import { TracktionProjectService } from './tracktion-project-service.ts';
 import { startTracktionUtilitySession } from './tracktion-utility-session.ts';
@@ -37,6 +38,7 @@ export async function openTracktionWindow(options: {
 	readonly show?: boolean;
 	readonly dialogs?: TracktionProjectDialogs;
 	readonly offlineEffects?: TracktionOfflineEffectHost;
+	readonly pluginLibrary?: TracktionPluginLibrary;
 }) {
 	const [bundleRoot, executable] = await Promise.all([realpath(options.bundleRoot), realpath(options.peer)]);
 	const browserSession = session.fromPartition(PARTITION);
@@ -64,10 +66,11 @@ export async function openTracktionWindow(options: {
 		...(options.dialogs ?? projectDialogs(window)),
 		scratchRoot: options.scratchRoot,
 		audioPreferences: tracktionAudioPreferences(join(app.getPath('userData'), 'Tracktion Audio Setup.json')),
+		...(options.pluginLibrary ? { pluginLibrary: options.pluginLibrary } : {}),
 		isOwnerCurrent: (owner) => owner === window && !window.isDestroyed(),
 		startPeer: (launch) => startTracktionUtilitySession(
 			utilityProcess.fork, resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },
-			options.offlineEffects,
+			options.pluginLibrary ?? options.offlineEffects,
 		),
 	});
 	const { handle } = createTrustedDesktopIpc({

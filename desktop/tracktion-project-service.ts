@@ -8,6 +8,7 @@ import type {
 	TracktionOpenedProject, TracktionProjectCommand, TracktionProjectReply,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import type { TracktionAudioPreferences } from './tracktion-audio-preferences.ts';
+import type { TracktionPluginLibrary } from './tracktion-plugin-library.ts';
 import type { TracktionCommand, TracktionReply } from './tracktion-peer-contract.ts';
 import { createTracktionExportWriter, stageTracktionWave } from './tracktion-project-files.ts';
 import { readTracktionProjectRequest } from './tracktion-project-request.ts';
@@ -27,6 +28,7 @@ type ProjectLaunch = LaunchMode & Readonly<{
 interface Ports {
 	readonly scratchRoot: string;
 	readonly audioPreferences?: TracktionAudioPreferences;
+	readonly pluginLibrary?: TracktionPluginLibrary;
 	readonly isOwnerCurrent: (owner: object) => boolean;
 	readonly chooseCreateDirectory: () => Promise<string | null>;
 	readonly chooseOpenProject: () => Promise<string | null>;
@@ -146,6 +148,14 @@ export class TracktionProjectService {
 		}
 		if (command.kind === 'import') return this.#import(active, command, signal);
 		if (command.kind === 'render' || command.kind === 'archive') return this.#export(active, command, signal);
+		if (command.kind === 'offlineEffectCatalog') return await this.#ports.pluginLibrary?.catalog() ?? null;
+		if (command.kind === 'scanOfflineEffects') return await this.#ports.pluginLibrary?.scan(owner, signal) ?? null;
+		if (command.kind === 'addOfflineEffect') {
+			const identity = await this.#ports.pluginLibrary?.select(command.installationId, signal);
+			this.#assertOwner(owner, signal);
+			if (!identity) return { revision: command.revision, itemId: null };
+			return active.peer.request({ kind: 'insertOfflineEffect', trackId: command.trackId, revision: command.revision, ...identity });
+		}
 		if (command.kind === 'audioHosts') {
 			const hosts = await active.peer.request({ kind: 'audioHosts' });
 			return { ...hosts, preferred: await this.#ports.audioPreferences?.read() ?? null };

@@ -129,6 +129,7 @@ export function desktopProductSourceIncluded(productIdValue, relativePathValue) 
 	const relativePath = packagePath(relativePathValue, 'desktop application source');
 	if (DESKTOP_RENDERER_ONLY_SOURCE_FILES.has(relativePath) || DESKTOP_RETIRED_SOURCE_FILES.has(relativePath)
 		|| isNightlyTestLauncherPath(relativePath)) return false;
+	if (productId === 'framescaper' && relativePath.startsWith('tracktion-')) return false;
 	return productId === 'framescaper' || !soundscaperForbiddenPackagePath(relativePath)
 		&& !SOUNDSCAPER_REPLACED_SOURCE_FILES.has(relativePath);
 }

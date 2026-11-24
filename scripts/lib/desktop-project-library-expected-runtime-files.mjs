@@ -17,6 +17,8 @@ import { DESKTOP_YABRIDGE_RUNTIME_FILES } from './desktop-yabridge-runtime-files
 /** Closed compiler output inventory shared by staging and fixture authentication. */
 export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	...DESKTOP_YABRIDGE_RUNTIME_FILES,
+	'desktop/tracktion-offline-effects.js', 'desktop/tracktion-plugin-library.js',
+	'desktop/tracktion-professional-effect-host.js', 'src/soundscaper/tracktion-effect-contract.js',
 	'src/common/media/indexeddb.js',
 	'src/common/media/bytes.js',
 	'src/common/scape/archive-limits.js',

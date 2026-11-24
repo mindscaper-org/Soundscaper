@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
+import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
 	TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
@@ -22,6 +23,7 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'addTrack'; name: string }>)
 	| (Revision & Readonly<{ kind: 'insertOfflineEffect'; trackId: string }> & TracktionOfflineEffectIdentity)
 	| TracktionMixCommand
+	| TracktionEffectEdit
 	| (Revision & Readonly<{
 		kind: 'import'; trackId: string; asset: string; name: string; start: number; sourceOffset: number; frames: number;
 	}>)
@@ -38,6 +40,7 @@ export type TracktionCommand =
 
 export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
 	: Command extends { kind: 'clips' } ? TracktionClipPage
+		: Command extends { kind: 'offlineEffects' } ? TracktionEffectPage
 		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
 				: Command extends UseAudioProfile ? null
@@ -70,6 +73,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	// The command's discriminator selects the closed reply schema.
 	if (command.kind === 'project') return readTracktionProjectPage(value, command.offset) as TracktionReply<Command>;
 	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
+	if (command.kind === 'offlineEffects') return readTracktionEffects(value, command) as TracktionReply<Command>;
 	if (command.kind === 'trackMix') return readTracktionTrackMix(value) as TracktionReply<Command>;
 	if (command.kind === 'audioHosts' || command.kind === 'audioDevices' || command.kind === 'setAudioSetup') {
 		return readTracktionAudioDeviceReply(value, command) as TracktionReply<Command>;
@@ -171,6 +175,17 @@ function readNextOffset(value: unknown, offset: number, length: number): number 
 		throw new TypeError('Invalid Tracktion page cursor.');
 	}
 	return value as number;
+}
+
+function readTracktionEffects(value: unknown, command: Extract<TracktionEffectEdit, { kind: 'offlineEffects' }>): TracktionEffectPage {
+	const page = readClosedDomainRecord(value, 'Tracktion effects page', ['revision', 'slots', 'nextOffset']);
+	if (page.revision !== command.revision) throw new TypeError('A Tracktion effect page has changed revision.');
+	const slots = readClosedDomainArray(page.slots, 'Tracktion effects', 0, PAGE_SIZE).map((entry) => {
+		const { id, name, format } = readClosedDomainRecord(entry, 'Tracktion effect', ['id', 'name', 'format']);
+		return Object.freeze({ id: readItemId(id), name: boundedText(name), format: boundedText(format) });
+	});
+	return Object.freeze({ revision: command.revision, slots: Object.freeze(slots),
+		nextOffset: readNextOffset(page.nextOffset, command.offset, slots.length) });
 }
 
 function boundedText(value: unknown): string {

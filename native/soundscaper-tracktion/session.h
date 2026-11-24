@@ -82,6 +82,7 @@ public:
 	TrackMix trackMix(Revision, TrackId) const;
 	void setTrackMix(Revision, TrackId, TrackMix);
 	std::uint64_t insertOfflineEffect(Revision, TrackId, const OfflineEffectIdentity&);
+	void removeOfflineEffect(Revision, TrackId, std::uint64_t slot);
 	std::vector<OfflineEffectSlot> offlineEffects(Revision, TrackId) const;
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
 	                  std::optional<Frame> frameCount, const std::string& name = {});

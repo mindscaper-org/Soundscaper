@@ -14,6 +14,11 @@ const fields = {
 	clips: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
 	addTrack: ['kind', 'sessionId', 'revision', 'name'],
 	trackMix: ['kind', 'sessionId', 'revision', 'trackId'],
+	offlineEffects: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
+	offlineEffectCatalog: ['kind', 'sessionId'],
+	scanOfflineEffects: ['kind', 'sessionId'],
+	addOfflineEffect: ['kind', 'sessionId', 'revision', 'trackId', 'installationId'],
+	removeOfflineEffect: ['kind', 'sessionId', 'revision', 'trackId', 'slotId'],
 	setTrackMix: ['kind', 'sessionId', 'revision', 'trackId', 'gainDb', 'pan', 'muted', 'solo'],
 	import: ['kind', 'sessionId', 'revision', 'trackId', 'start'],
 	trim: ['kind', 'sessionId', 'revision', 'clipId', 'start', 'end'],
@@ -59,10 +64,12 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 
 	for (const [key, field] of Object.entries(request)) {
 		if (key === 'kind' || key === 'sessionId') continue;
-		if (key === 'clipId' || key === 'trackId') {
+		if (key === 'clipId' || key === 'trackId' || key === 'slotId') {
 			if (typeof field !== 'string' || !ITEM_ID.test(field) || BigInt(field) > 18_446_744_073_709_551_615n) {
 				throw new TypeError('Invalid Tracktion item ID.');
 			}
+		} else if (key === 'installationId') {
+			if (typeof field !== 'string' || !/^i[a-f0-9]{15}$/u.test(field)) throw new TypeError('Invalid Tracktion installation ID.');
 		} else if (key === 'name') {
 			if (typeof field !== 'string' || !field.trim() || Buffer.byteLength(field) > 128 || field.includes('\0')) {
 				throw new TypeError('Invalid Tracktion track name.');

@@ -9,11 +9,13 @@ import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-comman
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
 import type { TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
+import type { TracktionEffectInstallation, TracktionEffectPage, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
 import type { TracktionProjectBridge, TracktionTrackMix, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionClipEditDialog, type TracktionClipEdit } from './TracktionClipEditDialog.tsx';
+import { TracktionEffectsDialog, tracktionEffectsTitle } from './TracktionEffectsDialog.tsx';
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
@@ -21,10 +23,11 @@ const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
-export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSetup = false }: {
+export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSetup = false, desktopEffects = false }: {
 	readonly bridge: TracktionProjectBridge;
 	readonly recordingInput?: boolean;
 	readonly desktopAudioSetup?: boolean;
+	readonly desktopEffects?: boolean;
 }) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
@@ -35,6 +38,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [clipEdit, setClipEdit] = useState<TracktionClipEdit['kind'] | null>(null);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
+	const [effects, setEffects] = useState<{ slots: TracktionEffectSlot[]; catalog: readonly TracktionEffectInstallation[] | null } | null>(null);
 	const pending = useRef(false);
 	const transportProbe = useRef<Promise<void> | null>(null);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
@@ -247,6 +251,44 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		});
 	}
 
+	function showEffects(): void {
+		if (!workspace?.selectedTrack) return;
+		const trackId = workspace.selectedTrack.id;
+		run(async () => {
+			const { sessionId, project: { revision } } = workspace;
+			const slots: TracktionEffectSlot[] = [];
+			let offset: number | null = 0;
+			while (offset !== null) {
+				const page: TracktionEffectPage = await bridge.request({ kind: 'offlineEffects', sessionId, revision, trackId, offset });
+				slots.push(...page.slots);
+				offset = page.nextOffset;
+			}
+			const catalog = desktopEffects ? await bridge.request({ kind: 'offlineEffectCatalog', sessionId }) : null;
+			setEffects({ slots, catalog });
+		});
+	}
+
+	function scanEffects(): void {
+		if (!workspace || !effects) return;
+		setEffects(null);
+		run(async () => {
+			const catalog = await bridge.request({ kind: 'scanOfflineEffects', sessionId: workspace.sessionId });
+			setEffects({ slots: effects.slots, catalog });
+		});
+	}
+
+	function editEffect(selection: { installationId: string } | { slotId: string }): void {
+		if (!workspace?.selectedTrack) return;
+		setEffects(null);
+		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
+		run(async () => {
+			await bridge.request('installationId' in selection
+				? { kind: 'addOfflineEffect', sessionId, revision, trackId, ...selection }
+				: { kind: 'removeOfflineEffect', sessionId, revision, trackId, ...selection });
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId));
+		});
+	}
+
 	function finishRecording(discard: boolean): void {
 		if (!workspace) return;
 		run(async () => {
@@ -285,6 +327,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					<button type="button" disabled={busy || recording || splittable.length === 0} onClick={() => chooseClipEdit('split')}>{editCopy.tracktionSplitClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('trim')}>{editCopy.tracktionTrimClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={showMixer}>{trackCopy.mixer}</button>
+					<button type="button" disabled={busy || recording || playing || !workspace?.selectedTrack} onClick={showEffects}>{tracktionEffectsTitle}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
@@ -322,6 +365,9 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
 			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
+		{effects && workspace?.selectedTrack && <TracktionEffectsDialog track={workspace.selectedTrack.name} {...effects}
+			{...(effects.catalog ? { onScan: scanEffects } : {})}
+			onAdd={(installationId) => editEffect({ installationId })} onRemove={(slotId) => editEffect({ slotId })} onDismiss={() => setEffects(null)} />}
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}

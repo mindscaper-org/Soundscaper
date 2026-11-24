@@ -9,6 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { app, utilityProcess, type BrowserWindow } from 'electron/main';
 
 import { startTracktionUtilitySession } from '../../../desktop/tracktion-utility-session.ts';
+import type { TracktionPluginLibrary } from '../../../desktop/tracktion-plugin-library.ts';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
@@ -49,6 +50,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		const wave = join(scratch, 'Reference.wav');
 		const output = join(scratch, 'Mix.wav');
 		const archive = join(scratch, 'Project.zip');
+		const pluginLibrary = testPluginLibrary();
 		await mkdir(projectDirectory);
 		await writeFile(wave, wavFixture());
 		if (process.platform === 'linux') {
@@ -57,6 +59,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		}
 		editor = await openTracktionWindow({
 			bundleRoot, peer: binaryPath, scratchRoot: join(scratch, 'sessions'),
+			pluginLibrary,
 			show: false,
 			dialogs: {
 				chooseCreateDirectory: async () => projectDirectory,
@@ -68,7 +71,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		assert.equal(new URL(editor.window.webContents.getURL()).protocol, 'soundscaper-tracktion-app:');
 		assert.equal(await editor.window.webContents.executeJavaScript('typeof require'), 'undefined');
 		const sessionId = await runRendererWorkflow(editor.window, { scratch, projectFile, output, archive });
-		await runEditorWorkflow(editor.window, sessionId);
+		await runEditorWorkflow(editor.window, sessionId, output);
 		await verifyUtilityEffect(binaryPath, scratch);
 		console.log('The Electron renderer created, edited, saved, exported and reopened a Tracktion project.');
 	} catch (error) {
@@ -85,6 +88,27 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 			app.exit(exitCode);
 		}
 	}
+}
+
+function testPluginLibrary(): TracktionPluginLibrary {
+	const identity = { format: 'clap', stableId: 'org.soundscaper.fixture.tracktion-gain', sha256: 'b'.repeat(64) };
+	const installation = { id: 'i' + 'c'.repeat(15), name: 'Test Gain', vendor: 'Soundscaper', format: 'clap' };
+	let found = false;
+	let allowed = false;
+	return {
+		async catalog() { return found ? [{ ...installation, allowed }] : []; },
+		async scan() { found = true; return [{ ...installation, allowed }]; },
+		async select(id) { assert.ok(found && id === installation.id); allowed = true; return identity; },
+		async openStereo(effect) {
+			assert.ok(allowed);
+			assert.deepEqual(effect, identity);
+			return {
+				latencyFrames: 0,
+				async process(input, output) { input.forEach((plane, i) => output[i]!.set(plane.map((sample) => sample * 2))); },
+				async close() {},
+			};
+		},
+	};
 }
 
 async function verifyUtilityEffect(executable: string, scratch: string): Promise<void> {
@@ -135,7 +159,7 @@ async function requestFromEditor<Command extends TracktionProjectCommand>(
 	) as TracktionProjectReply<Command>;
 }
 
-async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Promise<void> {
+async function runEditorWorkflow(window: BrowserWindow, sessionId: string, output: string): Promise<void> {
 	async function click(label: string): Promise<void> {
 		await window.webContents.executeJavaScript(`
 			(() => {
@@ -216,6 +240,33 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 	await click('Editing tools');
 	await click('Undo');
 	await waitForVisible('3 clips');
+	await click('Editing tools');
+	await click('Offline track effects');
+	await waitForVisible('No stereo plug-ins found.');
+	await click('Scan allowed plug-in folders');
+	await waitForVisible('Test Gain');
+	await click('Review and add effect');
+	await waitFor('document.querySelector("dialog[open]") === null');
+	const effected = await requestFromEditor(window, { kind: 'project', sessionId, offset: 0 });
+	const effectedTrack = effected.tracks[0];
+	assert.ok(effectedTrack);
+	const activeEffects = await requestFromEditor(window, { kind: 'offlineEffects', sessionId, revision: effected.revision, trackId: effectedTrack.id, offset: 0 });
+	assert.equal(activeEffects.slots.length, 1);
+	await assert.rejects(requestFromEditor(window, { kind: 'addOfflineEffect', sessionId, revision: effected.revision,
+		trackId: effectedTrack.id, installationId: 'i' + 'c'.repeat(15), path: output } as const), /unsupported field/u);
+	await click('File');
+	await click('Export mix (WAV)');
+	await waitFor('true');
+	assert.ok(waveData(await readFile(output)).includes(Buffer.from([0, 32, 0, 240])));
+	await click('Editing tools');
+	await click('Offline track effects');
+	await waitForVisible('Remove effect');
+	await click('Remove effect');
+	await waitFor('document.querySelector("dialog[open]") === null');
+	const removed = await requestFromEditor(window, { kind: 'project', sessionId, offset: 0 });
+	assert.equal(removed.revision, effected.revision + 1);
+	assert.equal((await requestFromEditor(window, { kind: 'offlineEffects', sessionId, revision: removed.revision,
+		trackId: effectedTrack.id, offset: 0 })).slots.length, 0);
 	await click('File');
 	await click('Save project');
 	await waitForVisible('All changes saved locally');
