@@ -70,6 +70,20 @@ struct TrackMix
 	bool solo;
 };
 
+enum class TrackParameter { gainDb, pan };
+
+struct AutomationPoint
+{
+	Frame frame;
+	float value, curve;
+};
+
+struct AutomationPage
+{
+	std::size_t total;
+	std::vector<AutomationPoint> points;
+};
+
 // A host creates and drives the session on the JUCE message thread.
 // Paths are supplied by the host after granting access to the project and media.
 class Session
@@ -83,6 +97,10 @@ public:
 	TrackId addTrack(Revision, const std::string& name);
 	TrackMix trackMix(Revision, TrackId) const;
 	void setTrackMix(Revision, TrackId, TrackMix);
+	AutomationPage trackAutomation(Revision, TrackId, TrackParameter, std::size_t offset, std::size_t limit) const;
+	void setAutomationPoint(Revision, TrackId, TrackParameter, std::optional<std::size_t>, AutomationPoint);
+	void removeAutomationPoint(Revision, TrackId, TrackParameter, std::size_t);
+	void clearAutomation(Revision, TrackId, TrackParameter);
 	std::uint64_t insertOfflineEffect(Revision, TrackId, const OfflineEffectIdentity&);
 	void removeOfflineEffect(Revision, TrackId, std::uint64_t slot);
 	std::vector<OfflineEffectSlot> offlineEffects(Revision, TrackId) const;

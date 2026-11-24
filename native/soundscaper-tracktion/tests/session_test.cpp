@@ -30,7 +30,7 @@ void require(bool condition, const char* message)
 		throw std::runtime_error(message);
 }
 
-void writeFixture(const juce::File& file)
+void writeFixture(const juce::File& file, int frames = 1200)
 {
 	juce::WavAudioFormat format;
 	std::unique_ptr<juce::OutputStream> stream = file.createOutputStream();
@@ -38,7 +38,7 @@ void writeFixture(const juce::File& file)
 		.withNumChannels(2).withBitsPerSample(16);
 	auto writer = format.createWriterFor(stream, options);
 	require(writer != nullptr, "create fixture");
-	juce::AudioBuffer<float> pcm(2, 1200);
+	juce::AudioBuffer<float> pcm(2, frames);
 	for (int frame = 0; frame < pcm.getNumSamples(); ++frame)
 	{
 		const auto value = frame < 311 ? 0.125f : 0.375f;
@@ -46,6 +46,35 @@ void writeFixture(const juce::File& file)
 		pcm.setSample(1, frame, -value / 2);
 	}
 	require(writer->writeFromAudioSampleBuffer(pcm, 0, pcm.getNumSamples()), "write fixture");
+}
+
+void verifyHostedAutomation(const juce::File& root)
+{
+	const auto source = root.getChildFile("hosted-automation.wav");
+	writeFixture(source, 24'576);
+	Session session(root.getChildFile("hosted-automation-project"), root.getChildFile("hosted-automation-state"), OpenMode::create, 48000);
+	const auto track = session.snapshot().tracks.front().id;
+	session.insertAudio(0, track, source, 0, 0, std::nullopt);
+	session.preparePlayback(128);
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+	while (!session.playbackReady() && std::chrono::steady_clock::now() < deadline)
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	require(session.playbackReady(), "hosted automation primes its media");
+	juce::AudioBuffer<float> block(2, 128);
+	juce::MidiBuffer midi;
+	session.play(4096);
+	require(session.processPlaybackBlock(block, midi), "prepare the existing hosted graph");
+	session.stop();
+	session.setAutomationPoint(1, track, TrackParameter::gainDb, std::nullopt, {0, 0.0f, 1.0f});
+	session.setAutomationPoint(2, track, TrackParameter::gainDb, std::nullopt, {8192, -12.0f, 0.0f});
+	session.play(0);
+	for (int index = 0; index < 128; ++index)
+	{
+		require(session.processPlaybackBlock(block, midi), "hosted device processes the automation curve");
+		if (index == 32) require(std::abs(block.getSample(0, 0) - 0.375f) < 0.001f, "hosted playback holds gain before the change");
+		if (index == 96) require(std::abs(block.getSample(0, 0) - 0.0942f) < 0.001f, "hosted playback follows the edited gain curve");
+	}
+	session.stop();
 }
 
 void verifyRender(const juce::File& file)
@@ -491,6 +520,7 @@ int main()
 #endif
 		runSessionTest(root);
 		verifyClipPlacement(root);
+		verifyHostedAutomation(root);
 		verifyRangeDelete(root);
 		verifyHostedRecording(root);
 		verifyOfflineEffect(root);

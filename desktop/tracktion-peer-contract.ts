@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
+import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationCommand,
+	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
 	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
@@ -24,6 +26,7 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'addTrack'; name: string }>)
 	| (Revision & Readonly<{ kind: 'insertOfflineEffect'; trackId: string }> & TracktionOfflineEffectIdentity)
 	| TracktionMixCommand
+	| TracktionAutomationCommand
 	| TracktionEffectEdit
 	| (Revision & Readonly<{
 		kind: 'import'; trackId: string; asset: string; name: string; start: number; sourceOffset: number; frames: number;
@@ -41,7 +44,8 @@ export type TracktionCommand =
 	| TracktionRecordingCommand;
 
 export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
-	: Command extends { kind: 'clips' } ? TracktionClipPage
+	: Command extends { kind: 'trackAutomation' } ? TracktionAutomationPage
+		: Command extends { kind: 'clips' } ? TracktionClipPage
 		: Command extends { kind: 'offlineEffects' } ? TracktionEffectPage
 		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
@@ -77,6 +81,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
 	if (command.kind === 'offlineEffects') return readTracktionEffects(value, command) as TracktionReply<Command>;
 	if (command.kind === 'trackMix') return readTracktionTrackMix(value) as TracktionReply<Command>;
+	if (command.kind === 'trackAutomation') return readTracktionAutomation(value, command) as TracktionReply<Command>;
 	if (command.kind === 'audioHosts' || command.kind === 'audioDevices' || command.kind === 'setAudioSetup') {
 		return readTracktionAudioDeviceReply(value, command) as TracktionReply<Command>;
 	}
@@ -180,6 +185,22 @@ function readNextOffset(value: unknown, offset: number, length: number): number 
 		throw new TypeError('Invalid Tracktion page cursor.');
 	}
 	return value as number;
+}
+
+function readTracktionAutomation(value: unknown, command: Extract<TracktionAutomationCommand, { kind: 'trackAutomation' }>): TracktionAutomationPage {
+	const page = readClosedDomainRecord(value, 'Tracktion automation page', ['revision', 'points', 'nextOffset']);
+	if (page.revision !== command.revision) throw new TypeError('A Tracktion automation page has changed revision.');
+	let previousFrame = -1;
+	const points = readClosedDomainArray(page.points, 'Tracktion automation points', 0, PAGE_SIZE).map((entry) => {
+		const point = readClosedDomainRecord(entry, 'Tracktion automation point', ['frame', 'value', 'curve']);
+		const frame = nonnegativeInteger(point.frame);
+		if (frame < previousFrame || !isTracktionAutomationValue(point.value, TRACKTION_AUTOMATION_RANGES[command.parameter])
+			|| !isTracktionAutomationValue(point.curve, [-1, 1])) throw new TypeError('Invalid Tracktion automation point.');
+		previousFrame = frame;
+		return Object.freeze({ frame, value: point.value, curve: point.curve });
+	});
+	return Object.freeze({ revision: command.revision, points: Object.freeze(points),
+		nextOffset: readNextOffset(page.nextOffset, command.offset, points.length) });
 }
 
 function readTracktionEffects(value: unknown, command: Extract<TracktionEffectEdit, { kind: 'offlineEffects' }>): TracktionEffectPage {

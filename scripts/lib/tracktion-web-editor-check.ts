@@ -194,6 +194,58 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Stop').click();
 	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
 	await editing.click();
+	await button('Track automation').click();
+	const automation = page.getByRole('dialog', { name: 'Track automation' });
+	const point = automation.getByRole('combobox', { name: 'Automation point' });
+	const frameField = automation.getByRole('spinbutton', { name: 'Frame' });
+	const valueField = automation.getByRole('spinbutton', { name: 'Value' });
+	const curveField = automation.getByRole('spinbutton', { name: /Curve to next point/u });
+	await curveField.fill('1');
+	await automation.getByRole('button', { name: 'Add point' }).click();
+	await point.getByRole('option', { name: '0 · 0.000', exact: true }).waitFor({ state: 'attached' });
+	await frameField.fill('32768');
+	await valueField.fill('-6');
+	await automation.getByRole('button', { name: 'Add point' }).click();
+	await point.selectOption({ label: '32768 · -6.000' });
+	await valueField.fill('-12');
+	await automation.getByRole('button', { name: 'Update point' }).click();
+	await point.getByRole('option', { name: '32768 · -12.000', exact: true }).waitFor({ state: 'attached' });
+	await automation.getByRole('button', { name: 'Close' }).click();
+	const automatedDownload = page.waitForEvent('download');
+	await fileCommand('Export mix (WAV)');
+	const automatedPcm = waveData(await readFile(await (await automatedDownload).path()));
+	assert.equal(automatedPcm.readInt16LE(4 * 4_096), 4096);
+	assert.ok(Math.abs(automatedPcm.readInt16LE(4 * 48_000) - 1029) <= 2);
+	await transport.click();
+	await button('Jump to project start').click();
+	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
+	await transport.click();
+	await button('Play').click();
+	await page.waitForFunction(() => (window as PlaybackWindow).tracktionTestStarts === 3);
+	const peaks = await page.evaluate(async () => {
+		const analyser = (window as PlaybackWindow).tracktionTestAnalyser;
+		if (!analyser) throw new Error('Tracktion playback analyser is unavailable');
+		const samples = new Float32Array(analyser.fftSize);
+		const peaks: number[] = [];
+		for (let poll = 0; poll < 120; poll += 1) {
+			await new Promise(requestAnimationFrame);
+			analyser.getFloatTimeDomainData(samples);
+			peaks.push(samples.reduce((peak, sample) => Math.max(peak, Math.abs(sample)), 0));
+		}
+		return peaks;
+	});
+	const peak = Math.max(...peaks);
+	assert.ok(peak >= 0.025 && peaks.filter((sample) => sample > 0 && Math.abs(sample / peak - 0.2512) < 0.002).length >= 3,
+		`Tracktion playback did not reach the -12 dB plateau. Observed peaks ${[...new Set(peaks)].join(', ')}`);
+	await transport.click();
+	await button('Stop').click();
+	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
+	await editing.click();
+	await button('Track automation').click();
+	await automation.getByRole('button', { name: 'Clear curve' }).click();
+	await point.getByRole('option', { name: '32768 · -12.000', exact: true }).waitFor({ state: 'detached' });
+	await automation.getByRole('button', { name: 'Close' }).click();
+	await editing.click();
 	await button('Split clip').click();
 	const split = page.getByRole('dialog', { name: 'Split clip' });
 	await split.getByRole('spinbutton', { name: 'Split frame' }).fill('512');

@@ -9,6 +9,7 @@ import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-comman
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
 import type { TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
+import type { TracktionAutomationEdit, TracktionAutomationPage, TracktionAutomationParameter } from '../tracktion-automation-contract.ts';
 import type { TracktionEffectInstallation, TracktionEffectPage, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
 import type {
 	TracktionClipCommand, TracktionPasteCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportView,
@@ -16,6 +17,7 @@ import type {
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
+import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
 import { TracktionClipEditDialog } from './TracktionClipEditDialog.tsx';
 import { TracktionEffectsDialog, tracktionEffectsTitle } from './TracktionEffectsDialog.tsx';
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
@@ -44,6 +46,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [paste, setPaste] = useState(false);
 	const [hasClipboard, setHasClipboard] = useState(false);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
+	const [automation, setAutomation] = useState<{ parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage } | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const [effects, setEffects] = useState<{ slots: TracktionEffectSlot[]; catalog: readonly TracktionEffectInstallation[] | null } | null>(null);
 	const pending = useRef(false);
@@ -218,6 +221,27 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		});
 	}
 
+	function showAutomation(parameter: TracktionAutomationParameter = 'gainDb', offset = 0): void {
+		if (!workspace?.selectedTrack) return;
+		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
+		run(async () => {
+			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision, trackId, parameter, offset });
+			setAutomation({ parameter, offset, page });
+		});
+	}
+
+	function applyAutomation(edit: TracktionAutomationEdit): void {
+		if (!workspace?.selectedTrack) return;
+		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
+		run(async () => {
+			const result = await bridge.request({ ...edit, sessionId, revision, trackId });
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId));
+			const { parameter } = edit;
+			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision: result.revision, trackId, parameter, offset: 0 });
+			setAutomation({ parameter, offset: 0, page });
+		});
+	}
+
 	function exportProject(format: 'archive' | 'render'): void {
 		if (!workspace) return;
 		run(async () => {
@@ -354,6 +378,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 						setPaste(true);
 					}}>{editCopy.paste}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={showMixer}>{trackCopy.mixer}</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={() => showAutomation()}>{trackCopy.tracktionAutomation}</button>
 					<button type="button" disabled={busy || recording || playing || !workspace?.selectedTrack} onClick={showEffects}>{tracktionEffectsTitle}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
@@ -397,13 +422,15 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			onApply={applyTimelineEdit} onDismiss={() => setPaste(false)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
 			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
+		{automation && workspace?.selectedTrack && <TracktionAutomationDialog track={workspace.selectedTrack.name} {...automation}
+			busy={busy} failure={failure} onPage={showAutomation} onEdit={applyAutomation} onDismiss={() => { setAutomation(null); setFailure(''); }} />}
 		{effects && workspace?.selectedTrack && <TracktionEffectsDialog track={workspace.selectedTrack.name} {...effects}
 			{...(effects.catalog ? { onScan: scanEffects } : {})}
 			onAdd={(installationId) => editEffect({ installationId })} onRemove={(slotId) => editEffect({ slotId })} onDismiss={() => setEffects(null)} />}
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
-			{failure && <p role="alert">{failure}</p>}
+			{failure && !automation && <p role="alert">{failure}</p>}
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording} onChange={(event) => {
 					const trackId = event.currentTarget.value;

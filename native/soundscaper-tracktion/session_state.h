@@ -6,6 +6,7 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include <array>
 #include <functional>
 
 namespace soundscaper::tracktion_backend
@@ -17,6 +18,7 @@ juce::File ownedMediaFile(const juce::File& directory, const juce::String& refer
 
 void registerOfflineEffectPlugin(te::Engine&);
 void requireLiveEffectSupport(const te::Edit&);
+std::array<te::AutomatableParameter*, 2> trackAutomationParameters(te::AudioTrack&);
 
 class SessionBehaviour final : public te::EngineBehaviour
 {

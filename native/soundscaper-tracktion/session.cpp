@@ -56,7 +56,11 @@ bool admitsSampleRate(int sampleRate)
 void dispatchEditChanges(te::Edit& edit)
 {
 	for (auto* track : te::getAudioTracks(edit))
+	{
 		track->dispatchPendingClipOrdering();
+		// A hosted block can arrive before Tracktion's deferred automation timer.
+		if (auto* volume = track->getVolumePlugin()) volume->updateStreamIterators();
+	}
 	edit.dispatchPendingUpdatesSynchronously();
 }
 
@@ -282,7 +286,8 @@ TrackMix Session::trackMix(Revision expected, TrackId id) const
 	s.checkRevision(expected);
 	auto& track = s.track(id);
 	const auto* volume = track.getVolumePlugin();
-	return {volume ? volume->getVolumeDb() : 0.0f, volume ? volume->getPan() : 0.0f,
+	return {volume ? te::volumeFaderPositionToDB(volume->volParam->getCurrentExplicitValue()) : 0.0f,
+	        volume ? volume->panParam->getCurrentExplicitValue() : 0.0f,
 	        track.isMuted(false), track.isSolo(false)};
 }
 

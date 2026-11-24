@@ -25,8 +25,14 @@ void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> tr
 	const auto targets = allTracks ? te::getAudioTracks(*s.edit) : juce::Array<te::AudioTrack*>{ &s.track(*trackId) };
 	const auto sample = [&s](auto position) { return tracktion::toSamples(position, s.sampleRate); };
 	te::Clip::Array removed, intersecting, subsequent;
+	std::vector<te::AutomatableParameter*> automation;
 	for (auto* track : targets)
 	{
+		if (rippleTrack)
+			for (auto* parameter : trackAutomationParameters(*track))
+				if (parameter && parameter->getCurve().getNumPoints() > 0
+				    && parameter->getCurve().getLength() >= toDuration(range.getStart()))
+					automation.push_back(parameter);
 		for (auto* clip : track->getClips())
 		{
 			const auto position = clip->getPosition();
@@ -41,7 +47,7 @@ void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> tr
 			else intersecting.add(clip);
 		}
 	}
-	if (removed.isEmpty() && intersecting.isEmpty() && subsequent.isEmpty()) return;
+	if (removed.isEmpty() && intersecting.isEmpty() && subsequent.isEmpty() && automation.empty()) return;
 
 	s.begin("Delete time range");
 	try
@@ -65,6 +71,8 @@ void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> tr
 		}
 		for (auto* clip : subsequent)
 			clip->setPosition(s.clipPlacement(*clip, sample(clip->getPosition().getStart()) - (end - start)));
+		for (auto* parameter : automation)
+			parameter->getCurve().removePointsAndCloseGap(*parameter, te::EditTimeRange(range), &s.edit->getUndoManager());
 		if (publish) publish();
 		s.commit();
 	}

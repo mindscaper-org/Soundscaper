@@ -34,6 +34,16 @@ not duplicated facts in an automation editor or video inspector.
 
 ## Audio automation
 
+On the Tracktion branch, Soundscaper stores track gain and pan automation in
+the volume and pan plugin in each native Edit. The editor addresses points by
+project sample frame and converts gain from decibels to Tracktion's fader scale.
+Tracktion evaluates and smooths the curves in both live playback and export.
+Track ripple and insert paste use Tracktion's automation gap operations in the
+same undo transaction as the clip edit. The same Edit representation runs in
+the desktop peer and browser WASM core.
+
+The shared editor uses the automation model below.
+
 Each lane declares one timebase: `absolute-samples` stores nonnegative project
 sample frames, while `musical-beats` stores nonnegative reduced rational
 quarter-note beats from the tempo-map origin.

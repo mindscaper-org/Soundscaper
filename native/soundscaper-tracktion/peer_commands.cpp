@@ -49,12 +49,12 @@ std::int64_t boundedInteger(const juce::DynamicObject& request, const char* fiel
 	return parsed;
 }
 
-size_t pageOffset(const juce::DynamicObject& request)
+size_t arrayIndex(const juce::DynamicObject& request, const char* field)
 {
-	const auto offset = static_cast<std::uint64_t>(boundedInteger(request, "offset"));
-	if (offset > std::numeric_limits<size_t>::max())
-		throw std::invalid_argument("The Tracktion page offset is outside the project");
-	return static_cast<size_t>(offset);
+	const auto index = static_cast<std::uint64_t>(boundedInteger(request, field));
+	if (index > std::numeric_limits<size_t>::max())
+		throw std::invalid_argument("The Tracktion index is out of range");
+	return static_cast<size_t>(index);
 }
 
 float mixerValue(const juce::DynamicObject& request, const char* field, double low, double high)
@@ -73,6 +73,14 @@ juce::String text(const juce::DynamicObject& request, const char* field, int max
 	if (!value.isString() || parsed.isEmpty() || parsed.getNumBytesAsUTF8() > static_cast<size_t>(maxBytes))
 		throw std::invalid_argument("The Tracktion command contains invalid text");
 	return parsed;
+}
+
+TrackParameter trackParameter(const juce::DynamicObject& request)
+{
+	const auto parameter = text(request, "parameter", 6);
+	if (parameter == "gainDb") return TrackParameter::gainDb;
+	if (parameter == "pan") return TrackParameter::pan;
+	throw std::invalid_argument("The Tracktion automation parameter is unsupported");
 }
 
 #if ! JUCE_WASM
@@ -212,7 +220,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (payload == nullptr)
 		throw std::invalid_argument("The Tracktion command must be an object");
 	const auto& request = *payload;
-	const auto kind = text(request, "kind", 20);
+	const auto kind = text(request, "kind", 24);
 	const auto integer = [&request](const char* field) { return boundedInteger(request, field); };
 #if ! JUCE_WASM
 	if (kind == "audioHosts")
@@ -247,7 +255,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (kind == "project")
 	{
 		requireFields(request, {"offset"});
-		return projectPage(session.snapshot(), pageOffset(request));
+		return projectPage(session.snapshot(), arrayIndex(request, "offset"));
 	}
 	if (kind == "transportStatus" || kind == "prepareOutput" || kind == "play" || kind == "stop" || kind == "seek" || kind == "setLoop")
 	{
@@ -291,7 +299,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (kind == "clips")
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
-		return clipPage(session.snapshot(), itemId(request, "trackId"), pageOffset(request));
+		return clipPage(session.snapshot(), itemId(request, "trackId"), arrayIndex(request, "offset"));
 	}
 	if (kind == "trackMix")
 	{
@@ -299,11 +307,22 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		const auto mix = session.trackMix(revision, itemId(request, "trackId"));
 		return record({{"gainDb", mix.gainDb}, {"pan", mix.pan}, {"muted", mix.muted}, {"solo", mix.solo}});
 	}
+	if (kind == "trackAutomation")
+	{
+		requireFields(request, {"revision", "trackId", "parameter", "offset"});
+		const auto offset = arrayIndex(request, "offset");
+		const auto page = session.trackAutomation(revision, itemId(request, "trackId"), trackParameter(request), offset, pageSize);
+		juce::Array<juce::var> points;
+		for (const auto& point : page.points)
+			points.add(record({{"frame", number(point.frame)}, {"value", point.value}, {"curve", point.curve}}));
+		return record({{"revision", number(revision)}, {"points", juce::var(points)},
+		               {"nextOffset", pageCursor(offset + page.points.size(), page.total)}});
+	}
 	if (kind == "offlineEffects")
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
 		const auto effects = session.offlineEffects(revision, itemId(request, "trackId"));
-		const auto start = pageOffset(request);
+		const auto start = arrayIndex(request, "offset");
 		if (start > effects.size()) throw std::invalid_argument("The Tracktion offline effects page is outside the track");
 		const auto end = std::min(effects.size(), start + pageSize);
 		juce::Array<juce::var> slots;
@@ -340,6 +359,26 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		session.setTrackMix(revision, itemId(request, "trackId"),
 		                    {mixerValue(request, "gainDb", -100.0, 6.0), mixerValue(request, "pan", -1.0, 1.0),
 		                     static_cast<bool>(muted), static_cast<bool>(solo)});
+	}
+	else if (kind == "setAutomationPoint")
+	{
+		requireFields(request, {"revision", "trackId", "parameter", "index", "frame", "value", "curve"});
+		const auto parameter = trackParameter(request);
+		const auto gain = parameter == TrackParameter::gainDb;
+		const auto index = request.getProperty("index").isVoid() ? std::nullopt : std::optional{arrayIndex(request, "index")};
+		session.setAutomationPoint(revision, itemId(request, "trackId"), parameter, index,
+		                           {integer("frame"), mixerValue(request, "value", gain ? -100.0 : -1.0, gain ? 6.0 : 1.0),
+		                            mixerValue(request, "curve", -1.0, 1.0)});
+	}
+	else if (kind == "removeAutomationPoint")
+	{
+		requireFields(request, {"revision", "trackId", "parameter", "index"});
+		session.removeAutomationPoint(revision, itemId(request, "trackId"), trackParameter(request), arrayIndex(request, "index"));
+	}
+	else if (kind == "clearAutomation")
+	{
+		requireFields(request, {"revision", "trackId", "parameter"});
+		session.clearAutomation(revision, itemId(request, "trackId"), trackParameter(request));
 	}
 	else if (kind == "import")
 	{

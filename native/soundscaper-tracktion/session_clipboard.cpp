@@ -208,6 +208,15 @@ void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId
 					if (!right) throw std::invalid_argument("Tracktion could not split a clip at the paste position");
 					right->setPosition(s.clipPlacement(*right, std::max(first, start) + width));
 				}
+				for (auto* parameter : trackAutomationParameters(track))
+				{
+					if (!parameter || parameter->getCurve().getNumPoints() == 0) continue;
+					auto& curve = parameter->getCurve();
+					const auto last = tracktion::toSamples(curve.getLength(), s.sampleRate);
+					if (last < start) continue;
+					static_cast<void>(s.position(last + width));
+					curve.insertSpace(*parameter, at, tracktion::TimeDuration::fromSamples(width, s.sampleRate));
+				}
 			}
 		}
 		for (auto& clip : clips)

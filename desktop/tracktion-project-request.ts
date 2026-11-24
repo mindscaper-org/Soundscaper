@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readClosedDomainField, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
+import { isTracktionAutomationParameter, isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionProjectCommand } from '../src/soundscaper/tracktion-project-contract.ts';
 
 import { readTracktionAudioDeviceId, readTracktionAudioSetup, tracktionAudioSetupFields } from './tracktion-audio-device-wire.ts';
@@ -8,6 +9,7 @@ import { readTracktionAudioDeviceId, readTracktionAudioSetup, tracktionAudioSetu
 const SESSION_ID = /^[a-f0-9]{32}$/u;
 const ITEM_ID = /^[1-9][0-9]{0,19}$/u;
 const rangeFields = ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start', 'end'] as const;
+const automationFields = ['kind', 'sessionId', 'revision', 'trackId', 'parameter'] as const;
 const fields = {
 	create: ['kind', 'sampleRate'],
 	open: ['kind'],
@@ -15,6 +17,10 @@ const fields = {
 	clips: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
 	addTrack: ['kind', 'sessionId', 'revision', 'name'],
 	trackMix: ['kind', 'sessionId', 'revision', 'trackId'],
+	trackAutomation: [...automationFields, 'offset'],
+	setAutomationPoint: [...automationFields, 'index', 'frame', 'value', 'curve'],
+	removeAutomationPoint: [...automationFields, 'index'],
+	clearAutomation: automationFields,
 	offlineEffects: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
 	offlineEffectCatalog: ['kind', 'sessionId'],
 	scanOfflineEffects: ['kind', 'sessionId'],
@@ -80,9 +86,18 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (kind === 'pasteRange' && !['overlap', 'insertTracks', 'insertAll'].some((mode) => mode === request.mode)) {
 		throw new TypeError('Invalid Tracktion paste mode.');
 	}
+	if ('parameter' in request && !isTracktionAutomationParameter(request.parameter)) {
+		throw new TypeError('Invalid Tracktion automation parameter.');
+	}
+	if (kind === 'setAutomationPoint' && (!isTracktionAutomationParameter(request.parameter)
+		|| !isTracktionAutomationValue(request.value, TRACKTION_AUTOMATION_RANGES[request.parameter])
+		|| !isTracktionAutomationValue(request.curve, [-1, 1]))) {
+		throw new RangeError('The Tracktion automation value is out of range.');
+	}
 
 	for (const [key, field] of Object.entries(request)) {
-		if (key === 'kind' || key === 'sessionId') continue;
+		if (key === 'kind' || key === 'sessionId' || key === 'parameter') continue;
+		if (kind === 'setAutomationPoint' && (key === 'value' || key === 'curve' || (key === 'index' && field === null))) continue;
 		if (((range || kind === 'pasteRange') && key === 'mode') || (range && key === 'trackId' && field === null)) continue;
 		if (key === 'clipId' || key === 'trackId' || key === 'slotId') {
 			if (typeof field !== 'string' || !ITEM_ID.test(field) || BigInt(field) > 18_446_744_073_709_551_615n) {

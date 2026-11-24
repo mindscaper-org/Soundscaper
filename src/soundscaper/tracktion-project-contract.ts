@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from './tracktion-audio-device-contract.ts';
+import type { TracktionAutomationCommand, TracktionAutomationPage } from './tracktion-automation-contract.ts';
 import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffectPage } from './tracktion-effect-contract.ts';
 
 export interface TracktionTrackView {
@@ -99,6 +100,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'clips'; trackId: string; offset: number }>)
 	| (Edit & Readonly<{ kind: 'addTrack'; name: string }>)
 	| (Session & TracktionMixCommand)
+	| (Session & TracktionAutomationCommand)
 	| (Edit & Readonly<{ kind: 'import'; trackId: string; start: number }>)
 	| (Edit & TracktionClipCommand)
 	| (Edit & TracktionRangeCommand)
@@ -115,7 +117,8 @@ export type TracktionProjectCommand =
 export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 	Command extends { kind: 'create' | 'open' } ? TracktionOpenedProject | null
 		: Command extends { kind: 'project' } ? TracktionProjectPage
-			: Command extends { kind: 'clips' } ? TracktionClipPage
+			: Command extends { kind: 'trackAutomation' } ? TracktionAutomationPage
+				: Command extends { kind: 'clips' } ? TracktionClipPage
 				: Command extends { kind: 'offlineEffects' } ? TracktionEffectPage
 					: Command extends { kind: 'offlineEffectCatalog' | 'scanOfflineEffects' } ? readonly TracktionEffectInstallation[] | null
 				: Command extends { kind: 'trackMix' } ? TracktionTrackMix

@@ -20,7 +20,7 @@ let application;
 try {
 	await mkdir(projectDirectory);
 	await mkdir(clipboardDestination);
-	await writeFile(input, wavFixture(512));
+	await writeFile(input, wavFixture(24_576));
 	const env = { ...process.env, XDG_CONFIG_HOME: scratch, APPDATA: scratch };
 	delete env.ELECTRON_RUN_AS_NODE;
 	application = await _electron.launch({
@@ -70,15 +70,27 @@ try {
 	await range.getByRole('spinbutton', { name: 'End frame' }).fill('129');
 	await range.getByRole('combobox', { name: 'Delete mode' }).selectOption('track');
 	await range.getByRole('button', { name: 'Apply' }).click();
-	await window.getByRole('list', { name: 'Audio clips' }).getByText('reference (128–511)', { exact: true }).waitFor();
+	await window.getByRole('list', { name: 'Audio clips' }).getByText('reference (128–24575)', { exact: true }).waitFor();
+	await editing.click();
+	await window.getByRole('button', { name: 'Track automation', exact: true }).click();
+	const automation = window.getByRole('dialog', { name: 'Track automation' });
+	await automation.getByRole('spinbutton', { name: /Curve to next point/u }).fill('1');
+	await automation.getByRole('button', { name: 'Add point' }).click();
+	await automation.getByRole('option', { name: '0 · 0.000', exact: true }).waitFor({ state: 'attached' });
+	await automation.getByRole('spinbutton', { name: 'Frame' }).fill('8192');
+	await automation.getByRole('spinbutton', { name: 'Value' }).fill('-12');
+	await automation.getByRole('button', { name: 'Add point' }).click();
+	await automation.getByRole('option', { name: '8192 · -12.000', exact: true }).waitFor({ state: 'attached' });
+	await automation.getByRole('button', { name: 'Close' }).click();
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
 	assert.match(await readFile(join(projectDirectory, 'project.tracktionedit'), 'utf8'), /<EDIT\b/u);
 	await fileCommand('Export mix (WAV)');
 	await window.locator('main[aria-busy="false"]').waitFor();
 	const mix = waveData(await readFile(output));
-	assert.equal(mix.length, 511 * 4);
+	assert.equal(mix.length, 24_575 * 4);
 	assert.deepEqual([mix.readInt16LE(128 * 4), mix.readInt16LE(128 * 4 + 2)], [4096, -2048]);
+	assert.ok(Math.abs(mix.readInt16LE(4 * 12_288) - 1029) <= 2);
 	await editing.click();
 	await window.getByRole('button', { name: 'Copy', exact: true }).click();
 	const copy = window.getByRole('dialog', { name: 'Copy' });
@@ -104,7 +116,7 @@ try {
 	assert.equal(pasted.readInt16LE(20 * 4), 4096);
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
-	console.log('The prepared Soundscaper entry saved a Tracktion Edit and exported the expected cross-project clipboard PCM.');
+	console.log('The prepared Soundscaper entry saved Tracktion Edits and verified automation and cross-project clipboard PCM.');
 } finally {
 	try { await application?.close(); }
 	finally { await rm(scratch, { recursive: true, force: true }); }
