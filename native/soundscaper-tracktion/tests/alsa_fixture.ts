@@ -14,3 +14,26 @@ pcm.!default {
 }
 `);
 }
+
+export async function writeAlsaCaptureFixture(config: string, input: string): Promise<void> {
+	const pcm = Buffer.alloc(8 * 1024 * 1024);
+	const sample = Buffer.alloc(4);
+	sample.writeFloatLE(0.25);
+	pcm.fill(sample);
+	await writeFile(input, pcm);
+	await writeFile(config, `
+pcm.null { type null }
+pcm.!default {
+	type asym
+	playback.pcm "null"
+	capture.pcm {
+		type file
+		slave.pcm "null"
+		file "/dev/null"
+		infile ${JSON.stringify(input)}
+		format "raw"
+	}
+	hint.description "Soundscaper test duplex"
+}
+`);
+}

@@ -1,14 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import { writeAlsaOutputFixture } from './alsa_fixture.ts';
+import { writeAlsaCaptureFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -56,6 +56,7 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			assert.equal(split.revision, 2);
 			assert.ok(split.itemId);
 			assert.equal((await peer.request({ kind: 'undo', revision: 2 })).revision, 3);
+			assert.equal((await peer.request({ kind: 'clips', revision: 3, trackId: initialTrack.id, offset: 0 })).clips.length, 1);
 			assert.equal((await peer.request({ kind: 'redo', revision: 3 })).revision, 4);
 			await peer.request({ kind: 'save', revision: 4 });
 			await peer.request({ kind: 'render', revision: 4, start: 0, end: 87, asset });
@@ -116,7 +117,7 @@ test('Tracktion sends live project audio to the Linux ALSA output', { skip: proc
 			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings'), exchangeDirectory,
 		});
 		try {
-			assert.deepEqual(await peer.request({ kind: 'transportStatus' }), { ready: false, playing: false, frame: 0 });
+			assert.deepEqual(await peer.request({ kind: 'transportStatus' }), { ready: false, playing: false, recording: false, frame: 0 });
 			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
 			assert.ok(track);
 			await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Output check', start: 0 });
@@ -159,3 +160,86 @@ test('Tracktion sends live project audio to the Linux ALSA output', { skip: proc
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+test('Tracktion records native input as an undoable project clip', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-capture-'));
+	const config = join(root, 'alsa.conf');
+	const previous = process.env.ALSA_CONFIG_PATH;
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const launch = { executable, projectDirectory, stateDirectory: join(root, 'settings'), exchangeDirectory };
+	try {
+		await writeAlsaCaptureFixture(config, join(root, 'input.raw'));
+		await mkdir(join(exchangeDirectory, 'output'), { recursive: true });
+		process.env.ALSA_CONFIG_PATH = config;
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		try {
+			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+			assert.ok(track);
+			await peer.request({ kind: 'save', revision: 0 });
+			await peer.request({ kind: 'prepareOutput' });
+			const start = { kind: 'startRecording', revision: 0, trackId: track.id, frame: 144 } as const;
+			assert.equal((await peer.request(start)).recording, true);
+			await assert.rejects(peer.request({ kind: 'save', revision: 0 }), /recording/u);
+			const deadline = performance.now() + 3000;
+			let transport = await peer.request({ kind: 'transportStatus' });
+			while (transport.frame < 8192 && performance.now() < deadline) {
+				await sleep(10);
+				transport = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.ok(transport.frame >= 8192, `the ALSA recording playhead only reached frame ${String(transport.frame)}`);
+			const take = await peer.request({ kind: 'finishRecording', revision: 0, discard: false });
+			assert.equal(take.revision, 1);
+			assert.ok(take.itemId);
+			const { clips } = await peer.request({ kind: 'clips', revision: 1, trackId: track.id, offset: 0 });
+			assert.equal(clips.length, 1);
+			assert.equal(clips[0]?.id, take.itemId);
+			assert.equal(clips[0]?.start, 144);
+			assert.ok((clips[0]?.end ?? 0) >= 2048);
+			await peer.request({ kind: 'undo', revision: 1 });
+			assert.equal((await peer.request({ kind: 'project', offset: 0 })).tracks[0]?.clipCount, 0);
+			await peer.request({ kind: 'redo', revision: 2 });
+			await peer.request({ ...start, revision: 3 });
+			assert.deepEqual(await peer.request({ kind: 'finishRecording', revision: 3, discard: true }), { revision: 3, itemId: null });
+			const media = await readdir(join(projectDirectory, 'media'));
+			assert.equal(media.length, 1);
+			assert.match(media[0] ?? '', /^[0-9a-f]{32}\.wav$/u);
+			await peer.request({ kind: 'save', revision: 3 });
+			await peer.request({ ...start, revision: 3 });
+			await peer.close();
+			assert.deepEqual(await readdir(join(projectDirectory, 'media')), media, 'closing discards the unfinished take');
+		} finally {
+			await peer.close();
+		}
+
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			assert.equal((await reopened.request({ kind: 'project', offset: 0 })).tracks[0]?.clipCount, 1);
+			await reopened.request({ kind: 'render', revision: 0, asset, start: 144, end: 2048 });
+			const rendered = await readFile(join(exchangeDirectory, 'output', `${asset}.wav`));
+			assert.equal(rendered.subarray(0, 4).toString(), 'RIFF');
+			const pcm = waveData(rendered);
+			let matchingFrames = 0;
+			for (let offset = 0; offset + 4 <= pcm.length; offset += 4) {
+				if (Math.abs(pcm.readInt16LE(offset) - 8192) <= 1
+					&& Math.abs(pcm.readInt16LE(offset + 2) - 8192) <= 1) matchingFrames += 1;
+			}
+			assert.ok(matchingFrames >= 1024, 'captured 0.25-amplitude input survives stereo rendering');
+		} finally {
+			await reopened.close();
+		}
+	} finally {
+		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
+		else process.env.ALSA_CONFIG_PATH = previous;
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+function waveData(wave: Buffer): Buffer {
+	for (let offset = 12; offset + 8 <= wave.length;) {
+		const bytes = wave.readUInt32LE(offset + 4);
+		if (wave.toString('ascii', offset, offset + 4) === 'data') return wave.subarray(offset + 8, offset + 8 + bytes);
+		offset += 8 + bytes + (bytes % 2);
+	}
+	throw new Error('The rendered WAV has no PCM data chunk.');
+}

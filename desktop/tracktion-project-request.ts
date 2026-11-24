@@ -25,6 +25,8 @@ const fields = {
 	stop: ['kind', 'sessionId'],
 	seek: ['kind', 'sessionId', 'frame'],
 	setLoop: ['kind', 'sessionId', 'enabled', 'start', 'end'],
+	startRecording: ['kind', 'sessionId', 'revision', 'trackId', 'frame'],
+	finishRecording: ['kind', 'sessionId', 'revision', 'discard'],
 	close: ['kind', 'sessionId'],
 } as const satisfies Record<TracktionProjectCommand['kind'], readonly string[]>;
 
@@ -48,8 +50,8 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 			if (typeof field !== 'string' || !field.trim() || Buffer.byteLength(field) > 128 || field.includes('\0')) {
 				throw new TypeError('Invalid Tracktion track name.');
 			}
-		} else if (key === 'enabled') {
-			if (typeof field !== 'boolean') throw new TypeError('The Tracktion loop toggle must be a boolean.');
+		} else if (key === 'enabled' || key === 'discard') {
+			if (typeof field !== 'boolean') throw new TypeError('The Tracktion toggle must be a boolean.');
 		} else if (typeof field !== 'number' || !Number.isSafeInteger(field) || field < 0) {
 			throw new TypeError('Tracktion requires a nonnegative safe integer.');
 		}

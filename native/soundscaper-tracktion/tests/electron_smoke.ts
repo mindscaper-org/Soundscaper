@@ -5,12 +5,13 @@ import { mkdirSync, mkdtempSync } from 'node:fs';
 import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { app, type BrowserWindow } from 'electron/main';
 
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
-import { writeAlsaOutputFixture } from './alsa_fixture.ts';
+import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
@@ -47,7 +48,7 @@ async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 		await writeFile(wave, wavFixture());
 		if (process.platform === 'linux') {
 			process.env.ALSA_CONFIG_PATH = join(scratch, 'alsa.conf');
-			await writeAlsaOutputFixture(process.env.ALSA_CONFIG_PATH, join(scratch, 'output.raw'));
+			await writeAlsaCaptureFixture(process.env.ALSA_CONFIG_PATH, join(scratch, 'input.raw'));
 		}
 		editor = await openTracktionWindow({
 			bundleRoot, peer: binaryPath, scratchRoot: join(scratch, 'sessions'),
@@ -61,8 +62,8 @@ async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 		});
 		assert.equal(new URL(editor.window.webContents.getURL()).protocol, 'soundscaper-tracktion-app:');
 		assert.equal(await editor.window.webContents.executeJavaScript('typeof require'), 'undefined');
-		await runRendererWorkflow(editor.window, { scratch, projectFile, output, archive });
-		await runEditorWorkflow(editor.window);
+		const sessionId = await runRendererWorkflow(editor.window, { scratch, projectFile, output, archive });
+		await runEditorWorkflow(editor.window, sessionId);
 		console.log('The Electron renderer created, edited, saved, exported and reopened a Tracktion project.');
 	} catch (error) {
 		console.error(error);
@@ -81,7 +82,15 @@ async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 	}
 }
 
-async function runEditorWorkflow(window: BrowserWindow): Promise<void> {
+async function requestFromEditor<Command extends TracktionProjectCommand>(
+	window: BrowserWindow, command: Command,
+): Promise<TracktionProjectReply<Command>> {
+	return await window.webContents.executeJavaScript(
+		`globalThis.soundscaperTracktion.request(${JSON.stringify(command)})`,
+	) as TracktionProjectReply<Command>;
+}
+
+async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Promise<void> {
 	async function click(label: string): Promise<void> {
 		await window.webContents.executeJavaScript(`
 			Array.from(document.querySelectorAll('button, summary'))
@@ -118,18 +127,32 @@ async function runEditorWorkflow(window: BrowserWindow): Promise<void> {
 		await click('Playback and recording');
 		await click('Stop');
 		await waitForVisible('Stopped');
+		await click('Playback and recording');
+		await click('Jump to project start');
+		await waitForVisible('Stopped');
+		await click('Playback and recording');
+		await click('Record onto the active track');
+		await waitForVisible('Recording');
+		let transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
+		for (let attempt = 0; attempt < 100 && transport.frame < 4096; attempt += 1) {
+			await sleep(10);
+			transport = await requestFromEditor(window, { kind: 'transportStatus', sessionId });
+		}
+		assert.ok(transport.recording && transport.frame >= 4096);
+		await click('Playback and recording');
+		await click('Stop');
+		await waitForVisible('4 clips');
+		await click('File');
+		await click('Save project');
+		await waitForVisible('All changes saved locally');
 	}
 }
 
 async function runRendererWorkflow(
 	window: BrowserWindow,
 	paths: { scratch: string; projectFile: string; output: string; archive: string },
-): Promise<void> {
-	async function send<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
-		return await window.webContents.executeJavaScript(
-			`globalThis.soundscaperTracktion.request(${JSON.stringify(command)})`,
-		) as TracktionProjectReply<Command>;
-	}
+): Promise<string> {
+	const send = <Command extends TracktionProjectCommand>(command: Command) => requestFromEditor(window, command);
 
 	const opened = await send({ kind: 'create', sampleRate: 48_000 });
 	assert.ok(opened);
@@ -168,4 +191,5 @@ async function runRendererWorkflow(
 	assert.notEqual(reopened.sessionId, sessionId);
 	assert.equal(reopened.project.tracks[0]?.clipCount, 2);
 	await assert.rejects(send({ kind: 'project', sessionId, offset: 0 }), /expired/u);
+	return reopened.sessionId;
 }

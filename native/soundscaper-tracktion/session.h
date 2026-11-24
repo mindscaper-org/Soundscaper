@@ -77,12 +77,15 @@ public:
 	void prepareSystemOutput();
 	bool playbackReady() const;
 	bool isPlaying() const;
+	bool isRecording() const;
 	void play(Frame start);
 	void seek(Frame);
 	void setLoop(bool enabled, Frame start, Frame end);
 	Frame playbackPosition() const;
 	void stop();
 	bool processPlaybackBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) noexcept;
+	void startRecording(Revision, TrackId, Frame);
+	std::optional<ClipId> finishRecording(Revision, bool discard);
 
 	void render(Revision, const juce::File& output, Frame start, Frame end,
 	            const std::atomic_bool* cancelled = nullptr);

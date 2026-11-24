@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
-#include "session.h"
-
-#include <tracktion_engine/tracktion_engine.h>
+#include "session_state.h"
 
 #include <cmath>
 #include <set>
@@ -10,12 +8,9 @@
 
 namespace soundscaper::tracktion_backend
 {
-namespace te = tracktion::engine;
-
 namespace
 {
 const juce::Identifier projectSampleRate("soundscaperProjectSampleRate");
-constexpr auto mediaDirectory = "media";
 
 void ensureDirectory(const juce::File& directory)
 {
@@ -53,13 +48,6 @@ private:
 	juce::File directory;
 };
 
-class HeadlessBehaviour final : public te::EngineBehaviour
-{
-public:
-	bool autoInitialiseDeviceManager() override { return false; }
-	bool shouldLoadPlugin(te::ExternalPlugin&) override { return false; }
-};
-
 bool admitsSampleRate(int sampleRate)
 {
 	return sampleRate >= 8000 && sampleRate <= 192000;
@@ -67,136 +55,121 @@ bool admitsSampleRate(int sampleRate)
 
 void endTransaction(te::Edit& edit)
 {
+	for (auto* track : te::getAudioTracks(edit))
+		track->dispatchPendingClipOrdering();
 	edit.dispatchPendingUpdatesSynchronously();
 	edit.getUndoManager().beginNewTransaction();
 }
 }
 
-struct Session::State
+Session::State::State(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int requestedSampleRate)
+	: directory(directory), editFile(directory.getChildFile("project.tracktionedit")),
+	  engine(std::make_unique<HeadlessSettings>(stateDirectory),
+	         nullptr, std::make_unique<SessionBehaviour>())
 {
-	State(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int requestedSampleRate)
-		: directory(directory), editFile(directory.getChildFile("project.tracktionedit")),
-		  engine(std::make_unique<HeadlessSettings>(stateDirectory),
-		         nullptr, std::make_unique<HeadlessBehaviour>())
-	{
-		auto tree = mode == OpenMode::create ? newProject(requestedSampleRate) : openProject();
-		sampleRate = static_cast<int>(tree[projectSampleRate]);
-		if (!admitsSampleRate(sampleRate))
-			throw std::invalid_argument("The project sample rate is invalid");
-		edit = makeEdit(std::move(tree), te::Edit::forEditing);
-		if (edit == nullptr)
-			throw std::runtime_error("Cannot create the Tracktion Edit");
-		edit->alwaysUseRelativePaths = true;
-		for (auto* track : te::getAudioTracks(*edit))
-			for (auto* clip : track->getClips())
-				if (dynamic_cast<te::WaveAudioClip*>(clip) == nullptr
-				    || !clip->getSourceFileReference().getFile().existsAsFile())
-					throw std::invalid_argument("The project contains missing or unsupported clip media");
-		endTransaction(*edit);
-		edit->getUndoManager().clearUndoHistory();
-	}
+	auto tree = mode == OpenMode::create ? newProject(requestedSampleRate) : openProject();
+	sampleRate = static_cast<int>(tree[projectSampleRate]);
+	if (!admitsSampleRate(sampleRate))
+		throw std::invalid_argument("The project sample rate is invalid");
+	edit = makeEdit(std::move(tree), te::Edit::forEditing);
+	if (edit == nullptr)
+		throw std::runtime_error("Cannot create the Tracktion Edit");
+	edit->alwaysUseRelativePaths = true;
+	for (auto* track : te::getAudioTracks(*edit))
+		for (auto* clip : track->getClips())
+			if (dynamic_cast<te::WaveAudioClip*>(clip) == nullptr
+			    || !clip->getSourceFileReference().getFile().existsAsFile())
+				throw std::invalid_argument("The project contains missing or unsupported clip media");
+	endTransaction(*edit);
+	edit->getUndoManager().clearUndoHistory();
+}
 
-	std::unique_ptr<te::Edit> makeEdit(juce::ValueTree tree, te::Edit::EditRole role)
-	{
-		return te::Edit::createEdit({
-			.engine = engine,
-			.editState = std::move(tree),
-			.editProjectItemID = te::ProjectItemID::createNewID(te::ProjectID{}),
-			.role = role,
-			.editFileRetriever = [file = editFile] { return file; },
-			.filePathResolver = [folder = directory](const juce::String& reference)
-			{
-				return ownedMediaFile(folder, reference);
-			},
-			.defaultMasterVolumedB = 0.0f,
-		});
-	}
+std::unique_ptr<te::Edit> Session::State::makeEdit(juce::ValueTree tree, te::Edit::EditRole role)
+{
+	return te::Edit::createEdit({
+		.engine = engine,
+		.editState = std::move(tree),
+		.editProjectItemID = te::ProjectItemID::createNewID(te::ProjectID{}),
+		.role = role,
+		.editFileRetriever = [file = editFile] { return file; },
+		.filePathResolver = [folder = directory](const juce::String& reference)
+		{
+			return ownedMediaFile(folder, reference);
+		},
+		.defaultMasterVolumedB = 0.0f,
+	});
+}
 
-	juce::ValueTree newProject(int rate)
-	{
-		if (!admitsSampleRate(rate))
-			throw std::invalid_argument("The project sample rate is invalid");
-		ensureDirectory(directory);
-		if (directory.getNumberOfChildFiles(juce::File::findFilesAndDirectories) != 0)
-			throw std::invalid_argument("A new Tracktion project requires an empty directory");
-		ensureDirectory(directory.getChildFile(mediaDirectory));
-		auto tree = te::createEmptyEdit(engine);
-		tree.setProperty(projectSampleRate, rate, nullptr);
-		return tree;
-	}
+juce::ValueTree Session::State::newProject(int rate)
+{
+	if (!admitsSampleRate(rate))
+		throw std::invalid_argument("The project sample rate is invalid");
+	ensureDirectory(directory);
+	if (directory.getNumberOfChildFiles(juce::File::findFilesAndDirectories) != 0)
+		throw std::invalid_argument("A new Tracktion project requires an empty directory");
+	ensureDirectory(directory.getChildFile(mediaDirectory));
+	auto tree = te::createEmptyEdit(engine);
+	tree.setProperty(projectSampleRate, rate, nullptr);
+	return tree;
+}
 
-	juce::ValueTree openProject() const
-	{
-		if (directory.isSymbolicLink() || editFile.isSymbolicLink() || !editFile.existsAsFile()
-		    || editFile.getSize() > 16 * 1024 * 1024)
-			throw std::invalid_argument("The Tracktion Edit is missing or too large");
-		const auto xml = juce::parseXML(editFile);
-		if (xml == nullptr || !xml->hasTagName("EDIT") || !xml->hasAttribute(projectSampleRate.toString()))
-			throw std::invalid_argument("The file is not an experimental Soundscaper Tracktion Edit");
-		return juce::ValueTree::fromXml(*xml);
-	}
+juce::ValueTree Session::State::openProject() const
+{
+	if (directory.isSymbolicLink() || editFile.isSymbolicLink() || !editFile.existsAsFile()
+	    || editFile.getSize() > 16 * 1024 * 1024)
+		throw std::invalid_argument("The Tracktion Edit is missing or too large");
+	const auto xml = juce::parseXML(editFile);
+	if (xml == nullptr || !xml->hasTagName("EDIT") || !xml->hasAttribute(projectSampleRate.toString()))
+		throw std::invalid_argument("The file is not an experimental Soundscaper Tracktion Edit");
+	return juce::ValueTree::fromXml(*xml);
+}
 
-	tracktion::TimePosition position(Frame frame) const
-	{
-		const auto end = tracktion::toSamples(te::Edit::getMaximumEditEnd(), sampleRate);
-		if (frame < 0 || frame > end)
-			throw std::invalid_argument("Timeline frame is outside the Edit");
-		return tracktion::TimePosition::fromSamples(frame, sampleRate);
-	}
+tracktion::TimePosition Session::State::position(Frame frame) const
+{
+	const auto end = tracktion::toSamples(te::Edit::getMaximumEditEnd(), sampleRate);
+	if (frame < 0 || frame > end)
+		throw std::invalid_argument("Timeline frame is outside the Edit");
+	return tracktion::TimePosition::fromSamples(frame, sampleRate);
+}
 
-	void checkRevision(Revision expected) const
-	{
-		if (expected != revision)
-			throw std::invalid_argument("The Tracktion Edit revision has changed");
-	}
+void Session::State::checkRevision(Revision expected, bool finishingRecording) const
+{
+	if (expected != revision)
+		throw std::invalid_argument("The Tracktion Edit revision has changed");
+	if (!finishingRecording)
+		requireNoRecording();
+}
 
-	te::AudioTrack& track(TrackId id) const
-	{
-		for (auto* track : te::getAudioTracks(*edit))
-			if (track->itemID.getRawID() == id)
-				return *track;
-		throw std::invalid_argument("Unknown Tracktion audio track");
-	}
+te::AudioTrack& Session::State::track(TrackId id) const
+{
+	for (auto* track : te::getAudioTracks(*edit))
+		if (track->itemID.getRawID() == id)
+			return *track;
+	throw std::invalid_argument("Unknown Tracktion audio track");
+}
 
-	std::pair<te::AudioTrack&, te::Clip&> clip(ClipId id) const
-	{
-		for (auto* track : te::getAudioTracks(*edit))
-			for (auto* item : track->getClips())
-				if (item->itemID.getRawID() == id)
-					return {*track, *item};
-		throw std::invalid_argument("Unknown Tracktion clip");
-	}
+std::pair<te::AudioTrack&, te::Clip&> Session::State::clip(ClipId id) const
+{
+	for (auto* track : te::getAudioTracks(*edit))
+		for (auto* item : track->getClips())
+			if (item->itemID.getRawID() == id)
+				return {*track, *item};
+	throw std::invalid_argument("Unknown Tracktion clip");
+}
 
-	void begin(const char* name)
-	{
-		edit->getUndoManager().beginNewTransaction(name);
-	}
+void Session::State::begin(const char* name)
+{
+	edit->getUndoManager().beginNewTransaction(name);
+}
 
-	void commit()
-	{
-		endTransaction(*edit);
-		++revision;
-	}
-
-	juce::File directory;
-	juce::File editFile;
-	te::Engine engine;
-	std::unique_ptr<te::Edit> edit;
-	Revision revision = 0;
-	int sampleRate = 0;
-	te::HostedAudioDeviceInterface* playback = nullptr;
-	int playbackBlockFrames = 0;
-	bool systemOutput = false;
-};
+void Session::State::commit()
+{
+	endTransaction(*edit);
+	++revision;
+}
 
 Session::Session(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int sampleRate)
 	: state(std::make_unique<State>(directory, stateDirectory, mode, sampleRate)) {}
-
-Session::~Session()
-{
-	if (state->systemOutput)
-		state->engine.getDeviceManager().deviceManager.closeAudioDevice();
-}
 
 Revision Session::revision() const noexcept
 {
@@ -389,121 +362,6 @@ void Session::archive(Revision expected, const juce::File& output)
 	                       te::ArchiveJob::CompressionLevel::fastest);
 	if (!archive.runSynchronously() || !staging.overwriteTargetFileWithTemporary())
 		throw std::runtime_error("Cannot publish the Tracktion archive");
-}
-
-void Session::preparePlayback(int blockFrames)
-{
-	auto& s = *state;
-	if (s.systemOutput || s.playback != nullptr || blockFrames < 32 || blockFrames > 4096)
-		throw std::invalid_argument("Tracktion playback requires one device block size from 32 to 4096");
-	auto& devices = s.engine.getDeviceManager();
-	auto& playback = devices.getHostedAudioDeviceInterface();
-	te::HostedAudioDeviceInterface::Parameters format;
-	format.sampleRate = s.sampleRate;
-	format.blockSize = blockFrames;
-	format.inputChannels = 0;
-	format.outputChannels = 2;
-	playback.initialise(format);
-	playback.prepareToPlay(format.sampleRate, format.blockSize);
-	devices.dispatchPendingUpdates();
-	s.edit->dispatchPendingUpdatesSynchronously();
-	s.edit->getTransport().ensureContextAllocated();
-	s.playbackBlockFrames = blockFrames;
-	s.playback = &playback;
-}
-
-void Session::prepareSystemOutput()
-{
-	auto& s = *state;
-	if (s.playback != nullptr)
-		throw std::invalid_argument("The Tracktion session already has a hosted device");
-	auto& devices = s.engine.getDeviceManager();
-	auto* output = devices.deviceManager.getCurrentAudioDevice();
-	if (s.systemOutput && output != nullptr && output->isOpen())
-		return;
-	devices.initialise(0, 2);
-	output = devices.deviceManager.getCurrentAudioDevice();
-	if (output == nullptr || !output->isOpen() || output->getActiveOutputChannels().countNumberOfSetBits() < 2)
-	{
-		devices.deviceManager.closeAudioDevice();
-		throw std::invalid_argument("Tracktion could not open the default stereo output device");
-	}
-	s.systemOutput = true;
-	devices.dispatchPendingUpdates();
-	s.edit->getTransport().ensureContextAllocated();
-}
-
-bool Session::playbackReady() const
-{
-	auto& s = *state;
-	auto* output = s.systemOutput ? s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice() : nullptr;
-	if (s.playback == nullptr && (output == nullptr || !output->isOpen()))
-		return false;
-	auto& cache = s.engine.getAudioFileManager().cache;
-	for (auto* track : te::getAudioTracks(*s.edit))
-		for (auto* clip : track->getClips())
-		{
-			const auto file = clip->getSourceFileReference().getFile();
-			if (!file.existsAsFile() || !cache.hasMappedReader(te::AudioFile(s.engine, file), 0))
-				return false;
-		}
-	return true;
-}
-
-bool Session::isPlaying() const { return state->edit->getTransport().isPlaying(); }
-
-void Session::play(Frame start)
-{
-	auto& s = *state;
-	if (s.playback == nullptr && !s.systemOutput)
-		throw std::invalid_argument("Prepare the Tracktion playback device before playing");
-	auto& transport = s.edit->getTransport();
-	transport.setPosition(s.position(start));
-	transport.play(false);
-}
-
-void Session::seek(Frame frame)
-{
-	state->edit->getTransport().setPosition(state->position(frame));
-}
-
-void Session::setLoop(bool enabled, Frame start, Frame end)
-{
-	auto& transport = state->edit->getTransport();
-	if (enabled)
-	{
-		const auto from = state->position(start);
-		const auto until = state->position(end);
-		if (start >= end)
-			throw std::invalid_argument("Loop must contain at least one frame");
-		transport.setLoopRange({from, until});
-	}
-	transport.looping = enabled;
-}
-
-Frame Session::playbackPosition() const
-{
-	const auto& transport = state->edit->getTransport();
-	auto* context = transport.getCurrentPlaybackContext();
-	const auto position = transport.isPlaying() && context != nullptr
-		? context->getAudibleTimelineTime()
-		: transport.getPosition();
-	return tracktion::toSamples(position, state->sampleRate);
-}
-
-void Session::stop()
-{
-	state->edit->getTransport().stop(false, false, false);
-}
-
-bool Session::processPlaybackBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) noexcept
-{
-	const auto& s = *state;
-	audio.clear();
-	if (s.playback == nullptr || audio.getNumChannels() != 2 || audio.getNumSamples() != s.playbackBlockFrames)
-		return false;
-	s.playback->processBlock(audio, midi);
-	return true;
 }
 
 void Session::render(Revision expected, const juce::File& output, Frame start, Frame end,

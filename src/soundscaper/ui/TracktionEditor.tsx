@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-recovery-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
@@ -21,14 +22,15 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 	const [failure, setFailure] = useState('');
 	const pending = useRef(false);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
+	const recording = transport?.recording === true;
 	const menuBar = useRef<HTMLElement>(null);
 
 	useEffect(() => {
-		if (!dirty) return;
+		if (!dirty && !recording) return;
 		const onUnload = (event: BeforeUnloadEvent) => event.preventDefault();
 		window.addEventListener('beforeunload', onUnload);
 		return () => window.removeEventListener('beforeunload', onUnload);
-	}, [dirty]);
+	}, [dirty, recording]);
 
 	function run(work: () => Promise<void>): void {
 		if (pending.current) return;
@@ -103,39 +105,75 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 		});
 	}
 
+	function startRecording(): void {
+		if (!workspace?.selectedTrack) return;
+		const trackId = workspace.selectedTrack.id;
+		run(async () => {
+			setTransport(await bridge.request({
+				kind: 'startRecording', sessionId: workspace.sessionId, revision: workspace.project.revision,
+				trackId, frame: transport?.frame ?? 0,
+			}));
+		});
+	}
+
+	function finishRecording(discard: boolean): void {
+		if (!workspace) return;
+		run(async () => {
+			const result = await bridge.request({
+				kind: 'finishRecording', sessionId: workspace.sessionId, revision: workspace.project.revision, discard,
+			});
+			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }));
+			if (result.itemId) {
+				setWorkspace(await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
+				setStatus('Recording added to the track');
+			} else {
+				setStatus(discard ? 'Recording discarded' : 'No audio was recorded');
+			}
+		});
+	}
+
 	return <>
 		<nav ref={menuBar} aria-label="Application menu">
 			<details>
 				<summary>File</summary>
 				<div>
-					<button type="button" disabled={busy} onClick={() => open('create')}>{copy.newProject}</button>
-					<button type="button" disabled={busy} onClick={() => open('open')}>{copy.openProject}</button>
-					<button type="button" disabled={busy || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
-					<button type="button" disabled={busy || !workspace} onClick={save}>{copy.saveProject}</button>
-					<button type="button" disabled={busy || !workspace} onClick={close}>{copy.closeProject}</button>
+					<button type="button" disabled={busy || recording} onClick={() => open('create')}>{copy.newProject}</button>
+					<button type="button" disabled={busy || recording} onClick={() => open('open')}>{copy.openProject}</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
+					<button type="button" disabled={busy || recording || !workspace} onClick={save}>{copy.saveProject}</button>
+					<button type="button" disabled={busy || recording || !workspace} onClick={close}>{copy.closeProject}</button>
 				</div>
 			</details>
 			<details>
 				<summary>{transportCopy.transport}</summary>
 				<div>
-					<button type="button" disabled={busy || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
+					<button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
 						{transportCopy.play}
 					</button>
-					<button type="button" disabled={busy || !transport?.playing} onClick={() => controlPlayback('stop')}>
+					<button type="button" disabled={busy || (!recording && !transport?.playing)} onClick={() => {
+						if (recording) finishRecording(false);
+						else controlPlayback('stop');
+					}}>
 						{transportCopy.stop}
 					</button>
-					<button type="button" disabled={busy || !workspace} onClick={() => controlPlayback('seek')}>
+					<button type="button" disabled={busy || recording || !workspace} onClick={() => controlPlayback('seek')}>
 						{transportCopy.jumpStart}
 					</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack || transport?.playing} onClick={startRecording}>
+						{transportCopy.recordActiveTrack}
+					</button>
+					{recording && <button type="button" disabled={busy} onClick={() => finishRecording(true)}>
+						{RECORDING_RECOVERY_COPY.ordinaryRecoveryDiscard}
+					</button>}
 				</div>
 			</details>
 		</nav>
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
-			{status && <p role="status">{status}</p>}
+			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
 			{failure && <p role="alert">{failure}</p>}
 			{workspace && <>
-				<label>{TRACK_COPY_BY_LOCALE.en.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy} onChange={(event) => {
+				<label>{TRACK_COPY_BY_LOCALE.en.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording} onChange={(event) => {
 					const trackId = event.currentTarget.value;
 					run(async () => setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId)));
 				}}>

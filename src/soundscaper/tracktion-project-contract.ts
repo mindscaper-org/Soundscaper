@@ -43,6 +43,7 @@ export interface TracktionOpenedProject {
 export interface TracktionTransportView {
 	readonly ready: boolean;
 	readonly playing: boolean;
+	readonly recording: boolean;
 	readonly frame: number;
 }
 
@@ -50,6 +51,10 @@ export type TracktionTransportCommand =
 	| Readonly<{ kind: 'transportStatus' | 'prepareOutput' | 'stop' }>
 	| Readonly<{ kind: 'play' | 'seek'; frame: number }>
 	| Readonly<{ kind: 'setLoop'; enabled: boolean; start: number; end: number }>;
+
+export type TracktionRecordingCommand =
+	| Readonly<{ kind: 'startRecording'; revision: number; trackId: string; frame: number }>
+	| Readonly<{ kind: 'finishRecording'; revision: number; discard: boolean }>;
 
 type Session = Readonly<{ sessionId: string }>;
 type Edit = Session & Readonly<{ revision: number }>;
@@ -67,6 +72,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)
 	| (Session & TracktionTransportCommand)
+	| (Session & TracktionRecordingCommand)
 	| (Session & Readonly<{ kind: 'close' }>);
 
 export type TracktionProjectReply<Command extends TracktionProjectCommand> =
@@ -74,7 +80,7 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 		: Command extends { kind: 'project' } ? TracktionProjectPage
 			: Command extends { kind: 'clips' } ? TracktionClipPage
 				: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
-					: Command extends TracktionTransportCommand ? TracktionTransportView
+					: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
 						: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionDesktopBridge {

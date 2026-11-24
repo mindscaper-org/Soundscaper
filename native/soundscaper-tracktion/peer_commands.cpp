@@ -132,6 +132,14 @@ juce::var clipPage(const ProjectView& project, TrackId id, size_t start)
 }
 }
 
+juce::var transportView(Session& session)
+{
+	return record({
+		{"ready", session.playbackReady()}, {"playing", session.isPlaying()}, {"recording", session.isRecording()},
+		{"frame", number(std::max(Frame{}, session.playbackPosition()))},
+	});
+}
+
 juce::var dispatch(Session& session, const juce::File& exchange, const juce::var& value)
 {
 	const auto* payload = value.getDynamicObject();
@@ -170,10 +178,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 			if (kind == "prepareOutput") session.prepareSystemOutput();
 			if (kind == "stop") session.stop();
 		}
-		return record({
-			{"ready", session.playbackReady()}, {"playing", session.isPlaying()},
-			{"frame", number(std::max(Frame{}, session.playbackPosition()))},
-		});
+		return transportView(session);
 	}
 
 	const auto revision = static_cast<Revision>(integer("revision"));
@@ -181,12 +186,25 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		throw std::invalid_argument("The Tracktion Edit revision has changed");
 
 	std::uint64_t created = 0;
+	if (kind == "startRecording")
+	{
+		requireFields(request, {"revision", "trackId", "frame"});
+		session.startRecording(revision, itemId(request, "trackId"), integer("frame"));
+		return transportView(session);
+	}
 	if (kind == "clips")
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
 		return clipPage(session.snapshot(), itemId(request, "trackId"), static_cast<size_t>(integer("offset")));
 	}
-	if (kind == "addTrack")
+	if (kind == "finishRecording")
+	{
+		requireFields(request, {"revision", "discard"});
+		const auto& discard = request.getProperty("discard");
+		if (!discard.isBool()) throw std::invalid_argument("The Tracktion discard flag must be a boolean");
+		created = session.finishRecording(revision, static_cast<bool>(discard)).value_or(0);
+	}
+	else if (kind == "addTrack")
 	{
 		requireFields(request, {"revision", "name"});
 		created = session.addTrack(revision, text(request, "name", 128).toStdString());
