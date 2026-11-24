@@ -62,13 +62,14 @@ test('the Soundscaper professional cache covers exactly the inputs to all native
 test('retained OrbitAmp source archives provision and authenticate without their upstream URLs', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'm5-provision-retained-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
-	const args = ['--source', 'orbit-core', '--source', 'orbit-appkit', '--root', root];
+	const sources = ['orbit-amp', 'orbit-core', 'orbit-guitar', 'orbit-appkit', 'orbit-eigen'];
+	const args = [...sources.flatMap(id => ['--source', id]), '--root', root];
 	const provisioned = provision(args, ['--permission', '--allow-fs-read=*', '--allow-fs-write=*']);
 	assert.equal(provisioned.status, 0, provisioned.output);
-	for (const id of ['orbit-core', 'orbit-appkit']) assert.match(provisioned.output, new RegExp(`provisioned\\s+${id}\\b`, 'u'));
+	for (const id of sources) assert.match(provisioned.output, new RegExp(`provisioned\\s+${id}\\b`, 'u'));
 	const checked = provision(['--check', ...args]);
 	assert.equal(checked.status, 0, checked.output);
-	assert.match(checked.output, /2\/2 exact archive\/extracted-tree inputs authenticated/u);
+	assert.match(checked.output, /5\/5 exact archive\/extracted-tree inputs authenticated/u);
 });
 
 test('an archive that does not match its pin provisions nothing', async (context) => {

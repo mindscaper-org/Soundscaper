@@ -121,7 +121,8 @@ and must report that fact.
 
 The optional native source cache is uncommitted build input. Provisioning verifies
 each archive and extracted tree against the [acquisitions register](../../config/milestone-5-native-source-acquisitions.json).
-The original `orbit-core` and `orbit-appkit` archives are retained under
+The original `orbit-amp`, `orbit-core`, `orbit-guitar`, `orbit-appkit`, and
+`orbit-eigen` archives are retained under
 [`vendor/milestone-5-source-archives/`](../../vendor/milestone-5-source-archives/)
 with their upstream licenses and notices so builds can use the pinned revisions
 while the upstream archives are unavailable.
