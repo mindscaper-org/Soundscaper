@@ -63,7 +63,8 @@ struct Session::State
 	bool outputWasInterrupted = false;
 	bool systemDeviceManagerInitialised = false;
 	std::optional<AppliedAudioSetup> systemAudioSetup;
-	juce::String systemInputName, systemOutputName, systemHostName;
+	juce::String systemOutputName, systemHostName;
+	juce::String recordingInputName() const;
 	bool hasSystemOutput() const;
 	std::optional<Recording> recording;
 	std::optional<InterruptedTake> recoveredRecording;

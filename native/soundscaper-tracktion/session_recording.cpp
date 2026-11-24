@@ -20,18 +20,6 @@ juce::File SessionBehaviour::getFileForNewAudioRecording(te::Track&, const juce:
 
 namespace
 {
-juce::String defaultInput(juce::AudioDeviceManager& devices)
-{
-	if (const auto* type = devices.getCurrentDeviceTypeObject())
-	{
-		const auto names = type->getDeviceNames(true);
-		const auto index = type->getDefaultDeviceIndex(true);
-		if (juce::isPositiveAndBelow(index, names.size()))
-			return names[index];
-	}
-	return {};
-}
-
 void armInput(te::Edit& edit, te::EditItemID track, juce::String& inputId)
 {
 	auto& devices = edit.engine.getDeviceManager();
@@ -67,11 +55,9 @@ void armInput(te::Edit& edit, te::EditItemID track, juce::String& inputId)
 }
 
 void openSystemInput(te::DeviceManager& devices, juce::AudioDeviceManager::AudioDeviceSetup setup,
-                     juce::String name, int channel)
+                     const juce::String& name, int channel)
 {
-	setup.inputDeviceName = name.isEmpty() ? defaultInput(devices.deviceManager) : name;
-	if (setup.inputDeviceName.isEmpty())
-		throw std::invalid_argument("The default audio input device is unavailable");
+	setup.inputDeviceName = name;
 	setup.inputChannels.clear();
 	setup.inputChannels.setBit(channel);
 	setup.useDefaultInputChannels = false;
@@ -81,7 +67,7 @@ void openSystemInput(te::DeviceManager& devices, juce::AudioDeviceManager::Audio
 	    || device->getActiveOutputChannels() != setup.outputChannels
 	    || device->getCurrentSampleRate() != setup.sampleRate
 	    || device->getCurrentBufferSizeSamples() != setup.bufferSize)
-		throw std::invalid_argument("Tracktion could not open the default recording input");
+		throw std::invalid_argument("Tracktion could not open the selected recording input");
 	devices.deviceManager.dispatchPendingMessages();
 	devices.rescanWaveDeviceList();
 	devices.dispatchPendingUpdates();
@@ -143,10 +129,12 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 		throw std::invalid_argument("Stop playback and turn off loop or punch recording before recording a take");
 	auto& devices = s.engine.getDeviceManager();
 	std::optional<juce::AudioDeviceManager::AudioDeviceSetup> outputSetup;
+	juce::String inputName;
 	if (s.playback == nullptr)
 	{
 		prepareSystemOutput();
 		outputSetup = devices.deviceManager.getAudioDeviceSetup();
+		inputName = s.recordingInputName();
 	}
 	else if (!s.hostedMonoInput)
 		throw std::invalid_argument("The Tracktion hosted device has no recording input");
@@ -164,7 +152,7 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	try
 	{
 		const auto channel = s.systemAudioSetup ? s.systemAudioSetup->setup.inputChannel : 0;
-		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup, s.systemInputName, channel);
+		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup, inputName, channel);
 		armInput(*s.edit, target, s.recording->inputId);
 		s.edit->dispatchPendingUpdatesSynchronously();
 		s.begin("Record audio");

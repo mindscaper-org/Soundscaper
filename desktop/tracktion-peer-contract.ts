@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from '../src/soundscaper/tracktion-audio-device-contract.ts';
+import type {
+	TracktionAppliedAudioSetup, TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionAudioSetup,
+} from '../src/soundscaper/tracktion-audio-device-contract.ts';
 import type {
 	TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
@@ -13,6 +15,7 @@ export const TRACKTION_CONTROL_BYTES = 64 * 1024;
 const PAGE_SIZE = 32;
 
 type Revision = Readonly<{ revision: number }>;
+type RestoreOutput = Readonly<{ kind: 'restoreOutput' }> & TracktionAudioSetup;
 
 export type TracktionCommand =
 	| Readonly<{ kind: 'project'; offset: number }>
@@ -29,6 +32,7 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
 	| TracktionAudioDeviceCommand
+	| RestoreOutput
 	| TracktionTransportCommand
 	| TracktionRecordingCommand;
 
@@ -36,7 +40,8 @@ export type TracktionReply<Command extends TracktionCommand> = Command extends {
 	: Command extends { kind: 'clips' } ? TracktionClipPage
 		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
-				: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
+				: Command extends RestoreOutput ? TracktionAppliedAudioSetup
+					: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -76,6 +81,9 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (command.kind === 'trackMix') return readTracktionTrackMix(value) as TracktionReply<Command>;
 	if (command.kind === 'audioHosts' || command.kind === 'audioDevices' || command.kind === 'setAudioSetup') {
 		return readTracktionAudioDeviceReply(value, command) as TracktionReply<Command>;
+	}
+	if (command.kind === 'restoreOutput') {
+		return readTracktionAudioDeviceReply(value, { ...command, kind: 'setAudioSetup' }) as TracktionReply<Command>;
 	}
 	if (transportKinds.has(command.kind)) return readTracktionTransportView(value) as TracktionReply<Command>;
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');

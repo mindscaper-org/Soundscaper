@@ -95,7 +95,7 @@ void Session::prepareSystemOutput()
 		return;
 	if (s.systemAudioSetup)
 	{
-		setAudioSetup(s.systemAudioSetup->setup);
+		setAudioSetup(s.systemAudioSetup->setup, AudioSetupMode::outputOnly);
 		return;
 	}
 	devices.initialise(0, 2);

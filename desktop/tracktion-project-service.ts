@@ -160,7 +160,7 @@ export class TracktionProjectService {
 		if (!active.audioPreferencesApplied && (command.kind === 'prepareOutput' || command.kind === 'startRecording')) {
 			const preferences = await this.#ports.audioPreferences?.read();
 			this.#assertOwner(owner, signal);
-			if (preferences) await active.peer.request({ kind: 'setAudioSetup', ...preferences });
+			if (preferences) await active.peer.request({ kind: 'restoreOutput', ...preferences });
 			this.#assertOwner(owner, signal);
 			active.audioPreferencesApplied = true;
 		}

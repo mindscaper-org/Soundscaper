@@ -12,7 +12,9 @@ import { app, type BrowserWindow } from 'electron/main';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
-import { removePipeWireFixtureSink, removePipeWireFixtureSource, restorePipeWireFixtureSink } from './pipewire_fixture.ts';
+import {
+	removePipeWireFixtureSink, removePipeWireFixtureSource, restorePipeWireFixtureSink, restorePipeWireFixtureSource,
+} from './pipewire_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
@@ -179,6 +181,17 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Playback and recording');
 		await click('Audio setup');
 		await waitFor('document.querySelector("dialog[open] select[name=outputId]") !== null');
+		const testMissingMicrophone = process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE === '1';
+		if (testMissingMicrophone) {
+			await window.webContents.executeJavaScript(`
+				for (const [field, label] of [['inputId', 'tracktion.test.microphone'], ['outputId', 'tracktion.test.speakers']]) {
+					const select = document.querySelector('dialog[open] select[name=' + field + ']');
+					const option = Array.from(select.options).find((entry) => entry.textContent === label);
+					if (!option) throw new Error('Missing named PipeWire fixture ' + label);
+					select.value = option.value;
+				}
+			`);
+		}
 		await click('Apply');
 		await waitFor('document.querySelector("dialog[open]") === null');
 		const audioSetup = (await requestFromEditor(window, { kind: 'audioHosts', sessionId })).selected;
@@ -205,7 +218,7 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Playback and recording');
 		await click('Record onto the active track');
 		await waitForVisible('Recording');
-		if (process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE === '1') {
+		if (testMissingMicrophone) {
 			await sleep(280);
 			removePipeWireFixtureSource();
 			await waitForVisible('Recording added to the track');
@@ -234,6 +247,23 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await requestFromEditor(window, { kind: 'prepareOutput', sessionId: reopened.sessionId });
 		const resumed = await requestFromEditor(window, { kind: 'audioHosts', sessionId: reopened.sessionId });
 		assert.deepEqual(resumed.selected?.setup, audioSetup.setup);
+		if (testMissingMicrophone) {
+			const { tracks, revision } = reopened.project;
+			const track = tracks[0];
+			assert.ok(track);
+			const record = { kind: 'startRecording', sessionId: reopened.sessionId, revision, trackId: track.id, frame: 0 } as const;
+			const devices = await requestFromEditor(window, { kind: 'audioDevices', sessionId: reopened.sessionId, hostId: audioSetup.setup.hostId });
+			assert.ok(devices.inputs.some(({ name }) => name === 'tracktion.test.recovery-microphone'));
+			await assert.rejects(requestFromEditor(window, { kind: 'setAudioSetup', sessionId: reopened.sessionId, ...audioSetup.setup }), /unavailable/u);
+			await assert.rejects(requestFromEditor(window, record), /unavailable/u);
+			assert.equal((await requestFromEditor(window, { kind: 'play', sessionId: reopened.sessionId, frame: 0 })).playing, true);
+			await requestFromEditor(window, { kind: 'stop', sessionId: reopened.sessionId });
+			restorePipeWireFixtureSource();
+			assert.equal((await requestFromEditor(window, record)).recording, true);
+			await sleep(220);
+			const take = await requestFromEditor(window, { kind: 'finishRecording', sessionId: reopened.sessionId, revision, discard: false });
+			assert.ok(take.itemId, 'the saved name can record again when the same device returns');
+		}
 	}
 }
 

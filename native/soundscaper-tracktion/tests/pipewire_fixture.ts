@@ -7,6 +7,18 @@ export function removePipeWireFixtureSource(name: 'tracktion.test.microphone' | 
 	removeFixtureNode(name);
 }
 
+export function restorePipeWireFixtureSource(): void {
+	execFileSync('pw-cli', ['create-node', 'adapter', `{
+		factory.name = audiotestsrc
+		node.name = tracktion.test.microphone
+		media.class = Audio/Source
+		audio.channels = 2
+		audio.position = [ FL FR ]
+		adapter.auto-port-config = { mode = dsp monitor = false position = preserve }
+		object.linger = true
+	}`]);
+}
+
 const fixtureSink = 'tracktion.test.speakers';
 
 export function removePipeWireFixtureSink(): void {

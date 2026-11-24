@@ -56,6 +56,17 @@ juce::String deviceName(const juce::StringArray& names, const std::string& id, i
 	throw std::invalid_argument("The selected Tracktion audio device is unavailable");
 }
 
+juce::String selectedInput(juce::AudioIODeviceType& type, const AudioSetup& requested, const juce::String& outputName)
+{
+	const auto names = type.getDeviceNames(true);
+	const auto separate = type.hasSeparateInputsAndOutputs();
+	if (!separate && requested.inputId.empty()) return names.contains(outputName) ? outputName : juce::String{};
+	const auto name = deviceName(names, requested.inputId, type.getDefaultDeviceIndex(true));
+	if (!separate && name != outputName)
+		throw std::invalid_argument("The selected Tracktion audio host requires one device for input and output");
+	return name;
+}
+
 // Select the target JUCE backend and exact endpoints without opening its defaults first.
 bool openDevice(juce::AudioDeviceManager& manager, const juce::String& type, const Setup& setup)
 {
@@ -130,7 +141,20 @@ AudioDevices Session::audioDevices(const std::string& hostId)
 	return {choices(type.getDeviceNames(true)), choices(type.getDeviceNames(false)), type.hasSeparateInputsAndOutputs()};
 }
 
-AppliedAudioSetup Session::setAudioSetup(AudioSetup requested)
+juce::String Session::State::recordingInputName() const
+{
+	auto* type = engine.getDeviceManager().deviceManager.getCurrentDeviceTypeObject();
+	if (type != nullptr)
+	{
+		type->scanForDevices();
+		const auto input = systemAudioSetup ? selectedInput(*type, systemAudioSetup->setup, systemOutputName)
+		                                   : type->getDeviceNames(true)[type->getDefaultDeviceIndex(true)];
+		if (input.isNotEmpty()) return input;
+	}
+	throw std::invalid_argument("The Tracktion recording input is unavailable");
+}
+
+AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mode)
 {
 	auto& s = *state;
 	s.requireNoRecording();
@@ -149,17 +173,10 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested)
 	type.scanForDevices();
 	const auto typeName = type.getTypeName();
 	const auto outputName = deviceName(type.getDeviceNames(false), requested.outputId, type.getDefaultDeviceIndex(false));
-	const auto inputNames = type.getDeviceNames(true);
-	auto inputName = deviceName(inputNames, requested.inputId, type.getDefaultDeviceIndex(true));
-	if (!type.hasSeparateInputsAndOutputs())
-	{
-		if (requested.inputId.empty()) inputName = inputNames.contains(outputName) ? outputName : juce::String{};
-		else if (inputName != outputName)
-			throw std::invalid_argument("The selected Tracktion audio host requires one device for input and output");
-	}
 	if (outputName.isEmpty())
 		throw std::invalid_argument("The selected Tracktion audio output is unavailable");
 	{
+		const auto inputName = mode == AudioSetupMode::validateInput ? selectedInput(type, requested, outputName) : juce::String{};
 		const std::unique_ptr<juce::AudioIODevice> probe(type.createDevice(outputName, inputName));
 		if (!probe || probe->getLastError().isNotEmpty())
 			throw std::invalid_argument("Tracktion could not inspect the selected audio devices");
@@ -195,7 +212,6 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested)
 	s.systemOutput = true;
 	s.outputWasInterrupted = false;
 	s.systemAudioSetup = AppliedAudioSetup{std::move(requested), static_cast<int>(std::lround(actual.sampleRate)), actual.bufferSize};
-	s.systemInputName = inputName;
 	s.systemOutputName = outputName;
 	s.systemHostName = typeName;
 	manager.dispatchPendingMessages();
