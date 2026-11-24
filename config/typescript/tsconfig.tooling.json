@@ -9,6 +9,8 @@
 		]
 	},
 	"include": [
+		"../../native/soundscaper-tracktion/tests/peer_test.ts",
+		"../../native/soundscaper-tracktion/tests/electron_smoke.ts",
 		"../../src/vite-env.d.ts",
 		"../../vite.config.mjs",
 		"../../playwright.config.mjs",

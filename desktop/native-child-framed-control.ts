@@ -15,7 +15,7 @@ interface NativeChildFramedControlLimits {
 
 export type NativeChildFramedControlBinding = NativeChildFramedControlLimits & (
 	| Readonly<{ readonly protocolFamily: 'M5F'; readonly protocolVersion: 1 | 2 }>
-	| Readonly<{ readonly protocolFamily: 'M5A'; readonly protocolVersion: 1 }>
+	| Readonly<{ readonly protocolFamily: 'M5A' | 'SCT'; readonly protocolVersion: 1 }>
 );
 
 export interface NativeChildFramedControl {
@@ -118,6 +118,7 @@ function framedControl(
 			buffered = buffered.subarray(HEADER_BYTES + length);
 		}
 	};
+	input.on('error', fail);
 	output.on('data', parse);
 	output.once('error', fail);
 	output.once('end', () => {
@@ -182,7 +183,9 @@ function framedBinding(value: NativeChildFramedControlBinding) {
 		|| JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([
 			'maximumInFlightMessages', 'maximumMessageBytes', 'protocolFamily', 'protocolVersion',
 		]) || !((value.protocolFamily === 'M5F' && (value.protocolVersion === 1 || value.protocolVersion === 2))
-			|| (value.protocolFamily === 'M5A' && value.protocolVersion === 1))
+			|| (value.protocolFamily === 'M5A' && value.protocolVersion === 1)
+			|| (value.protocolFamily === 'SCT' && value.protocolVersion === 1
+				&& value.maximumMessageBytes <= 64 * 1024 && value.maximumInFlightMessages === 1))
 		|| !Number.isSafeInteger(value.maximumMessageBytes)
 		|| value.maximumMessageBytes < 1 || value.maximumMessageBytes > 16 * 1024 ** 2
 		|| !Number.isSafeInteger(value.maximumInFlightMessages)

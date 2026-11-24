@@ -193,6 +193,11 @@ Session::Session(const juce::File& directory, const juce::File& stateDirectory, 
 
 Session::~Session() = default;
 
+Revision Session::revision() const noexcept
+{
+	return state->revision;
+}
+
 ProjectView Session::snapshot() const
 {
 	const auto& s = *state;
@@ -234,14 +239,16 @@ TrackId Session::addTrack(Revision expected, const std::string& name)
 	return track->itemID.getRawID();
 }
 
-ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File& source, Frame start, Frame offset, Frame count)
+ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File& source, Frame start,
+                           Frame offset, Frame count, const std::string& name)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
 	auto& track = s.track(trackId);
 	const auto from = s.position(start);
 	const auto maxFrame = tracktion::toSamples(te::Edit::getMaximumEditEnd(), s.sampleRate);
-	if (count <= 0 || count > maxFrame - start || offset < 0 || !source.existsAsFile() || source.isSymbolicLink())
+	if (count <= 0 || count > maxFrame - start || offset < 0 || name.size() > 512
+	    || !source.existsAsFile() || source.isSymbolicLink())
 		throw std::invalid_argument("Invalid audio import or clip range");
 
 	juce::WavAudioFormat format;
@@ -266,7 +273,8 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 	// its first save, when that file does not exist yet.
 	juce::ValueTree clipState(te::IDs::AUDIOCLIP);
 	clipState.setProperty(te::IDs::source, juce::String(mediaDirectory) + "/" + destination.getFileName(), nullptr);
-	auto* clip = track.insertClipWithState(clipState, source.getFileNameWithoutExtension(),
+	const auto clipName = name.empty() ? source.getFileNameWithoutExtension() : juce::String::fromUTF8(name.data(), static_cast<int>(name.size()));
+	auto* clip = track.insertClipWithState(clipState, clipName,
 		te::TrackItem::Type::wave, {{from, s.position(start + count)}, offsetTime}, false, false);
 	if (clip == nullptr)
 	{

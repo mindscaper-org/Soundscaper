@@ -162,6 +162,8 @@
 		"../../desktop/native-helper-service.ts",
 		"../../desktop/native-child-isolation-launcher.ts",
 		"../../desktop/native-child-framed-control.ts",
+		"../../desktop/tracktion-utility-process.ts",
+		"../../desktop/tracktion-utility-session.ts",
 		"../../desktop/soundscaper-professional-linux-system-libraries.ts",
 		"../../desktop/soundscaper-professional-linux-system-runtime.ts",
 		"../../desktop/professional-candidate-custody.ts",

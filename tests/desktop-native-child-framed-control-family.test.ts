@@ -15,6 +15,7 @@ test('native-child framed control binds each admitted protocol family and versio
 	const bindings = [
 		{ protocolFamily: 'M5F' as const, protocolVersion: 2 as const, magic: 'M5F2' },
 		{ protocolFamily: 'M5A' as const, protocolVersion: 1 as const, magic: 'M5A1' },
+		{ protocolFamily: 'SCT' as const, protocolVersion: 1 as const, magic: 'SCT1' },
 	] as const;
 	for (const binding of bindings) {
 		const fixture = child();
@@ -36,6 +37,17 @@ test('native-child framed control binds each admitted protocol family and versio
 		fixture.process.emit('close', 0, null);
 		assert.equal((await bound.completion).exitCode, 0);
 	}
+});
+
+test('Tracktion framed control requires one outstanding command and at most 64 KiB', () => {
+	const binding = {
+		protocolFamily: 'SCT' as const,
+		protocolVersion: 1 as const,
+		maximumMessageBytes: 64 * 1024,
+		maximumInFlightMessages: 1,
+	};
+	assert.throws(() => bindNativeChildProcess(child().process, { ...binding, maximumMessageBytes: 64 * 1024 + 1 }), /bounded/u);
+	assert.throws(() => bindNativeChildProcess(child().process, { ...binding, maximumInFlightMessages: 2 }), /bounded/u);
 });
 
 function child() {
