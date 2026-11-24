@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
@@ -15,7 +17,6 @@ import {
 	soundscaperConstantsSource,
 	soundscaperDesktopCodecSource,
 	soundscaperDesktopSmokeSource,
-	soundscaperMainSource,
 	soundscaperNativeTierSource,
 	soundscaperPreloadSource,
 	soundscaperProductIsolationModuleSource,
@@ -25,6 +26,7 @@ import {
 import {
 	desktopProductRuntimeTransform,
 } from '../scripts/lib/desktop-product-runtime-staging.mjs';
+import { stageTracktionDesktopApplication } from '../scripts/lib/tracktion-desktop-staging.mjs';
 import {
 	soundscaperAssistanceOnnxRuntimeWorkerSource,
 	soundscaperAssistanceRuntimeFamilyHelperSource,
@@ -324,11 +326,14 @@ test('Stable Soundscaper excludes the legacy development native-addon fixture', 
 	assert.equal(desktopLegacyNativeAddonIncluded('framescaper', stable), true);
 });
 
-test('Soundscaper staged entry sources have no callable Framescaper product surface', async () => {
-	const [codec, constants, main, nativeTier, preload, projectRuntime, protocol] = await Promise.all([
+test('Soundscaper staged entry sources have no callable Framescaper product surface', async (context) => {
+	const staged = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-entry-'));
+	context.after(() => rm(staged, { recursive: true, force: true }));
+	await stageTracktionDesktopApplication(resolve('desktop'), staged);
+	const [codec, constants, stagedMain, nativeTier, preload, projectRuntime, protocol] = await Promise.all([
 		readFile('desktop/desktop-codec-main-integration.mjs', 'utf8'),
 		readFile('desktop/constants.js', 'utf8'),
-		readFile('desktop/main.mjs', 'utf8'),
+		readFile(join(staged, 'main.mjs'), 'utf8'),
 		readFile('desktop/native-tier-registration.mjs', 'utf8'),
 		readFile('desktop/preload.mjs', 'utf8'),
 		readFile('desktop/project-library-product-runtime.js', 'utf8'),
@@ -336,18 +341,16 @@ test('Soundscaper staged entry sources have no callable Framescaper product surf
 	]);
 	const stagedCodec = soundscaperDesktopCodecSource(codec);
 	const stagedConstants = soundscaperConstantsSource(constants);
-	const stagedMain = soundscaperMainSource(main);
-	assert.match(stagedMain, /registerDesktopMcpMain/u);
-	assert.match(stagedMain, /cleanup: async \(\) => \{ retireRendererCloseRequest\(webContents\); await desktopMcp\?\.revoke\(\); await rendererOwnershipCleanup\.drain\(webContents\); \}/u);
-	assert.match(stagedMain, /if \(revokedOwner\) \{ void desktopMcp\?\.revoke\(\); rendererOwnershipCleanup\.start\(revokedOwner\); \}/u);
-	assert.match(stagedMain, /function revokeRendererSaveOwner\(webContents\) \{\n\tretireRendererCloseRequest\(webContents\);\n\tvoid desktopMcp\?\.revoke\(\);\n\trendererOwnershipCleanup\.revoke\(webContents\);/u);
-	assert.doesNotMatch(main, /registerDesktopMcpMain|desktopMcp/u);
+	assert.match(stagedMain, /soundscaper-tracktion-app/u);
+	assert.match(stagedMain, /soundscaper_tracktion_peer/u);
+	assert.doesNotMatch(stagedMain, /registerDesktopNativeTier|registerProjectSavingIpc/u);
+	assert.equal(desktopProductSourceIncluded('soundscaper', 'main.mjs'), false);
+	assert.equal(desktopProductSourceIncluded('framescaper', 'main.mjs'), true);
 	const stagedNativeTier = soundscaperNativeTierSource(nativeTier);
 	const stagedPreload = soundscaperPreloadSource(preload);
 	const stagedProjectRuntime = soundscaperProjectRuntimeSource(projectRuntime);
 	const stagedProtocol = soundscaperProtocolSource(protocol);
 	assert.doesNotMatch(stagedMain, /from '\.\/framescaper-|createFramescaper|startFramescaper/u);
-	assert.match(stagedMain, /desktopCapturer/u);
 	assert.doesNotMatch(stagedPreload,
 		/framescaperDesktop|framescaper:v1:|FRAMESCAPER_WEB_VCR_|chooseLinkedVideo|DesktopVideo/u);
 	assert.doesNotMatch(stagedProjectRuntime,
@@ -374,7 +377,6 @@ test('Soundscaper staged entry sources have no callable Framescaper product surf
 test('Soundscaper staged entry transforms accept Windows CRLF checkouts', async () => {
 	const entries = [
 		['desktop/assistance-registration.mjs', soundscaperAssistanceRegistrationSource],
-		['desktop/main.mjs', soundscaperMainSource],
 		['desktop/native-tier-registration.mjs', soundscaperNativeTierSource],
 		['desktop/constants.js', soundscaperConstantsSource],
 		['desktop/desktop-codec-main-integration.mjs', soundscaperDesktopCodecSource],

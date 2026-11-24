@@ -17,7 +17,7 @@ export async function startTracktionInstalledPlugins({ profile, parentWindow, re
 		// Discovery and host methods are main-owned. Tracktion has its own project IPC.
 		handle: () => undefined,
 		ownerFor: () => { throw new Error('Tracktion plug-ins require project authority.'); },
-		settings, desktopRoot: import.meta.dirname, userDataPath: profile, parentWindow, resourcesPath, packaged: false,
+		settings, desktopRoot: import.meta.dirname, userDataPath: profile, parentWindow, resourcesPath, packaged: true,
 	});
 	try {
 		await registration.ready();

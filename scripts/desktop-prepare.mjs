@@ -19,6 +19,9 @@ import { buildYabridge } from './build-yabridge.mjs';
 import { yabridgeRequired, stageYabridgePayload } from './lib/yabridge-staging.mjs';
 import { prepareDesktopAssistanceRuntimeSet } from './lib/desktop-assistance-runtime-preparation.mjs';
 import { generateProductWindowIcon } from './lib/offline-application-shell.mjs';
+import { stageTracktionDesktopPeer } from './lib/tracktion-desktop-staging.mjs';
+import { buildTracktionEditor } from './lib/tracktion-editor-build.mjs';
+import { stageTracktionNotices } from './lib/tracktion-licenses.mjs';
 import { listTranslationCatalogLocales, readTranslationCatalog } from './i18n-ai/catalog.mjs';
 import { buildSourceMapsRequested } from './lib/build-source-map-relocation.mjs';
 import { stageDesktopFdkAac } from './lib/desktop-fdk-aac-staging.mjs';
@@ -160,6 +163,9 @@ async function main() {
 		repositoryRoot: ROOT,
 		outputRoot: DESKTOP_RUNTIME_ROOT,
 	});
+	if (PRODUCT_ID === 'soundscaper') await stageTracktionDesktopPeer({
+		repositoryRoot: ROOT, runtimeRoot: RUNTIME_ROOT, target: nativeTarget.id,
+	});
 	const handoffRoot = process.env.SOUNDSCAPER_ASSISTANCE_RUNTIME_HANDOFF_ROOT;
 	const { speech: assistanceSpeechRuntime, families: assistanceRuntimeFamilies,
 		kokoro: kokoroG2pRuntime, distribution: assistanceDistribution } = await prepareDesktopAssistanceRuntimeSet({
@@ -192,6 +198,7 @@ async function main() {
 	const desktopNotices = await stageDesktopNotices({
 		nativeTarget, productMetadata, soundscaperProfessionalNativeRelease,
 	});
+	if (PRODUCT_ID === 'soundscaper') await stageTracktionNotices(ROOT, DESKTOP_LICENSE_ROOT);
 	await generateDesktopIcon({
 		...(PRODUCT_ID === 'framescaper' ? { sourcePath: resolve(ROOT, 'public/logo/framescaper.svg') } : {}),
 	});
@@ -363,6 +370,12 @@ export async function buildRenderer({
 	environment: inheritedEnvironment = process.env, runBuild = run, buildSmoke = buildDesktopRendererSmokeBundle,
 	audit = auditDesktopRendererCodecComposition,
 } = {}) {
+	if (productId === 'soundscaper') {
+		await buildTracktionEditor(rendererRoot);
+		await generateProductWindowIcon({ outputRoot: rendererRoot, repositoryRoot, productId });
+		await audit({ root: rendererRoot });
+		return;
+	}
 	const vite = resolve(repositoryRoot, 'node_modules/vite/bin/vite.js');
 	const environment = { ...inheritedEnvironment };
 	delete environment.PUBLIC_FFMPEG_CORE_BASE_URL;

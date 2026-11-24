@@ -131,7 +131,7 @@ export async function stageDesktopApplicationSources({
 	}
 	await stageBundledAudioCodecRuntimeManifest({ desktopRoot: applicationRoot });
 	await bundleDesktopFileCapabilities(sourceRoot, applicationRoot);
-	await bundleDesktopMainPreload(applicationRoot);
+	if (productId === 'framescaper') await bundleDesktopMainPreload(applicationRoot);
 	packagedRuntimeFiles = await retainDesktopRuntimeClosureAfterBundling({ applicationRoot, applicationFiles: stagedSourceFiles, compiledRoot, completeFiles: runtimeFiles, stagedFiles: packagedRuntimeFiles, productId, runtimePackageImports });
 	await assertStagedDesktopImportsResolve(applicationRoot, runtimePackageImports);
 	assertRuntimePackageImportTargets(productId, packagedRuntimeFiles);

@@ -35,6 +35,7 @@ export async function openTracktionWindow(options: {
 	readonly bundleRoot: string;
 	readonly scratchRoot: string;
 	readonly peer: string;
+	readonly utilityEntry?: string;
 	readonly show?: boolean;
 	readonly dialogs?: TracktionProjectDialogs;
 	readonly offlineEffects?: TracktionOfflineEffectHost;
@@ -69,7 +70,7 @@ export async function openTracktionWindow(options: {
 		...(options.pluginLibrary ? { pluginLibrary: options.pluginLibrary } : {}),
 		isOwnerCurrent: (owner) => owner === window && !window.isDestroyed(),
 		startPeer: (launch) => startTracktionUtilitySession(
-			utilityProcess.fork, resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },
+			utilityProcess.fork, options.utilityEntry ?? resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },
 			options.pluginLibrary ?? options.offlineEffects,
 		),
 	});

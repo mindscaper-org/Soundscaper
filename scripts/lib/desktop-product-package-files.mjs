@@ -70,6 +70,8 @@ const DESKTOP_RETIRED_SOURCE_FILES = new Set([
 	'native-helper-realtime-job.js',
 ]);
 const SOUNDSCAPER_REPLACED_SOURCE_FILES = new Set([
+	'main.mjs',
+	'preload.mjs',
 	'desktop-smoke-configuration.js',
 	'direct-wav-smoke.js',
 	'project-library-lease-smoke.js',
@@ -161,75 +163,6 @@ export function assertDesktopProductPackageIsolation(productIdValue, filesValue,
 
 function isNightlyTestLauncherPath(path) {
 	return NIGHTLY_TEST_LAUNCHER_FILES.has(path.replace(/^desktop\//u, ''));
-}
-
-export function soundscaperMainSource(sourceValue) {
-	let source = textSource(sourceValue, 'desktop main');
-	const framesImports = [
-		/import \{ disposeDesktopCaptureSecurity, registerDesktopCaptureSecurity, revokeDesktopCaptureOwner \} from '\.\/framescaper-capture-registration\.mjs';\n/u,
-		/import \{ createFramescaperNativeServicesElectronPorts \} from '\.\/framescaper-native-services-electron-ports\.mjs';\n/u,
-		/import \{ startFramescaperNativeServicesRegistration \} from '\.\/framescaper-native-services-registration\.mjs';\n/u,
-		/import \{ FRAMESCAPER_IMAGE_SEQUENCE_IMPORT_AUTHORITY \} from '\.\/framescaper-route-authorities\.mjs';\n/u,
-		/import \{ framescaperWebVcrSmokeTrust \} from '\.\/framescaper-web-vcr-smoke-plan\.js';\n/u,
-		/import \{ createDesktopLinkedVideoLocatorRuntime \} from '\.\/linked-video-locator-runtime\.js';\n/u,
-	];
-	for (const pattern of framesImports) source = replaceOnce(source, pattern, '', 'Framescaper main import');
-	source = replaceOnce(source, '\tFRAMESCAPER_WEB_VCR_ENABLED,\n',
-		'', 'Framescaper capture feature flag');
-	const replacement = [
-		"import {",
-		"\tdeferredWebVcrSmokeTrust, disposeDesktopCaptureSecurity,",
-		"\tregisterDesktopCaptureSecurity, revokeDesktopCaptureOwner,",
-		"} from './soundscaper-product-isolation.mjs';",
-		'',
-	].join('\n');
-	source = source.replace("import { registerHostAffordances } from './host-affordances.mjs';\n",
-		`${replacement}import { registerHostAffordances } from './host-affordances.mjs';\n`);
-	source = replaceOnce(source,
-		"import { registerHostAffordances } from './host-affordances.mjs';\n",
-		"import { registerHostAffordances } from './host-affordances.mjs';\nimport { registerDesktopMcpMain } from './project-library-runtime/desktop/mcp-main-registration.js';\n",
-		'Soundscaper MCP main import');
-	source = replaceOnce(source,
-		'let linkedVideoLocators = null, nativeTier = null, nativeServices = null, soundscaperDelivery = null;',
-		'let linkedVideoLocators = null, nativeTier = null, nativeServices = null, soundscaperDelivery = null, desktopMcp = null;',
-		'Soundscaper MCP lifecycle');
-	source = replaceOnce(source,
-		"\t\t{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() },",
-		"\t\t{ name: 'desktop MCP', run: () => desktopMcp?.dispose() },\n\t\t{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() },",
-		'Soundscaper MCP shutdown');
-	source = replaceOnce(source,
-		'cleanup: async () => { retireRendererCloseRequest(webContents); await rendererOwnershipCleanup.drain(webContents); },',
-		'cleanup: async () => { retireRendererCloseRequest(webContents); await desktopMcp?.revoke(); await rendererOwnershipCleanup.drain(webContents); },',
-		'Soundscaper MCP renderer recovery');
-	source = replaceOnce(source,
-		'if (revokedOwner) rendererOwnershipCleanup.start(revokedOwner);',
-		'if (revokedOwner) { void desktopMcp?.revoke(); rendererOwnershipCleanup.start(revokedOwner); }',
-		'Soundscaper MCP renderer replacement');
-	source = replaceOnce(source,
-		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);',
-		'function revokeRendererSaveOwner(webContents) {\n\tretireRendererCloseRequest(webContents);\n\tvoid desktopMcp?.revoke();',
-		'Soundscaper MCP renderer revocation');
-	source = replaceOnce(source,
-		"\tregisterHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });",
-		"\tregisterHostAffordances({ channels: IPC, handle, windowFor: () => mainWindow });\n\tdesktopMcp = registerDesktopMcpMain({ handle, on: (channel, listener) => ipcMain.on(channel, listener), off: (channel, listener) => ipcMain.removeListener(channel, listener), removeHandler: (channel) => ipcMain.removeHandler(channel), currentOwner: currentRendererSaveOwner, ownerFor: rendererSaveOwnerFor, isOwnerCurrent: isRendererSaveOwnerCurrent, sendToRenderer });",
-		'Soundscaper MCP IPC registration');
-	source = replaceRange(source,
-		'\tnativeServices = await startFramescaperNativeServicesRegistration({',
-		'\tupdates = createDesktopUpdates(',
-		'\tupdates = createDesktopUpdates(',
-		'deferred native services startup');
-	source = replaceOnce(source,
-		"\tlinkedVideoLocators = createDesktopLinkedVideoLocatorRuntime({ readCapabilities, registryPath: resolve(desktopStorage.dataRoot, 'linked-video-locators-project-v1.json'), confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options), 'linking') });\n\tawait linkedVideoLocators.ready();\n",
-		'', 'linked-video locator startup');
-	source = replaceOnce(source,
-		"\tlinkedVideoLocators.registerIpc({ dialog, handle, ownerFor: rendererSaveOwnerFor, windowFor: () => mainWindow });\n",
-		'', 'linked-video locator IPC');
-	return `${source.replace("const __dirname = dirname(fileURLToPath(import.meta.url));",
-		"const DEFERRED_CAPTURE_ENABLED = false;\nconst __dirname = dirname(fileURLToPath(import.meta.url));")}`
-		.replaceAll('framescaperWebVcrSmokeTrust', 'deferredWebVcrSmokeTrust')
-		.replaceAll('FRAMESCAPER_WEB_VCR_ENABLED', 'DEFERRED_CAPTURE_ENABLED')
-		.replaceAll("linkedVideoLocators: () => linkedVideoLocators", "linkedVideoLocators: () => null")
-		.replace("\t\t{ name: 'linked-video locators', run: () => linkedVideoLocators?.dispose() },\n", '');
 }
 
 export function soundscaperPreloadSource(sourceValue) {

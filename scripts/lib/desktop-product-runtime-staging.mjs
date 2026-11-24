@@ -10,13 +10,12 @@ import {
 	soundscaperDesktopCodecSource,
 	soundscaperDesktopSmokeDeferredModuleSource,
 	soundscaperDesktopSmokeSource,
-	soundscaperMainSource,
 	soundscaperNativeTierSource,
-	soundscaperPreloadSource,
 	soundscaperProductIsolationModuleSource,
 	soundscaperProjectRuntimeSource,
 	soundscaperProtocolSource,
 } from './desktop-product-package-files.mjs';
+import { stageTracktionDesktopApplication } from './tracktion-desktop-staging.mjs';
 import {
 	soundscaperAssistanceOnnxRuntimeWorkerSource,
 	soundscaperAssistanceRuntimeFamilyHelperSource,
@@ -183,8 +182,7 @@ export async function stageSoundscaperDesktopEntrySources(sourceRoot, applicatio
 		soundscaperAssistanceRegistrationSource(await readFile(
 			join(sourceRoot, 'assistance-registration.mjs'), 'utf8',
 		)));
-	await writeFile(join(applicationRoot, 'main.mjs'),
-		soundscaperMainSource(await readFile(join(sourceRoot, 'main.mjs'), 'utf8')));
+	await stageTracktionDesktopApplication(sourceRoot, applicationRoot);
 	await writeFile(join(applicationRoot, 'native-tier-registration.mjs'),
 		soundscaperNativeTierSource(await readFile(
 			join(sourceRoot, 'native-tier-registration.mjs'), 'utf8',
@@ -204,8 +202,6 @@ export async function stageSoundscaperDesktopEntrySources(sourceRoot, applicatio
 	await writeFile(join(applicationRoot, 'soundscaper-product-isolation.mjs'),
 		soundscaperProductIsolationModuleSource(), { flag: 'wx' });
 	await bundleSoundscaperDesktopSmoke(sourceRoot, applicationRoot);
-	await writeFile(join(applicationRoot, 'preload.mjs'),
-		soundscaperPreloadSource(await readFile(join(sourceRoot, 'preload.mjs'), 'utf8')));
 }
 
 async function bundleSoundscaperDesktopSmoke(sourceRoot, applicationRoot) {
