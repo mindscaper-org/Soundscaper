@@ -84,21 +84,16 @@ async function inventory(root) {
 	return found.sort();
 }
 
-async function hashFile(path, expected) {
-	const metadata = await lstat(path);
-	assert(metadata.isFile() && !metadata.isSymbolicLink(), 'Assistance archive source is not a regular file.');
-	assert(metadata.size === expected.byteLength, `Assistance archive file length changed: ${expected.path}`);
-	const hash = createHash('sha256');
-	for await (const chunk of createReadStream(path)) hash.update(chunk);
-	assert(hash.digest('hex') === expected.sha256, `Assistance archive file digest changed: ${expected.path}`);
-}
-
 async function* tarEntries(root, files) {
 	for (const file of files) {
+		const path = join(root, file.path);
+		const metadata = await lstat(path);
+		assert(metadata.isFile() && !metadata.isSymbolicLink(), 'Assistance archive source is not a regular file.');
+		assert(metadata.size === file.byteLength, `Assistance archive file length changed: ${file.path}`);
 		yield tarHeader(file);
 		const hash = createHash('sha256');
 		let byteLength = 0;
-		for await (const chunk of createReadStream(join(root, file.path))) {
+		for await (const chunk of createReadStream(path)) {
 			byteLength += chunk.length;
 			assert(byteLength <= file.byteLength, `Assistance archive file grew: ${file.path}`);
 			hash.update(chunk);
@@ -225,12 +220,11 @@ export async function createAssistanceRuntimeArchive({
 	const actual = await inventory(root);
 	assert(JSON.stringify(actual) === JSON.stringify(ordered.map(({ path }) => path)),
 		'Assistance archive source inventory has missing or unexpected files.');
-	for (const file of ordered) await hashFile(join(root, file.path), file);
 	const directory = resolve(archiveRoot, familyId, runtimeVersion, targetId);
 	await mkdir(directory, { recursive: true });
 	const temporary = join(directory, `.archive-${process.pid}-${Date.now()}.tar.gz`);
 	try {
-		await pipeline(Readable.from(tarEntries(root, ordered)), createGzip({ level: 9, mtime: 0 }),
+		await pipeline(Readable.from(tarEntries(root, ordered)), createGzip({ level: 6, mtime: 0 }),
 			createWriteStream(temporary, { flags: 'wx', mode: 0o600 }));
 		await verifyAssistanceRuntimeArchive(temporary, ordered);
 		const archive = await archiveDigest(temporary);

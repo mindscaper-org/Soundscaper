@@ -177,7 +177,8 @@ inference result.
 The installer has no files under `runtime/assistance/`. The packaged
 `app.asar` contains `config/assistance-runtime-distribution.json`, which pins the URL,
 compressed byte length, SHA-256 and exact extracted file inventory of each
-archive. The archives use immutable keys under
+archive. New archives are written at gzip level 6 and read back to verify the
+complete tar inventory, file modes and contents. The archives use immutable keys under
 `https://assets.soundscaper.org/runtime/assistance/` in the same EU R2 bucket
 as model weights. The manual **Update AI assets** workflow runs
 `npm run desktop:publish:assistance-runtimes` to upload them and require public
