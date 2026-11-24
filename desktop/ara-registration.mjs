@@ -26,7 +26,7 @@ export function registerDesktopAra(options) {
 			const grant = registry.hostGrantFor(installationId);
 			const helper = createDesktopNativeAddonHelperSupervisor({
 				desktopRoot: options.desktopRoot, packaged: options.packaged, resourcesPath: options.resourcesPath,
-				role: 'plugin-host', payloadKind: 'professional',
+				productId: options.productId, role: 'plugin-host', payloadKind: 'professional',
 				serviceName: `scape-ara-${descriptor.binarySha256.slice(0, 12)}`,
 			});
 			try {

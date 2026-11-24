@@ -188,7 +188,7 @@ function analyzerFaultKind(error) {
 function createAnalyzerHelper(options, grant) {
 	return createDesktopNativeAddonHelperSupervisor({
 		desktopRoot: options.desktopRoot, packaged: options.packaged, resourcesPath: options.resourcesPath,
-		role: 'plugin-analyzer', payloadKind: 'professional',
+		productId: options.productId, role: 'plugin-analyzer', payloadKind: 'professional',
 		serviceName: `soundscaper-native-vamp-${grant.librarySha256.slice(0, 12)}`,
 	});
 }

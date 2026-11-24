@@ -122,6 +122,26 @@ test('Framescaper stages and authenticates only the isolated audio plugin host c
 		'unavailable');
 });
 
+test('the Soundscaper plug-in peer authenticates bundled effects, instruments and factory data without the device bridge', async (context) => {
+	const fixture = await builtFixture(context);
+	const release = await verifySoundscaperProfessionalNativePayload({ repositoryRoot: fixture.root, target: 'linux-x64' });
+	const resourcesPath = join(fixture.root, 'resources');
+	const outputRoot = professionalNativePayloadOutputRoot(join(resourcesPath, 'runtime'), release);
+	await stageVerifiedSoundscaperProfessionalNativePayload({ release, outputRoot });
+	await rm(join(outputRoot, 'soundscaper_professional.node'));
+	await rm(join(outputRoot, 'soundscaper_delivery_fs'));
+	const available = await describeSoundscaperProfessionalNativePayload({ applicationRoot: fixture.root,
+		packaged: true, resourcesPath, platform: 'linux', arch: 'x64', peerOnly: true });
+	assert.equal(available.status, 'available', available.detail);
+	assert.equal(available.descriptor.pluginOnly, false);
+	assert.equal(available.descriptor.path, available.descriptor.pluginPeer.path);
+	assert.equal(available.descriptor.deliveryFilesystem, null);
+	assert.deepEqual(available.descriptor.isolation.runtimeClosure.map(({ sha256 }) => sha256),
+		release.isolation.runtimeClosure.map(({ sha256 }) => sha256));
+	assert.deepEqual(available.descriptor.isolation.pluginResources.map(({ sha256 }) => sha256),
+		release.isolation.pluginResources.map(({ sha256 }) => sha256));
+});
+
 test('stable packaging consumes neutral inputs from an exact matching build result', async (context) => {
 	const stable = await builtFixture(context);
 	const stableRelease = await verifySoundscaperProfessionalNativePayload({

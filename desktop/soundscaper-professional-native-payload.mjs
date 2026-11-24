@@ -49,17 +49,18 @@ export async function describeSoundscaperProfessionalNativePayload(location, rea
 	let deliveryFilesystem;
 	let isolation;
 	let entrypoint;
+	const peerOnly = location.peerOnly === true || location.pluginOnly === true;
 	try {
-		payload = location.pluginOnly === true ? null
+		payload = peerOnly ? null
 			: await runtimeArtifact(location, manifest, target, selected.payload, readFileImpl);
 		buildResult = await runtimeArtifact(location, manifest, target,
 			selected.buildResult, readFileImpl, (bytes) => {
 				buildAuthority = parseSoundscaperProfessionalNativeBuildAuthority(bytes, target);
 			});
-		osAudioCodec = location.pluginOnly === true || selected.osAudioCodec === null ? null
+		osAudioCodec = peerOnly || selected.osAudioCodec === null ? null
 			: await runtimeArtifact(location, manifest, target, selected.osAudioCodec, readFileImpl);
 		pluginPeer = await runtimeArtifact(location, manifest, target, selected.pluginPeer, readFileImpl);
-		deliveryFilesystem = location.pluginOnly === true ? null : await runtimeArtifact(
+		deliveryFilesystem = peerOnly ? null : await runtimeArtifact(
 			location, manifest, target, selected.deliveryFilesystem, readFileImpl,
 		);
 		const runtimeClosure = Object.freeze(await Promise.all(selected.isolation.runtimeClosure.filter(entry => location.pluginOnly !== true || !isSoundscaperOnlyBundledPluginArtifactPath(entry.path)).map((entry) =>

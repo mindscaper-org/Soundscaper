@@ -165,7 +165,7 @@ export function observeScannedPlugins(supervisor, registry, {
 
 export function registerDesktopPluginDiscovery({
 	channels, handle, ownerFor, settings, supervisor: injectedSupervisor, describePayload: injectedDescribePayload,
-	userDataPath, stateDataPath, parentWindow, desktopRoot, packaged, resourcesPath,
+	userDataPath, stateDataPath, parentWindow, desktopRoot, packaged, resourcesPath, productId = 'soundscaper',
 	nativePluginStateAuthority = null,
 	isPluginHostFormatActivated = productionPluginFormatActivated,
 	createPluginHostHelper = null,
@@ -184,6 +184,7 @@ export function registerDesktopPluginDiscovery({
 		desktopRoot,
 		packaged,
 		resourcesPath,
+		productId,
 		role: 'plugin-scanner',
 		serviceName: 'soundscaper-native-plugin-scanner', runtimeContext: () => wine.helperConfiguration(),
 		payloadKind: 'professional',
@@ -269,6 +270,7 @@ export function registerDesktopPluginDiscovery({
 			desktopRoot,
 			packaged,
 			resourcesPath,
+			productId,
 			role: 'plugin-host',
 			serviceName: `soundscaper-native-plugin-${launch.format}-${launch.binarySha256.slice(0, 12)}`,
 			runtimeContext: () => wine.helperConfiguration(),
@@ -277,14 +279,14 @@ export function registerDesktopPluginDiscovery({
 		openPersistentPluginSession,
 	});
 	const ara = registerDesktopAra({ handle, ownerFor, registry, settings, consent, quarantine,
-		isFormatActive: formatIsActive, desktopRoot, packaged, resourcesPath,
+		isFormatActive: formatIsActive, desktopRoot, packaged, resourcesPath, productId,
 		rebind: (id) => rebindPluginInstallation(allowances, registry, id) });
 	const vamp = registerDesktopVampAnalyzers({
 		channels, handle, ownerFor, userDataPath, fileSystem: durable, supervisor,
 		consent: discoveryConsent, quarantine: scannerQuarantine, roots: discoveryRoots,
 		hostQuarantine: quarantine,
 		isEnabled: () => settings.snapshot().nativePluginDiscoveryEnabled === true,
-		describePayload, desktopRoot, packaged, resourcesPath,
+		describePayload, desktopRoot, packaged, resourcesPath, productId,
 		...(vampAnalyzerRuntime ? { runtime: vampAnalyzerRuntime } : {}),
 		...(vampAnalyzerBackend ? { backend: vampAnalyzerBackend } : {}),
 		effects: Object.freeze({ service, registry, allowances, hosting, isFormatActive: formatIsActive, ready: bundled.ready,
