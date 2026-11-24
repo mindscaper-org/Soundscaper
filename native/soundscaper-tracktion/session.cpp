@@ -338,32 +338,40 @@ void Session::archive(Revision expected, const juce::File& output)
 	if (output.exists() || output.isSymbolicLink() || !output.hasFileExtension("zip"))
 		throw std::invalid_argument("Archive requires a new ZIP file");
 
-	const choc::file::TempFile snapshot(choc::file::TempFile::createRandomFilename("soundscaper_tracktion_archive", ""));
-	const juce::File folder(snapshot.file.string());
-	const auto media = folder.getChildFile(mediaDirectory);
-	ensureDirectory(media);
+	const juce::TemporaryFile snapshot(".tracktionedit");
+	te::EditFileOperations files(*s.edit);
+	if (!files.writeToFile(snapshot.getFile(), false))
+		throw std::runtime_error("Cannot stage the Tracktion archive Edit");
+	juce::ZipFile::Builder archive;
+	archive.addFile(snapshot.getFile(), 1, "project.tracktionedit");
+	static constexpr char archiveInfo[] = "{\"archive_type\":1}";
+	archive.addEntry(std::make_unique<juce::MemoryInputStream>(archiveInfo, sizeof(archiveInfo) - 1, false), 1,
+	                 "project_info.json", juce::Time::getCurrentTime());
 
-	// Only active media references travel. In particular the archive excludes
-	// the runtime's caches, files left by undo, and unrelated folder contents.
+	// The Edit already refers to owned relative media. Pack those references
+	// directly and exclude caches, files left by undo, and unrelated contents.
 	std::set<juce::File> sources;
 	for (auto* track : te::getAudioTracks(*s.edit))
 		for (auto* clip : track->getClips())
 			sources.insert(clip->getSourceFileReference().getFile());
 	for (const auto& file : sources)
-		if (!file.existsAsFile() || !file.copyFileTo(media.getChildFile(file.getFileName())))
-			throw std::runtime_error("Cannot stage the Tracktion archive media");
+	{
+		const auto path = juce::String(mediaDirectory) + "/" + file.getFileName();
+		if (ownedMediaFile(s.directory, path) != file)
+			throw std::runtime_error("Cannot read the Tracktion archive media");
+		archive.addFile(file, 1, path);
+	}
 
-	te::EditFileOperations files(*s.edit);
-	if (!files.writeToFile(folder.getChildFile("project.tracktionedit"), false))
-		throw std::runtime_error("Cannot stage the Tracktion archive Edit");
-
-	auto project = s.engine.getProjectManager().createNewProject(folder);
-	if (project == nullptr || !project->isFolderBased())
-		throw std::runtime_error("Cannot stage the Tracktion archive project");
 	juce::TemporaryFile staging(output);
-	te::ArchiveJob archive(te::ArchiveJob::Source{project.get()}, staging.getFile(),
-	                       te::ArchiveJob::CompressionLevel::fastest);
-	if (!archive.runSynchronously() || !staging.overwriteTargetFileWithTemporary())
+	{
+		auto stream = staging.getFile().createOutputStream();
+		if (!stream || !archive.writeToStream(*stream, nullptr))
+			throw std::runtime_error("Cannot write the Tracktion archive");
+		stream->flush();
+		if (stream->getStatus().failed())
+			throw std::runtime_error("Cannot finish the Tracktion archive");
+	}
+	if (!staging.overwriteTargetFileWithTemporary())
 		throw std::runtime_error("Cannot publish the Tracktion archive");
 }
 

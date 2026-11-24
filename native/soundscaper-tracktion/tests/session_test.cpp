@@ -168,6 +168,8 @@ void runSessionTest(const juce::File& root)
 		rejectArchive(archive, root.getChildFile("oversized-archive"), 64);
 		extractProjectArchive(archive, extracted, 4 * 1024 * 1024);
 		require(extracted.getChildFile("project.tracktionedit").existsAsFile(), "archive contains the native Edit");
+		const auto archiveInfo = juce::JSON::parse(extracted.getChildFile("project_info.json"));
+		require(static_cast<int>(archiveInfo.getProperty("archive_type", {})) == 1, "archive retains Tracktion's project metadata");
 		const auto archiveMedia = extracted.getChildFile("media").findChildFiles(juce::File::findFiles, false, "*.wav");
 		require(archiveMedia.size() == 1, "archive contains exactly the referenced audio");
 		unarchivedProject = extracted;
