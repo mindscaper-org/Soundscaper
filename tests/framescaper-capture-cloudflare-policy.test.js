@@ -14,7 +14,6 @@ const EMBEDDED_FRAMESCAPER_POLICY =
 	'microphone=(), speaker-selection=(), display-capture=(), camera=(), geolocation=()';
 const ISOLATION = Object.freeze({
 	'cross-origin-opener-policy': 'same-origin',
-	'cross-origin-embedder-policy': 'credentialless',
 	'referrer-policy': 'strict-origin-when-cross-origin',
 	'x-content-type-options': 'nosniff',
 });
@@ -68,9 +67,8 @@ test('each product handbook receives exactly one capture and cache policy on its
 		assert.deepEqual(effectiveHeader(rules, '/docs/', 'cross-origin-opener-policy'), [ISOLATION[
 			'cross-origin-opener-policy'
 		]]);
-		assert.deepEqual(effectiveHeader(rules, '/docs/', 'cross-origin-embedder-policy'), [ISOLATION[
-			'cross-origin-embedder-policy'
-		]]);
+		assert.deepEqual(effectiveHeader(rules, '/docs/', 'cross-origin-embedder-policy'),
+			[productId === 'soundscaper' ? 'require-corp' : 'credentialless']);
 	}
 });
 
@@ -118,7 +116,7 @@ test('both builds share one unmoved cross-origin isolation rule that no document
 			assert.deepEqual(opener, ['same-origin'], `${productId} ${path} Cross-Origin-Opener-Policy`);
 			assert.deepEqual(
 				joinedHeader(rules, path, 'cross-origin-embedder-policy'),
-				['credentialless'],
+				[productId === 'soundscaper' ? 'require-corp' : 'credentialless'],
 				`${productId} ${path} Cross-Origin-Embedder-Policy`,
 			);
 		}
@@ -129,7 +127,7 @@ test('both builds share one unmoved cross-origin isolation rule that no document
 /**
  * The transfer documents are per-origin, not per-product: both composed files
  * carry them, each with exactly one relaxed opener policy reached by detaching
- * the shared one first, and each still credentialless.
+ * the shared one first, and each inherits its origin's embedder policy.
  */
 function assertTransferDocuments(rules, productId) {
 	for (const [path, expected] of Object.entries(TRANSFER_OPENER_POLICIES)) {
@@ -139,7 +137,7 @@ function assertTransferDocuments(rules, productId) {
 		assert.deepEqual(joinedHeader(rules, path, 'cross-origin-opener-policy'), [expected], `${productId} ${path}`);
 		assert.deepEqual(
 			joinedHeader(rules, path, 'cross-origin-embedder-policy'),
-			['credentialless'],
+			[productId === 'soundscaper' ? 'require-corp' : 'credentialless'],
 			`${productId} ${path} Cross-Origin-Embedder-Policy`,
 		);
 		assert.equal(own[0].headers.has('permissions-policy'), false, `${productId} ${path} capture policy`);

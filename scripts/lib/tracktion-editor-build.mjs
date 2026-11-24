@@ -20,6 +20,7 @@ export async function buildTracktionEditor(destination, browser = false) {
 			jsx: 'automatic',
 			bundle: true,
 			minify: true,
+			loader: { '.css': 'empty' },
 		}),
 		copyFile(resolve(source, 'tracktion-editor.html'), resolve(destination, 'index.html')),
 		copyFile(resolve(source, 'tracktion-editor.css'), resolve(destination, 'editor.css')),

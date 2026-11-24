@@ -12,8 +12,12 @@ const editorFiles = [
 	'tracktion-project-worker.js', 'tracktion-audio-worklet.js',
 ];
 
+export const tracktionEngineFiles = Object.freeze(editorFiles.filter((name) => !['index.html', 'editor.js', 'editor.css'].includes(name)));
+
 export async function loadTracktionWebAssets(directory) {
-	return new Map(await Promise.all(editorFiles.map(async (name) => [`/${name}`, await loadAsset(directory, name)])));
+	const assets = new Map(await Promise.all(editorFiles.map(async (name) => [`/${name}`, await loadAsset(directory, name)])));
+	for (const name of tracktionEngineFiles) assets.set(`/tracktion/${name}`, assets.get(`/${name}`));
+	return assets;
 }
 
 export async function loadAsset(directory, name) {

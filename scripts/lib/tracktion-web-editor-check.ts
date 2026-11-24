@@ -14,7 +14,7 @@ type PlaybackWindow = Window & {
 	tracktionTestMicrophone?: MediaStreamTrack;
 };
 
-export async function verifyTracktionWebEditor(page: Page, origin: string): Promise<void> {
+export async function verifyTracktionWebEditor(page: Page, origin: string, path = '/editor'): Promise<void> {
 	const name = 'Tracktion browser project';
 	const fileMenu = page.getByText('File', { exact: true });
 	const button = (label: string) => page.getByRole('button', { name: label, exact: true });
@@ -33,7 +33,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 			throw new Error(`${label} did not produce a download. Editor busy ${busy ?? 'unknown'}. ${details.join(' ')}`, { cause });
 		}
 	}
-	await page.goto(`${origin}/editor`);
+	await page.goto(new URL(path, origin).href);
 	await page.evaluate(() => {
 		const observed = window as PlaybackWindow;
 		const devicePrototype = Object.getPrototypeOf(navigator.mediaDevices) as object;

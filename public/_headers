@@ -26,11 +26,10 @@
 # owner's embedder policy and must carry it on their own response, and the
 # SharedArrayBuffer the editor depends on needs both halves.
 #
-# Every product deployment shares the isolation rule above byte for byte. The
-# markers below are where scripts/generate-static-routes.mjs substitutes the
-# document and service-worker rules of the one product a build serves. Only
-# Permissions-Policy and Cache-Control vary by product; the substituted rules
-# never name an opener or embedder policy.
+# Each build keeps one isolation rule. The Soundscaper build sets require-corp
+# for Tracktion's shared memory in WebKit. The markers below are where
+# scripts/generate-static-routes.mjs substitutes document and service-worker
+# rules. Those rules leave the opener and embedder policies at the wildcard.
 # @product-document-rules@
 
 # The two cross-origin project transfer documents, and only these two.

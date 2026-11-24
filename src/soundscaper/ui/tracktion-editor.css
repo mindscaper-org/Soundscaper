@@ -1,31 +1,25 @@
-:root {
+.tracktion-editor {
 	color-scheme: light dark;
 	font-family: system-ui, sans-serif;
 }
 
-body {
-	margin: 0;
-	color: CanvasText;
-	background: Canvas;
-}
-
-nav {
+.tracktion-editor nav {
 	display: flex;
 	min-height: 2rem;
 	border-bottom: 1px solid GrayText;
 }
 
-details {
+.tracktion-editor details {
 	position: relative;
 	width: max-content;
 }
 
-summary {
+.tracktion-editor summary {
 	cursor: pointer;
 	padding: 0.35rem 0.65rem;
 }
 
-details > div {
+.tracktion-editor details > div {
 	position: absolute;
 	z-index: 1;
 	padding: 0.25rem;
@@ -34,21 +28,21 @@ details > div {
 	background: Canvas;
 }
 
-nav button {
+.tracktion-editor nav button {
 	display: block;
 	width: 100%;
 	padding: 0.35rem 0.65rem;
 	text-align: start;
 }
 
-button, select {
+.tracktion-editor :is(button, select) {
 	font: inherit;
 }
 
-main {
+.tracktion-editor main {
 	padding: 1rem;
 }
 
-main li {
+.tracktion-editor main li {
 	font-variant-numeric: tabular-nums;
 }

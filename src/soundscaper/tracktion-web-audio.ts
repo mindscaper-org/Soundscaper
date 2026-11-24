@@ -26,7 +26,7 @@ export class TracktionWebAudio {
 			if (context.sampleRate !== sampleRate) throw new Error('The browser could not use the Tracktion project sample rate');
 			await Promise.all([
 				context.resume(),
-				context.audioWorklet.addModule(new URL('tracktion-audio-worklet.js', window.location.href)),
+				context.audioWorklet.addModule('/tracktion/tracktion-audio-worklet.js'),
 			]);
 			this.#context = context;
 		} catch (error) {

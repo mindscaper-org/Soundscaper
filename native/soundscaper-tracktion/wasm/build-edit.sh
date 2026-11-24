@@ -78,4 +78,8 @@ if [[ "${1:-}" == --browser ]]; then
 	link command_main.o peer_commands.o -sENVIRONMENT=web,worker \
 		-sEXPORTED_FUNCTIONS=_main,_malloc,_free -sEXPORTED_RUNTIME_METHODS=FS,UTF8ToString \
 		-o /output/edit-core.js
+	# The unoptimized link exceeds the deployment asset limit. Keep the JS ABI
+	# from the same link while optimizing the executable module for distribution.
+	"$EMSDK/upstream/bin/wasm-opt" -O2 --all-features /output/edit-core.wasm -o /tmp/edit-core.wasm
+	mv /tmp/edit-core.wasm /output/edit-core.wasm
 fi

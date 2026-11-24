@@ -305,7 +305,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		});
 	}
 
-	return <>
+	return <div className="tracktion-editor" data-audio-editor-bound="true">
 		<nav ref={menuBar} aria-label="Application menu">
 			<details>
 				<summary>File</summary>
@@ -385,5 +385,5 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				</ul>
 			</>}
 		</main>
-	</>;
+	</div>;
 }

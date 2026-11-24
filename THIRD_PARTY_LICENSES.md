@@ -85,6 +85,15 @@ sources with `node scripts/provision-milestone-5-native-sources.mjs --source sur
 Surge's factory data is included with its retained notices. These instruments
 are available only for MIDI tracks and are enabled by default.
 
+## Soundscaper Tracktion engine
+
+Soundscaper builds Tracktion Engine revision `be4a6a0c94cc59ebe6f7a0a02373567cb2c01cfb` under GPL-3.0-or-later and
+JUCE revision `7ff644f65d7daa1428c34b9738ebb5c449dc9172` under AGPL-3.0-only for its desktop peer and browser WASM engine.
+The pinned archive URLs, SHA-256 digests and authenticated source trees are recorded in
+[`config/soundscaper-tracktion-sources.json`](config/soundscaper-tracktion-sources.json).
+The native build recipes and browser portability changes are in [`native/soundscaper-tracktion/`](native/soundscaper-tracktion/).
+The downloaded source archives retain the engine, framework and embedded dependency notices.
+
 ## Soundscaper professional-native desktop payload
 
 OrbitAmp 0.10.1 is built as a VST3 effect from Darwin’s Cat’s pinned source and

@@ -287,14 +287,14 @@ test('a path nobody has emitted still gets the strict opener policy', async () =
 	}
 });
 
-test('the embedder policy that gives the editor SharedArrayBuffer is untouched', async () => {
+test('the Soundscaper editor and its workers receive one WebKit-compatible embedder policy', async () => {
 	const rules = parseHeaderRules(await composedHeaders());
 	const embedderRules = rules.filter(({ headers }) => headers.has('cross-origin-embedder-policy'));
 	assert.deepEqual(embedderRules.map(({ pattern }) => pattern), ['/*']);
-	assert.equal(embedderRules[0].headers.get('cross-origin-embedder-policy'), 'credentialless');
+	assert.equal(embedderRules[0].headers.get('cross-origin-embedder-policy'), 'require-corp');
 	for (const path of [...await emittedDocumentPaths(), '/assets/editor-1.js', '/service-worker.js']) {
 		const matched = embedderRules.filter(({ pattern }) => matches(pattern, path));
-		assert.equal(matched.length, 1, `${path} must still be credentialless`);
+		assert.equal(matched.length, 1, `${path} must receive one embedder policy`);
 	}
 	// The content policy that every response shares is still exactly one rule.
 	const contentRules = rules.filter(({ headers }) => headers.has('content-security-policy'));
@@ -320,7 +320,7 @@ test('the transfer routes detach the shared policy rather than joining a second 
 		// asset inherits must survive on these responses too.
 		assert.deepEqual(
 			effectiveHeader(rules, route.path, 'cross-origin-embedder-policy'),
-			['credentialless'],
+			['require-corp'],
 			route.path,
 		);
 	}

@@ -16,29 +16,35 @@ type Reply = TracktionProjectReply<TracktionProjectCommand>;
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const handle = () => crypto.randomUUID().replaceAll('-', '');
 
-export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge {
+export function createTracktionWebBridge(createWorker: () => Worker): TracktionProjectBridge {
 	const pending = new Map<number, Readonly<{ resolve(reply: WorkerReply): void; reject(error: Error): void }>>();
 	const audio = new TracktionWebAudio();
 	let project: Readonly<{ sessionId: string; name: string; sampleRate: number }> | undefined;
 	let sequence = 0;
 	let failure: Error | undefined;
+	let worker: Worker | undefined;
 	const interruptionListeners = new Set<() => void>();
 
-	worker.addEventListener('message', ({ data }: MessageEvent<WorkerReply>) => {
-		const request = pending.get(data.id);
-		if (!request) return;
-		if (data.error) request.reject(new Error(data.detail ?? data.error));
-		else request.resolve(data);
-	});
-	worker.addEventListener('error', (event) => {
-		failure = new Error(event.message || 'The Tracktion browser worker stopped');
-		audio.stop();
-		worker.terminate();
-		for (const request of pending.values()) request.reject(failure);
-	});
+	function startWorker(): Worker {
+		const opened = createWorker();
+		opened.addEventListener('message', ({ data }: MessageEvent<WorkerReply>) => {
+			const request = pending.get(data.id);
+			if (!request) return;
+			if (data.error) request.reject(new Error(data.detail ?? data.error));
+			else request.resolve(data);
+		});
+		opened.addEventListener('error', (event) => {
+			failure = new Error(event.message || 'The Tracktion browser worker stopped');
+			audio.stop();
+			opened.terminate();
+			for (const request of pending.values()) request.reject(failure);
+		});
+		return opened;
+	}
 
 	async function send(request: Readonly<Record<string, unknown>>, input?: ArrayBuffer, buffers?: TracktionAudioBuffers): Promise<WorkerReply> {
 		if (failure) throw failure;
+		const engine = worker ??= startWorker();
 		const id = ++sequence;
 		let deadline: number | undefined;
 		try {
@@ -47,10 +53,10 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 				deadline = window.setTimeout(() => {
 					failure = new Error('The Tracktion browser worker did not respond');
 					audio.stop();
-					worker.terminate();
+					engine.terminate();
 					for (const request of pending.values()) request.reject(failure);
 				}, 60_000);
-				worker.postMessage({ id, request, input, audio: buffers }, input ? [input] : []);
+				engine.postMessage({ id, request, input, audio: buffers }, input ? [input] : []);
 			});
 		} finally {
 			window.clearTimeout(deadline);
