@@ -74,6 +74,12 @@ export type TracktionRecordingCommand =
 	| Readonly<{ kind: 'startRecording'; revision: number; trackId: string; frame: number }>
 	| Readonly<{ kind: 'finishRecording'; revision: number; discard: boolean }>;
 
+export type TracktionClipCommand =
+	| Readonly<{ kind: 'trim'; clipId: string; start: number; end: number }>
+	| Readonly<{ kind: 'split'; clipId: string; frame: number }>
+	| Readonly<{ kind: 'moveClip' | 'duplicateClip'; clipId: string; trackId: string; start: number }>
+	| Readonly<{ kind: 'deleteClip'; clipId: string }>;
+
 type Session = Readonly<{ sessionId: string }>;
 type Edit = Session & Readonly<{ revision: number }>;
 
@@ -85,8 +91,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'addTrack'; name: string }>)
 	| (Session & TracktionMixCommand)
 	| (Edit & Readonly<{ kind: 'import'; trackId: string; start: number }>)
-	| (Edit & Readonly<{ kind: 'trim'; clipId: string; start: number; end: number }>)
-	| (Edit & Readonly<{ kind: 'split'; clipId: string; frame: number }>)
+	| (Edit & TracktionClipCommand)
 	| (Edit & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)

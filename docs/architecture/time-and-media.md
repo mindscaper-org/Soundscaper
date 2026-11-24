@@ -43,6 +43,13 @@ conversion primitives live in
 
 ## Exact values and rounding
 
+The Soundscaper Tracktion command boundary accepts integer project sample
+frames on desktop and in WebAssembly. Clip moves preserve the source offset
+and duration as they change arrangement position or track. A duplicate
+receives new Tracktion item IDs and shares the project-owned source media.
+Deleting a clip with the leave-gap command preserves the position of its
+neighbors. Each operation is one Tracktion Edit undo transaction.
+
 Rates, beats, tempo values, and authored curve coordinates use reduced rational
 values. Conversions compose the integer numerator before division and use
 `BigInt` internally when ordinary integer arithmetic cannot remain exact. This

@@ -170,6 +170,15 @@ tracktion::TimePosition Session::State::position(Frame frame) const
 	return tracktion::TimePosition::fromSamples(frame, sampleRate);
 }
 
+te::ClipPosition Session::State::clipPlacement(const te::Clip& clip, Frame start) const
+{
+	const auto from = position(start);
+	const auto current = clip.getPosition();
+	const auto duration = tracktion::toSamples(current.getEnd(), sampleRate)
+	                    - tracktion::toSamples(current.getStart(), sampleRate);
+	return {{from, position(start + duration)}, current.offset};
+}
+
 void Session::State::checkRevision(Revision expected, bool finishingRecording) const
 {
 	if (expected != revision)
@@ -366,6 +375,57 @@ ClipId Session::split(Revision expected, ClipId id, Frame frame)
 	}
 	s.commit();
 	return right->itemID.getRawID();
+}
+
+void Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame start)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	auto [source, clip] = s.clip(id);
+	auto& target = s.track(destination);
+	const auto placement = s.clipPlacement(clip, start);
+	const auto sameTrack = &source == &target;
+	if (sameTrack && placement.getStart() == clip.getPosition().getStart()) return;
+	const auto item = clip.itemID;
+	s.begin("Move clip");
+	if (!sameTrack) clip.moveTo(target);
+	auto* moved = target.findClipForID(item);
+	if (!moved)
+	{
+		s.edit->getUndoManager().undoCurrentTransactionOnly();
+		throw std::invalid_argument("Tracktion refused the destination track");
+	}
+	moved->setPosition(placement);
+	s.commit();
+}
+
+ClipId Session::duplicateClip(Revision expected, ClipId id, TrackId destination, Frame start)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	auto& clip = s.clip(id).second;
+	auto& target = s.track(destination);
+	const auto placement = s.clipPlacement(clip, start);
+	s.begin("Duplicate clip");
+	auto* duplicate = te::insertClipCopy(target, te::ClipCopy::fromClip(clip).withNewItemID(*s.edit));
+	if (!duplicate)
+	{
+		s.edit->getUndoManager().undoCurrentTransactionOnly();
+		throw std::invalid_argument("Tracktion refused the clip duplicate");
+	}
+	duplicate->setPosition(placement);
+	s.commit();
+	return duplicate->itemID.getRawID();
+}
+
+void Session::deleteClip(Revision expected, ClipId id)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	auto& clip = s.clip(id).second;
+	s.begin("Delete clip and leave gap");
+	clip.removeFromParent();
+	s.commit();
 }
 
 bool Session::undo(Revision expected)

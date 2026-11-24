@@ -88,6 +88,9 @@ public:
 	                  std::optional<Frame> frameCount, const std::string& name = {});
 	void trim(Revision, ClipId, Frame start, Frame end);
 	ClipId split(Revision, ClipId, Frame);
+	void moveClip(Revision, ClipId, TrackId destination, Frame start);
+	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);
+	void deleteClip(Revision, ClipId);
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);

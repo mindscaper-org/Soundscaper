@@ -36,6 +36,7 @@ struct Session::State
 	juce::ValueTree newProject(int rate);
 	juce::ValueTree openProject() const;
 	tracktion::TimePosition position(Frame) const;
+	te::ClipPosition clipPlacement(const te::Clip&, Frame start) const;
 	void checkRevision(Revision, bool finishingRecording = false) const;
 	void requireNoRecording() const;
 	te::AudioTrack& track(TrackId) const;

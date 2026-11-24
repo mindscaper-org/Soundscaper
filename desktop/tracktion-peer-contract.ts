@@ -3,7 +3,7 @@
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
-	TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
+	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -28,8 +28,7 @@ export type TracktionCommand =
 		kind: 'import'; trackId: string; asset: string; name: string; start: number; sourceOffset: number; frames: number;
 	}>)
 	| (Revision & Readonly<{ kind: 'importFile'; trackId: string; asset: string; name: string; start: number }>)
-	| (Revision & Readonly<{ kind: 'trim'; clipId: string; start: number; end: number }>)
-	| (Revision & Readonly<{ kind: 'split'; clipId: string; frame: number }>)
+	| (Revision & TracktionClipCommand)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
@@ -91,7 +90,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	}
 	const edited = revision === command.revision + 1;
 	const createsItem = command.kind === 'addTrack' || command.kind === 'import' || command.kind === 'importFile'
-		|| command.kind === 'split' || command.kind === 'insertOfflineEffect'
+		|| command.kind === 'split' || command.kind === 'duplicateClip' || command.kind === 'insertOfflineEffect'
 		|| (command.kind === 'finishRecording' && edited && !command.discard);
 	if (command.kind === 'finishRecording' && command.discard && edited) {
 		throw new TypeError('Discarding a Tracktion take cannot advance the project revision.');

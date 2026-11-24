@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 import type { Download, Page } from 'playwright-core';
 
-import { wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
+import { waveData, wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
 
 type PlaybackWindow = Window & {
 	tracktionTestAnalyser?: AnalyserNode;
@@ -210,15 +210,49 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await trim.getByRole('button', { name: 'Apply' }).click();
 	const clip = page.getByText('Tracktion web media (128–896)', { exact: true });
 	await clip.waitFor();
+	await editing.click();
+	await button('Add track').click();
+	const track = page.getByRole('combobox', { name: 'Track', exact: true });
+	const list = page.getByRole('list', { name: 'Audio clips' });
+	await page.getByText('0 clips', { exact: true }).waitFor();
+	await track.selectOption({ index: 0 });
+	await clip.waitFor();
+	await editing.click();
+	await button('Duplicate clip').click();
+	const duplicate = page.getByRole('dialog', { name: 'Duplicate clip' });
+	await duplicate.getByRole('spinbutton', { name: 'Start frame' }).fill('1200');
+	await duplicate.getByRole('button', { name: 'Apply' }).click();
+	await list.getByText('Tracktion web media (1200–1968)', { exact: true }).waitFor();
+	await editing.click();
+	await button('Move clip').click();
+	const move = page.getByRole('dialog', { name: 'Move clip' });
+	await move.getByRole('combobox', { name: 'Clip', exact: true }).selectOption({ label: 'Tracktion web media (1200–1968)' });
+	await move.getByRole('combobox', { name: 'Destination track' }).selectOption({ label: 'Audio track 2' });
+	await move.getByRole('spinbutton', { name: 'Start frame' }).fill('1600');
+	await move.getByRole('button', { name: 'Apply' }).click();
+	const placed = list.getByText('Tracktion web media (1600–2368)', { exact: true });
+	await placed.waitFor();
+	await editing.click();
+	await button('Delete and leave gap').click();
+	await page.getByRole('dialog', { name: 'Delete and leave gap' }).getByRole('button', { name: 'Apply' }).click();
+	await page.getByText('0 clips', { exact: true }).waitFor();
+	await editing.click();
+	await button('Undo').click();
+	await placed.waitFor();
 	await fileCommand('Save project');
 	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();
 	await page.reload();
 	await fileCommand('Open projects');
 	await page.getByRole('dialog', { name: 'Local projects' }).getByRole('button', { name }).click();
 	await clip.waitFor();
+	await track.selectOption({ label: 'Audio track 2' });
+	await placed.waitFor();
 	const audio = await exportFile('Export mix (WAV)');
 	assert.equal(audio.suggestedFilename().replaceAll('_', ' '), `${name}.wav`);
-	assert.equal((await readFile(await audio.path())).subarray(0, 4).toString('ascii'), 'RIFF');
+	const mix = waveData(await readFile(await audio.path()));
+	assert.equal(mix.length, 2368 * 4);
+	assert.equal(mix.readInt16LE(1599 * 4), 0);
+	assert.deepEqual([mix.readInt16LE(1600 * 4), mix.readInt16LE(1600 * 4 + 2)], [4096, -2048]);
 	const archive = await exportFile('Export project archive (ZIP)');
 	assert.equal(archive.suggestedFilename().replaceAll('_', ' '), `${name}.zip`);
 	const portable = await readFile(await archive.path());
@@ -229,6 +263,8 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await Promise.all([reopenArchive, fileCommand('Open project archive (ZIP)')]);
 	await page.getByRole('heading', { name: 'Portable copy' }).waitFor();
 	await clip.waitFor();
+	await track.selectOption({ label: 'Audio track 2' });
+	await placed.waitFor();
 }
 
 

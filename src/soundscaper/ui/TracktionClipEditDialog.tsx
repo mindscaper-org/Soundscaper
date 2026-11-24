@@ -5,25 +5,28 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
-import type { TracktionClipView } from '../tracktion-project-contract.ts';
-
-export type TracktionClipEdit = Readonly<{ kind: 'split'; clipId: string; frame: number }>
-	| Readonly<{ kind: 'trim'; clipId: string; start: number; end: number }>;
+import type { TracktionClipCommand, TracktionClipView, TracktionTrackView } from '../tracktion-project-contract.ts';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
+const titles: Record<TracktionClipCommand['kind'], string> = {
+	split: copy.tracktionSplitClip, trim: copy.tracktionTrimClip, moveClip: copy.tracktionMoveClip,
+	duplicateClip: copy.tracktionDuplicateClip, deleteClip: copy.liftDelete,
+};
 
-export function TracktionClipEditDialog({ kind, clips, onApply, onDismiss }: {
-	readonly kind: TracktionClipEdit['kind'];
+export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, onApply, onDismiss }: {
+	readonly kind: TracktionClipCommand['kind'];
 	readonly clips: readonly TracktionClipView[];
-	readonly onApply: (edit: TracktionClipEdit) => void;
+	readonly tracks: readonly TracktionTrackView[];
+	readonly sourceTrackId: string;
+	readonly onApply: (edit: TracktionClipCommand) => void;
 	readonly onDismiss: () => void;
 }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 	const [id, setId] = useState(clips[0]?.id);
 	const [failure, setFailure] = useState('');
 	const clip = clips.find((candidate) => candidate.id === id) ?? clips[0];
-	const splitting = kind === 'split';
-	const title = splitting ? copy.tracktionSplitClip : copy.tracktionTrimClip;
+	const placing = kind === 'moveClip' || kind === 'duplicateClip';
+	const title = titles[kind];
 
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
@@ -31,11 +34,19 @@ export function TracktionClipEditDialog({ kind, clips, onApply, onDismiss }: {
 		event.preventDefault();
 		if (!clip) return;
 		const fields = new FormData(event.currentTarget);
-		if (splitting) {
+		if (kind === 'deleteClip') {
+			onApply({ kind, clipId: clip.id });
+			return;
+		}
+		if (kind === 'split') {
 			onApply({ kind, clipId: clip.id, frame: Number(fields.get('frame')) });
 			return;
 		}
 		const start = Number(fields.get('start'));
+		if (placing) {
+			onApply({ kind, clipId: clip.id, trackId: String(fields.get('track')), start });
+			return;
+		}
 		const end = Number(fields.get('end'));
 		if (start >= end) {
 			setFailure(copy.tracktionClipFrameOrder);
@@ -52,13 +63,21 @@ export function TracktionClipEditDialog({ kind, clips, onApply, onDismiss }: {
 				{clips.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.start}–{item.end})</option>)}
 			</select></label></p>
 			<div key={clip.id}>
-				{splitting ? <p><label>{copy.tracktionSplitFrame} <input type="number" name="frame" required step="1"
+				{kind === 'split' && <p><label>{copy.tracktionSplitFrame} <input type="number" name="frame" required step="1"
 					min={clip.start + 1} max={clip.end - 1} defaultValue={clip.start + Math.floor((clip.end - clip.start) / 2)} />
-				</label></p> : <>
+				</label></p>}
+				{kind === 'trim' && <>
 					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1"
 						min={clip.start} max={clip.end - 1} defaultValue={clip.start} /></label></p>
 					<p><label>{copy.tracktionEndFrame} <input type="number" name="end" required step="1"
 						min={clip.start + 1} max={clip.end} defaultValue={clip.end} /></label></p>
+				</>}
+				{placing && <>
+					<p><label>{copy.tracktionDestinationTrack} <select name="track" defaultValue={sourceTrackId}>
+						{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+					</select></label></p>
+					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1" min="0"
+						defaultValue={kind === 'duplicateClip' ? clip.end : clip.start} /></label></p>
 				</>}
 			</div>
 			{failure && <p role="alert">{failure}</p>}

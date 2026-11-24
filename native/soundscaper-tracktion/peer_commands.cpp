@@ -365,6 +365,20 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		requireFields(request, {"revision", "clipId", "frame"});
 		created = session.split(revision, itemId(request, "clipId"), integer("frame"));
 	}
+	else if (kind == "moveClip" || kind == "duplicateClip")
+	{
+		requireFields(request, {"revision", "clipId", "trackId", "start"});
+		const auto clip = itemId(request, "clipId");
+		const auto track = itemId(request, "trackId");
+		const auto start = integer("start");
+		if (kind == "moveClip") session.moveClip(revision, clip, track, start);
+		else created = session.duplicateClip(revision, clip, track, start);
+	}
+	else if (kind == "deleteClip")
+	{
+		requireFields(request, {"revision", "clipId"});
+		session.deleteClip(revision, itemId(request, "clipId"));
+	}
 	else if (kind == "undo" || kind == "redo" || kind == "save")
 	{
 		requireFields(request, {"revision"});

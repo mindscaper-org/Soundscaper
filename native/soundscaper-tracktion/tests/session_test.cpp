@@ -70,6 +70,56 @@ void verifyRender(const juce::File& file)
 	}
 }
 
+void verifyClipPlacement(const juce::File& root)
+{
+	const auto project = root.getChildFile("placement-project");
+	const auto settings = root.getChildFile("placement-settings");
+	const auto source = root.getChildFile("placement.wav");
+	writeFixture(source);
+	ClipId copy;
+	{
+		Session session(project, settings, OpenMode::create, 48000);
+		const auto first = session.snapshot().tracks.front().id;
+		const auto original = session.insertAudio(0, first, source, 41, 123, 128);
+		const auto second = session.addTrack(1, "Destination");
+		session.moveClip(2, original, first, 41);
+		require(session.revision() == 2, "an unchanged clip placement leaves history alone");
+		session.moveClip(2, original, second, 258);
+		require(session.undo(3), "undo the cross-track move");
+		const auto before = session.snapshot();
+		require(before.tracks[1].clips.empty() && before.tracks[0].clips.at(0).id == original
+			&& before.tracks[0].clips.at(0).start == 41, "undo restores original owner and timeline position");
+		require(session.redo(4), "redo the cross-track move");
+		const auto after = session.snapshot();
+		const auto& moved = after.tracks[1].clips.at(0);
+		require(after.tracks[0].clips.empty() && moved.id == original && moved.start == 258
+			&& moved.end == 386 && moved.sourceOffset == 123, "move preserves clip identity and source interval");
+		copy = session.duplicateClip(5, original, second, 451);
+		session.deleteClip(6, original);
+		const auto erased = session.snapshot();
+		require(erased.tracks[1].clips.size() == 1 && erased.tracks[1].clips[0].start == 451,
+			"delete leaves the following clip in place");
+		require(session.undo(7) && session.snapshot().tracks[1].clips.size() == 2, "undo restores the deleted clip");
+		require(session.redo(8), "redo the clip deletion");
+		session.save(9);
+	}
+	Session reopened(project, settings, OpenMode::open, 0);
+	const auto snapshot = reopened.snapshot();
+	const auto& saved = snapshot.tracks.at(1).clips.at(0);
+	require(saved.id == copy && saved.start == 451 && saved.end == 579 && saved.sourceOffset == 123,
+		"the copied interval survives reopening");
+	require(project.getChildFile("media").getNumberOfChildFiles(juce::File::findFiles) == 1,
+		"duplicates share the project-owned media body");
+	const auto mix = root.getChildFile("placed.wav");
+	reopened.render(0, mix, 0, 600);
+	juce::WavAudioFormat format;
+	std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(mix.createInputStream().release(), true));
+	juce::AudioBuffer<float> pcm(2, 600);
+	require(reader && reader->read(&pcm, 0, 600, 0, true, true), "read the placed mix");
+	require(pcm.getSample(0, 450) == 0.0f && std::abs(pcm.getSample(0, 451) - 0.125f) < 1.0f / 32768
+		&& pcm.getSample(0, 579) == 0.0f, "the placed clip renders at its exact boundaries");
+}
+
 void rejectArchive(const juce::File& archive, const juce::File& target, std::int64_t limit)
 {
 	bool rejected = false;
@@ -376,6 +426,7 @@ int main()
 		}), "Windows builds must register the ASIO host in JUCE's device manager");
 #endif
 		runSessionTest(root);
+		verifyClipPlacement(root);
 		verifyHostedRecording(root);
 		verifyOfflineEffect(root);
 		root.deleteRecursively();
