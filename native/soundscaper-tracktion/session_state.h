@@ -6,11 +6,14 @@
 
 #include <tracktion_engine/tracktion_engine.h>
 
+#include <functional>
+
 namespace soundscaper::tracktion_backend
 {
 namespace te = tracktion::engine;
 
 inline constexpr auto mediaDirectory = "media";
+juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
 
 void registerOfflineEffectPlugin(te::Engine&);
 void requireLiveEffectSupport(const te::Edit&);
@@ -44,6 +47,7 @@ struct Session::State
 	void begin(const char* name);
 	void commit();
 	void rollback();
+	void deleteRange(RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const std::function<void()>& publish = {});
 
 	void releaseRecordingInput();
 

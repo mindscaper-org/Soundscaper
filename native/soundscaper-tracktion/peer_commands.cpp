@@ -205,7 +205,8 @@ juce::var transportView(Session& session)
 	return view;
 }
 
-juce::var dispatch(Session& session, const juce::File& exchange, const juce::var& value, OfflineEffectHost* effects)
+juce::var dispatch(Session& session, const juce::File& exchange, const juce::File& clipboard, const juce::var& value,
+                   OfflineEffectHost* effects)
 {
 	const auto* payload = value.getDynamicObject();
 	if (payload == nullptr)
@@ -379,7 +380,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		requireFields(request, {"revision", "clipId"});
 		session.deleteClip(revision, itemId(request, "clipId"));
 	}
-	else if (kind == "deleteRange")
+	else if (kind == "deleteRange" || kind == "copyRange" || kind == "cutRange")
 	{
 		requireFields(request, {"revision", "mode", "trackId", "start", "end"});
 		const auto mode = text(request, "mode", 9);
@@ -391,7 +392,21 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		else throw std::invalid_argument("Unknown Tracktion range delete mode");
 		std::optional<TrackId> track;
 		if (!request.getProperty("trackId").isVoid()) track = itemId(request, "trackId");
-		session.deleteRange(revision, selected, track, integer("start"), integer("end"));
+		const auto start = integer("start");
+		const auto end = integer("end");
+		if (kind == "deleteRange") session.deleteRange(revision, selected, track, start, end);
+		else session.copyRange(revision, selected, track, start, end, clipboard, kind == "cutRange");
+	}
+	else if (kind == "pasteRange")
+	{
+		requireFields(request, {"revision", "mode", "trackId", "start"});
+		const auto mode = text(request, "mode", 12);
+		RangePasteMode selected;
+		if (mode == "overlap") selected = RangePasteMode::overlap;
+		else if (mode == "insertTracks") selected = RangePasteMode::insertTracks;
+		else if (mode == "insertAll") selected = RangePasteMode::insertAll;
+		else throw std::invalid_argument("Unknown Tracktion paste mode");
+		session.pasteRange(revision, selected, itemId(request, "trackId"), integer("start"), clipboard);
 	}
 	else if (kind == "undo" || kind == "redo" || kind == "save")
 	{

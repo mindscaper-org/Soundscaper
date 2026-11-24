@@ -39,6 +39,7 @@ juce::var execute(const juce::var& request)
 		throw std::invalid_argument("The Tracktion command must have a kind");
 
 	const auto kind = object->getProperty("kind").toString();
+	const juce::File exchange("/exchange"), clipboard("/clipboard");
 	if (kind == "create" || kind == "open" || kind == "openArchive")
 	{
 		const auto& project = object->getProperty("project");
@@ -65,7 +66,7 @@ juce::var execute(const juce::var& request)
 		juce::DynamicObject::Ptr page = new juce::DynamicObject();
 		page->setProperty("kind", "project");
 		page->setProperty("offset", 0);
-		auto result = dispatch(*next, juce::File("/exchange"), juce::var(page.get()));
+		auto result = dispatch(*next, exchange, clipboard, juce::var(page.get()));
 		const std::scoped_lock lock(playbackMutex);
 		playbackPrepared = false;
 		session = std::move(next);
@@ -88,10 +89,10 @@ juce::var execute(const juce::var& request)
 		prepareHostedDevice();
 		juce::DynamicObject::Ptr status = new juce::DynamicObject();
 		status->setProperty("kind", "transportStatus");
-		return dispatch(*session, juce::File("/exchange"), juce::var(status.get()));
+		return dispatch(*session, exchange, clipboard, juce::var(status.get()));
 	}
 	if (kind == "startRecording") prepareHostedDevice();
-	return dispatch(*session, juce::File("/exchange"), request);
+	return dispatch(*session, exchange, clipboard, request);
 }
 
 void respond(int id, const juce::String& body)

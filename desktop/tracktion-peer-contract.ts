@@ -4,7 +4,7 @@ import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionA
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
 	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
-	TracktionRangeCommand, TracktionRecordingCommand, TracktionTrackMix,
+	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -31,6 +31,7 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'importFile'; trackId: string; asset: string; name: string; start: number }>)
 	| (Revision & TracktionClipCommand)
 	| (Revision & TracktionRangeCommand)
+	| (Revision & TracktionPasteCommand)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
@@ -54,7 +55,7 @@ const transportKinds = new Set<TracktionCommand['kind']>([
 export class TracktionRejectedCommand extends Error {}
 
 export function tracktionCommandTimeout(command: TracktionCommand): number {
-	return command.kind === 'render' || command.kind === 'archive' ? 120_000 : 15_000;
+	return ['render', 'archive', 'copyRange', 'cutRange', 'pasteRange'].includes(command.kind) ? 120_000 : 15_000;
 }
 
 export function inspectTracktionReply<Command extends TracktionCommand>(
@@ -91,6 +92,9 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		throw new TypeError('A Tracktion edit returned an invalid revision.');
 	}
 	const edited = revision === command.revision + 1;
+	if ((command.kind === 'copyRange' && edited) || ((command.kind === 'cutRange' || command.kind === 'pasteRange') && !edited)) {
+		throw new TypeError('A Tracktion clipboard command returned an invalid revision.');
+	}
 	const createsItem = command.kind === 'addTrack' || command.kind === 'import' || command.kind === 'importFile'
 		|| command.kind === 'split' || command.kind === 'duplicateClip' || command.kind === 'insertOfflineEffect'
 		|| (command.kind === 'finishRecording' && edited && !command.discard);

@@ -15,6 +15,7 @@ export type TracktionLaunch = Readonly<{
 	projectDirectory: string;
 	stateDirectory: string;
 	exchangeDirectory: string;
+	clipboardDirectory?: string;
 }> & (Readonly<{ mode: 'create'; sampleRate: number }> | Readonly<{ mode: 'open' }>);
 
 const SHUTDOWN_TIMEOUT_MS = 3_000;
@@ -29,6 +30,7 @@ export function launchTracktionPeer(options: TracktionLaunch, createEffectRender
 	const child = spawn(executable, [
 		options.mode, checkedPath(options.projectDirectory), checkedPath(options.stateDirectory),
 		checkedPath(options.exchangeDirectory), String(rate),
+		...(options.clipboardDirectory === undefined ? [] : [checkedPath(options.clipboardDirectory)]),
 	], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
 
 	const { control, completion } = bindNativeChildProcess(child, {

@@ -57,6 +57,14 @@ place. Track ripple also moves later clips by the range length. The same edit
 transaction holds each boundary split and placement, including one-frame
 ranges.
 
+The Tracktion clipboard belongs to the editor window or browser worker. Copy
+and cut retain clip state, source intervals, gaps, and audio lane order in a
+detached selection. The clipboard owns its media so replacing the open project
+leaves the selection available. Paste remaps Tracktion item IDs and adopts the
+media into the destination project. Insert paste splits clips at the insertion
+point and shifts the affected tracks in one undo transaction. It rounds copied
+endpoints from the same origin when the destination sample rate differs.
+
 Rates, beats, tempo values, and authored curve coordinates use reduced rational
 values. Conversions compose the integer numerator before division and use
 `BigInt` internally when ordinary integer arithmetic cannot remain exact. This

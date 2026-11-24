@@ -23,6 +23,7 @@ type ProjectLaunch = LaunchMode & Readonly<{
 	projectDirectory: string;
 	stateDirectory: string;
 	exchangeDirectory: string;
+	clipboardDirectory: string;
 }>;
 
 interface Ports {
@@ -65,6 +66,7 @@ export class TracktionProjectService {
 	readonly #revoked = new WeakSet<object>();
 	readonly #exports = createTracktionExportWriter();
 	#active: ActiveProject | null = null;
+	#clipboard: Readonly<{ owner: object; directory: string }> | null = null;
 	#operation: Operation | null = null;
 	#closing = false;
 	#disposal: Promise<void> | null = null;
@@ -103,7 +105,7 @@ export class TracktionProjectService {
 	dispose(): Promise<void> {
 		if (this.#disposal) return this.#disposal;
 		this.#closing = true;
-		const owners = new Set([this.#operation?.owner, this.#active?.owner]);
+		const owners = new Set([this.#operation?.owner, this.#active?.owner, this.#clipboard?.owner]);
 		this.#disposal = Promise.allSettled([...owners].flatMap((owner) => owner ? [this.revokeOwner(owner)] : []))
 			.then(async (results) => {
 				await this.#exports.dispose();
@@ -119,6 +121,11 @@ export class TracktionProjectService {
 			this.#exports.revokeOwner(owner),
 		]);
 		if (active) await rm(active.scratch, { force: true, recursive: true });
+		if (this.#clipboard?.owner === owner) {
+			const { directory } = this.#clipboard;
+			this.#clipboard = null;
+			await rm(directory, { force: true, recursive: true });
+		}
 		for (const result of results) if (result.status === 'rejected') throw result.reason;
 	}
 
@@ -192,13 +199,18 @@ export class TracktionProjectService {
 		}
 
 		await mkdir(this.#ports.scratchRoot, { recursive: true, mode: 0o700 });
-		const scratch = await mkdtemp(join(await realpath(this.#ports.scratchRoot), 'edit-'));
+		const scratchRoot = await realpath(this.#ports.scratchRoot);
+		const scratch = await mkdtemp(join(scratchRoot, 'edit-'));
 		const exchange = join(scratch, 'exchange');
 		let candidate: ActiveProject | null = null;
 		try {
 			await Promise.all(['input', 'output'].map((direction) => mkdir(join(exchange, direction), { recursive: true, mode: 0o700 })));
 			this.#assertOwner(owner, signal);
-			const location = { projectDirectory: directory, stateDirectory: join(scratch, 'state'), exchangeDirectory: exchange };
+			if (this.#clipboard && this.#clipboard.owner !== owner) throw new Error('The Tracktion clipboard belongs to a different editor window.');
+			this.#clipboard ??= { owner, directory: await mkdtemp(join(scratchRoot, 'clipboard-')) };
+			this.#assertOwner(owner, signal);
+			const location = { projectDirectory: directory, stateDirectory: join(scratch, 'state'),
+				exchangeDirectory: exchange, clipboardDirectory: this.#clipboard.directory };
 			const peer = await this.#ports.startPeer(command.kind === 'create'
 				? { ...location, mode: 'create', sampleRate: command.sampleRate }
 				: { ...location, mode: 'open' });

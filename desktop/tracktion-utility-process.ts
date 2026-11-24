@@ -7,13 +7,14 @@ import { TracktionRejectedCommand, type TracktionCommand } from './tracktion-pee
 import { launchTracktionPeer } from './tracktion-peer.ts';
 
 const parent: ParentPort | null = process.parentPort;
-const [mode, executable, projectDirectory, stateDirectory, exchangeDirectory, rate, ...extra] = process.argv.slice(2);
+const [mode, executable, projectDirectory, stateDirectory, exchangeDirectory, rate, clipboardDirectory, ...extra] = process.argv.slice(2);
 if (!parent || !executable || !projectDirectory || !stateDirectory || !exchangeDirectory || extra.length > 0
 	|| (mode !== 'create' && mode !== 'open') || typeof rate !== 'string' || (mode === 'open' && rate !== '0')) {
 	throw new Error('Invalid Tracktion utility launch.');
 }
 
-const launch = { executable, projectDirectory, stateDirectory, exchangeDirectory };
+const launch = { executable, projectDirectory, stateDirectory, exchangeDirectory,
+	...(clipboardDirectory === undefined ? {} : { clipboardDirectory }) };
 const port = parent;
 let stopping = false;
 let lastRequest = 0;

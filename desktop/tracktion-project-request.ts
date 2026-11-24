@@ -7,6 +7,7 @@ import { readTracktionAudioDeviceId, readTracktionAudioSetup, tracktionAudioSetu
 
 const SESSION_ID = /^[a-f0-9]{32}$/u;
 const ITEM_ID = /^[1-9][0-9]{0,19}$/u;
+const rangeFields = ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start', 'end'] as const;
 const fields = {
 	create: ['kind', 'sampleRate'],
 	open: ['kind'],
@@ -26,7 +27,10 @@ const fields = {
 	moveClip: ['kind', 'sessionId', 'revision', 'clipId', 'trackId', 'start'],
 	duplicateClip: ['kind', 'sessionId', 'revision', 'clipId', 'trackId', 'start'],
 	deleteClip: ['kind', 'sessionId', 'revision', 'clipId'],
-	deleteRange: ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start', 'end'],
+	deleteRange: rangeFields,
+	copyRange: rangeFields,
+	cutRange: rangeFields,
+	pasteRange: ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start'],
 	undo: ['kind', 'sessionId', 'revision'],
 	redo: ['kind', 'sessionId', 'revision'],
 	save: ['kind', 'sessionId', 'revision'],
@@ -65,17 +69,21 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 		readTracktionAudioDeviceId(request.hostId, false);
 		return request as TracktionProjectCommand;
 	}
-	if (kind === 'deleteRange') {
+	const range = kind === 'deleteRange' || kind === 'copyRange' || kind === 'cutRange';
+	if (range) {
 		const mode = request.mode;
 		if ((mode !== 'leaveGap' && mode !== 'perClip' && mode !== 'track' && mode !== 'allTracks')
 			|| (mode === 'allTracks') !== (request.trackId === null)) {
 			throw new TypeError('Invalid Tracktion range delete mode or track scope.');
 		}
 	}
+	if (kind === 'pasteRange' && !['overlap', 'insertTracks', 'insertAll'].some((mode) => mode === request.mode)) {
+		throw new TypeError('Invalid Tracktion paste mode.');
+	}
 
 	for (const [key, field] of Object.entries(request)) {
 		if (key === 'kind' || key === 'sessionId') continue;
-		if (kind === 'deleteRange' && (key === 'mode' || (key === 'trackId' && field === null))) continue;
+		if (((range || kind === 'pasteRange') && key === 'mode') || (range && key === 'trackId' && field === null)) continue;
 		if (key === 'clipId' || key === 'trackId' || key === 'slotId') {
 			if (typeof field !== 'string' || !ITEM_ID.test(field) || BigInt(field) > 18_446_744_073_709_551_615n) {
 				throw new TypeError('Invalid Tracktion item ID.');
@@ -101,7 +109,7 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (kind === 'create' && (Number(request.sampleRate) < 8_000 || Number(request.sampleRate) > 192_000)) {
 		throw new TypeError('Invalid Tracktion sample rate.');
 	}
-	if ((kind === 'render' || kind === 'trim' || kind === 'setLoop' || kind === 'deleteRange') && Number(request.start) >= Number(request.end)) {
+	if ((range || kind === 'render' || kind === 'trim' || kind === 'setLoop') && Number(request.start) >= Number(request.end)) {
 		throw new RangeError('The Tracktion range is empty.');
 	}
 	return request as TracktionProjectCommand;

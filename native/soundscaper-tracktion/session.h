@@ -28,6 +28,7 @@ using TrackId = std::uint64_t;
 
 enum class OpenMode { create, open };
 enum class RangeDeleteMode { leaveGap, perClip, track, allTracks };
+enum class RangePasteMode { overlap, insertTracks, insertAll };
 
 struct InterruptedTake
 {
@@ -93,6 +94,8 @@ public:
 	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);
 	void deleteClip(Revision, ClipId);
 	void deleteRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end);
+	void copyRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const juce::File& clipboard, bool cut);
+	void pasteRange(Revision, RangePasteMode, TrackId, Frame start, const juce::File& clipboard);
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);

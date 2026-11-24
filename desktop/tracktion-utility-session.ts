@@ -22,6 +22,7 @@ export async function startTracktionUtilitySession(
 	const child = fork(entry, [
 		options.mode, options.executable, options.projectDirectory,
 		options.stateDirectory, options.exchangeDirectory, String(options.mode === 'create' ? options.sampleRate : 0),
+		...(options.clipboardDirectory === undefined ? [] : [options.clipboardDirectory]),
 	], { serviceName: 'soundscaper-tracktion' });
 
 	let sequence = 0;

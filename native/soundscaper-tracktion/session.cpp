@@ -8,16 +8,6 @@
 
 namespace soundscaper::tracktion_backend
 {
-namespace
-{
-const juce::Identifier projectSampleRate("soundscaperProjectSampleRate");
-
-void ensureDirectory(const juce::File& directory)
-{
-	if (!directory.createDirectory().wasOk() || directory.isSymbolicLink())
-		throw std::runtime_error("Cannot create a Tracktion directory");
-}
-
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference)
 {
 	const auto relative = reference.replaceCharacter('\\', '/');
@@ -31,6 +21,16 @@ juce::File ownedMediaFile(const juce::File& directory, const juce::String& refer
 	if (media.isSymbolicLink() || file.isSymbolicLink() || !file.existsAsFile())
 		return {};
 	return file;
+}
+
+namespace
+{
+const juce::Identifier projectSampleRate("soundscaperProjectSampleRate");
+
+void ensureDirectory(const juce::File& directory)
+{
+	if (!directory.createDirectory().wasOk() || directory.isSymbolicLink())
+		throw std::runtime_error("Cannot create a Tracktion directory");
 }
 
 class HeadlessSettings final : public te::PropertyStorage

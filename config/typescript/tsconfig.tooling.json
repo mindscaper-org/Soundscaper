@@ -12,6 +12,7 @@
 		"../../desktop/tracktion-main.ts",
 		"../../desktop/tracktion-utility-process.ts",
 		"../../native/soundscaper-tracktion/tests/peer_test.ts",
+		"../../native/soundscaper-tracktion/tests/clipboard_peer_test.ts",
 		"../../native/soundscaper-tracktion/tests/offline_effect_peer_test.ts",
 		"../../native/soundscaper-tracktion/tests/plugin_library_test.ts",
 		"../../native/soundscaper-tracktion/tests/pipewire_output_test.ts",

@@ -21,7 +21,8 @@ add_subdirectory("${tracktion_build_source}" tracktion EXCLUDE_FROM_ALL)
 
 # Link the pinned engine once for the native peer and the C++ session test.
 add_library(soundscaper_tracktion_session STATIC
-	session.cpp session_range.cpp session_transport.cpp session_recording.cpp session_device.cpp session_effects.cpp project_archive.cpp)
+	session.cpp session_range.cpp session_clipboard.cpp session_transport.cpp session_recording.cpp
+	session_device.cpp session_effects.cpp project_archive.cpp)
 target_compile_features(soundscaper_tracktion_session PUBLIC cxx_std_20)
 target_compile_definitions(soundscaper_tracktion_session PUBLIC
 	JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1
@@ -55,7 +56,8 @@ if(BUILD_TESTING)
 	add_test(NAME soundscaper_tracktion_peer
 		COMMAND "${CMAKE_COMMAND}" -E env "SOUNDSCAPER_TRACKTION_TEST_PEER=$<TARGET_FILE:soundscaper_tracktion_peer>"
 			"${SOUNDSCAPER_TRACKTION_NODE}" --import tsx --test --test-concurrency=1
-			native/soundscaper-tracktion/tests/peer_test.ts native/soundscaper-tracktion/tests/pipewire_output_test.ts
+			native/soundscaper-tracktion/tests/peer_test.ts native/soundscaper-tracktion/tests/clipboard_peer_test.ts
+			native/soundscaper-tracktion/tests/pipewire_output_test.ts
 			native/soundscaper-tracktion/tests/offline_effect_peer_test.ts native/soundscaper-tracktion/tests/plugin_library_test.ts)
 	add_test(NAME soundscaper_tracktion_audio_queue
 		COMMAND "${SOUNDSCAPER_TRACKTION_NODE}" --import tsx --test native/soundscaper-tracktion/tests/audio_queue_test.ts)

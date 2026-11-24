@@ -80,10 +80,14 @@ export type TracktionClipCommand =
 	| Readonly<{ kind: 'moveClip' | 'duplicateClip'; clipId: string; trackId: string; start: number }>
 	| Readonly<{ kind: 'deleteClip'; clipId: string }>;
 
-export type TracktionRangeCommand = Readonly<{ kind: 'deleteRange'; start: number; end: number }> & (
+export type TracktionRangeCommand = Readonly<{ kind: 'deleteRange' | 'copyRange' | 'cutRange'; start: number; end: number }> & (
 	| Readonly<{ mode: 'allTracks'; trackId: null }>
 	| Readonly<{ mode: 'leaveGap' | 'perClip' | 'track'; trackId: string }>
 );
+
+export type TracktionPasteCommand = Readonly<{
+	kind: 'pasteRange'; mode: 'overlap' | 'insertTracks' | 'insertAll'; trackId: string; start: number;
+}>;
 
 type Session = Readonly<{ sessionId: string }>;
 type Edit = Session & Readonly<{ revision: number }>;
@@ -98,6 +102,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'import'; trackId: string; start: number }>)
 	| (Edit & TracktionClipCommand)
 	| (Edit & TracktionRangeCommand)
+	| (Edit & TracktionPasteCommand)
 	| (Edit & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)

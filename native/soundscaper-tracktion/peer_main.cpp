@@ -93,7 +93,7 @@ void writeFrame(std::FILE* output, const juce::String& body)
 		throw std::runtime_error("Cannot write the Tracktion response");
 }
 
-juce::String respond(Session& session, const juce::File& exchange, const std::string& body, std::FILE* output)
+juce::String respond(Session& session, const juce::File& exchange, const juce::File& clipboard, const std::string& body, std::FILE* output)
 {
 	auto answer = std::make_unique<juce::DynamicObject>();
 	try
@@ -110,7 +110,7 @@ juce::String respond(Session& session, const juce::File& exchange, const std::st
 				throw std::runtime_error("The Tracktion effect response is unavailable");
 			return decoded;
 		});
-		answer->setProperty("value", dispatch(session, exchange, request, &effects));
+		answer->setProperty("value", dispatch(session, exchange, clipboard, request, &effects));
 		answer->setProperty("ok", true);
 	}
 	catch (const std::invalid_argument& error)
@@ -130,7 +130,7 @@ juce::String respond(Session& session, const juce::File& exchange, const std::st
 }
 
 int runPeer(std::FILE* output, const juce::File& project, const juce::File& state, const juce::File& exchange,
-            OpenMode mode, int rate)
+            const juce::File& clipboard, OpenMode mode, int rate)
 {
 	juce::ScopedJuceInitialiser_GUI juceLifetime;
 	Session session(project, state, mode, rate);
@@ -142,7 +142,7 @@ int runPeer(std::FILE* output, const juce::File& project, const juce::File& stat
 		{
 			while (const auto body = readFrame())
 			{
-				const auto answer = juce::MessageManager::callSync([&] { return respond(session, exchange, *body, output); });
+				const auto answer = juce::MessageManager::callSync([&] { return respond(session, exchange, clipboard, *body, output); });
 				if (!answer)
 					throw std::runtime_error("The Tracktion message thread stopped");
 				writeFrame(output, *answer);
@@ -171,7 +171,7 @@ juce::File absolutePath(const char* value)
 
 int main(int argc, char** argv)
 {
-	if (argc != 6)
+	if (argc != 6 && argc != 7)
 		return 2;
 	const std::string_view mode(argv[1]);
 	if (mode != "create" && mode != "open")
@@ -189,7 +189,9 @@ int main(int argc, char** argv)
 		return 2;
 	try
 	{
-		return runPeer(output.get(), absolutePath(argv[2]), absolutePath(argv[3]), absolutePath(argv[4]),
+		const auto exchange = absolutePath(argv[4]);
+		const auto clipboard = argc == 7 ? absolutePath(argv[6]) : exchange.getChildFile("clipboard");
+		return runPeer(output.get(), absolutePath(argv[2]), absolutePath(argv[3]), exchange, clipboard,
 		               mode == "create" ? OpenMode::create : OpenMode::open, rate);
 	}
 	catch (const std::exception& error)

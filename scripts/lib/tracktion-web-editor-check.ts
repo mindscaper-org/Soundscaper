@@ -288,6 +288,46 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await right.waitFor();
 	await track.selectOption({ label: 'Audio track 2' });
 	await shifted.waitFor();
+
+	await editing.click();
+	await button('Copy').click();
+	const copy = page.getByRole('dialog', { name: 'Copy' });
+	await copy.getByRole('spinbutton', { name: 'Start frame' }).fill('1599');
+	await copy.getByRole('spinbutton', { name: 'End frame' }).fill('1600');
+	await copy.getByRole('button', { name: 'Apply' }).click();
+	await shifted.waitFor();
+	await editing.click();
+	await button('Cut').click();
+	const cut = page.getByRole('dialog', { name: 'Cut' });
+	await cut.getByRole('spinbutton', { name: 'Start frame' }).fill('200');
+	await cut.getByRole('spinbutton', { name: 'End frame' }).fill('1700');
+	await cut.getByRole('combobox', { name: 'Cut mode' }).selectOption('allTracks');
+	await cut.getByRole('button', { name: 'Apply' }).click();
+	await list.getByText('Tracktion web media (200–867)', { exact: true }).waitFor();
+	await fileCommand('Save project');
+	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();
+	const nameDestination = page.waitForEvent('dialog').then((dialog) => dialog.accept('Clipboard destination'));
+	await Promise.all([nameDestination, fileCommand('New project')]);
+	await page.getByRole('heading', { name: 'Clipboard destination' }).waitFor();
+	await editing.click();
+	await button('Paste').click();
+	const paste = page.getByRole('dialog', { name: 'Paste' });
+	await paste.getByRole('spinbutton', { name: 'Start frame' }).fill('40');
+	await paste.getByRole('button', { name: 'Apply' }).click();
+	await list.getByText('Tracktion web media (40–172)', { exact: true }).waitFor();
+	await list.getByText('Tracktion web media (172–735)', { exact: true }).waitFor();
+	await track.selectOption({ label: 'Audio track 2' });
+	await list.getByText('Tracktion web media (1439–1540)', { exact: true }).waitFor();
+	const pasted = waveData(await readFile(await (await exportFile('Export mix (WAV)')).path()));
+	assert.equal(pasted.length, 1540 * 4);
+	assert.equal(pasted.readInt16LE(1438 * 4), 0);
+	assert.equal(pasted.readInt16LE(1439 * 4), 4096);
+	await fileCommand('Save project');
+	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();
+	await page.reload();
+	await fileCommand('Open projects');
+	await page.getByRole('dialog', { name: 'Local projects' }).getByRole('button', { name: 'Clipboard destination' }).click();
+	await list.getByText('Tracktion web media (40–172)', { exact: true }).waitFor();
 }
 
 

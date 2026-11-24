@@ -9,8 +9,14 @@ namespace soundscaper::tracktion_backend
 {
 void Session::deleteRange(Revision expected, RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end)
 {
-	auto& s = *state;
-	s.checkRevision(expected);
+	state->checkRevision(expected);
+	state->deleteRange(mode, trackId, start, end);
+}
+
+void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end,
+                                 const std::function<void()>& publish)
+{
+	auto& s = *this;
 	const auto allTracks = mode == RangeDeleteMode::allTracks;
 	const auto rippleTrack = allTracks || mode == RangeDeleteMode::track;
 	if (trackId.has_value() == allTracks || start >= end)
@@ -59,6 +65,7 @@ void Session::deleteRange(Revision expected, RangeDeleteMode mode, std::optional
 		}
 		for (auto* clip : subsequent)
 			clip->setPosition(s.clipPlacement(*clip, sample(clip->getPosition().getStart()) - (end - start)));
+		if (publish) publish();
 		s.commit();
 	}
 	catch (...)

@@ -15,9 +15,11 @@ const scratch = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-stage-'));
 const projectDirectory = join(scratch, 'Project');
 const input = join(scratch, 'reference.wav');
 const output = join(scratch, 'mix.wav');
+const clipboardDestination = join(scratch, 'Clipboard destination');
 let application;
 try {
 	await mkdir(projectDirectory);
+	await mkdir(clipboardDestination);
 	await writeFile(input, wavFixture(512));
 	const env = { ...process.env, XDG_CONFIG_HOME: scratch, APPDATA: scratch };
 	delete env.ELECTRON_RUN_AS_NODE;
@@ -77,7 +79,32 @@ try {
 	const mix = waveData(await readFile(output));
 	assert.equal(mix.length, 511 * 4);
 	assert.deepEqual([mix.readInt16LE(128 * 4), mix.readInt16LE(128 * 4 + 2)], [4096, -2048]);
-	console.log('The prepared Soundscaper entry saved a Tracktion Edit and exported the expected PCM.');
+	await editing.click();
+	await window.getByRole('button', { name: 'Copy', exact: true }).click();
+	const copy = window.getByRole('dialog', { name: 'Copy' });
+	await copy.getByRole('spinbutton', { name: 'Start frame' }).fill('120');
+	await copy.getByRole('spinbutton', { name: 'End frame' }).fill('160');
+	await copy.getByRole('button', { name: 'Apply' }).click();
+	await application.evaluate(({ dialog }, directory) => {
+		dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] });
+	}, clipboardDestination);
+	await fileCommand('New project');
+	await window.getByRole('heading', { name: 'Clipboard destination' }).waitFor();
+	await editing.click();
+	await window.getByRole('button', { name: 'Paste', exact: true }).click();
+	const paste = window.getByRole('dialog', { name: 'Paste' });
+	await paste.getByRole('spinbutton', { name: 'Start frame' }).fill('20');
+	await paste.getByRole('button', { name: 'Apply' }).click();
+	await window.getByRole('list', { name: 'Audio clips' }).getByText('reference (28–60)', { exact: true }).waitFor();
+	await fileCommand('Export mix (WAV)');
+	await window.locator('main[aria-busy="false"]').waitFor();
+	const pasted = waveData(await readFile(output));
+	assert.equal(pasted.length, 60 * 4);
+	assert.equal(pasted.readInt16LE(19 * 4), 0);
+	assert.equal(pasted.readInt16LE(20 * 4), 4096);
+	await fileCommand('Save project');
+	await window.getByText('All changes saved locally').waitFor();
+	console.log('The prepared Soundscaper entry saved a Tracktion Edit and exported the expected cross-project clipboard PCM.');
 } finally {
 	try { await application?.close(); }
 	finally { await rm(scratch, { recursive: true, force: true }); }
