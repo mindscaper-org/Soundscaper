@@ -21,3 +21,12 @@ export function wavFixture(samples = 64): Buffer {
 	}
 	return pcm;
 }
+
+export function waveData(wave: Buffer): Buffer {
+	for (let offset = 12; offset + 8 <= wave.length;) {
+		const bytes = wave.readUInt32LE(offset + 4);
+		if (wave.toString('ascii', offset, offset + 4) === 'data') return wave.subarray(offset + 8, offset + 8 + bytes);
+		offset += 8 + bytes + (bytes % 2);
+	}
+	throw new Error('The rendered WAV has no PCM data chunk.');
+}

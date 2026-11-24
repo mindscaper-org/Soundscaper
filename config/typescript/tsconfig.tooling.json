@@ -10,6 +10,7 @@
 	},
 	"include": [
 		"../../native/soundscaper-tracktion/tests/peer_test.ts",
+		"../../native/soundscaper-tracktion/tests/pipewire_output_test.ts",
 		"../../native/soundscaper-tracktion/tests/audio_queue_test.ts",
 		"../../native/soundscaper-tracktion/tests/electron_smoke.ts",
 		"../../native/soundscaper-tracktion/wasm/tracktion-project-worker.ts",

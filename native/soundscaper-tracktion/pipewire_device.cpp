@@ -133,10 +133,16 @@ public:
 		if (auto* previous = std::exchange(callback, nullptr)) previous->audioDeviceStopped();
 	}
 
-	PipeWireCapture capture()
+	PipeWireRoute capture()
 	{
-		if (!inputStream) return PipeWireCapture::inactive;
-		return isOpen() ? PipeWireCapture::active : PipeWireCapture::interrupted;
+		if (!inputStream) return PipeWireRoute::inactive;
+		return isOpen() ? PipeWireRoute::active : PipeWireRoute::interrupted;
+	}
+
+	PipeWireRoute output() const
+	{
+		if (!outputStream) return PipeWireRoute::inactive;
+		return soundscaper_pipewire_disconnected(outputStream.get()) ? PipeWireRoute::interrupted : PipeWireRoute::active;
 	}
 
 	void quiesce()
@@ -314,16 +320,22 @@ private:
 };
 }
 
-PipeWireCapture pipeWireCapture(juce::AudioIODevice* device)
+PipeWireRoute pipeWireCapture(juce::AudioIODevice* device)
 {
 	if (auto* pipewire = dynamic_cast<PipeWireDevice*>(device)) return pipewire->capture();
-	return PipeWireCapture::inactive;
+	return PipeWireRoute::inactive;
+}
+
+PipeWireRoute pipeWireOutput(juce::AudioIODevice* device)
+{
+	if (const auto* pipewire = dynamic_cast<PipeWireDevice*>(device)) return pipewire->output();
+	return PipeWireRoute::inactive;
 }
 
 bool quiescePipeWireCapture(juce::AudioIODevice* device)
 {
 	auto* pipewire = dynamic_cast<PipeWireDevice*>(device);
-	if (!pipewire || pipewire->capture() == PipeWireCapture::inactive) return false;
+	if (!pipewire || pipewire->capture() == PipeWireRoute::inactive) return false;
 	pipewire->quiesce();
 	return true;
 }

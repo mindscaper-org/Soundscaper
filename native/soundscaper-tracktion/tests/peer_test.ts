@@ -11,7 +11,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { writeAlsaCaptureFixture, writeAlsaOutputFixture, writeAlsaRoutingFixture } from './alsa_fixture.ts';
 import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
-import { wavFixture } from './wave_fixture.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the peer test through CTest.');
@@ -501,12 +501,3 @@ test('Tracktion streams through the named PipeWire source and sink', {
 		await rm(root, { recursive: true, force: true });
 	}
 });
-
-function waveData(wave: Buffer): Buffer {
-	for (let offset = 12; offset + 8 <= wave.length;) {
-		const bytes = wave.readUInt32LE(offset + 4);
-		if (wave.toString('ascii', offset, offset + 4) === 'data') return wave.subarray(offset + 8, offset + 8 + bytes);
-		offset += 8 + bytes + (bytes % 2);
-	}
-	throw new Error('The rendered WAV has no PCM data chunk.');
-}

@@ -12,7 +12,7 @@ import { app, type BrowserWindow } from 'electron/main';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
-import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
+import { removePipeWireFixtureSink, removePipeWireFixtureSource, restorePipeWireFixtureSink } from './pipewire_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
@@ -187,6 +187,15 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Playback and recording');
 		await click('Play');
 		await waitForVisible('Playing');
+		if (process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT === '1') {
+			await sleep(150);
+			removePipeWireFixtureSink();
+			await waitForVisible('The selected audio device disconnected');
+			restorePipeWireFixtureSink();
+			await click('Playback and recording');
+			await click('Play');
+			await waitForVisible('Playing');
+		}
 		await click('Playback and recording');
 		await click('Stop');
 		await waitForVisible('Stopped');

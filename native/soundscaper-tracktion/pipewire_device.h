@@ -6,8 +6,9 @@ namespace juce { class AudioIODevice; }
 
 namespace soundscaper::tracktion_backend
 {
-enum class PipeWireCapture { inactive, active, interrupted };
+enum class PipeWireRoute { inactive, active, interrupted };
 
-PipeWireCapture pipeWireCapture(juce::AudioIODevice*);
+PipeWireRoute pipeWireCapture(juce::AudioIODevice*);
+PipeWireRoute pipeWireOutput(juce::AudioIODevice*);
 bool quiescePipeWireCapture(juce::AudioIODevice*);
 }

@@ -98,6 +98,7 @@ public:
 	AudioDevices audioDevices(const std::string& hostId);
 	AppliedAudioSetup setAudioSetup(AudioSetup);
 	bool playbackReady() const;
+	bool outputInterrupted() const;
 	bool isPlaying() const;
 	bool isRecording() const;
 	std::optional<InterruptedTake> interruptedTake() const;
@@ -115,6 +116,7 @@ public:
 	            const std::atomic_bool* cancelled = nullptr);
 
 private:
+	void watchAudioDevice();
 	struct State;
 	std::unique_ptr<State> state;
 };

@@ -4,12 +4,34 @@
 
 #include <stdexcept>
 
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+#include "pipewire_device.h"
+
+#include <functional>
+#include <iostream>
+#endif
+
 namespace soundscaper::tracktion_backend
 {
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+namespace
+{
+class DeviceLossMonitor final : public juce::Timer
+{
+public:
+	explicit DeviceLossMonitor(std::function<void()> poll) : inspect(std::move(poll)) {}
+
+private:
+	void timerCallback() override { inspect(); }
+	std::function<void()> inspect;
+};
+}
+#endif
+
 Session::~Session()
 {
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
-	if (state->recordingLossMonitor) state->recordingLossMonitor->stopTimer();
+	if (state->deviceLossMonitor) state->deviceLossMonitor->stopTimer();
 #endif
 	if (state->recording)
 	{
@@ -49,6 +71,9 @@ bool Session::State::hasSystemOutput() const
 	auto& manager = engine.getDeviceManager().deviceManager;
 	auto* device = manager.getCurrentAudioDevice();
 	if (!systemOutput || device == nullptr || !device->isOpen()) return false;
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	if (pipeWireOutput(device) == PipeWireRoute::interrupted) return false;
+#endif
 	if (!systemAudioSetup) return true;
 	const auto& applied = *systemAudioSetup;
 	const auto setup = manager.getAudioDeviceSetup();
@@ -82,6 +107,7 @@ void Session::prepareSystemOutput()
 		throw std::invalid_argument("Tracktion could not open the default stereo output device");
 	}
 	s.systemOutput = true;
+	s.outputWasInterrupted = false;
 	devices.dispatchPendingUpdates();
 	s.edit->getTransport().ensureContextAllocated();
 }
@@ -104,6 +130,55 @@ bool Session::playbackReady() const
 
 bool Session::isPlaying() const { return state->edit->getTransport().isPlaying(); }
 
+bool Session::outputInterrupted() const
+{
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	const auto& s = *state;
+	auto& manager = s.engine.getDeviceManager().deviceManager;
+	return s.outputWasInterrupted || pipeWireOutput(manager.getCurrentAudioDevice()) == PipeWireRoute::interrupted;
+#else
+	return false;
+#endif
+}
+
+void Session::watchAudioDevice()
+{
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	auto& s = *state;
+	auto* device = s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
+	if (pipeWireOutput(device) == PipeWireRoute::inactive && pipeWireCapture(device) == PipeWireRoute::inactive) return;
+	if (!s.deviceLossMonitor)
+		s.deviceLossMonitor = std::make_unique<DeviceLossMonitor>([this]
+		{
+			auto& s = *state;
+			auto* device = s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
+			if (pipeWireOutput(device) == PipeWireRoute::interrupted)
+			{
+				s.outputWasInterrupted = true;
+				if (!isRecording() && isPlaying())
+				{
+					const auto frame = std::max(Frame{}, playbackPosition());
+					stop();
+					s.edit->getTransport().setPosition(tracktion::TimePosition::fromSamples(frame, s.sampleRate));
+				}
+			}
+			if (!isRecording() && !isPlaying()) s.deviceLossMonitor->stopTimer();
+			if (!isRecording() || pipeWireCapture(device) != PipeWireRoute::interrupted) return;
+			const auto before = s.revision;
+			try
+			{
+				const auto item = finishRecording(before, false);
+				s.recoveredRecording = InterruptedTake{before, s.revision, item};
+			}
+			catch (const std::exception& error)
+			{
+				std::cerr << "Could not recover the interrupted Tracktion recording. " << error.what() << '\n';
+			}
+		});
+	s.deviceLossMonitor->startTimer(40);
+#endif
+}
+
 void Session::play(Frame start)
 {
 	auto& s = *state;
@@ -113,6 +188,7 @@ void Session::play(Frame start)
 	auto& transport = s.edit->getTransport();
 	transport.setPosition(s.position(start));
 	transport.play(false);
+	watchAudioDevice();
 }
 
 void Session::seek(Frame frame)
@@ -149,6 +225,9 @@ Frame Session::playbackPosition() const
 void Session::stop()
 {
 	state->requireNoRecording();
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	if (state->deviceLossMonitor) state->deviceLossMonitor->stopTimer();
+#endif
 	state->edit->getTransport().stop(false, false, false);
 }
 

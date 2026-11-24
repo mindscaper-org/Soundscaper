@@ -38,7 +38,7 @@ function(soundscaper_add_pipewire target)
 
 	string(REPLACE "if (state == PW_STREAM_STATE_ERROR || state == PW_STREAM_STATE_UNCONNECTED) {"
 		"if (state == PW_STREAM_STATE_ERROR || state == PW_STREAM_STATE_UNCONNECTED
-		|| (session->direction == SOUNDSCAPER_DEVICE_INPUT && old == PW_STREAM_STATE_STREAMING && state == PW_STREAM_STATE_PAUSED)) {"
+		|| (old == PW_STREAM_STATE_STREAMING && state == PW_STREAM_STATE_PAUSED)) {"
 		code "${code}")
 
 	string(REPLACE "const uint32_t moved = atomic_load_explicit(&session->lost_frames, memory_order_relaxed) == 0u"

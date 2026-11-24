@@ -196,6 +196,7 @@ juce::var transportView(Session& session)
 		{"ready", session.playbackReady()}, {"playing", session.isPlaying()}, {"recording", session.isRecording()},
 		{"frame", number(std::max(Frame{}, session.playbackPosition()))},
 	});
+	if (session.outputInterrupted()) view.getDynamicObject()->setProperty("outputInterrupted", true);
 	if (const auto take = session.interruptedTake())
 		view.getDynamicObject()->setProperty("interruptedTake", record({
 			{"revision", number(take->revision)},

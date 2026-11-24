@@ -193,6 +193,7 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested)
 	}
 
 	s.systemOutput = true;
+	s.outputWasInterrupted = false;
 	s.systemAudioSetup = AppliedAudioSetup{std::move(requested), static_cast<int>(std::lround(actual.sampleRate)), actual.bufferSize};
 	s.systemInputName = inputName;
 	s.systemOutputName = outputName;

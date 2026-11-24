@@ -36,9 +36,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const pending = useRef(false);
-	const captureProbe = useRef<Promise<void> | null>(null);
+	const transportProbe = useRef<Promise<void> | null>(null);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
+	const playing = transport?.playing === true;
 	const menuBar = useRef<HTMLElement>(null);
 	const splittable = workspace?.clips.filter((clip) => clip.end - clip.start > 1) ?? [];
 
@@ -54,31 +55,34 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	});
 	useEffect(() => bridge.onRecordingInterrupted?.(() => recoverMicrophone()), [bridge]);
 
-	const observeNativeCapture = useEffectEvent((isCurrent: () => boolean) => {
-		if (!workspace || pending.current || captureProbe.current) return;
+	const observeNativeTransport = useEffectEvent((isCurrent: () => boolean) => {
+		if (!workspace || pending.current || transportProbe.current) return;
 		const probe = bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }).then(async (next) => {
 			const take = next.interruptedTake;
-			if (!take || !isCurrent() || pending.current) return;
-			const updated = take.itemId ? await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id) : workspace;
+			const lostOutput = next.outputInterrupted && (next.recording || !next.playing) && !transport?.outputInterrupted;
+			if ((!take && !lostOutput) || !isCurrent() || pending.current) return;
+			const updated = take?.itemId ? await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id) : workspace;
 			if (!isCurrent() || pending.current) return;
 			setWorkspace(updated);
 			setTransport(next);
-			setStatus(take.itemId ? 'Recording added to the track' : 'No audio was recorded');
+			if (take) setStatus(take.itemId ? 'Recording added to the track' : 'No audio was recorded');
+			else if (!next.recording) setStatus('Stopped');
+			if (lostOutput) setFailure(AUDIO_DEVICE_COPY_BY_LOCALE.en.audioHostDeviceLost);
 		}).catch((error: unknown) => {
 			if (isCurrent() && !pending.current) setFailure(error instanceof Error ? error.message : String(error));
 		});
-		captureProbe.current = probe;
-		void probe.finally(() => { captureProbe.current = null; });
+		transportProbe.current = probe;
+		void probe.finally(() => { transportProbe.current = null; });
 	});
 	useEffect(() => {
-		if (!desktopAudioSetup || !recording) return;
+		if (!desktopAudioSetup || (!recording && !playing)) return;
 		let mounted = true;
-		const interval = window.setInterval(() => observeNativeCapture(() => mounted), 250);
+		const interval = window.setInterval(() => observeNativeTransport(() => mounted), 250);
 		return () => {
 			mounted = false;
 			window.clearInterval(interval);
 		};
-	}, [desktopAudioSetup, recording]);
+	}, [desktopAudioSetup, recording, playing]);
 
 	function run(work: () => Promise<void>): void {
 		if (pending.current) return;
@@ -87,8 +91,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setFailure('');
 		setStatus('');
 		closeMenus();
-		// A desktop command can share the request channel with the recording status read.
-		const probe = captureProbe.current;
+		// A desktop command shares the request channel with the transport status read.
+		const probe = transportProbe.current;
 		const result = probe ? probe.then(work) : work();
 		void result.catch((error: unknown) => {
 			setFailure(error instanceof Error ? error.message : String(error));

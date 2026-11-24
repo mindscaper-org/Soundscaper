@@ -60,6 +60,7 @@ struct Session::State
 	int playbackBlockFrames = 0;
 	bool hostedMonoInput = false;
 	bool systemOutput = false;
+	bool outputWasInterrupted = false;
 	bool systemDeviceManagerInitialised = false;
 	std::optional<AppliedAudioSetup> systemAudioSetup;
 	juce::String systemInputName, systemOutputName, systemHostName;
@@ -67,7 +68,7 @@ struct Session::State
 	std::optional<Recording> recording;
 	std::optional<InterruptedTake> recoveredRecording;
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
-	std::unique_ptr<juce::Timer> recordingLossMonitor;
+	std::unique_ptr<juce::Timer> deviceLossMonitor;
 #endif
 };
 }
