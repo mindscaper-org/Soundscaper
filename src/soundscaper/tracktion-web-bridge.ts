@@ -181,6 +181,11 @@ function download(bytes: ArrayBuffer, name: string, extension: 'wav' | 'zip'): v
 	const link = document.createElement('a');
 	link.download = `${name}.${extension}`;
 	link.href = url;
+	link.hidden = true;
+	document.body.append(link);
 	link.click();
-	window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+	window.setTimeout(() => {
+		link.remove();
+		URL.revokeObjectURL(url);
+	}, 30_000);
 }

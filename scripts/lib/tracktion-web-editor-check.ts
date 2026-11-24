@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import type { Page } from 'playwright-core';
+import type { Download, Page } from 'playwright-core';
 
 import { wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
 
@@ -16,6 +16,17 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	async function fileCommand(label: string): Promise<void> {
 		if (await fileMenu.locator('..').getAttribute('open') === null) await fileMenu.click();
 		await button(label).click();
+	}
+
+	async function exportFile(label: string): Promise<Download> {
+		try {
+			const [download] = await Promise.all([page.waitForEvent('download'), fileCommand(label)]);
+			return download;
+		} catch (cause) {
+			const busy = await page.locator('main').getAttribute('aria-busy');
+			const details = await page.getByRole('alert').allTextContents();
+			throw new Error(`${label} did not produce a download. Editor busy ${busy ?? 'unknown'}. ${details.join(' ')}`, { cause });
+		}
 	}
 	await page.addInitScript(() => {
 		if (!window.AudioWorkletNode) return;
@@ -90,10 +101,10 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	await fileCommand('Open projects');
 	await page.getByRole('dialog', { name: 'Local projects' }).getByRole('button', { name }).click();
 	await clip.waitFor();
-	const [audio] = await Promise.all([page.waitForEvent('download'), fileCommand('Export mix (WAV)')]);
+	const audio = await exportFile('Export mix (WAV)');
 	assert.equal(audio.suggestedFilename().replaceAll('_', ' '), `${name}.wav`);
 	assert.equal((await readFile(await audio.path())).subarray(0, 4).toString('ascii'), 'RIFF');
-	const [archive] = await Promise.all([page.waitForEvent('download'), fileCommand('Export project archive (ZIP)')]);
+	const archive = await exportFile('Export project archive (ZIP)');
 	assert.equal(archive.suggestedFilename().replaceAll('_', ' '), `${name}.zip`);
 	const portable = await readFile(await archive.path());
 	assert.equal(portable.readUInt32LE(0), 0x04034b50);
