@@ -3,7 +3,8 @@
 import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
-	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
+	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
+	TracktionRangeCommand, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -29,6 +30,7 @@ export type TracktionCommand =
 	}>)
 	| (Revision & Readonly<{ kind: 'importFile'; trackId: string; asset: string; name: string; start: number }>)
 	| (Revision & TracktionClipCommand)
+	| (Revision & TracktionRangeCommand)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)

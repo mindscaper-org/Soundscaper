@@ -53,11 +53,16 @@ bool admitsSampleRate(int sampleRate)
 	return sampleRate >= 8000 && sampleRate <= 192000;
 }
 
-void endTransaction(te::Edit& edit)
+void dispatchEditChanges(te::Edit& edit)
 {
 	for (auto* track : te::getAudioTracks(edit))
 		track->dispatchPendingClipOrdering();
 	edit.dispatchPendingUpdatesSynchronously();
+}
+
+void endTransaction(te::Edit& edit)
+{
+	dispatchEditChanges(edit);
 	edit.getUndoManager().beginNewTransaction();
 }
 
@@ -213,6 +218,13 @@ void Session::State::commit()
 {
 	endTransaction(*edit);
 	++revision;
+}
+
+void Session::State::rollback()
+{
+	dispatchEditChanges(*edit);
+	edit->getUndoManager().undoCurrentTransactionOnly();
+	endTransaction(*edit);
 }
 
 Session::Session(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int sampleRate)

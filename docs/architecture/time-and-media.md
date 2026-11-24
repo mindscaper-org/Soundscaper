@@ -50,6 +50,13 @@ receives new Tracktion item IDs and shares the project-owned source media.
 Deleting a clip with the leave-gap command preserves the position of its
 neighbors. Each operation is one Tracktion Edit undo transaction.
 
+Tracktion time-range deletion works on the active audio track or all audio
+tracks. Leaving a gap preserves the position of surviving audio. Per-clip
+ripple closes the gap within each affected clip and leaves later clips in
+place. Track ripple also moves later clips by the range length. The same edit
+transaction holds each boundary split and placement, including one-frame
+ranges.
+
 Rates, beats, tempo values, and authored curve coordinates use reduced rational
 values. Conversions compose the integer numerator before division and use
 `BigInt` internally when ordinary integer arithmetic cannot remain exact. This

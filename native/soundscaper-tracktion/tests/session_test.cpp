@@ -120,6 +120,70 @@ void verifyClipPlacement(const juce::File& root)
 		&& pcm.getSample(0, 579) == 0.0f, "the placed clip renders at its exact boundaries");
 }
 
+void verifyRangeDelete(const juce::File& root)
+{
+	const auto directory = root.getChildFile("range-project");
+	const auto settings = root.getChildFile("range-settings");
+	const auto source = root.getChildFile("range.wav");
+	writeFixture(source);
+	TrackId first;
+	{
+		Session session(directory, settings, OpenMode::create, 48000);
+		first = session.snapshot().tracks.front().id;
+		const auto original = session.insertAudio(0, first, source, 300, 50, 300);
+		session.insertAudio(1, first, source, 420, 0, 60);
+		const auto later = session.insertAudio(2, first, source, 700, 0, 50);
+		const auto second = session.addTrack(3, "Second track");
+		session.insertAudio(4, second, source, 450, 20, 100);
+		const auto check = [&](RangeDeleteMode mode, Frame rightStart, Frame laterStart)
+		{
+			const auto revision = session.revision();
+			session.deleteRange(revision, mode, mode == RangeDeleteMode::allTracks ? std::nullopt : std::optional{first}, 400, 500);
+			const auto view = session.snapshot();
+			const auto& main = view.tracks.at(0).clips;
+			const auto& auxiliary = view.tracks.at(1).clips.at(0);
+			require(view.revision == revision + 1 && main.size() == 3, "range delete is one edit");
+			require(main.at(0).id == original && main.at(0).end == 400 && main.at(1).id != original
+				&& main.at(1).start == rightStart && main.at(1).end == rightStart + 100 && main.at(1).sourceOffset == 250,
+				"range deletion keeps both outside source intervals");
+			require(main.at(2).id == later && main.at(2).start == laterStart, "range ripple moves only subsequent clips");
+			if (mode == RangeDeleteMode::allTracks)
+				require(auxiliary.start == 400 && auxiliary.end == 450 && auxiliary.sourceOffset == 70,
+					"all-track ripple keeps the second track's surviving source interval");
+			else require(auxiliary.start == 450 && auxiliary.end == 550, "track-local ranges leave other tracks alone");
+			require(session.undo(view.revision) && session.snapshot().tracks.at(0).clips.at(0).end == 600,
+				"one undo restores the original clip");
+		};
+		check(RangeDeleteMode::leaveGap, 500, 700);
+		check(RangeDeleteMode::perClip, 400, 700);
+		check(RangeDeleteMode::track, 400, 600);
+		check(RangeDeleteMode::allTracks, 400, 600);
+		session.deleteRange(session.revision(), RangeDeleteMode::track, first, 301, 302);
+		const auto sampleEdit = session.snapshot();
+		const auto& clips = sampleEdit.tracks.at(0).clips;
+		require(clips.at(0).start == 300 && clips.at(0).end == 301 && clips.at(1).start == 301
+			&& clips.at(1).end == 599 && clips.at(1).sourceOffset == 52, "one-frame ripple keeps a one-frame fragment");
+		require(session.undo(sampleEdit.revision), "undo one-frame range deletion");
+		session.save(session.revision());
+	}
+	const auto file = directory.getChildFile("project.tracktionedit");
+	const auto xml = juce::parseXML(file);
+	auto* track = xml ? xml->getChildByName("TRACK") : nullptr;
+	auto* clip = track ? track->getChildByName("AUDIOCLIP") : nullptr;
+	require(clip != nullptr, "open the native range fixture");
+	clip->setAttribute("groupID", "9999");
+	require(xml->writeTo(file), "write the grouped range fixture");
+	Session grouped(directory, settings, OpenMode::open, 0);
+	grouped.addTrack(0, "Redo witness");
+	require(grouped.undo(1), "prepare existing redo history");
+	bool rejected = false;
+	try { grouped.deleteRange(2, RangeDeleteMode::track, first, 400, 500); }
+	catch (const std::invalid_argument&) { rejected = true; }
+	const auto unchanged = grouped.snapshot();
+	require(rejected && unchanged.revision == 2 && unchanged.tracks.at(0).clips.size() == 3
+		&& grouped.redo(2) && grouped.snapshot().tracks.size() == 3, "failed range split restores clips and prior redo history");
+}
+
 void rejectArchive(const juce::File& archive, const juce::File& target, std::int64_t limit)
 {
 	bool rejected = false;
@@ -427,6 +491,7 @@ int main()
 #endif
 		runSessionTest(root);
 		verifyClipPlacement(root);
+		verifyRangeDelete(root);
 		verifyHostedRecording(root);
 		verifyOfflineEffect(root);
 		root.deleteRecursively();

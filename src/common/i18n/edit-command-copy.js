@@ -18,6 +18,8 @@ export const EDIT_COMMAND_COPY_BY_LOCALE = Object.freeze({
 			tracktionMoveClip: 'Move clip',
 			tracktionDuplicateClip: 'Duplicate clip',
 			tracktionDestinationTrack: 'Destination track',
+			tracktionDeleteRange: 'Delete time range',
+			tracktionRangeDeleteMode: 'Delete mode',
 			tracktionClip: 'Clip',
 			tracktionSplitFrame: 'Split frame',
 			tracktionStartFrame: 'Start frame',

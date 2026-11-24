@@ -26,6 +26,7 @@ const fields = {
 	moveClip: ['kind', 'sessionId', 'revision', 'clipId', 'trackId', 'start'],
 	duplicateClip: ['kind', 'sessionId', 'revision', 'clipId', 'trackId', 'start'],
 	deleteClip: ['kind', 'sessionId', 'revision', 'clipId'],
+	deleteRange: ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start', 'end'],
 	undo: ['kind', 'sessionId', 'revision'],
 	redo: ['kind', 'sessionId', 'revision'],
 	save: ['kind', 'sessionId', 'revision'],
@@ -64,9 +65,17 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 		readTracktionAudioDeviceId(request.hostId, false);
 		return request as TracktionProjectCommand;
 	}
+	if (kind === 'deleteRange') {
+		const mode = request.mode;
+		if ((mode !== 'leaveGap' && mode !== 'perClip' && mode !== 'track' && mode !== 'allTracks')
+			|| (mode === 'allTracks') !== (request.trackId === null)) {
+			throw new TypeError('Invalid Tracktion range delete mode or track scope.');
+		}
+	}
 
 	for (const [key, field] of Object.entries(request)) {
 		if (key === 'kind' || key === 'sessionId') continue;
+		if (kind === 'deleteRange' && (key === 'mode' || (key === 'trackId' && field === null))) continue;
 		if (key === 'clipId' || key === 'trackId' || key === 'slotId') {
 			if (typeof field !== 'string' || !ITEM_ID.test(field) || BigInt(field) > 18_446_744_073_709_551_615n) {
 				throw new TypeError('Invalid Tracktion item ID.');
@@ -92,7 +101,7 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (kind === 'create' && (Number(request.sampleRate) < 8_000 || Number(request.sampleRate) > 192_000)) {
 		throw new TypeError('Invalid Tracktion sample rate.');
 	}
-	if ((kind === 'render' || kind === 'trim' || kind === 'setLoop') && Number(request.start) >= Number(request.end)) {
+	if ((kind === 'render' || kind === 'trim' || kind === 'setLoop' || kind === 'deleteRange') && Number(request.start) >= Number(request.end)) {
 		throw new RangeError('The Tracktion range is empty.');
 	}
 	return request as TracktionProjectCommand;

@@ -43,6 +43,7 @@ struct Session::State
 	std::pair<te::AudioTrack&, te::Clip&> clip(ClipId) const;
 	void begin(const char* name);
 	void commit();
+	void rollback();
 
 	void releaseRecordingInput();
 

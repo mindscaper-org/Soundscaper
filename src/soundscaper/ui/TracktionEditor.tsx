@@ -10,13 +10,14 @@ import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
 import type { TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
 import type { TracktionEffectInstallation, TracktionEffectPage, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
-import type { TracktionClipCommand, TracktionProjectBridge, TracktionTrackMix, TracktionTransportView } from '../tracktion-project-contract.ts';
+import type { TracktionClipCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionClipEditDialog } from './TracktionClipEditDialog.tsx';
 import { TracktionEffectsDialog, tracktionEffectsTitle } from './TracktionEffectsDialog.tsx';
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
+import { TracktionRangeDeleteDialog } from './TracktionRangeDeleteDialog.tsx';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
@@ -36,6 +37,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
 	const [clipEdit, setClipEdit] = useState<TracktionClipCommand['kind'] | null>(null);
+	const [rangeDelete, setRangeDelete] = useState(false);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const [effects, setEffects] = useState<{ slots: TracktionEffectSlot[]; catalog: readonly TracktionEffectInstallation[] | null } | null>(null);
@@ -174,12 +176,13 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setClipEdit(kind);
 	}
 
-	function applyClipEdit(edit: TracktionClipCommand): void {
+	function applyTimelineEdit(edit: TracktionClipCommand | TracktionRangeCommand): void {
 		setClipEdit(null);
+		setRangeDelete(false);
 		if (!workspace) return;
 		run(async () => {
 			await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
-			const selectedTrack = 'trackId' in edit ? edit.trackId : workspace.selectedTrack?.id;
+			const selectedTrack = ('trackId' in edit ? edit.trackId : null) ?? workspace.selectedTrack?.id;
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, selectedTrack));
 		});
 	}
@@ -330,6 +333,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('moveClip')}>{editCopy.tracktionMoveClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('duplicateClip')}>{editCopy.tracktionDuplicateClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('deleteClip')}>{editCopy.liftDelete}</button>
+					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => {
+						closeMenus();
+						setRangeDelete(true);
+					}}>{editCopy.tracktionDeleteRange}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={showMixer}>{trackCopy.mixer}</button>
 					<button type="button" disabled={busy || recording || playing || !workspace?.selectedTrack} onClick={showEffects}>{tracktionEffectsTitle}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
@@ -367,7 +374,9 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			sampleRate={workspace.project.sampleRate} onDismiss={() => setAudioSetup(null)} />}
 		{clipEdit && workspace?.selectedTrack && <TracktionClipEditDialog kind={clipEdit}
 			tracks={workspace.tracks} sourceTrackId={workspace.selectedTrack.id}
-			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}
+			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyTimelineEdit} onDismiss={() => setClipEdit(null)} />}
+		{rangeDelete && workspace?.selectedTrack && <TracktionRangeDeleteDialog trackId={workspace.selectedTrack.id}
+			onApply={applyTimelineEdit} onDismiss={() => setRangeDelete(false)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
 			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
 		{effects && workspace?.selectedTrack && <TracktionEffectsDialog track={workspace.selectedTrack.name} {...effects}

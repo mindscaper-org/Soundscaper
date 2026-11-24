@@ -155,6 +155,8 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			const restored = await reopened.request({ kind: 'clips', revision: 37, trackId: destination.id, offset: 0 });
 			const duration = original.end - original.start;
 			assert.deepEqual(restored.clips, [{ ...original, start: 100, end: 100 + duration }]);
+			const empty = await reopened.request({ kind: 'deleteRange', revision: 37, mode: 'track', trackId: destination.id, start: 10_000, end: 10_001 });
+			assert.deepEqual(empty, { revision: 37, itemId: null });
 		} finally {
 			await reopened.close();
 		}

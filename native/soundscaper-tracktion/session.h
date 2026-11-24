@@ -27,6 +27,7 @@ using ClipId = std::uint64_t;
 using TrackId = std::uint64_t;
 
 enum class OpenMode { create, open };
+enum class RangeDeleteMode { leaveGap, perClip, track, allTracks };
 
 struct InterruptedTake
 {
@@ -91,6 +92,7 @@ public:
 	void moveClip(Revision, ClipId, TrackId destination, Frame start);
 	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);
 	void deleteClip(Revision, ClipId);
+	void deleteRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end);
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);

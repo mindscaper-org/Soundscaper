@@ -61,13 +61,21 @@ try {
 	await window.locator('main[aria-busy="false"]').waitFor();
 	await window.getByText('1 clip', { exact: true }).waitFor();
 	assert.equal(await track.inputValue(), destination);
+	await editing.click();
+	await window.getByRole('button', { name: 'Delete time range', exact: true }).click();
+	const range = window.getByRole('dialog', { name: 'Delete time range' });
+	await range.getByRole('spinbutton', { name: 'Start frame' }).fill('128');
+	await range.getByRole('spinbutton', { name: 'End frame' }).fill('129');
+	await range.getByRole('combobox', { name: 'Delete mode' }).selectOption('track');
+	await range.getByRole('button', { name: 'Apply' }).click();
+	await window.getByRole('list', { name: 'Audio clips' }).getByText('reference (128–511)', { exact: true }).waitFor();
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
 	assert.match(await readFile(join(projectDirectory, 'project.tracktionedit'), 'utf8'), /<EDIT\b/u);
 	await fileCommand('Export mix (WAV)');
 	await window.locator('main[aria-busy="false"]').waitFor();
 	const mix = waveData(await readFile(output));
-	assert.equal(mix.length, 512 * 4);
+	assert.equal(mix.length, 511 * 4);
 	assert.deepEqual([mix.readInt16LE(128 * 4), mix.readInt16LE(128 * 4 + 2)], [4096, -2048]);
 	console.log('The prepared Soundscaper entry saved a Tracktion Edit and exported the expected PCM.');
 } finally {

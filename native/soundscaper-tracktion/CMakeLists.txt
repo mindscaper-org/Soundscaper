@@ -21,7 +21,7 @@ add_subdirectory("${tracktion_build_source}" tracktion EXCLUDE_FROM_ALL)
 
 # Link the pinned engine once for the native peer and the C++ session test.
 add_library(soundscaper_tracktion_session STATIC
-	session.cpp session_transport.cpp session_recording.cpp session_device.cpp session_effects.cpp project_archive.cpp)
+	session.cpp session_range.cpp session_transport.cpp session_recording.cpp session_device.cpp session_effects.cpp project_archive.cpp)
 target_compile_features(soundscaper_tracktion_session PUBLIC cxx_std_20)
 target_compile_definitions(soundscaper_tracktion_session PUBLIC
 	JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1

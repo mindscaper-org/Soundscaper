@@ -379,6 +379,20 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		requireFields(request, {"revision", "clipId"});
 		session.deleteClip(revision, itemId(request, "clipId"));
 	}
+	else if (kind == "deleteRange")
+	{
+		requireFields(request, {"revision", "mode", "trackId", "start", "end"});
+		const auto mode = text(request, "mode", 9);
+		RangeDeleteMode selected;
+		if (mode == "leaveGap") selected = RangeDeleteMode::leaveGap;
+		else if (mode == "perClip") selected = RangeDeleteMode::perClip;
+		else if (mode == "track") selected = RangeDeleteMode::track;
+		else if (mode == "allTracks") selected = RangeDeleteMode::allTracks;
+		else throw std::invalid_argument("Unknown Tracktion range delete mode");
+		std::optional<TrackId> track;
+		if (!request.getProperty("trackId").isVoid()) track = itemId(request, "trackId");
+		session.deleteRange(revision, selected, track, integer("start"), integer("end"));
+	}
 	else if (kind == "undo" || kind == "redo" || kind == "save")
 	{
 		requireFields(request, {"revision"});
