@@ -117,8 +117,10 @@ export async function executeSoundscaperProfessionalNativeBuildResultPipeline(pl
 		?? createSoundscaperProfessionalNativeMacCodeSealPlan;
 	const executeMacCodeSeal = options.executeMacCodeSeal
 		?? executeSoundscaperProfessionalNativeMacCodeSealPlan;
-	const professional = executeProfessional(plan.professionalBuildPlan, { run });
+	const onPhase = options.onPhase;
+	const professional = executeProfessional(plan.professionalBuildPlan, { run, onPhase });
 	const osOutput = [];
+	if (plan.osAudioCodecBuildPlan !== null) onPhase?.('Build and test the OS audio codec');
 	const osAudioCodec = plan.osAudioCodecBuildPlan === null ? null
 		: executeOsCodec(plan.osAudioCodecBuildPlan, {
 			run,
@@ -126,7 +128,9 @@ export async function executeSoundscaperProfessionalNativeBuildResultPipeline(pl
 				osOutput.push(`${step.command}\0${step.argv.join('\0')}\0${stdout}\0${stderr}`);
 			},
 	});
+	onPhase?.('Build the isolation launcher');
 	for (const step of plan.isolationSteps) runStep(run, step, 'isolation build');
+	if (plan.target === 'mac-arm64') onPhase?.('Ad-hoc seal the macOS payload');
 	const macCodeSealResult = plan.target === 'mac-arm64'
 		? await executeMacCodeSeal(createMacCodeSealPlan({
 			target: plan.target,
@@ -138,6 +142,7 @@ export async function executeSoundscaperProfessionalNativeBuildResultPipeline(pl
 		: null;
 	const buildSelfTests = [];
 	for (const request of plan.selfTestCommands) {
+		onPhase?.(`Run self-test ${request.id}`);
 		verifyAuthenticatedSoundscaperProfessionalNativeSelfTestPlan(plan.selfTestPlan, {
 			verifyPackagedApp: request.id === 'packaged-electron-utility-process-smoke',
 		});
@@ -158,6 +163,7 @@ export async function executeSoundscaperProfessionalNativeBuildResultPipeline(pl
 			outputSha256: sha256(osOutput.join('\n')),
 		});
 	}
+	onPhase?.('Verify the installed payload and write the build result');
 	const toolchainReceipt = await readSoundscaperProfessionalNativeToolchainReceipt({
 		target: plan.target,
 		professionalBuildRoot: plan.professionalBuildPlan.buildRoot,

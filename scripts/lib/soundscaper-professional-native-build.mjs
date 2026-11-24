@@ -245,7 +245,9 @@ export function executeSoundscaperProfessionalNativeBuild(plan, options = {}) {
 	assert(plan !== null && typeof plan === 'object' && AUTHENTICATED_BUILD_PLANS.has(plan),
 		'Professional native execution requires an authenticated build plan.');
 	try {
+		options.onPhase?.('Verify professional sources before compilation');
 		for (const witness of plan.sourceAuthentication) verifyMilestone5NativeSourceInput(witness);
+		options.onPhase?.('Build and test the professional host');
 		const run = options.run ?? spawnSync;
 		for (const step of [plan.configure, plan.build, plan.test, plan.install,
 			...Object.values(plan.windowsX86Vst2Bridge ?? {})]) {
@@ -259,8 +261,10 @@ export function executeSoundscaperProfessionalNativeBuild(plan, options = {}) {
 				));
 			}
 		}
+		options.onPhase?.('Build and stage bundled plug-ins');
 		(options.executeOrbitAmp ?? executeBundledOrbitAmpBuild)(plan.orbitAmp);
 		(options.executeBundledInstruments ?? executeBundledMidiInstrumentBuild)(plan.bundledInstruments);
+		options.onPhase?.('Verify professional sources after compilation');
 		for (const witness of plan.sourceAuthentication) verifyMilestone5NativeSourceInput(witness);
 		return Object.freeze({
 			target: plan.target, buildRoot: plan.buildRoot, installRoot: plan.installRoot, status: 'built',

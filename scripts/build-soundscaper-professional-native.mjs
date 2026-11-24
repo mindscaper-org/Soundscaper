@@ -5,8 +5,9 @@
 
 import { spawnSync } from 'node:child_process';
 import {
-	lstatSync, mkdirSync, realpathSync,
+	lstatSync, mkdirSync, realpathSync, statfsSync, writeSync,
 } from 'node:fs';
+import { freemem } from 'node:os';
 import { dirname, resolve } from 'node:path';
 
 import { normalizeAbsoluteCliPath } from './lib/absolute-cli-path.mjs';
@@ -55,6 +56,7 @@ const macosSdkPath = args['macos-sdk']
 	? canonicalSoundscaperProfessionalNativeMacosSdkPath(resolve(args['macos-sdk'])) : null;
 const sourcesRoot = canonicalDirectory(resolve(args.sources), 'native source cache');
 const workRoot = exclusiveDirectory(absolutePath(args['work-root'], 'work root'));
+const onPhase = target === 'mac-arm64' ? reportMacosBuildPhase : undefined;
 const buildResultRoot = absentPath(args.output, 'build-result root');
 canonicalDirectory(dirname(buildResultRoot), 'build-result parent');
 const register = readMilestone5NativeSourceAcquisitions(repositoryRoot);
@@ -66,6 +68,7 @@ const sourceArchives = Object.fromEntries(sourceIds.map((id) => {
 	return [id, canonicalFile(resolve(sourcesRoot, id, row.archive.fileName), `${id} archive`)];
 }));
 const professionalSnapshotRoot = exclusiveDirectory(resolve(workRoot, 'professional-source-snapshots'));
+onPhase?.('Authenticate and snapshot professional sources');
 const professionalBuildPlan = createSoundscaperProfessionalNativeBuildPlan({
 	repositoryRoot, target, sourceRoots, sourceArchives,
 	sourceSnapshotRoot: professionalSnapshotRoot,
@@ -112,11 +115,18 @@ const plan = createSoundscaperProfessionalNativeBuildResultPipelinePlan({
 	selfTestPlan,
 	sourceRevision: revision.stdout.trim(),
 });
-const result = await executeSoundscaperProfessionalNativeBuildResultPipeline(plan);
+const result = await executeSoundscaperProfessionalNativeBuildResultPipeline(plan, { onPhase });
 process.stdout.write(`${JSON.stringify({
 	status: 'build-result-created', target, outputRoot: result.buildResultRoot,
 	buildPlanSha256: result.receipt.buildPlanSha256,
 }, null, '\t')}\n`);
+
+function reportMacosBuildPhase(phase) {
+	const { bavail, bsize } = statfsSync(workRoot);
+	const mib = 1024 * 1024;
+	writeSync(2, `[macOS native build] ${phase} (available disk ${Math.floor(bavail * bsize / mib)} MiB, `
+		+ `free system RAM ${Math.floor(freemem() / mib)} MiB, Node RSS ${Math.floor(process.memoryUsage.rss() / mib)} MiB)\n`);
+}
 
 function parseArguments(values) {
 	const output = {};

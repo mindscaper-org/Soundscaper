@@ -226,7 +226,20 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 	assert.deepEqual(mac.configure.argv.slice(4, 6), ['-G', 'Ninja']);
 	assert.match(mac.configure.argv.join('\n'), /CMAKE_OSX_ARCHITECTURES=arm64/u);
 	assert(mac.configure.argv.includes(`-DCMAKE_OSX_SYSROOT=${await realpath(macosSdk)}`));
-	for (const snapshot of mac.sourceAuthentication) removeMilestone5NativeSourceSnapshot(snapshot);
+	const macProgress = [];
+	assert.equal(executeSoundscaperProfessionalNativeBuild(mac, {
+		onPhase: phase => macProgress.push(phase),
+		run: () => ({ status: 0, stderr: '', stdout: '' }),
+		executeOrbitAmp() {},
+		executeBundledInstruments: () => macProgress.push('Instruments staged'),
+	}).status, 'built');
+	assert.deepEqual(macProgress, [
+		'Verify professional sources before compilation',
+		'Build and test the professional host',
+		'Build and stage bundled plug-ins',
+		'Instruments staged',
+		'Verify professional sources after compilation',
+	]);
 
 	const windows = createSoundscaperProfessionalNativeBuildPlan({
 		repositoryRoot: ROOT, target: 'win-x64', sourceRoots: roots, sourceArchives: archives,
