@@ -104,6 +104,7 @@ void runSessionTest(const juce::File& root)
 	}
 
 	const auto moved = root.getChildFile("renamed-project");
+	juce::File unarchivedProject;
 	require(workspace.moveFileTo(moved), "move native project folder");
 	require(source.deleteFile(), "remove original source");
 	{
@@ -137,6 +138,34 @@ void runSessionTest(const juce::File& root)
 		}
 		require(heardAudio, "Tracktion transport renders from the seek frame");
 		reopened.stop();
+		reopened.seek(600);
+		require(reopened.playbackPosition() == 600, "seek uses the project sample frame");
+		reopened.setLoop(true, 450, 975);
+		reopened.play(600);
+		for (int index = 0; index < 16; ++index)
+			require(reopened.processPlaybackBlock(block, midi), "hosted loop processes audio");
+		const auto wrappedPosition = reopened.playbackPosition();
+		require(wrappedPosition >= 450 && wrappedPosition <= 975, "hosted playhead wraps within the loop");
+		reopened.stop();
+		const auto archive = root.getChildFile("project.zip");
+		reopened.archive(saved.revision, archive);
+		juce::ZipFile zip(archive);
+		const auto extracted = root.getChildFile("archive-copy");
+		require(zip.getNumEntries() > 1 && zip.uncompressTo(extracted).wasOk(), "Tracktion ZIP archive");
+		const auto edits = extracted.findChildFiles(juce::File::findFiles, true, "project.tracktionedit");
+		require(edits.size() == 1, "archive contains one native Edit");
+		const auto archiveMedia = edits[0].getSiblingFile("media").findChildFiles(juce::File::findFiles, false, "*.wav");
+		require(archiveMedia.size() == 1, "archive contains exactly the referenced audio");
+		unarchivedProject = edits[0].getParentDirectory();
+	}
+	{
+		Session fromArchive(unarchivedProject, state, OpenMode::open, 0);
+		const auto view = fromArchive.snapshot();
+		require(view.tracks.size() == 2 && view.tracks.front().clips.size() == 2,
+			"archived project reopens with its edits");
+		const auto destination = root.getChildFile("archive-render.wav");
+		fromArchive.render(view.revision, destination, 0, 1537);
+		verifyRender(destination);
 	}
 }
 }

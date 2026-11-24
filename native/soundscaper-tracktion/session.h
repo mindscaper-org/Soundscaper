@@ -65,6 +65,7 @@ public:
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);
+	void archive(Revision, const juce::File& output);
 
 	// The host opens its own device and supplies exactly one stereo block at a time.
 	// Setup and transport commands run on the message thread. The host stops
@@ -72,6 +73,9 @@ public:
 	void preparePlayback(int blockFrames);
 	bool playbackReady() const;
 	void play(Frame start);
+	void seek(Frame);
+	void setLoop(bool enabled, Frame start, Frame end);
+	Frame playbackPosition() const;
 	void stop();
 	bool processPlaybackBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) noexcept;
 

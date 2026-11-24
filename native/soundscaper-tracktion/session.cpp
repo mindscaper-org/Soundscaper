@@ -5,6 +5,7 @@
 #include <tracktion_engine/tracktion_engine.h>
 
 #include <cmath>
+#include <set>
 #include <stdexcept>
 
 namespace soundscaper::tracktion_backend
@@ -338,6 +339,42 @@ void Session::save(Revision expected)
 		throw std::runtime_error("Cannot save the Tracktion Edit");
 }
 
+void Session::archive(Revision expected, const juce::File& output)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	if (output.exists() || output.isSymbolicLink() || !output.hasFileExtension("zip"))
+		throw std::invalid_argument("Archive requires a new ZIP file");
+
+	const choc::file::TempFile snapshot(choc::file::TempFile::createRandomFilename("soundscaper_tracktion_archive", ""));
+	const juce::File folder(snapshot.file.string());
+	const auto media = folder.getChildFile(mediaDirectory);
+	ensureDirectory(media);
+
+	// Only active media references travel. In particular the archive excludes
+	// the runtime's caches, files left by undo, and unrelated folder contents.
+	std::set<juce::File> sources;
+	for (auto* track : te::getAudioTracks(*s.edit))
+		for (auto* clip : track->getClips())
+			sources.insert(clip->getSourceFileReference().getFile());
+	for (const auto& file : sources)
+		if (!file.existsAsFile() || !file.copyFileTo(media.getChildFile(file.getFileName())))
+			throw std::runtime_error("Cannot stage the Tracktion archive media");
+
+	te::EditFileOperations files(*s.edit);
+	if (!files.writeToFile(folder.getChildFile("project.tracktionedit"), false))
+		throw std::runtime_error("Cannot stage the Tracktion archive Edit");
+
+	auto project = s.engine.getProjectManager().createNewProject(folder);
+	if (project == nullptr || !project->isFolderBased())
+		throw std::runtime_error("Cannot stage the Tracktion archive project");
+	juce::TemporaryFile staging(output);
+	te::ArchiveJob archive(te::ArchiveJob::Source{project.get()}, staging.getFile(),
+	                       te::ArchiveJob::CompressionLevel::fastest);
+	if (!archive.runSynchronously() || !staging.overwriteTargetFileWithTemporary())
+		throw std::runtime_error("Cannot publish the Tracktion archive");
+}
+
 void Session::preparePlayback(int blockFrames)
 {
 	auto& s = *state;
@@ -383,6 +420,35 @@ void Session::play(Frame start)
 	auto& transport = s.edit->getTransport();
 	transport.setPosition(s.position(start));
 	transport.play(false);
+}
+
+void Session::seek(Frame frame)
+{
+	state->edit->getTransport().setPosition(state->position(frame));
+}
+
+void Session::setLoop(bool enabled, Frame start, Frame end)
+{
+	auto& transport = state->edit->getTransport();
+	if (enabled)
+	{
+		const auto from = state->position(start);
+		const auto until = state->position(end);
+		if (start >= end)
+			throw std::invalid_argument("Loop must contain at least one frame");
+		transport.setLoopRange({from, until});
+	}
+	transport.looping = enabled;
+}
+
+Frame Session::playbackPosition() const
+{
+	const auto& transport = state->edit->getTransport();
+	auto* context = transport.getCurrentPlaybackContext();
+	const auto position = transport.isPlaying() && context != nullptr
+		? context->getAudibleTimelineTime()
+		: transport.getPosition();
+	return tracktion::toSamples(position, state->sampleRate);
 }
 
 void Session::stop()
