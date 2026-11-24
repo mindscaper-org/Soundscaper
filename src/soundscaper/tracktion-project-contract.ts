@@ -86,4 +86,5 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;
+	openArchive?(): Promise<TracktionOpenedProject | null>;
 }

@@ -3,7 +3,7 @@
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../common/i18n/project-command-copy.js';
 
 import type {
-	TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply,
+	TracktionOpenedProject, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply,
 } from './tracktion-project-contract.ts';
 
 type LocalProject = Readonly<{ id: string; name: string }>;
@@ -58,14 +58,13 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 			if (!selection?.name) return null;
 			const request = { ...command, project: selection.id };
 			const { value } = await send(command.kind === 'create' ? { ...request, name: selection.name } : request);
-			project = { sessionId: handle(), name: selection.name };
-			return { ...project, project: value as TracktionProjectPage, initiallyUnsaved: command.kind === 'create' };
+			return describeOpened(selection.name, value, command.kind === 'create');
 		}
 
 		const { sessionId, ...request } = command;
 		if (project?.sessionId !== sessionId) throw new Error('This Tracktion project handle has expired');
 		if (request.kind === 'import') {
-			const wave = await chooseWave();
+			const wave = await chooseFile('.wav,audio/wav');
 			if (!wave) return null;
 			if (wave.size > 16 * 1024 * 1024) throw new Error('The browser Tracktion core accepts WAV files up to 16 MiB');
 			return (await send({ ...request, kind: 'importFile', asset: handle(), name: wave.name.replace(/\.wav$/iu, '') }, await wave.arrayBuffer())).value;
@@ -82,18 +81,31 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 		return null;
 	}
 
+	function describeOpened(name: string, value: unknown, initiallyUnsaved: boolean): TracktionOpenedProject {
+		project = { sessionId: handle(), name };
+		return { ...project, project: value as TracktionProjectPage, initiallyUnsaved };
+	}
+
 	return {
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			return await execute(command) as Reply as TracktionProjectReply<Command>;
 		},
+		async openArchive(): Promise<TracktionOpenedProject | null> {
+			const archive = await chooseFile('.zip,application/zip');
+			if (!archive) return null;
+			if (archive.size > 16 * 1024 * 1024) throw new Error('The browser Tracktion core accepts ZIP files up to 16 MiB');
+			const name = archive.name.replace(/\.zip$/iu, '').slice(0, 128).trim() || copy.untitledProject;
+			const { value } = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
+			return describeOpened(name, value, true);
+		},
 	};
 }
 
-function chooseWave(): Promise<File | null> {
+function chooseFile(accept: string): Promise<File | null> {
 	return new Promise((resolve) => {
 		const input = document.createElement('input');
 		input.type = 'file';
-		input.accept = '.wav,audio/wav';
+		input.accept = accept;
 		input.hidden = true;
 		function finish(): void {
 			const file = input.files?.[0] ?? null;

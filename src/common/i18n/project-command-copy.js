@@ -6,6 +6,7 @@ export const PROJECT_COMMAND_COPY_BY_LOCALE = Object.freeze({
 			untitledProject: 'Untitled project',
 			newProject: 'New project',
 			openProject: 'Open projects',
+			openTracktionArchive: 'Open project archive (ZIP)',
 			projectManagement: 'Project management',
 			chooseLegacyData: 'Choose the Audacity _data folder or a folder containing the original audio files.',
 			recentProjects: 'Recent projects',

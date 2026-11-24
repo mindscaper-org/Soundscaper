@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "peer_commands.h"
+#include "project_archive.h"
 #include "session.h"
 
 #include <juce_events/juce_events.h>
@@ -15,6 +16,7 @@ namespace
 using namespace soundscaper::tracktion_backend;
 
 constexpr int maximumCommandBytes = 64 * 1024;
+constexpr std::int64_t maximumExpandedArchiveBytes = 64 * 1024 * 1024;
 std::unique_ptr<Session> session;
 
 juce::var execute(const juce::var& request)
@@ -24,16 +26,27 @@ juce::var execute(const juce::var& request)
 		throw std::invalid_argument("The Tracktion command must have a kind");
 
 	const auto kind = object->getProperty("kind").toString();
-	if (kind == "create" || kind == "open")
+	if (kind == "create" || kind == "open" || kind == "openArchive")
 	{
 		const auto& project = object->getProperty("project");
 		const auto handle = project.toString();
 		const auto& rate = object->getProperty("sampleRate");
 		const auto create = kind == "create";
+		const auto archives = kind == "openArchive";
 		if (!project.isString() || handle.length() != 32 || !handle.containsOnly("0123456789abcdef")
-		    || object->getProperties().size() != (create ? 3 : 2) || (create && !rate.isInt()))
+		    || object->getProperties().size() != (create || archives ? 3 : 2) || (create && !rate.isInt()))
 			throw std::invalid_argument("The Tracktion project command is invalid");
-		auto next = std::make_unique<Session>(juce::File("/projects").getChildFile(handle), juce::File("/runtime"),
+		const auto directory = juce::File("/projects").getChildFile(handle);
+		if (archives)
+		{
+			const auto& value = object->getProperty("asset");
+			const auto asset = value.toString();
+			if (!value.isString() || asset.length() != 32 || !asset.containsOnly("0123456789abcdef"))
+				throw std::invalid_argument("The Tracktion archive handle is invalid");
+			const auto archive = juce::File("/exchange/input").getChildFile(asset + ".zip");
+			extractProjectArchive(archive, directory, maximumExpandedArchiveBytes);
+		}
+		auto next = std::make_unique<Session>(directory, juce::File("/runtime"),
 		                                      create ? OpenMode::create : OpenMode::open, static_cast<int>(rate));
 		if (create) next->save(next->revision());
 		juce::DynamicObject::Ptr page = new juce::DynamicObject();

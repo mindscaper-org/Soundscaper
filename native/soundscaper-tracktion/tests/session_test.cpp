@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
+#include "project_archive.h"
 #include "session.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -60,6 +61,14 @@ void verifyRender(const juce::File& file)
 	}
 }
 
+void rejectArchive(const juce::File& archive, const juce::File& target, std::int64_t limit)
+{
+	bool rejected = false;
+	try { extractProjectArchive(archive, target, limit); }
+	catch (const std::invalid_argument&) { rejected = true; }
+	require(rejected && !target.exists(), "invalid archive must leave no project files");
+}
+
 void runSessionTest(const juce::File& root)
 {
 	const auto workspace = root.getChildFile("project");
@@ -104,6 +113,7 @@ void runSessionTest(const juce::File& root)
 	}
 
 	const auto moved = root.getChildFile("renamed-project");
+	std::cout << "Saved Tracktion project with sample-accurate edits." << std::endl;
 	juce::File unarchivedProject;
 	require(workspace.moveFileTo(moved), "move native project folder");
 	require(source.deleteFile(), "remove original source");
@@ -148,15 +158,26 @@ void runSessionTest(const juce::File& root)
 		require(wrappedPosition >= 450 && wrappedPosition <= 975, "hosted playhead wraps within the loop");
 		reopened.stop();
 		const auto archive = root.getChildFile("project.zip");
+		std::cout << "Rendered the reopened project and checked hosted playback." << std::endl;
 		reopened.archive(saved.revision, archive);
-		juce::ZipFile zip(archive);
 		const auto extracted = root.getChildFile("archive-copy");
-		require(zip.getNumEntries() > 1 && zip.uncompressTo(extracted).wasOk(), "Tracktion ZIP archive");
-		const auto edits = extracted.findChildFiles(juce::File::findFiles, true, "project.tracktionedit");
-		require(edits.size() == 1, "archive contains one native Edit");
-		const auto archiveMedia = edits[0].getSiblingFile("media").findChildFiles(juce::File::findFiles, false, "*.wav");
+		rejectArchive(archive, root.getChildFile("oversized-archive"), 64);
+		extractProjectArchive(archive, extracted, 4 * 1024 * 1024);
+		require(extracted.getChildFile("project.tracktionedit").existsAsFile(), "archive contains the native Edit");
+		const auto archiveMedia = extracted.getChildFile("media").findChildFiles(juce::File::findFiles, false, "*.wav");
 		require(archiveMedia.size() == 1, "archive contains exactly the referenced audio");
-		unarchivedProject = edits[0].getParentDirectory();
+		unarchivedProject = extracted;
+		const auto invalid = root.getChildFile("invalid.zip");
+		{
+			juce::ZipFile::Builder builder;
+			builder.addFile(extracted.getChildFile("project.tracktionedit"), 0, "project.tracktionedit");
+			builder.addFile(archiveMedia[0], 0, "../escaped.wav");
+			auto output = invalid.createOutputStream();
+			require(output != nullptr && builder.writeToStream(*output, nullptr), "write traversal archive fixture");
+		}
+		rejectArchive(invalid, root.getChildFile("invalid-project"), 4 * 1024 * 1024);
+		require(!root.getChildFile("escaped.wav").exists(), "archive cannot write outside its project");
+		std::cout << "Extracted and validated the Tracktion project ZIP." << std::endl;
 	}
 	{
 		Session fromArchive(unarchivedProject, state, OpenMode::open, 0);
@@ -172,6 +193,7 @@ void runSessionTest(const juce::File& root)
 
 int main()
 {
+	std::cout << "Starting the Tracktion session test." << std::endl;
 	juce::ScopedJuceInitialiser_GUI juceLifetime;
 	const auto root = juce::File::getSpecialLocation(juce::File::tempDirectory)
 		.getNonexistentChildFile("soundscaper-tracktion-test", "", false);

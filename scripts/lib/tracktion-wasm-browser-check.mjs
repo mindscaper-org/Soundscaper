@@ -13,6 +13,7 @@ self.Module = {
 	mainScriptUrlOrBlob: new URL('/edit-test.js', self.location.href).href,
 	print: (line) => self.postMessage({ stdout: line }),
 	printErr: (line) => self.postMessage({ stderr: line }),
+	onRuntimeInitialized: () => self.postMessage({ phase: 'WASM runtime initialized' }),
 	onAbort: (reason) => self.postMessage({ failure: String(reason) }),
 	onExit: (status) => self.postMessage({ status }),
 };
@@ -71,7 +72,7 @@ function verifyWorkerSession() {
 		const deadline = setTimeout(() => finish('Tracktion WASM did not exit before the test deadline.'), 35_000);
 		engine.onmessage = ({ data }) => {
 			if (data.stdout === 'Tracktion session editing, rendering and hosted playback passed.') verified = true;
-			if (data.stdout || data.stderr) report.push(data.stdout || data.stderr);
+			if (data.stdout || data.stderr || data.phase) report.push(data.stdout || data.stderr || data.phase);
 			if (data.failure) finish(data.failure);
 			else if (Number.isInteger(data.status)) {
 				if (data.status !== 0) finish(`Tracktion WASM exited with status ${String(data.status)}.`);

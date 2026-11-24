@@ -119,7 +119,8 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 	await ready;
 	if (failed) throw failed;
 	const runtime = scope.Module as WasmRuntime;
-	const importing = request.kind === 'import' || request.kind === 'importFile';
+	const archive = request.kind === 'archive' || request.kind === 'openArchive';
+	const importing = request.kind === 'import' || request.kind === 'importFile' || request.kind === 'openArchive';
 	const exporting = request.kind === 'render' || request.kind === 'archive';
 	let path: string | undefined;
 	try {
@@ -127,15 +128,16 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 		if (importing || exporting) {
 			if (!request.asset || !assetId.test(request.asset)) throw new Error('The Tracktion asset handle is invalid');
 			const directory = importing ? '/exchange/input' : '/exchange/output';
-			path = `${directory}/${request.asset}${request.kind === 'archive' ? '.zip' : '.wav'}`;
+			path = `${directory}/${request.asset}${archive ? '.zip' : '.wav'}`;
 			runtime.FS.mkdirTree(directory);
 			if (importing) {
 				if (!(input instanceof ArrayBuffer) || input.byteLength === 0 || input.byteLength > maxInputBytes) {
-					throw new Error('The browser Tracktion core accepts WAV files up to 16 MiB');
+					throw new Error('The browser Tracktion core accepts imports up to 16 MiB');
 				}
 				runtime.FS.writeFile(path, new Uint8Array(input));
 			}
 		}
+		if (request.kind === 'openArchive') return await openProject(runtime, message);
 		const reply = await submit(runtime, message);
 		if (reply.error) return reply;
 		if (request.kind === 'save' && activeProject) {

@@ -57,10 +57,11 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 		return !dirty || window.confirm('Close the current project and discard unsaved changes?');
 	}
 
-	function open(kind: 'open' | 'create'): void {
+	function open(kind: 'open' | 'create' | 'archive'): void {
 		if (!confirmReplacement()) return;
 		run(async () => {
-			const opened = await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
+			const opened = kind === 'archive' ? await bridge.openArchive?.()
+				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readTracktionWorkspace(bridge, opened);
 			setTransport(deviceTransport ? await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }) : null);
@@ -176,6 +177,7 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 				<div>
 					<button type="button" disabled={busy || recording} onClick={() => open('create')}>{copy.newProject}</button>
 					<button type="button" disabled={busy || recording} onClick={() => open('open')}>{copy.openProject}</button>
+					{bridge.openArchive && <button type="button" disabled={busy || recording} onClick={() => open('archive')}>{copy.openTracktionArchive}</button>}
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
 					<button type="button" disabled={busy || recording || !workspace} onClick={save}>{copy.saveProject}</button>
 					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => exportProject('render')}>{copy.exportTracktionMix}</button>

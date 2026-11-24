@@ -40,5 +40,12 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	assert.equal((await readFile(await audio.path())).subarray(0, 4).toString('ascii'), 'RIFF');
 	const [archive] = await Promise.all([page.waitForEvent('download'), fileCommand('Export project archive (ZIP)')]);
 	assert.equal(archive.suggestedFilename().replaceAll('_', ' '), `${name}.zip`);
-	assert.equal((await readFile(await archive.path())).readUInt32LE(0), 0x04034b50);
+	const portable = await readFile(await archive.path());
+	assert.equal(portable.readUInt32LE(0), 0x04034b50);
+	const reopenArchive = page.waitForEvent('filechooser').then((chooser) => chooser.setFiles({
+		name: 'Portable copy.zip', mimeType: 'application/zip', buffer: portable,
+	}));
+	await Promise.all([reopenArchive, fileCommand('Open project archive (ZIP)')]);
+	await page.getByRole('heading', { name: 'Portable copy' }).waitFor();
+	await clip.waitFor();
 }
