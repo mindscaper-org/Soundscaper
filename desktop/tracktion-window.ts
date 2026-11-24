@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { readFile, realpath } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
-import { BrowserWindow, dialog, ipcMain, protocol, session, utilityProcess } from 'electron/main';
+import { app, BrowserWindow, dialog, ipcMain, protocol, session, utilityProcess } from 'electron/main';
 
 import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
 import { resolveStaticFile, securityHeaders } from './protocol.js';
+import { tracktionAudioPreferences } from './tracktion-audio-preferences.ts';
 import { registerTracktionProjectIpc, TRACKTION_PROJECT_REQUEST } from './tracktion-project-ipc.ts';
 import { TracktionProjectService } from './tracktion-project-service.ts';
 import { startTracktionUtilitySession } from './tracktion-utility-session.ts';
@@ -60,6 +61,7 @@ export async function openTracktionWindow(options: {
 	const service = new TracktionProjectService({
 		...(options.dialogs ?? projectDialogs(window)),
 		scratchRoot: options.scratchRoot,
+		audioPreferences: tracktionAudioPreferences(join(app.getPath('userData'), 'Tracktion Audio Setup.json')),
 		isOwnerCurrent: (owner) => owner === window && !window.isDestroyed(),
 		startPeer: (launch) => startTracktionUtilitySession(
 			utilityProcess.fork, resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },

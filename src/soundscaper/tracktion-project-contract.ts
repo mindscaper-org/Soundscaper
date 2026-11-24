@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from './tracktion-audio-device-contract.ts';
+
 export interface TracktionTrackView {
 	readonly id: string;
 	readonly name: string;
@@ -85,6 +87,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
 	| (Edit & Readonly<{ kind: 'archive' }>)
+	| (Session & TracktionAudioDeviceCommand)
 	| (Session & TracktionTransportCommand)
 	| (Session & TracktionRecordingCommand)
 	| (Session & Readonly<{ kind: 'close' }>);
@@ -94,9 +97,10 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 		: Command extends { kind: 'project' } ? TracktionProjectPage
 			: Command extends { kind: 'clips' } ? TracktionClipPage
 				: Command extends { kind: 'trackMix' } ? TracktionTrackMix
-					: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
-						: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
-							: Command extends { kind: 'close' } ? null : TracktionEditResult;
+					: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
+						: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
+							: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
+								: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;

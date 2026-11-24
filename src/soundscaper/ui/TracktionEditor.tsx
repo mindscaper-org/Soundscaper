@@ -2,14 +2,17 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
+import { AUDIO_DEVICE_COPY_BY_LOCALE } from '../../common/i18n/audio-device-copy.js';
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-recovery-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
+import type { TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
 import type { TracktionProjectBridge, TracktionTrackMix, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
+import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionClipEditDialog, type TracktionClipEdit } from './TracktionClipEditDialog.tsx';
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
 
@@ -18,9 +21,10 @@ const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
-export function TracktionEditor({ bridge, recordingInput = true }: {
+export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSetup = false }: {
 	readonly bridge: TracktionProjectBridge;
 	readonly recordingInput?: boolean;
+	readonly desktopAudioSetup?: boolean;
 }) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
@@ -30,6 +34,7 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 	const [failure, setFailure] = useState('');
 	const [clipEdit, setClipEdit] = useState<TracktionClipEdit['kind'] | null>(null);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
+	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const pending = useRef(false);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
@@ -178,6 +183,12 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 		});
 	}
 
+	function showAudioSetup(): void {
+		if (!workspace) return;
+		const { sessionId } = workspace;
+		run(async () => setAudioSetup(await bridge.request({ kind: 'audioHosts', sessionId })));
+	}
+
 	function controlPlayback(kind: 'play' | 'stop' | 'seek'): void {
 		if (!workspace) return;
 		const { sessionId } = workspace;
@@ -245,6 +256,9 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 			<details>
 				<summary>{transportCopy.transport}</summary>
 				<div>
+					{desktopAudioSetup && <button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={showAudioSetup}>
+						{AUDIO_DEVICE_COPY_BY_LOCALE.en.audioDevices}
+					</button>}
 					<button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
 						{transportCopy.play}
 					</button>
@@ -266,6 +280,8 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 				</div>
 			</details>
 		</nav>
+		{audioSetup && workspace && <TracktionAudioSetupDialog inventory={audioSetup} bridge={bridge} sessionId={workspace.sessionId}
+			sampleRate={workspace.project.sampleRate} onDismiss={() => setAudioSetup(null)} />}
 		{clipEdit && workspace && <TracktionClipEditDialog kind={clipEdit}
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}

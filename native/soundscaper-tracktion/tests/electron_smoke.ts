@@ -176,6 +176,14 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 	await waitForVisible('All changes saved locally');
 	if (process.platform === 'linux') {
 		await click('Playback and recording');
+		await click('Audio setup');
+		await waitFor('document.querySelector("dialog[open] select[name=outputId]") !== null');
+		await click('Apply');
+		await waitFor('document.querySelector("dialog[open]") === null');
+		const audioSetup = (await requestFromEditor(window, { kind: 'audioHosts', sessionId })).selected;
+		assert.ok(audioSetup);
+		assert.equal(audioSetup.actualSampleRate, 48_000);
+		await click('Playback and recording');
 		await click('Play');
 		await waitForVisible('Playing');
 		await click('Playback and recording');
@@ -199,6 +207,17 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('File');
 		await click('Save project');
 		await waitForVisible('All changes saved locally');
+		await click('File');
+		await click('Close project');
+		await waitForVisible('Soundscaper Tracktion');
+		const reopened = await requestFromEditor(window, { kind: 'open' });
+		assert.ok(reopened);
+		const prior = await requestFromEditor(window, { kind: 'audioHosts', sessionId: reopened.sessionId });
+		assert.equal(prior.selected, null);
+		assert.deepEqual(prior.preferred, audioSetup.setup);
+		await requestFromEditor(window, { kind: 'prepareOutput', sessionId: reopened.sessionId });
+		const resumed = await requestFromEditor(window, { kind: 'audioHosts', sessionId: reopened.sessionId });
+		assert.deepEqual(resumed.selected?.setup, audioSetup.setup);
 	}
 }
 

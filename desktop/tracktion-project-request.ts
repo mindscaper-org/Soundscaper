@@ -3,6 +3,8 @@
 import { readClosedDomainField, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 import type { TracktionProjectCommand } from '../src/soundscaper/tracktion-project-contract.ts';
 
+import { readTracktionAudioDeviceId, readTracktionAudioSetup, tracktionAudioSetupFields } from './tracktion-audio-device-wire.ts';
+
 const SESSION_ID = /^[a-f0-9]{32}$/u;
 const ITEM_ID = /^[1-9][0-9]{0,19}$/u;
 const fields = {
@@ -21,6 +23,9 @@ const fields = {
 	save: ['kind', 'sessionId', 'revision'],
 	render: ['kind', 'sessionId', 'revision', 'start', 'end'],
 	archive: ['kind', 'sessionId', 'revision'],
+	audioHosts: ['kind', 'sessionId'],
+	audioDevices: ['kind', 'sessionId', 'hostId'],
+	setAudioSetup: ['kind', 'sessionId', ...tracktionAudioSetupFields],
 	transportStatus: ['kind', 'sessionId'],
 	prepareOutput: ['kind', 'sessionId'],
 	play: ['kind', 'sessionId', 'frame'],
@@ -40,11 +45,21 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	}
 	const request = readClosedDomainRecord(value, 'Tracktion request', fields[kind as keyof typeof fields]);
 
+	if ('sessionId' in request && (typeof request.sessionId !== 'string' || !SESSION_ID.test(request.sessionId))) {
+		throw new TypeError('Invalid Tracktion session handle.');
+	}
+	if (kind === 'setAudioSetup') {
+		readTracktionAudioSetup(request);
+		return request as TracktionProjectCommand;
+	}
+	if (kind === 'audioDevices') {
+		readTracktionAudioDeviceId(request.hostId, false);
+		return request as TracktionProjectCommand;
+	}
+
 	for (const [key, field] of Object.entries(request)) {
-		if (key === 'kind') continue;
-		if (key === 'sessionId') {
-			if (typeof field !== 'string' || !SESSION_ID.test(field)) throw new TypeError('Invalid Tracktion session handle.');
-		} else if (key === 'clipId' || key === 'trackId') {
+		if (key === 'kind' || key === 'sessionId') continue;
+		if (key === 'clipId' || key === 'trackId') {
 			if (typeof field !== 'string' || !ITEM_ID.test(field) || BigInt(field) > 18_446_744_073_709_551_615n) {
 				throw new TypeError('Invalid Tracktion item ID.');
 			}

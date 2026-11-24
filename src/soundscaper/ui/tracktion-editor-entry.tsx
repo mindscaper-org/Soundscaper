@@ -8,4 +8,4 @@ import { TracktionEditor } from './TracktionEditor.tsx';
 const { soundscaperTracktion } = window as Window & { soundscaperTracktion?: TracktionProjectBridge };
 const root = document.getElementById('root');
 if (!root || !soundscaperTracktion) throw new Error('The Tracktion editor requires its desktop preload.');
-createRoot(root).render(<TracktionEditor bridge={soundscaperTracktion} />);
+createRoot(root).render(<TracktionEditor bridge={soundscaperTracktion} desktopAudioSetup />);

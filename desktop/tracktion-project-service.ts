@@ -7,6 +7,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import type {
 	TracktionOpenedProject, TracktionProjectCommand, TracktionProjectReply,
 } from '../src/soundscaper/tracktion-project-contract.ts';
+import type { TracktionAudioPreferences } from './tracktion-audio-preferences.ts';
 import type { TracktionCommand, TracktionReply } from './tracktion-peer-contract.ts';
 import { createTracktionExportWriter, stageTracktionWave } from './tracktion-project-files.ts';
 import { readTracktionProjectRequest } from './tracktion-project-request.ts';
@@ -25,6 +26,7 @@ type ProjectLaunch = LaunchMode & Readonly<{
 
 interface Ports {
 	readonly scratchRoot: string;
+	readonly audioPreferences?: TracktionAudioPreferences;
 	readonly isOwnerCurrent: (owner: object) => boolean;
 	readonly chooseCreateDirectory: () => Promise<string | null>;
 	readonly chooseOpenProject: () => Promise<string | null>;
@@ -44,6 +46,7 @@ interface ActiveProject {
 	readonly scratch: string;
 	readonly exchange: string;
 	readonly peer: TracktionProjectPeer;
+	audioPreferencesApplied: boolean;
 }
 
 interface Operation {
@@ -143,6 +146,25 @@ export class TracktionProjectService {
 		}
 		if (command.kind === 'import') return this.#import(active, command, signal);
 		if (command.kind === 'render' || command.kind === 'archive') return this.#export(active, command, signal);
+		if (command.kind === 'audioHosts') {
+			const hosts = await active.peer.request({ kind: 'audioHosts' });
+			return { ...hosts, preferred: await this.#ports.audioPreferences?.read() ?? null };
+		}
+		if (command.kind === 'setAudioSetup') {
+			const applied = await active.peer.request(withoutSession(command));
+			active.audioPreferencesApplied = true;
+			this.#assertOwner(owner, signal);
+			await this.#ports.audioPreferences?.write(applied.setup);
+			return applied;
+		}
+		if (!active.audioPreferencesApplied && (command.kind === 'prepareOutput' || command.kind === 'startRecording')) {
+			const preferences = await this.#ports.audioPreferences?.read();
+			this.#assertOwner(owner, signal);
+			if (preferences) await active.peer.request({ kind: 'setAudioSetup', ...preferences });
+			this.#assertOwner(owner, signal);
+			active.audioPreferencesApplied = true;
+		}
+
 		return active.peer.request(withoutSession(command));
 	}
 
@@ -170,7 +192,7 @@ export class TracktionProjectService {
 			const peer = await this.#ports.startPeer(command.kind === 'create'
 				? { ...location, mode: 'create', sampleRate: command.sampleRate }
 				: { ...location, mode: 'open' });
-			candidate = { owner, directory, scratch, exchange, peer, id: randomBytes(16).toString('hex') };
+			candidate = { owner, directory, scratch, exchange, peer, audioPreferencesApplied: false, id: randomBytes(16).toString('hex') };
 			this.#assertOwner(owner, signal);
 			if (command.kind === 'create') await peer.request({ kind: 'save', revision: 0 });
 			const opened = await describe(candidate);
