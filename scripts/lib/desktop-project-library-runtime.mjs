@@ -21,7 +21,6 @@ import {
 } from './desktop-product-runtime-staging.mjs';
 const FRAMESCAPER_CAPTURE_PRELOAD_BUNDLE = 'framescaper-capture-sandbox-preload.cjs';
 const FRAMESCAPER_WEB_VCR_PRELOAD_BUNDLE = 'framescaper-web-vcr-sandbox-preload.cjs';
-const SOUNDSCAPER_PRELOAD_BUNDLE = 'soundscaper-project-library-sandbox-preload.cjs';
 const DESKTOP_ONLY_EXCLUDED_SOURCES = Object.freeze(new Set(['bundled-audio-codec-runtime-manifest.json', 'ffmpeg-corresponding-source.json']));
 // Staged sources ship no TypeScript loader. Package aliases resolve to source
 // TypeScript in the repository and compiled runtime members in the application.
@@ -138,12 +137,6 @@ export async function stageDesktopApplicationSources({
 	await assertStagedDesktopImportsResolve(applicationRoot, runtimePackageImports);
 	assertRuntimePackageImportTargets(productId, packagedRuntimeFiles);
 	if (productId === 'framescaper') {
-		await bundleSandboxPreload({
-			entryPoint: join(sourceRoot, 'soundscaper-project-library-sandbox-preload.ts'),
-			cryptoShim: join(sourceRoot, 'soundscaper-project-library-sandbox-crypto.ts'),
-			outputPath: join(applicationRoot, SOUNDSCAPER_PRELOAD_BUNDLE),
-			productName: 'Soundscaper 1.0',
-		});
 		await bundleSandboxPreload({
 			entryPoint: join(sourceRoot, 'framescaper-capture-sandbox-preload.ts'),
 			cryptoShim: join(sourceRoot, 'project-library-sandbox-crypto.ts'),

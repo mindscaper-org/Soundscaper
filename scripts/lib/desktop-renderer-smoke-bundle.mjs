@@ -12,7 +12,7 @@ import {
 
 export const DESKTOP_RENDERER_SMOKE_BUNDLE = 'desktop-renderer-smoke.js';
 
-/** Build the packaged-only renderer smoke as one inventoried static module. */
+/** Build the packaged Framescaper renderer smoke as one inventoried static module. */
 export async function buildDesktopRendererSmokeBundle({
 	repositoryRoot,
 	rendererRoot,
@@ -21,10 +21,10 @@ export async function buildDesktopRendererSmokeBundle({
 }) {
 	const root = resolve(repositoryRoot);
 	const outputRoot = resolve(rendererRoot);
-	if (!['soundscaper', 'framescaper'].includes(productId)) {
-		throw new TypeError('Desktop renderer smoke bundle product is invalid.');
+	if (productId !== 'framescaper') {
+		throw new TypeError('The renderer smoke bundle requires Framescaper.');
 	}
-	const entryPoint = resolve(root, 'desktop', `renderer-smoke-runtime-${productId}.js`);
+	const entryPoint = resolve(root, 'desktop', 'renderer-smoke-runtime-framescaper.js');
 	const outputPath = resolve(outputRoot, DESKTOP_RENDERER_SMOKE_BUNDLE);
 	await build({
 		absWorkingDir: root,

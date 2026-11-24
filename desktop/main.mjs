@@ -25,7 +25,7 @@ import {
 	DECLARED_APPLICATION_VERSION, DECLARED_PACKAGE_VERSION,
 	FRAMESCAPER_WEB_VCR_ENABLED,
 	IPC, MAX_READ_CAPABILITIES_PER_OWNER,
-	PRODUCT_ID, RELEASE_CHANNEL,
+	PRODUCT_ID,
 	SESSION_PARTITION,
 	SUPPORTED_LOCALES,
 	UPDATE_TAG_PREFIX,
@@ -60,7 +60,6 @@ import { createDesktopNightlyTestsWindow } from './nightly-tests-window.mjs';
 import { createSoakDebugDialog } from './soak-debug-dialog.mjs'; import { collectSoakDebugProcessMetrics, createSoakDebugMainCoverageCheckpoint, soakDebugProcessMetricsEnabled, SOAK_DEBUG_FLAG } from './soak-debug-process-metrics.mjs';
 import { createDesktopLinkedVideoLocatorRuntime } from './linked-video-locator-runtime.js';
 import { startDesktopProjectLibraryProductRuntime } from './project-library-product-runtime.js';
-import { startSoundscaperDeliveryRegistration } from './soundscaper-delivery-registration.mjs';
 import { attachDesktopMainWindowRecovery, DesktopMainWindowClose } from './project-library-runtime/desktop/main-window-recovery.js';
 import { registerDesktopNativeTierControls } from './project-library-runtime/desktop/native-tier-controls.js';
 import { RendererSaveOwnership } from './renderer-save-owner.js';
@@ -97,12 +96,12 @@ let blender = null;
 let rendererReady = false;
 const windowClose = new DesktopMainWindowClose();
 let projectLibraryRuntime = null, projectLibraryStartup = null, projectLibraryIpc = null;
-let linkedVideoLocators = null, nativeTier = null, nativeServices = null, soundscaperDelivery = null;
+let linkedVideoLocators = null, nativeTier = null, nativeServices = null;
 let captureSecurity = null, assistance = null, assistanceSemanticSearch = null, externalFfmpegPreferences = null, desktopCodecs = null, freesound = null, audiocom = null;
 const rendererOwnershipCleanup = new DesktopRendererOwnershipCleanup({
 	revokeBlender: (owner) => blender?.revokeOwner(owner),
 	revokeCapture: (owner) => revokeDesktopCaptureOwner(captureSecurity, owner), revokeAssistanceSemanticSearch: (owner) => assistanceSemanticSearch?.revokeOwner(owner),
-	revokeDesktopCodecs: (owner) => desktopCodecs?.revokeOwner(owner), revokeSoundscaperDelivery: (owner) => soundscaperDelivery?.revokeOwner(owner),
+	revokeDesktopCodecs: (owner) => desktopCodecs?.revokeOwner(owner),
 	revokeNativeServices: (owner) => nativeServices?.revokeOwner(owner),
 	revokeNativeTier: (owner) => revokeDesktopNativeTierOwner(nativeTier, owner),
 	linkedVideoLocators: () => linkedVideoLocators,
@@ -131,7 +130,7 @@ const pendingOpenProjects = new PendingProjectQueue(createPendingProjectDelivery
 const applicationShutdown = new DesktopApplicationShutdown({
 	tasks: [
 		{ name: 'Blender', run: () => blender?.dispose() },
-		{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() }, { name: 'persistent delivery', run: () => soundscaperDelivery?.dispose() },
+		{ name: 'desktop codecs', run: () => desktopCodecs?.dispose() },
 		{ name: 'external FFmpeg preferences', run: () => externalFfmpegPreferences?.dispose() },
 		{ name: 'capture security', run: () => disposeDesktopCaptureSecurity(captureSecurity) },
 		{ name: 'native services', run: () => nativeServices?.dispose() },
@@ -205,7 +204,7 @@ async function startApplication() {
 	});
 	projectFileAssociations = new ProjectFileAssociations(resolve(desktopStorage.configRoot, 'project-file-associations.json'), originalFiles); await projectFileAssociations.load();
 	const libraryStartup = startDesktopProjectLibraryProductRuntime({
-		productId: PRODUCT_ID, confirmFileSizeWarning: createDesktopSaveSizeWarningConfirmation((options) => dialog.showMessageBox(options)),
+		productId: PRODUCT_ID,
 		appDataPath: resolveDesktopProjectLibraryAppData({
 			applicationDataPath: temporaryProjectAppData,
 			argv: startupOptionArguments,
@@ -389,16 +388,13 @@ async function registerIpcHandlers(desktopSession) {
 		systemVersion: process.getSystemVersion?.() ?? '', webVcrSmokeTrust: framescaperWebVcrSmokeTrust(startupOptionArguments, { packaged: app.isPackaged, productId: PRODUCT_ID }), windowFor: () => mainWindow,
 	});
 	projectLibraryIpc = projectLibraryRuntime.registerRendererBridge({
-		desktopRoot: __dirname,
 		handle,
 		ownerFor: rendererSaveOwnerFor,
 		removeHandler: (channel) => ipcMain.removeHandler(channel),
-		session: desktopSession,
 	});
-	soundscaperDelivery = await startSoundscaperDeliveryRegistration({ productId: PRODUCT_ID, applicationVersion: APPLICATION_VERSION, declaredApplicationVersion: DECLARED_APPLICATION_VERSION, releaseChannel: RELEASE_CHANNEL, nativePayloadLocation: Object.freeze({ applicationRoot: dirname(__dirname), packaged: app.isPackaged, resourcesPath: process.resourcesPath, platform: process.platform, arch: process.arch }), userDataPath: desktopStorage.stateRoot, instanceId: randomUUID(), processId: process.pid, projectLibraryRuntime, handle, removeHandler: (channel) => ipcMain.removeHandler(channel), on: (channel, listener) => ipcMain.on(channel, listener), removeListener: (channel, listener) => ipcMain.removeListener(channel, listener), ownerFor: rendererSaveOwnerFor, dialog, windowFor: () => mainWindow });
 	nativeServices?.registerRendererBridge({ handle, ownerFor: rendererSaveOwnerFor, removeHandler: (channel) => ipcMain.removeHandler(channel), on: (channel, listener) => ipcMain.on(channel, listener), removeListener: (channel, listener) => ipcMain.removeListener(channel, listener) });
 	linkedVideoLocators.registerIpc({ dialog, handle, ownerFor: rendererSaveOwnerFor, windowFor: () => mainWindow });
-	nativeTier = registerDesktopNativeTier({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, readCapabilities, settings, desktopRoot: __dirname, packaged: app.isPackaged, resourcesPath: process.resourcesPath, userDataPath: desktopStorage.configRoot, stateDataPath: desktopStorage.stateRoot, parentWindow: () => mainWindow, productId: PRODUCT_ID, nativePluginStateAuthority: () => projectLibraryRuntime.nativePluginStateAuthority() });
+	nativeTier = registerDesktopNativeTier({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, readCapabilities, settings, desktopRoot: __dirname, packaged: app.isPackaged, resourcesPath: process.resourcesPath, userDataPath: desktopStorage.configRoot, stateDataPath: desktopStorage.stateRoot, parentWindow: () => mainWindow, productId: PRODUCT_ID });
 	await nativeTier.ready();
 	registerDesktopNativeTierControls({ channels: IPC, handle, ownerFor: rendererSaveOwnerFor, settings, tier: nativeTier });
 	externalFfmpegPreferences = await registerExternalFfmpegPreferences({ channels: IPC, handle, removeHandler: (channel) => ipcMain.removeHandler(channel), settings, dialog, windowFor: () => mainWindow, platform: process.platform, architecture: process.arch, userDataPath: desktopStorage.cacheRoot, environment: process.env });

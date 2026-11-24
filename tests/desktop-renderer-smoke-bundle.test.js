@@ -17,48 +17,50 @@ import { repositoryRevision } from '../scripts/lib/e2e-coverage-integrity.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
-for (const productId of ['soundscaper', 'framescaper']) {
-	test(`${productId} renderer smoke is a stable inventoried module with an authenticated hidden map`, async (context) => {
-		const temporary = await mkdtemp(join(tmpdir(), `desktop-${productId}-renderer-smoke-`));
-		context.after(() => rm(temporary, { recursive: true, force: true }));
-		const rendererRoot = join(temporary, 'renderer');
-		const result = await buildDesktopRendererSmokeBundle({
-			repositoryRoot: ROOT,
-			rendererRoot,
-			productId,
-			sourceMaps: true,
-		});
-		assert.equal(result.outputPath, join(rendererRoot, DESKTOP_RENDERER_SMOKE_BUNDLE));
-		assert.equal(result.sourceMapPath,
-			join(`${rendererRoot}-source-maps`, `${DESKTOP_RENDERER_SMOKE_BUNDLE}.map`));
-		const source = await readFile(result.outputPath, 'utf8');
-		assert.match(source, /runDesktopRendererSmoke/u);
-		assert.doesNotMatch(source, /sourceMappingURL/u, 'the shipped module must not disclose its map');
-		if (productId === 'soundscaper') {
-			assert.doesNotMatch(source, /framescaperDesktop|FRAMESCAPER_WEB_VCR_|framescaper-web-vcr/u);
-		} else {
-			assert.match(source, /web-vcr-packaged/u);
-		}
-		const map = JSON.parse(await readFile(result.sourceMapPath, 'utf8'));
-		assert.equal(map.version, 3);
-		assert.equal(map.sourcesContent, undefined);
-		assert.equal(map.sources.length, map.x_soundscaper_source_sha256.length);
-		assert.ok(map.sources.length >= 7);
-		assert.ok(map.sources.every((url) => url.startsWith('file:')));
-		assert.ok(map.x_soundscaper_source_sha256.every((digest) => /^[a-f\d]{64}$/u.test(digest)));
-		for (const [index, url] of map.sources.entries()) {
-			const source = await readFile(fileURLToPath(url));
-			assert.equal(
-				map.x_soundscaper_source_sha256[index],
-				createHash('sha256').update(source).digest('hex'),
-				`${url} must remain bound to its repository bytes`,
-			);
-		}
-		assert.doesNotThrow(() => normalizeE2ESourceMap(
-			map,
-			ROOT,
-			`${productId} renderer smoke test map`,
-			repositoryRevision(ROOT),
-		));
+test('the retired Soundscaper renderer smoke cannot be built', async (context) => {
+	const temporary = await mkdtemp(join(tmpdir(), 'desktop-tracktion-smoke-'));
+	context.after(() => rm(temporary, { recursive: true, force: true }));
+	await assert.rejects(buildDesktopRendererSmokeBundle({
+		repositoryRoot: ROOT, rendererRoot: temporary, productId: 'soundscaper',
+	}), /requires Framescaper/u);
+});
+
+test('Framescaper renderer smoke is a stable inventoried module with an authenticated hidden map', async (context) => {
+	const temporary = await mkdtemp(join(tmpdir(), 'desktop-framescaper-renderer-smoke-'));
+	context.after(() => rm(temporary, { recursive: true, force: true }));
+	const rendererRoot = join(temporary, 'renderer');
+	const result = await buildDesktopRendererSmokeBundle({
+		repositoryRoot: ROOT,
+		rendererRoot,
+		productId: 'framescaper',
+		sourceMaps: true,
 	});
-}
+	assert.equal(result.outputPath, join(rendererRoot, DESKTOP_RENDERER_SMOKE_BUNDLE));
+	assert.equal(result.sourceMapPath,
+		join(`${rendererRoot}-source-maps`, `${DESKTOP_RENDERER_SMOKE_BUNDLE}.map`));
+	const source = await readFile(result.outputPath, 'utf8');
+	assert.match(source, /runDesktopRendererSmoke/u);
+	assert.doesNotMatch(source, /sourceMappingURL/u, 'the shipped module must not disclose its map');
+	assert.match(source, /web-vcr-packaged/u);
+	const map = JSON.parse(await readFile(result.sourceMapPath, 'utf8'));
+	assert.equal(map.version, 3);
+	assert.equal(map.sourcesContent, undefined);
+	assert.equal(map.sources.length, map.x_soundscaper_source_sha256.length);
+	assert.ok(map.sources.length >= 7);
+	assert.ok(map.sources.every((url) => url.startsWith('file:')));
+	assert.ok(map.x_soundscaper_source_sha256.every((digest) => /^[a-f\d]{64}$/u.test(digest)));
+	for (const [index, url] of map.sources.entries()) {
+		const source = await readFile(fileURLToPath(url));
+		assert.equal(
+			map.x_soundscaper_source_sha256[index],
+			createHash('sha256').update(source).digest('hex'),
+			`${url} must remain bound to its repository bytes`,
+		);
+	}
+	assert.doesNotThrow(() => normalizeE2ESourceMap(
+		map,
+		ROOT,
+		'Framescaper renderer smoke test map',
+		repositoryRevision(ROOT),
+	));
+});
