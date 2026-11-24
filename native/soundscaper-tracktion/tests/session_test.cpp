@@ -240,6 +240,9 @@ void verifyHostedRecording(const juce::File& root)
 	require(session.redo(2), "redo hosted input take");
 	const auto redone = session.snapshot().tracks.front().clips;
 	require(redone.size() == 1 && redone.front().id == *take, "redo restores the same hosted take");
+	session.save(3);
+	const auto saved = project.getChildFile("project.tracktionedit").loadFileAsString();
+	require(saved.contains("source=\"media/" + media[0].getFileName() + "\""), "redo restores the portable recording source reference");
 	session.startRecording(3, track, 0);
 	require(session.processPlaybackBlock(block, midi, input), "hosted input can record again");
 	require(!session.finishRecording(3, true) && session.revision() == 3, "discard hosted input without publishing a revision");

@@ -25,6 +25,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
+		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
@@ -54,6 +55,14 @@ function(soundscaper_prepare_tracktion_source source destination)
 		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"
 		code "${code}")
 	file(CONFIGURE OUTPUT "${destination}/${clip_owner}" CONTENT "${code}" @ONLY)
+
+	# Use the Edit's directory even before the first save. JUCE would treat the
+	# nonexistent Edit file as a directory, putting the wrong path in clip undo.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/edit/tracktion_SourceFileReference.cpp"
+		"9d13160775f14680a86b9925f9208c2b286b6a25abc655a7c976e34645b64ad3"
+		"return newFile.getRelativePathFrom (editFile);"
+		"return newFile.getRelativePathFrom (editFile.getParentDirectory()).replaceCharacter (juce::File::getSeparatorChar(), '/');")
 
 	# Preserve an explicitly chosen start sample even within the first 5 ms.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"

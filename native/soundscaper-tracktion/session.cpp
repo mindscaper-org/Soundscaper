@@ -317,9 +317,6 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 
 	s.begin("Import audio");
 	const auto offsetTime = tracktion::TimeDuration::fromSamples(offset, s.sampleRate);
-	// Store the project-owned name directly. Tracktion's general file importer
-	// calculates relative paths from the Edit file and can prepend "../" before
-	// its first save, when that file does not exist yet.
 	juce::ValueTree clipState(te::IDs::AUDIOCLIP);
 	clipState.setProperty(te::IDs::source, juce::String(mediaDirectory) + "/" + destination.getFileName(), nullptr);
 	const auto clipName = name.empty() ? source.getFileNameWithoutExtension() : juce::String::fromUTF8(name.data(), static_cast<int>(name.size()));
