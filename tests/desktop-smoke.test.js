@@ -10,6 +10,7 @@ import {
 	FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 	SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 	assertDesktopSmokePayload,
+	assertTracktionDesktopSmokePayload,
 	packagedExecutableCandidates,
 	resolveSmokeArchitecture,
 } from '../scripts/lib/desktop-smoke.mjs';
@@ -344,15 +345,22 @@ test('desktop smoke validates the closed Framescaper baseline UI, preload, and m
 	);
 });
 
-test('packaged desktop smoke isolates both Chromium and shared library data', async () => {
+test('packaged desktop smoke isolates Chromium and project files', async () => {
 	const source = await readFile(resolve(ROOT, 'scripts/desktop-smoke.mjs'), 'utf8');
-	assert.match(source, /bridge: SMOKE_EXPECTED_BRIDGE/u);
-	assert.match(source,
-		/PRODUCT_ID === 'framescaper'[\s\S]*FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE[\s\S]*SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE/u);
-	assert.doesNotMatch(source, /const EXPECTED_BRIDGE/u);
+	assert.match(source, /bridge: FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE/u);
+	assert.match(source, /assertTracktionDesktopSmokePayload\(payload/u);
 	assert.match(source, /--user-data-dir=\$\{profile\}/u);
 	assert.match(source, /--soundscaper-smoke-app-data=\$\{[^}]+\}/u);
 	assert.match(source, /productId:\s*PRODUCT_ID/u);
+});
+
+test('Tracktion package smoke requires a native Edit and the requested target', () => {
+	const expected = { platform: 'linux', arch: 'arm64' };
+	const result = { ...expected, url: 'soundscaper-tracktion-app://bundle/index.html',
+		title: 'Soundscaper Tracktion', savedNativeEdit: true };
+	assert.doesNotThrow(() => assertTracktionDesktopSmokePayload(result, expected));
+	assert.throws(() => assertTracktionDesktopSmokePayload({ ...result, arch: 'x64' }, expected), /unexpected target/u);
+	assert.throws(() => assertTracktionDesktopSmokePayload({ ...result, savedNativeEdit: false }, expected), /native Edit/u);
 });
 
 function evaluatePreload(source, argv = ['electron']) {

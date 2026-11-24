@@ -224,6 +224,15 @@ export function assertDesktopSmokePayload(payload, expected) {
 	}
 }
 
+export function assertTracktionDesktopSmokePayload(payload, expected) {
+	assert(payload?.url === 'soundscaper-tracktion-app://bundle/index.html',
+		'Tracktion smoke loaded an unexpected URL.');
+	assert(payload?.title === 'Soundscaper Tracktion', 'Tracktion smoke loaded an unexpected document title.');
+	assert(payload?.savedNativeEdit === true, 'Tracktion smoke did not save a native Edit.');
+	assert(payload?.platform === expected.platform && payload?.arch === expected.arch,
+		'Tracktion smoke reported an unexpected target.');
+}
+
 function assertDesktopChrome(chrome, platform) {
 	assert(chrome?.documentDesktop === true, 'Smoke did not activate the desktop document route.');
 	assert(chrome?.shellDesktop === true, 'Smoke did not activate the desktop application shell.');

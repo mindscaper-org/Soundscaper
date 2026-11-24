@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain, protocol, session, utilityProcess } from 'electron/main';
 
+import type { TracktionProjectCommand } from '../src/soundscaper/tracktion-project-contract.ts';
 import { createTrustedDesktopIpc } from './main-trusted-ipc.ts';
 import { resolveStaticFile, securityHeaders } from './protocol.js';
 import { tracktionAudioPreferences } from './tracktion-audio-preferences.ts';
@@ -95,7 +96,7 @@ export async function openTracktionWindow(options: {
 		await dispose();
 		throw error;
 	}
-	return { window, dispose };
+	return { window, dispose, requestProject: (command: TracktionProjectCommand) => service.request(window, command) };
 }
 
 async function serveEditorAsset(root: string, request: Request): Promise<Response> {

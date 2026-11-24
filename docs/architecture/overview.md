@@ -207,9 +207,14 @@ dynamic imports.
 Disabled implementations retain their owning module's type contract through
 explicit type-only imports. The ordinary source check still checks the default
 graph, and export-parity tests guard substitution coverage.
-Each browser project environment loads its desktop library bridge only when the
-preload global is present; ordinary browser startup keeps that renderer code out
-of its static graph.
+The Soundscaper editor uses the Tracktion project request contract in
+`src/soundscaper/tracktion-project-contract.ts`. The browser worker owns the
+WASM Edit and commits project revisions with their media in IndexedDB. On
+desktop, the Electron main process owns file selection and publication.
+The Tracktion utility process supervises the native peer, which owns the Edit,
+audio transport, and render. Soundscaper staging includes the Tracktion preload
+and utility entry. The existing Framescaper project library uses its own
+desktop bridge and lazy browser startup.
 
 Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
 editing states, without project identity or media bodies. The enclosing document
