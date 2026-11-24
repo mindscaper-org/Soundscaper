@@ -25,6 +25,7 @@ import { useAudioTrackEnvelope } from './useAudioTrackEnvelope.js';
 import { createSpectrogramCanvasOptions } from './spectrogram-canvas-options.ts';
 import { spectrogramPcmContextClip } from './spectrogram-pcm-context.ts';
 import { useSpectrogramPcmTiles } from './useSpectrogramPcmTiles.ts';
+import { readTimelineMidiNotes } from './timeline-midi-notes.ts';
 
 const WAVEFORM_PCM_PREFETCH_BUCKET_PIXELS = 0.25;
 
@@ -140,6 +141,7 @@ export function useAudioTrackRowViewModel({
 		viewportDurationFrames,
 		sampleRate,
 	}), [clips, renderViewportStartFrame, sampleRate, viewportDurationFrames]);
+	const waveformClips = useMemo(() => projection.clips.filter(clip => !readTimelineMidiNotes(clip)), [projection.clips]);
 	const hasProject = project != null;
 	const projectId = project?.id;
 	const projectSampleRate = project?.sampleRate;
@@ -166,7 +168,7 @@ export function useAudioTrackRowViewModel({
 	const spectrogramTiles = useSpectrogramPcmTiles({
 		controller,
 		project: waveformProject,
-		projectedClips: projection.clips, viewportStartFrame: renderViewportStartFrame, viewportDurationFrames,
+		projectedClips: waveformClips, viewportStartFrame: renderViewportStartFrame, viewportDurationFrames,
 		sourceLookup,
 		pixelsPerSecond,
 		sampleRate,
@@ -197,7 +199,7 @@ export function useAudioTrackRowViewModel({
 
 	const waveformWindowRequests = useMemo(() => {
 		const requests = new Map();
-		for (const clip of projection.clips) {
+		for (const clip of waveformClips) {
 			if (clip.isRecordingPreview) continue;
 			const visual = controller.getClipVisualData(clip.id)
 				|| controller.getProjectBinClipVisualData?.(clip.projectBinClipId || clip.id);
@@ -213,8 +215,8 @@ export function useAudioTrackRowViewModel({
 			requests.set(String(clip.id), { clip: requestClip, pixelWidth: requestPixelWidth });
 		}
 		return requests;
-	}, [clipVisualRevision, controller, displayMode, pixelsPerSecond, projection.clips,
-		resolvedSpectrogramOptions.fftWindowSize, sampleRate, waveformProject]);
+	}, [clipVisualRevision, controller, displayMode, pixelsPerSecond,
+		resolvedSpectrogramOptions.fftWindowSize, sampleRate, waveformClips, waveformProject]);
 	useEffect(() => {
 		const requestWindow = controller.actions.timeline.requestWaveformPcmWindow;
 		if (typeof requestWindow !== 'function') return;
@@ -230,7 +232,7 @@ export function useAudioTrackRowViewModel({
 	useEffect(() => {
 		if (!isFrequencyWaveformDisplayMode(displayMode) || !frequencyWaveformModule) return;
 		frequencyWaveformModule.requestVisibleFrequencyWaveforms({
-			controller, clips: projection.clips, project: waveformProject, pixelsPerSecond, sampleRate, run,
+			controller, clips: waveformClips, project: waveformProject, pixelsPerSecond, sampleRate, run,
 		});
 	}, [
 		clipVisualRevision,
@@ -239,9 +241,9 @@ export function useAudioTrackRowViewModel({
 		frequencyWaveformModule,
 		frequencyWaveformPreferences,
 		pixelsPerSecond,
-		projection.clips,
 		run,
 		sampleRate,
+		waveformClips,
 		waveformProject,
 	]);
 
@@ -275,6 +277,7 @@ export function useAudioTrackRowViewModel({
 			frequencyWaveformProjector: frequencyWaveformModule?.prepareFrequencyWaveformClipProjection,
 			frequencyWaveformPreferences,
 		}).map((clip) => {
+			if (clip.midiNotes) return clip;
 			const columns = spectrogramTiles.get(String(clip.id));
 			const spectralWorker = typeof Worker === 'function' && !clip.isRecordingPreview
 				&& (sourceLookup.get(clip.sourceId)?.channelCount ?? 2) <= 8 && clip.duration * pixelsPerSecond <= 32_768;

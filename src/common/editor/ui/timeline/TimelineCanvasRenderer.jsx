@@ -14,6 +14,7 @@ import { spectrogramCanvasDrawKey } from './spectrogram-canvas-options.ts';
 import { releaseSpectrogramCanvas } from './spectrogram-canvas-renderer.js';
 import { clipSelectionPixels, drawAudacityClipCanvas } from './waveform-canvas-renderer.js';
 import { useSpectrogramCanvasRevision } from './useSpectrogramCanvasRevision.ts';
+import { drawMidiNoteCanvas } from './midi-note-canvas.ts';
 export { drawAudacityClipSpectrogram } from './spectrogram-canvas-renderer.js';
 export { clipSelectionPixels, cssColor, drawAudacityClipCanvas, drawHorizontalCanvasLine } from './waveform-canvas-renderer.js';
 
@@ -115,7 +116,7 @@ export function AudacityWaveformCanvases({
 			].join('|');
 			const liveCanvases = new Set();
 			const measurements = readWaveformCanvasMeasurements(root, normalizeAudacityCanvasStyle);
-			for (const { canvas, clipId, bounds, style } of measurements) {
+			for (const { canvas, clipId, bounds, color, style } of measurements) {
 				const clip = clipById.get(clipId);
 				liveCanvases.add(canvas);
 				if (waveformRenderer !== 'gpu') gpuRenderer?.releaseOwner(canvas);
@@ -123,6 +124,20 @@ export function AudacityWaveformCanvases({
 				const selection = clipSelectionPixels(clip, timeSelection, pixelsPerSecond, bounds.width);
 				const clipDrawKey = `${drawKey}|${selection.start}|${selection.end}`;
 				const canvasDrawKey = audacityCanvasDrawKey(canvas, clip, clipDrawKey, bounds);
+				if (clip.midiNotes) {
+					if (canvas.__kwMidiNotePlan === clip.midiNotes && canvas.__kwWaveformDrawKey === canvasDrawKey) continue;
+					if (canvas.__kwWaveformState !== 'midi') {
+						gpuRenderer?.releaseOwner(canvas);
+						resetAudacityClipCanvas(canvas);
+					}
+					if (drawMidiNoteCanvas(canvas, clip.midiNotes, { bounds, palette: style, color, selection })) {
+						canvas.__kwWaveformState = 'midi';
+						canvas.__kwMidiNotePlan = clip.midiNotes;
+						canvas.__kwWaveformDrawKey = audacityCanvasDrawKey(canvas, clip, clipDrawKey, bounds);
+					}
+					continue;
+				}
+				if (canvas.__kwWaveformState === 'midi') resetAudacityClipCanvas(canvas);
 				const drawOptions = {
 					displayMode,
 					pixelsPerSecond,
@@ -230,6 +245,7 @@ export function resetAudacityClipCanvas(canvas) {
 		context.restore();
 	}
 	delete canvas.__kwWaveformPlan;
+	delete canvas.__kwMidiNotePlan;
 	delete canvas.__kwSpectrogramColumnsPlan;
 	delete canvas.__kwFrequencyWaveformPlan;
 	delete canvas.__kwFrequencyWaveformRenderer;

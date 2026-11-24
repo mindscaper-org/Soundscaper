@@ -87,6 +87,53 @@ test.describe('beta MIDI editing and shared transport', () => {
 		expect(errors).toEqual([]);
 	});
 
+	test('draws MIDI note timing and pitch in the timeline and updates after a piano-roll edit', async ({ page }) => {
+		const editor = await bootEditor(page, '/embed/en/');
+		await importFiles(editor, [{
+			name: 'two-notes.mid', mimeType: 'audio/midi',
+			buffer: Buffer.from('4d546864000000060000000101e04d54726b0000001f00ff510307a12000903c648170803c00817090486481708048008170ff2f00', 'hex'),
+		}]);
+		const clip = editor.getByRole('group', { name: /^MIDI 1 clip(?:,|$)/u });
+		const canvas = clip.locator('canvas');
+		await expect(canvas).toBeVisible();
+		const noteRows = (fractions) => canvas.evaluate((element, positions) => {
+			const context = element.getContext('2d');
+			return positions.map(position => {
+				const x = Math.floor(position * element.width);
+				const pixels = context.getImageData(x, 0, 1, element.height).data;
+				for (let y = 1; y < element.height; y++) {
+					if (pixels.slice(y * 4, y * 4 + 4).some((byte, index) => byte !== pixels[index])) return y;
+				}
+				return -1;
+			});
+		}, fractions);
+		await expect.poll(async () => {
+			const [low, gap, high, tail] = await noteRows([0.125, 0.375, 0.625, 0.875]);
+			return [low > high, high > 0, gap, tail];
+		}).toEqual([true, true, -1, -1]);
+		const noteEditor = await openPianoRoll(page, editor);
+		await noteEditor.getByRole('combobox', { name: 'Selected note', exact: true }).selectOption({ index: 2 });
+		const start = noteEditor.getByRole('spinbutton', { name: 'Note start (seconds)', exact: true });
+		await start.fill('0.75');
+		await start.press('Enter');
+		await expect.poll(async () => {
+			const [previous, moved] = await noteRows([0.625, 0.875]);
+			return [previous, moved > 0];
+		}).toEqual([-1, true]);
+		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+		await expect.poll(async () => {
+			const [original, tail] = await noteRows([0.625, 0.875]);
+			return [original > 0, tail];
+		}).toEqual([true, -1]);
+		await clip.locator('.clip-header').click();
+		const loop = clip.getByRole('slider', { name: 'Looped clip length', exact: true });
+		await loop.press('ArrowRight');
+		await expect.poll(async () => {
+			const [low, high, repeatedLow, repeatedHigh, rest] = await noteRows([0.0625, 0.3125, 0.5625, 0.8125, 0.9375]);
+			return [low > high, high > 0, repeatedLow === low, repeatedHigh === high, rest];
+		}).toEqual([true, true, true, true, -1]);
+	});
+
 	test('drawing notes with triplets enabled uses the selected triplet length', async ({ page }) => {
 		const editor = await bootEditor(page, '/embed/en/');
 		await importFiles(editor, [noteFile]);

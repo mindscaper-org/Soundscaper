@@ -30,6 +30,7 @@ import {
 } from './audio-warp-waveform.ts';
 import type { FrequencyWaveformProjection } from './frequency-waveform-projection.ts';
 import { createSpectrogramSampleViews } from './spectrogram-sample-view.ts';
+import { projectTimelineMidiNotes, type TimelineMidiNotePreview } from './timeline-midi-notes.ts';
 import {
 	coarsePeakPreviewWidth,
 	coarseWarpPeakPreviewWidth,
@@ -167,6 +168,7 @@ export interface TimelineClipViewModel {
 	readonly pitchCents: number;
 	readonly envelopePoints: unknown;
 	readonly waveform: readonly never[];
+	readonly midiNotes?: TimelineMidiNotePreview;
 	audacityWaveform?: unknown;
 	spectrogramWaveform?: unknown;
 	frequencyWaveform?: FrequencyWaveformProjection;
@@ -206,6 +208,7 @@ export interface TimelineClipViewModelOptions {
 	readonly cache?: Map<string, TimelineWaveformCacheEntry> | null;
 	readonly reuseCachedWaveform?: boolean;
 	readonly waveformPending?: boolean;
+	readonly showMidiNotes?: boolean;
 }
 
 /** Read a stored shift the way the header badge rounds it, so the two agree. */
@@ -227,6 +230,7 @@ export function createTimelineClipViewModel({
 	cache = null,
 	reuseCachedWaveform = false,
 	waveformPending = false,
+	showMidiNotes = false,
 }: TimelineClipViewModelOptions): TimelineClipViewModel {
 	const { overscanStartFrame, pixelsPerSecond, sampleRate } = geometry;
 	const {
@@ -287,6 +291,8 @@ export function createTimelineClipViewModel({
 		}),
 		waveform: EMPTY_DESIGN_SYSTEM_WAVEFORM,
 	};
+	const midiNotes = showMidiNotes ? projectTimelineMidiNotes(clip, project) : null;
+	if (midiNotes) return { ...output, midiNotes };
 	const waveformBuffer = visual?.buffer || null;
 	const waveformPcmWindow = pcmWindowCoversProjectedClip(visual?.pcmWindow, clip, project)
 		? visual?.pcmWindow || null

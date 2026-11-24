@@ -13,7 +13,7 @@ export function readWaveformCanvasMeasurements(root: HTMLElement, normalize: (ca
 	for (const { element, canvas } of canvases) {
 		const bounds = canvas.getBoundingClientRect();
 		const color = canvas.closest<HTMLElement>('.clip-body')?.dataset.color || 'blue';
-		result.push({ canvas, clipId: String(element.dataset.clipId), bounds, style: snapshotWaveformCanvasStyle(getComputedStyle(canvas), color) });
+		result.push({ canvas, clipId: String(element.dataset.clipId), bounds, color, style: snapshotWaveformCanvasStyle(getComputedStyle(canvas), color) });
 	}
 	return result;
 }

@@ -71,6 +71,7 @@ export function createAudioTrackRowClipViewModels({
 					&& clip.waveformPreviewKind !== 'rate-stretch',
 			),
 			waveformPending: waveformPendingClipIds?.has(String(clip.id)) ?? false,
+			showMidiNotes: true,
 		});
 			const preview = envelopePreviews.get(String(model.id));
 			return preview ? {
