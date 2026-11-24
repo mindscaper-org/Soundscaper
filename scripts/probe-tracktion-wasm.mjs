@@ -8,6 +8,8 @@ import { provisionTracktionSources } from './lib/tracktion-sources.mjs';
 
 const sdk = 'emscripten/emsdk:3.1.64@sha256:8847dad4171ebc8a53d9ae5cda86a2546ef5b2e68834c14dc1ba2b2962e125cc';
 const cache = resolve(import.meta.dirname, '../.native-build');
+const graphOnly = process.argv[2] === '--graph' && process.argv.length === 3;
+if (process.argv.length !== 2 && !graphOnly) throw new Error('Usage: probe-tracktion-wasm.mjs [--graph]');
 const sources = await provisionTracktionSources();
 mkdirSync(cache, { recursive: true });
 const workspace = mkdtempSync(resolve(cache, 'tracktion-wasm-probe-'));
@@ -48,9 +50,27 @@ try {
 	replaceOnce(backoff, '  #else\n    #error "Platform not supported!"',
 		'  #elif defined (__wasm__)\n    while (!pred()) std::this_thread::yield();\n  #else\n    #error "Platform not supported!"');
 
+	const graphTest = resolve(import.meta.dirname, '../native/soundscaper-tracktion/tests/wasm_graph_test.cpp');
+	const graphBuild = `
+set -e
+emcc -O0 -pthread -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -I/source/juce/modules -c /source/juce/modules/juce_core/juce_core_zlib.c -o juce-core-zlib.o
+em++ -std=c++20 -O0 -pthread -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 \\
+	-DJUCE_USE_CURL=0 -DJUCE_USE_FLAC=0 -DJUCE_USE_OGGVORBIS=0 -DJUCE_USE_OPUS=0 \\
+	-I/source/juce/modules -I/source/tracktion/modules \\
+	/graph-test.cpp /source/tracktion/modules/tracktion_graph/tracktion_graph.cpp \\
+	/source/tracktion/modules/tracktion_core/tracktion_core.cpp \\
+	/source/juce/modules/juce_audio_formats/juce_audio_formats.cpp \\
+	/source/juce/modules/juce_audio_basics/juce_audio_basics.cpp \\
+	/source/juce/modules/juce_core/juce_core.cpp \\
+	/source/juce/modules/juce_core/juce_core_CompilationTime.cpp \\
+	juce-core-zlib.o \\
+	-sEXIT_RUNTIME=1 -sINITIAL_MEMORY=67108864 -sPTHREAD_POOL_SIZE=1 -o graph-test.js
+node graph-test.js
+`;
 	const probe = spawnSync('docker', [
 		'run', '--rm', '--network', 'none', '--memory', '4g', '--cpus', '2',
-		'--volume', `${workspace}:/source:ro`, '--workdir', '/tmp', sdk, 'bash', '-c', `
+		'--volume', `${workspace}:/source:ro`, '--volume', `${graphTest}:/graph-test.cpp:ro`,
+		'--workdir', '/tmp', sdk, 'bash', '-c', graphOnly ? graphBuild : `
 failed=0
 for source in juce/modules/juce_core/juce_core.cpp tracktion/modules/tracktion_graph/tracktion_graph.cpp tracktion/modules/tracktion_engine/tracktion_engine_model_1.cpp juce/modules/juce_gui_basics/juce_gui_basics.cpp; do
 	printf '\\n%s\\n' "$source"
