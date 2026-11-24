@@ -182,7 +182,8 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Audio setup');
 		await waitFor('document.querySelector("dialog[open] select[name=outputId]") !== null');
 		const testMissingMicrophone = process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE === '1';
-		if (testMissingMicrophone) {
+		const testMissingSpeakers = process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT === '1';
+		if (testMissingMicrophone || testMissingSpeakers) {
 			await window.webContents.executeJavaScript(`
 				for (const [field, label] of [['inputId', 'tracktion.test.microphone'], ['outputId', 'tracktion.test.speakers']]) {
 					const select = document.querySelector('dialog[open] select[name=' + field + ']');
@@ -200,7 +201,7 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('Playback and recording');
 		await click('Play');
 		await waitForVisible('Playing');
-		if (process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT === '1') {
+		if (testMissingSpeakers) {
 			await sleep(150);
 			removePipeWireFixtureSink();
 			await waitForVisible('The selected audio device disconnected');
@@ -239,11 +240,32 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 		await click('File');
 		await click('Close project');
 		await waitForVisible('Soundscaper Tracktion');
+		if (testMissingSpeakers) {
+			removePipeWireFixtureSink();
+			// A fresh source node keeps this test independent of audiotestsrc's reconnection behavior.
+			removePipeWireFixtureSource();
+			restorePipeWireFixtureSource();
+		}
 		const reopened = await requestFromEditor(window, { kind: 'open' });
 		assert.ok(reopened);
 		const prior = await requestFromEditor(window, { kind: 'audioHosts', sessionId: reopened.sessionId });
 		assert.equal(prior.selected, null);
 		assert.deepEqual(prior.preferred, audioSetup.setup);
+		if (testMissingSpeakers) {
+			await assert.rejects(requestFromEditor(window, { kind: 'prepareOutput', sessionId: reopened.sessionId }), /unavailable/u);
+			await click('File');
+			await click('Open projects');
+			await waitForVisible('4 clips');
+			await click('Playback and recording');
+			await click('Record onto the active track');
+			await waitForVisible('Recording');
+			await waitForVisible('The selected audio device disconnected');
+			await sleep(250);
+			await click('Playback and recording');
+			await click('Stop');
+			await waitForVisible('5 clips');
+			restorePipeWireFixtureSink();
+		}
 		await requestFromEditor(window, { kind: 'prepareOutput', sessionId: reopened.sessionId });
 		const resumed = await requestFromEditor(window, { kind: 'audioHosts', sessionId: reopened.sessionId });
 		assert.deepEqual(resumed.selected?.setup, audioSetup.setup);

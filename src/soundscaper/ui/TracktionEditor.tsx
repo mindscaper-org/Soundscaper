@@ -238,10 +238,12 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!workspace?.selectedTrack) return;
 		const trackId = workspace.selectedTrack.id;
 		run(async () => {
-			setTransport(await bridge.request({
+			const next = await bridge.request({
 				kind: 'startRecording', sessionId: workspace.sessionId, revision: workspace.project.revision,
 				trackId, frame: transport?.frame ?? 0,
-			}));
+			});
+			setTransport(next);
+			if (next.outputInterrupted) setFailure(AUDIO_DEVICE_COPY_BY_LOCALE.en.audioHostDeviceLost);
 		});
 	}
 

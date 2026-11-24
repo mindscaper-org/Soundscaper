@@ -102,12 +102,15 @@ void Session::State::releaseRecordingInput()
 	auto& behaviour = static_cast<SessionBehaviour&>(engine.getEngineBehaviour());
 	behaviour.recordingFile = juce::File{};
 	auto& devices = engine.getDeviceManager();
-	if (recording->outputSetup)
+	if (recording->native)
 	{
-		bool restoreOutput = true;
+		bool restoreOutput = recording->outputSetup.has_value();
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
-		restoreOutput = pipeWireOutput(devices.deviceManager.getCurrentAudioDevice()) != PipeWireRoute::interrupted;
-		outputWasInterrupted = !restoreOutput;
+		if (pipeWireOutput(devices.deviceManager.getCurrentAudioDevice()) == PipeWireRoute::interrupted)
+		{
+			restoreOutput = false;
+			outputWasInterrupted = true;
+		}
 #endif
 		devices.deviceManager.closeAudioDevice();
 		systemOutput = restoreOutput && devices.deviceManager.setAudioDeviceSetup(*recording->outputSetup, false).isEmpty()
@@ -130,11 +133,22 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	auto& devices = s.engine.getDeviceManager();
 	std::optional<juce::AudioDeviceManager::AudioDeviceSetup> outputSetup;
 	juce::String inputName;
-	if (s.playback == nullptr)
+	const bool native = s.playback == nullptr;
+	if (native)
 	{
-		prepareSystemOutput();
-		outputSetup = devices.deviceManager.getAudioDeviceSetup();
-		inputName = s.recordingInputName();
+		try
+		{
+			prepareSystemOutput();
+		}
+		catch (const std::invalid_argument&)
+		{
+			if (!s.preferredAudioSetup) throw;
+		}
+		if (s.hasSystemOutput())
+		{
+			outputSetup = devices.deviceManager.getAudioDeviceSetup();
+			inputName = s.recordingInputName();
+		}
 	}
 	else if (!s.hostedMonoInput)
 		throw std::invalid_argument("The Tracktion hosted device has no recording input");
@@ -145,14 +159,15 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	if (file.exists() || file.isSymbolicLink())
 		throw std::invalid_argument("Tracktion could not reserve a recording name");
 
-	s.recording.emplace(State::Recording{trackId, file, std::move(outputSetup), {}});
+	s.recording.emplace(State::Recording{trackId, file, native, std::move(outputSetup), {}});
 	auto& behaviour = static_cast<SessionBehaviour&>(s.engine.getEngineBehaviour());
 	behaviour.recordingFile = file;
 	s.recoveredRecording.reset();
 	try
 	{
-		const auto channel = s.systemAudioSetup ? s.systemAudioSetup->setup.inputChannel : 0;
+		const auto channel = s.preferredAudioSetup ? s.preferredAudioSetup->inputChannel : 0;
 		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup, inputName, channel);
+		else if (native) s.openInputOnly();
 		armInput(*s.edit, target, s.recording->inputId);
 		s.edit->dispatchPendingUpdatesSynchronously();
 		s.begin("Record audio");
@@ -204,7 +219,7 @@ std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 	auto alignWithCapture = s.hostedMonoInput;
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	if (s.deviceLossMonitor) s.deviceLossMonitor->stopTimer();
-	if (s.recording->outputSetup)
+	if (s.recording->native)
 		alignWithCapture = quiescePipeWireCapture(s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice());
 #endif
 	if (!discard && alignWithCapture)

@@ -97,6 +97,7 @@ public:
 	AudioHosts audioHosts();
 	AudioDevices audioDevices(const std::string& hostId);
 	enum class AudioSetupMode { validateInput, outputOnly };
+	void rememberAudioSetup(AudioSetup);
 	AppliedAudioSetup setAudioSetup(AudioSetup, AudioSetupMode = AudioSetupMode::validateInput);
 	bool playbackReady() const;
 	bool outputInterrupted() const;

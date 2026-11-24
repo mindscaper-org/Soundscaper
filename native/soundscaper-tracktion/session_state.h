@@ -46,6 +46,7 @@ struct Session::State
 	{
 		TrackId track;
 		juce::File file;
+		bool native;
 		std::optional<juce::AudioDeviceManager::AudioDeviceSetup> outputSetup;
 		juce::String inputId;
 	};
@@ -62,8 +63,11 @@ struct Session::State
 	bool systemOutput = false;
 	bool outputWasInterrupted = false;
 	bool systemDeviceManagerInitialised = false;
+	std::optional<AudioSetup> preferredAudioSetup;
 	std::optional<AppliedAudioSetup> systemAudioSetup;
 	juce::String systemOutputName, systemHostName;
+	void initialiseSystemDevices();
+	void openInputOnly();
 	juce::String recordingInputName() const;
 	bool hasSystemOutput() const;
 	std::optional<Recording> recording;

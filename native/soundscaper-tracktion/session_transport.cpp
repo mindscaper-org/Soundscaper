@@ -38,7 +38,7 @@ Session::~Session()
 		state->edit->getTransport().stop(true, true, false);
 		state->recording->file.deleteFile();
 	}
-	if (state->systemOutput)
+	if (state->systemDeviceManagerInitialised)
 		state->engine.getDeviceManager().deviceManager.closeAudioDevice();
 }
 
@@ -93,9 +93,9 @@ void Session::prepareSystemOutput()
 	auto& devices = s.engine.getDeviceManager();
 	if (s.hasSystemOutput())
 		return;
-	if (s.systemAudioSetup)
+	if (s.preferredAudioSetup)
 	{
-		setAudioSetup(s.systemAudioSetup->setup, AudioSetupMode::outputOnly);
+		setAudioSetup(*s.preferredAudioSetup, AudioSetupMode::outputOnly);
 		return;
 	}
 	devices.initialise(0, 2);
@@ -132,10 +132,11 @@ bool Session::isPlaying() const { return state->edit->getTransport().isPlaying()
 
 bool Session::outputInterrupted() const
 {
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	const auto& s = *state;
+	if (s.outputWasInterrupted) return true;
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	auto& manager = s.engine.getDeviceManager().deviceManager;
-	return s.outputWasInterrupted || pipeWireOutput(manager.getCurrentAudioDevice()) == PipeWireRoute::interrupted;
+	return pipeWireOutput(manager.getCurrentAudioDevice()) == PipeWireRoute::interrupted;
 #else
 	return false;
 #endif

@@ -226,14 +226,20 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		const auto view = session.audioDevices(deviceId(request, "hostId"));
 		return record({{"inputs", deviceChoices(view.inputs)}, {"outputs", deviceChoices(view.outputs)}, {"separateDevices", view.separateDevices}});
 	}
-	if (kind == "setAudioSetup" || kind == "restoreOutput")
+	if (kind == "setAudioSetup" || kind == "useAudioProfile")
 	{
 		requireFields(request, {"hostId", "inputId", "outputId", "inputChannel", "outputChannel", "sampleRate", "blockSize"});
-		return appliedAudioSetup(session.setAudioSetup({
+		AudioSetup setup{
 			deviceId(request, "hostId"), deviceId(request, "outputId", true), deviceId(request, "inputId", true),
 			audioNumber(request, "inputChannel", 63), audioNumber(request, "outputChannel", 62),
 			audioNumber(request, "sampleRate", 192000), audioNumber(request, "blockSize", 8192),
-		}, kind == "restoreOutput" ? Session::AudioSetupMode::outputOnly : Session::AudioSetupMode::validateInput));
+		};
+		if (kind == "useAudioProfile")
+		{
+			session.rememberAudioSetup(std::move(setup));
+			return {};
+		}
+		return appliedAudioSetup(session.setAudioSetup(std::move(setup)));
 	}
 #endif
 

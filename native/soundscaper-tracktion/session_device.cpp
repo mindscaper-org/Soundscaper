@@ -85,18 +85,31 @@ bool openDevice(juce::AudioDeviceManager& manager, const juce::String& type, con
 	                                      setup.outputChannels.countNumberOfSetBits(), xml.get(), false);
 	auto* device = manager.getCurrentAudioDevice();
 	return error.isEmpty() && device != nullptr && device->isOpen() && device->getTypeName() == type
-		&& device->getActiveOutputChannels() == setup.outputChannels;
+		&& device->getActiveOutputChannels() == setup.outputChannels && device->getActiveInputChannels() == setup.inputChannels;
 }
 
-void checkFormat(juce::AudioIODevice& device, const AudioSetup& requested, bool hasInput)
+void validateSetup(const AudioSetup& requested)
 {
-	if (requested.outputChannel + 1 >= device.getOutputChannelNames().size()
-	    || (hasInput && requested.inputChannel >= device.getInputChannelNames().size()))
-		throw std::invalid_argument("The selected Tracktion audio channel is unavailable");
+	if (requested.inputChannel < 0 || requested.inputChannel > 63 || requested.outputChannel < 0 || requested.outputChannel > 62)
+		throw std::invalid_argument("The Tracktion audio channel is outside the supported range");
+	if (requested.sampleRate < 0 || (requested.sampleRate && requested.sampleRate < 22050) || requested.sampleRate > 192000
+	    || requested.blockSize < 0 || requested.blockSize > 8192)
+		throw std::invalid_argument("The Tracktion audio format is outside the supported range");
+}
+
+void checkFormat(juce::AudioIODevice& device, const AudioSetup& requested)
+{
 	if (requested.sampleRate && !device.getAvailableSampleRates().contains(static_cast<double>(requested.sampleRate)))
 		throw std::invalid_argument("The selected Tracktion audio device does not advertise that sample rate");
 	if (requested.blockSize && !device.getAvailableBufferSizes().contains(requested.blockSize))
 		throw std::invalid_argument("The selected Tracktion audio device does not advertise that buffer size");
+}
+
+bool usesRequestedFormat(const Setup& actual, const Setup& wanted)
+{
+	return actual.sampleRate >= 22050 && actual.sampleRate <= 192000
+		&& (!wanted.sampleRate || actual.sampleRate == wanted.sampleRate)
+		&& (!wanted.bufferSize || actual.bufferSize == wanted.bufferSize);
 }
 }
 
@@ -147,11 +160,57 @@ juce::String Session::State::recordingInputName() const
 	if (type != nullptr)
 	{
 		type->scanForDevices();
-		const auto input = systemAudioSetup ? selectedInput(*type, systemAudioSetup->setup, systemOutputName)
-		                                   : type->getDeviceNames(true)[type->getDefaultDeviceIndex(true)];
+		const auto input = preferredAudioSetup ? selectedInput(*type, *preferredAudioSetup, systemOutputName)
+		                                     : type->getDeviceNames(true)[type->getDefaultDeviceIndex(true)];
 		if (input.isNotEmpty()) return input;
 	}
 	throw std::invalid_argument("The Tracktion recording input is unavailable");
+}
+
+void Session::State::initialiseSystemDevices()
+{
+	if (systemDeviceManagerInitialised) return;
+	engine.getDeviceManager().initialise(0, 0);
+	systemDeviceManagerInitialised = true;
+}
+
+void Session::State::openInputOnly()
+{
+	if (!preferredAudioSetup) throw std::invalid_argument("The Tracktion default audio output is unavailable");
+	const auto& selected = *preferredAudioSetup;
+	auto& devices = engine.getDeviceManager();
+	auto& manager = devices.deviceManager;
+	auto& type = deviceType(manager, selected.hostId);
+	if (!type.hasSeparateInputsAndOutputs())
+		throw std::invalid_argument("The selected Tracktion audio host requires playback and recording on the same device");
+	type.scanForDevices();
+	const auto input = selectedInput(type, selected, {});
+	const std::unique_ptr<juce::AudioIODevice> probe(input.isNotEmpty() ? type.createDevice({}, input) : nullptr);
+	if (!probe || probe->getLastError().isNotEmpty() || selected.inputChannel >= probe->getInputChannelNames().size())
+		throw std::invalid_argument("The selected Tracktion recording input or channel is unavailable");
+	checkFormat(*probe, selected);
+	Setup next;
+	next.inputDeviceName = input;
+	next.inputChannels.setBit(selected.inputChannel);
+	next.sampleRate = selected.sampleRate;
+	next.bufferSize = selected.blockSize;
+	initialiseSystemDevices();
+	if (!openDevice(manager, type.getTypeName(), next) || !usesRequestedFormat(manager.getAudioDeviceSetup(), next))
+		throw std::invalid_argument("Tracktion could not open the selected recording input");
+	outputWasInterrupted = true;
+	systemOutput = false;
+	manager.dispatchPendingMessages();
+	devices.rescanWaveDeviceList();
+	devices.dispatchPendingUpdates();
+}
+
+void Session::rememberAudioSetup(AudioSetup requested)
+{
+	state->requireNoRecording();
+	validateSetup(requested);
+	if (state->playback != nullptr || state->hasSystemOutput() || isPlaying())
+		throw std::invalid_argument("Tracktion already has an active audio setup");
+	state->preferredAudioSetup = std::move(requested);
 }
 
 AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mode)
@@ -161,11 +220,7 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mo
 	auto& transport = s.edit->getTransport();
 	if (s.playback != nullptr || transport.isPlaying())
 		throw std::invalid_argument("Stop Tracktion playback before changing audio devices");
-	if (requested.inputChannel < 0 || requested.inputChannel > 63 || requested.outputChannel < 0 || requested.outputChannel > 62)
-		throw std::invalid_argument("The Tracktion audio channel is outside the supported range");
-	if (requested.sampleRate < 0 || (requested.sampleRate && requested.sampleRate < 22050) || requested.sampleRate > 192000
-	    || requested.blockSize < 0 || requested.blockSize > 8192)
-		throw std::invalid_argument("The Tracktion audio format is outside the supported range");
+	validateSetup(requested);
 
 	auto& devices = s.engine.getDeviceManager();
 	auto& manager = devices.deviceManager;
@@ -180,17 +235,16 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mo
 		const std::unique_ptr<juce::AudioIODevice> probe(type.createDevice(outputName, inputName));
 		if (!probe || probe->getLastError().isNotEmpty())
 			throw std::invalid_argument("Tracktion could not inspect the selected audio devices");
-		checkFormat(*probe, requested, inputName.isNotEmpty());
+		if (requested.outputChannel + 1 >= probe->getOutputChannelNames().size()
+		    || (inputName.isNotEmpty() && requested.inputChannel >= probe->getInputChannelNames().size()))
+			throw std::invalid_argument("The selected Tracktion audio channel is unavailable");
+		checkFormat(*probe, requested);
 	}
 
 	const auto previous = manager.getAudioDeviceSetup();
 	const auto previousHost = manager.getCurrentAudioDeviceType();
 	const auto hadOutput = s.systemOutput;
-	if (!s.systemDeviceManagerInitialised)
-	{
-		devices.initialise(0, 0);
-		s.systemDeviceManagerInitialised = true;
-	}
+	s.initialiseSystemDevices();
 
 	Setup next;
 	next.outputDeviceName = outputName;
@@ -199,8 +253,7 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mo
 	next.bufferSize = requested.blockSize;
 	const auto opened = openDevice(manager, typeName, next);
 	const auto actual = manager.getAudioDeviceSetup();
-	if (!opened || actual.sampleRate < 22050 || actual.sampleRate > 192000 || (next.sampleRate && actual.sampleRate != next.sampleRate)
-	    || (next.bufferSize && actual.bufferSize != next.bufferSize))
+	if (!opened || !usesRequestedFormat(actual, next))
 	{
 		manager.closeAudioDevice();
 		s.systemOutput = hadOutput && openDevice(manager, previousHost, previous);
@@ -211,6 +264,7 @@ AppliedAudioSetup Session::setAudioSetup(AudioSetup requested, AudioSetupMode mo
 
 	s.systemOutput = true;
 	s.outputWasInterrupted = false;
+	s.preferredAudioSetup = requested;
 	s.systemAudioSetup = AppliedAudioSetup{std::move(requested), static_cast<int>(std::lround(actual.sampleRate)), actual.bufferSize};
 	s.systemOutputName = outputName;
 	s.systemHostName = typeName;

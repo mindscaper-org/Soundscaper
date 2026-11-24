@@ -52,10 +52,7 @@ test('Tracktion keeps capture and playback independent when the named PipeWire s
 			const asset = 'a'.repeat(32);
 			await peer.request({ kind: 'render', revision: 1, asset, start: beforeLoss.frame + 2048, end: beforeLoss.frame + 4096 });
 			const samples = waveData(await readFile(join(exchangeDirectory, 'output', `${asset}.wav`)));
-			let audibleFrames = 0;
-			for (let offset = 0; offset + 4 <= samples.length; offset += 4)
-				if (Math.abs(samples.readInt16LE(offset)) > 1024) audibleFrames += 1;
-			assert.ok(audibleFrames > 1024, 'the take contains microphone audio captured after sink loss');
+			assert.ok(audibleFrames(samples) > 1024, 'the take contains microphone audio captured after sink loss');
 			await assert.rejects(peer.request({ kind: 'prepareOutput' }), /unavailable/u);
 			assert.deepEqual((await peer.request({ kind: 'audioHosts' })).selected, applied);
 
@@ -82,6 +79,24 @@ test('Tracktion keeps capture and playback independent when the named PipeWire s
 			assert.equal(rebound.frame, stopped.frame);
 			await peer.request({ kind: 'play', frame: rebound.frame });
 			await waitForTransport(status, (snapshot) => snapshot.playing && snapshot.frame > rebound.frame + 2048);
+			await peer.request({ kind: 'stop' });
+			const secondInput = devices.inputs.find(({ name }) => name === 'tracktion.test.recovery-microphone');
+			assert.ok(secondInput);
+			const secondSetup = await peer.request({ kind: 'setAudioSetup', ...setup, inputId: secondInput.id });
+			removePipeWireFixtureSink();
+			const start = 24_000;
+			const inputOnly = await peer.request({ kind: 'startRecording', revision: 1, trackId: track.id, frame: start });
+			assert.equal(inputOnly.recording, true);
+			assert.equal(inputOnly.ready, false);
+			await waitForTransport(status, (snapshot) => snapshot.recording && snapshot.frame > start + 4096);
+			const inputOnlyTake = await peer.request({ kind: 'finishRecording', revision: 1, discard: false });
+			assert.ok(inputOnlyTake.itemId);
+			const inputOnlyAsset = 'b'.repeat(32);
+			await peer.request({ kind: 'render', revision: 2, asset: inputOnlyAsset, start, end: start + 4096 });
+			const inputOnlySamples = waveData(await readFile(join(exchangeDirectory, 'output', `${inputOnlyAsset}.wav`)));
+			assert.ok(audibleFrames(inputOnlySamples) > 2048, 'the input-only take contains audio');
+			assert.deepEqual((await peer.request({ kind: 'audioHosts' })).selected, secondSetup);
+			await assert.rejects(peer.request({ kind: 'prepareOutput' }), /unavailable/u);
 		} finally {
 			await peer.close();
 		}
@@ -89,6 +104,13 @@ test('Tracktion keeps capture and playback independent when the named PipeWire s
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+function audibleFrames(samples: Buffer): number {
+	let frames = 0;
+	for (let offset = 0; offset + 4 <= samples.length; offset += 4)
+		if (Math.abs(samples.readInt16LE(offset)) > 1024) frames += 1;
+	return frames;
+}
 
 async function waitForTransport(
 	read: () => Promise<TracktionTransportView>,
