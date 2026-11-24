@@ -80,6 +80,9 @@ Session::State::State(const juce::File& directory, const juce::File& stateDirect
 			if (dynamic_cast<te::WaveAudioClip*>(clip) == nullptr
 			    || !clip->getSourceFileReference().getFile().existsAsFile())
 				throw std::invalid_argument("The project contains missing or unsupported clip media");
+	// Tracktion can first request its scene list from an asynchronous callback.
+	// Initialise it here before clearing the Edit's setup transactions.
+	static_cast<void>(edit->getSceneList());
 	endTransaction(*edit);
 	edit->getUndoManager().clearUndoHistory();
 }

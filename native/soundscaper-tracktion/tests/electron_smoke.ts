@@ -93,21 +93,30 @@ async function requestFromEditor<Command extends TracktionProjectCommand>(
 async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Promise<void> {
 	async function click(label: string): Promise<void> {
 		await window.webContents.executeJavaScript(`
-			Array.from(document.querySelectorAll('button, summary'))
-				.find((candidate) => candidate.textContent.trim() === ${JSON.stringify(label)}).click()
+			(() => {
+				const label = ${JSON.stringify(label)};
+				const control = Array.from(document.querySelectorAll('button, summary'))
+					.find((candidate) => candidate.textContent.trim() === label);
+				if (!control || control.disabled) throw new Error('Editor command is unavailable: ' + label);
+				control.click();
+			})()
 		`);
 	}
-	async function waitForVisible(text: string): Promise<void> {
-		await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error('Text did not appear')), 5000);
-			const poll = setInterval(() => {
-				if (document.body.innerText.includes(${JSON.stringify(text)})) {
-					clearTimeout(timer);
-					clearInterval(poll);
-					resolve();
-				}
-			}, 25);
-		})`);
+	async function waitFor(expression: string): Promise<void> {
+		for (let attempt = 0; attempt < 200; attempt += 1) {
+			if (await window.webContents.executeJavaScript(`
+				document.querySelector('main')?.getAttribute('aria-busy') !== 'true' && (${expression})
+			`)) return;
+			await sleep(25);
+		}
+		const text = await window.webContents.executeJavaScript('document.body.innerText') as string;
+		throw new Error(`Editor did not satisfy ${expression}\n${text}`);
+	}
+	function waitForVisible(text: string): Promise<void> {
+		return waitFor(`document.body.innerText.includes(${JSON.stringify(text)})`);
+	}
+	function waitForTrackCount(count: number): Promise<void> {
+		return waitFor(`document.querySelectorAll('main select option').length === ${count}`);
 	}
 
 	await waitForVisible('File');
@@ -116,6 +125,20 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 	await waitForVisible('Reference');
 	await click('File');
 	await click('Import audio');
+	await waitForVisible('3 clips');
+	await click('Editing tools');
+	await click('Add track');
+	await waitForTrackCount(2);
+	await click('Editing tools');
+	await click('Undo');
+	await waitForTrackCount(1);
+	await waitForVisible('3 clips');
+	await click('Editing tools');
+	await click('Redo');
+	await waitForTrackCount(2);
+	await click('Editing tools');
+	await click('Undo');
+	await waitForTrackCount(1);
 	await waitForVisible('3 clips');
 	await click('File');
 	await click('Save project');

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-recovery-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
@@ -11,6 +12,8 @@ import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
+const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
+const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
 export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopBridge }) {
@@ -94,6 +97,17 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 		});
 	}
 
+	function editProject(kind: 'addTrack' | 'undo' | 'redo'): void {
+		if (!workspace) return;
+		run(async () => {
+			const command = { sessionId: workspace.sessionId, revision: workspace.project.revision };
+			const result = await bridge.request(kind === 'addTrack'
+				? { ...command, kind, name: `${trackCopy.audioTrack} ${workspace.tracks.length + 1}` }
+				: { ...command, kind });
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? workspace.selectedTrack?.id));
+		});
+	}
+
 	function controlPlayback(kind: 'play' | 'stop' | 'seek'): void {
 		if (!workspace) return;
 		const { sessionId } = workspace;
@@ -145,6 +159,14 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 				</div>
 			</details>
 			<details>
+				<summary>{editCopy.editControls}</summary>
+				<div>
+					<button type="button" disabled={busy || recording || !workspace} onClick={() => editProject('addTrack')}>{trackCopy.addTrack}</button>
+					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
+					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
+				</div>
+			</details>
+			<details>
 				<summary>{transportCopy.transport}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
@@ -173,7 +195,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
 			{failure && <p role="alert">{failure}</p>}
 			{workspace && <>
-				<label>{TRACK_COPY_BY_LOCALE.en.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording} onChange={(event) => {
+				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording} onChange={(event) => {
 					const trackId = event.currentTarget.value;
 					run(async () => setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId)));
 				}}>
