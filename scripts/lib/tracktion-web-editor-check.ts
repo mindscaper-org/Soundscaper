@@ -27,7 +27,24 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 		name: 'Tracktion web media.wav', mimeType: 'audio/wav', buffer: wavFixture(1024),
 	}));
 	await Promise.all([upload, fileCommand('Import audio')]);
-	const clip = page.getByText('Tracktion web media (0–1024)', { exact: true });
+	await page.getByText('Tracktion web media (0–1024)', { exact: true }).waitFor();
+	const editing = page.getByText('Editing tools', { exact: true });
+	await editing.click();
+	await button('Split clip').click();
+	const split = page.getByRole('dialog', { name: 'Split clip' });
+	await split.getByRole('spinbutton', { name: 'Split frame' }).fill('512');
+	await split.getByRole('button', { name: 'Apply' }).click();
+	await page.getByText('2 clips', { exact: true }).waitFor();
+	await editing.click();
+	await button('Undo').click();
+	await page.getByText('1 clip', { exact: true }).waitFor();
+	await editing.click();
+	await button('Trim clip').click();
+	const trim = page.getByRole('dialog', { name: 'Trim clip' });
+	await trim.getByRole('spinbutton', { name: 'Start frame' }).fill('128');
+	await trim.getByRole('spinbutton', { name: 'End frame' }).fill('896');
+	await trim.getByRole('button', { name: 'Apply' }).click();
+	const clip = page.getByText('Tracktion web media (128–896)', { exact: true });
 	await clip.waitFor();
 	await fileCommand('Save project');
 	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();

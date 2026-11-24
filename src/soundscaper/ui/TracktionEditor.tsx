@@ -10,6 +10,7 @@ import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
 import type { TracktionProjectBridge, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
+import { TracktionClipEditDialog, type TracktionClipEdit } from './TracktionClipEditDialog.tsx';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
@@ -26,10 +27,12 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
+	const [clipEdit, setClipEdit] = useState<TracktionClipEdit['kind'] | null>(null);
 	const pending = useRef(false);
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
 	const menuBar = useRef<HTMLElement>(null);
+	const splittable = workspace?.clips.filter((clip) => clip.end - clip.start > 1) ?? [];
 
 	useEffect(() => {
 		if (!dirty && !recording) return;
@@ -44,13 +47,17 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 		setBusy(true);
 		setFailure('');
 		setStatus('');
-		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) menu.open = false;
+		closeMenus();
 		void work().catch((error: unknown) => {
 			setFailure(error instanceof Error ? error.message : String(error));
 		}).finally(() => {
 			pending.current = false;
 			setBusy(false);
 		});
+	}
+
+	function closeMenus(): void {
+		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) menu.open = false;
 	}
 
 	function confirmReplacement(): boolean {
@@ -109,6 +116,20 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 				? { ...command, kind, name: `${trackCopy.audioTrack} ${workspace.tracks.length + 1}` }
 				: { ...command, kind });
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? workspace.selectedTrack?.id));
+		});
+	}
+
+	function chooseClipEdit(kind: TracktionClipEdit['kind']): void {
+		closeMenus();
+		setClipEdit(kind);
+	}
+
+	function applyClipEdit(edit: TracktionClipEdit): void {
+		setClipEdit(null);
+		if (!workspace) return;
+		run(async () => {
+			await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
 		});
 	}
 
@@ -189,6 +210,8 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 				<summary>{editCopy.editControls}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => editProject('addTrack')}>{trackCopy.addTrack}</button>
+					<button type="button" disabled={busy || recording || splittable.length === 0} onClick={() => chooseClipEdit('split')}>{editCopy.tracktionSplitClip}</button>
+					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('trim')}>{editCopy.tracktionTrimClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canUndo} onClick={() => editProject('undo')}>{editCopy.undo}</button>
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
@@ -217,6 +240,8 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 				</div>
 			</details>}
 		</nav>
+		{clipEdit && workspace && <TracktionClipEditDialog kind={clipEdit}
+			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
