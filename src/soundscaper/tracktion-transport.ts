@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type { TracktionDesktopBridge, TracktionTransportView } from './tracktion-project-contract.ts';
+import type { TracktionProjectBridge, TracktionTransportView } from './tracktion-project-contract.ts';
 
 export async function startTracktionPlayback(
-	bridge: TracktionDesktopBridge,
+	bridge: TracktionProjectBridge,
 	sessionId: string,
 ): Promise<TracktionTransportView> {
 	let transport = await bridge.request({ kind: 'prepareOutput', sessionId });

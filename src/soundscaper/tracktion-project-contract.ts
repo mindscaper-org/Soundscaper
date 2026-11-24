@@ -38,6 +38,7 @@ export interface TracktionOpenedProject {
 	readonly sessionId: string;
 	readonly name: string;
 	readonly project: TracktionProjectPage;
+	readonly initiallyUnsaved?: boolean;
 }
 
 export interface TracktionTransportView {
@@ -83,6 +84,6 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 					: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
 						: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
-export interface TracktionDesktopBridge {
+export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;
 }

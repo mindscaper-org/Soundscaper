@@ -86,24 +86,19 @@ node graph-test.js
 	if (probe.error) throw probe.error;
 	process.exitCode = probe.status ?? 1;
 	if (buildWorker && probe.status === 0) {
-		const { build } = await import('esbuild');
-		await build({
-			entryPoints: [resolve(project, 'wasm/tracktion-project-worker.ts')],
-			outfile: resolve(output, 'tracktion-project-worker.js'),
-			platform: 'browser',
-			format: 'iife',
-			bundle: true,
-		});
+		const { buildTracktionEditor, buildTracktionProjectWorker } = await import('./lib/tracktion-editor-build.mjs');
 		if (browserCheck) {
+			await Promise.all([buildTracktionProjectWorker(output), buildTracktionEditor(output, true)]);
 			const { verifyTracktionWasmInBrowsers } = await import('./lib/tracktion-wasm-browser-check.mjs');
 			await verifyTracktionWasmInBrowsers(output);
 		} else {
 			const destination = resolve(cache, 'tracktion-wasm-core');
 			mkdirSync(destination, { recursive: true });
-			for (const name of ['edit-core.js', 'edit-core.wasm', 'edit-core.worker.js', 'tracktion-project-worker.js']) {
+			for (const name of ['edit-core.js', 'edit-core.wasm', 'edit-core.worker.js']) {
 				cpSync(resolve(output, name), resolve(destination, name));
 			}
-			console.log(`Built the Tracktion browser worker in ${destination}.`);
+			await Promise.all([buildTracktionProjectWorker(destination), buildTracktionEditor(destination, true)]);
+			console.log(`Built the Tracktion browser editor in ${destination}.`);
 		}
 	}
 } finally {

@@ -7,16 +7,19 @@ import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-reco
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
-import type { TracktionDesktopBridge, TracktionTransportView } from '../tracktion-project-contract.ts';
+import type { TracktionProjectBridge, TracktionTransportView } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
-import { readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
+import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
-export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopBridge }) {
+export function TracktionEditor({ bridge, deviceTransport = true }: {
+	readonly bridge: TracktionProjectBridge;
+	readonly deviceTransport?: boolean;
+}) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
 	const [transport, setTransport] = useState<TracktionTransportView | null>(null);
@@ -60,9 +63,9 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 			const opened = await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readTracktionWorkspace(bridge, opened);
-			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }));
+			setTransport(deviceTransport ? await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }) : null);
 			setWorkspace(next);
-			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(next.project.revision);
+			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
 		});
 	}
 
@@ -105,6 +108,26 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 				? { ...command, kind, name: `${trackCopy.audioTrack} ${workspace.tracks.length + 1}` }
 				: { ...command, kind });
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? workspace.selectedTrack?.id));
+		});
+	}
+
+	function exportProject(format: 'archive' | 'render'): void {
+		if (!workspace) return;
+		run(async () => {
+			const { sessionId } = workspace;
+			const { revision } = workspace.project;
+			if (format === 'archive') {
+				await bridge.request({ kind: format, sessionId, revision });
+				return;
+			}
+			let end = 0;
+			for (const track of workspace.tracks) {
+				if (track.clipCount === 0) continue;
+				const clips = track.id === workspace.selectedTrack?.id ? workspace.clips
+					: await readTracktionClips(bridge, sessionId, revision, track.id);
+				for (const clip of clips) end = Math.max(end, clip.end);
+			}
+			if (end > 0) await bridge.request({ kind: format, sessionId, revision, start: 0, end });
 		});
 	}
 
@@ -155,6 +178,8 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 					<button type="button" disabled={busy || recording} onClick={() => open('open')}>{copy.openProject}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
 					<button type="button" disabled={busy || recording || !workspace} onClick={save}>{copy.saveProject}</button>
+					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => exportProject('render')}>{copy.exportTracktionMix}</button>
+					<button type="button" disabled={busy || recording || !workspace} onClick={() => exportProject('archive')}>{copy.exportTracktionArchive}</button>
 					<button type="button" disabled={busy || recording || !workspace} onClick={close}>{copy.closeProject}</button>
 				</div>
 			</details>
@@ -166,7 +191,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
 			</details>
-			<details>
+			{deviceTransport && <details>
 				<summary>{transportCopy.transport}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
@@ -188,7 +213,7 @@ export function TracktionEditor({ bridge }: { readonly bridge: TracktionDesktopB
 						{RECORDING_RECOVERY_COPY.ordinaryRecoveryDiscard}
 					</button>}
 				</div>
-			</details>
+			</details>}
 		</nav>
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>

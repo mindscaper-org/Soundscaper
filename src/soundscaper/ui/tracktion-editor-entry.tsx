@@ -2,10 +2,10 @@
 
 import { createRoot } from 'react-dom/client';
 
-import type { TracktionDesktopBridge } from '../tracktion-project-contract.ts';
+import type { TracktionProjectBridge } from '../tracktion-project-contract.ts';
 import { TracktionEditor } from './TracktionEditor.tsx';
 
-const { soundscaperTracktion } = window as Window & { soundscaperTracktion?: TracktionDesktopBridge };
+const { soundscaperTracktion } = window as Window & { soundscaperTracktion?: TracktionProjectBridge };
 const root = document.getElementById('root');
 if (!root || !soundscaperTracktion) throw new Error('The Tracktion editor requires its desktop preload.');
 createRoot(root).render(<TracktionEditor bridge={soundscaperTracktion} />);

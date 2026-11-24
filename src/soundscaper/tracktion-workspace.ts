@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	TracktionClipPage, TracktionClipView, TracktionDesktopBridge, TracktionOpenedProject, TracktionTrackView,
+	TracktionClipPage, TracktionClipView, TracktionProjectBridge, TracktionOpenedProject, TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
 export interface TracktionWorkspace extends TracktionOpenedProject {
@@ -11,7 +11,7 @@ export interface TracktionWorkspace extends TracktionOpenedProject {
 }
 
 export async function readTracktionWorkspace(
-	bridge: TracktionDesktopBridge,
+	bridge: TracktionProjectBridge,
 	project: Pick<TracktionOpenedProject, 'sessionId' | 'name'>,
 	selectedTrackId?: string,
 ): Promise<TracktionWorkspace> {
@@ -25,15 +25,18 @@ export async function readTracktionWorkspace(
 		offset = page.nextOffset;
 	}
 	const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0];
-	const clips: TracktionClipView[] = [];
-	if (selectedTrack) {
-		for (let offset: number | null = 0; offset !== null;) {
-			const page: TracktionClipPage = await bridge.request({
-				kind: 'clips', sessionId, revision: firstPage.revision, trackId: selectedTrack.id, offset,
-			});
-			clips.push(...page.clips);
-			offset = page.nextOffset;
-		}
-	}
+	const clips = selectedTrack ? await readTracktionClips(bridge, sessionId, firstPage.revision, selectedTrack.id) : [];
 	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips };
+}
+
+export async function readTracktionClips(
+	bridge: TracktionProjectBridge, sessionId: string, revision: number, trackId: string,
+): Promise<readonly TracktionClipView[]> {
+	const clips: TracktionClipView[] = [];
+	for (let offset: number | null = 0; offset !== null;) {
+		const page: TracktionClipPage = await bridge.request({ kind: 'clips', sessionId, revision, trackId, offset });
+		clips.push(...page.clips);
+		offset = page.nextOffset;
+	}
+	return clips;
 }

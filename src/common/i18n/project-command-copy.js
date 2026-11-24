@@ -42,6 +42,8 @@ export const PROJECT_COMMAND_COPY_BY_LOCALE = Object.freeze({
 			importLabels: 'Import labels',
 			importFile: 'Import',
 			exportSelectedAudio: 'Export selected audio',
+			exportTracktionMix: 'Export mix (WAV)',
+			exportTracktionArchive: 'Export project archive (ZIP)',
 			quitEditor: 'Quit',
 			importHint: 'AUP/AUP3/AUP4, WAV, MP3, FLAC, Opus, OGG, M4A, AIFF, or WebM',
 			aupImporting: 'Importing the legacy Audacity project and block files locally',

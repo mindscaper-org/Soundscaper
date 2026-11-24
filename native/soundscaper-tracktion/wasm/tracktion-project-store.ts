@@ -23,6 +23,13 @@ export interface WorkingProject {
 	readonly id: string;
 	readonly directory: string;
 	readonly generation: number;
+	readonly name: string;
+}
+
+interface ProjectMetadata {
+	readonly generation: number;
+	readonly name: string;
+	readonly updated: number;
 }
 
 const projectStore = 'projects';
@@ -39,21 +46,50 @@ async function projectDatabase(): Promise<IDBDatabase> {
 	return await request(open);
 }
 
+function decodeMetadata(record: unknown): ProjectMetadata | undefined {
+	if (typeof record === 'number' && Number.isSafeInteger(record) && record > 0) {
+		return { generation: record, name: 'Untitled project', updated: 0 };
+	}
+	if (!record || typeof record !== 'object') return undefined;
+	const { generation, name, updated } = record as Partial<ProjectMetadata>;
+	if (typeof generation !== 'number' || !Number.isSafeInteger(generation) || generation <= 0) return undefined;
+	if (typeof name !== 'string' || typeof updated !== 'number' || !Number.isFinite(updated)) return undefined;
+	return { generation, name, updated };
+}
+
+export async function listTracktionProjects(): Promise<readonly Readonly<{ id: string; name: string }>[]> {
+	const database = await projectDatabase();
+	try {
+		const entries = await transact(database, generationStore, 'readonly', async (stores) => {
+			const versions = stores[generationStore];
+			const [ids, values] = await Promise.all([request(versions.getAllKeys()), request(versions.getAll())]);
+			return ids.flatMap((id, index) => {
+				const metadata = decodeMetadata(values[index]);
+				return typeof id === 'string' && metadata ? [{ id, name: metadata.name, updated: metadata.updated }] : [];
+			});
+		});
+		return entries.sort((a, b) => b.updated - a.updated).map(({ id, name }) => ({ id, name }));
+	} finally {
+		database.close();
+	}
+}
+
 export async function restoreTracktionProject(
 	fs: TracktionVirtualFilesystem, project: WorkingProject,
 ): Promise<WorkingProject> {
 	const database = await projectDatabase();
 	let saved: SavedProject | undefined;
-	let generation: number | undefined;
+	let metadata: unknown;
 	try {
-		[saved, generation] = await transact(database, storeNames, 'readonly', async (stores) => await Promise.all([
+		[saved, metadata] = await transact(database, storeNames, 'readonly', async (stores) => await Promise.all([
 			request(stores[projectStore].get(project.id)) as Promise<SavedProject | undefined>,
-			request(stores[generationStore].get(project.id)) as Promise<number | undefined>,
+			request(stores[generationStore].get(project.id)) as Promise<unknown>,
 		]));
 	} finally {
 		database.close();
 	}
-	if (!saved || generation === undefined) throw new Error('The browser Tracktion project has no saved version');
+	const description = decodeMetadata(metadata);
+	if (!saved || !description) throw new Error('The browser Tracktion project has no saved version');
 	const path = `/projects/${project.directory}`;
 	fs.mkdirTree(`${path}/media`);
 	for (const file of saved.media) {
@@ -61,7 +97,7 @@ export async function restoreTracktionProject(
 		fs.writeFile(`${path}/media/${file.name}`, file.bytes);
 	}
 	fs.writeFile(`${path}/${editName}`, saved.edit);
-	return { ...project, generation };
+	return { ...project, generation: description.generation, name: description.name };
 }
 
 export async function publishTracktionProject(
@@ -79,13 +115,13 @@ export async function publishTracktionProject(
 	try {
 		await transact(database, storeNames, 'readwrite', async (stores) => {
 			const versions = stores[generationStore];
-			const previous = await request(versions.get(project.id)) as number | undefined;
-			if ((previous ?? 0) !== project.generation) {
+			const previous = decodeMetadata(await request(versions.get(project.id)));
+			if ((previous?.generation ?? 0) !== project.generation) {
 				throw new Error('Another browser tab saved a newer revision of this Tracktion project');
 			}
 			await Promise.all([
 				request(stores[projectStore].put(snapshot, project.id)),
-				request(versions.put(generation, project.id)),
+				request(versions.put({ generation, name: project.name, updated: Date.now() } satisfies ProjectMetadata, project.id)),
 			]);
 		});
 	} finally {

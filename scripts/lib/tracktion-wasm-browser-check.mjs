@@ -2,13 +2,11 @@
 
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { readFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import { join } from 'node:path';
-
 import { chromium, firefox, webkit } from 'playwright-core';
 
 import { verifyWorkerCommands } from './tracktion-wasm-command-check.ts';
+import { verifyTracktionWebEditor } from './tracktion-web-editor-check.ts';
+import { createTracktionWebServer, loadAsset, loadTracktionWebAssets } from './tracktion-web-static.mjs';
 
 const worker = `
 self.Module = {
@@ -23,43 +21,31 @@ importScripts('/edit-test.js');
 
 /** Exercise the same linked Tracktion session in three cross-origin isolated workers. */
 export async function verifyTracktionWasmInBrowsers(output) {
-	const assets = new Map([
-		['/', { body: '<!doctype html><meta charset="utf-8"><title>Tracktion WASM test</title>', type: 'text/html' }],
-		['/worker.js', { body: worker, type: 'text/javascript' }],
-	]);
-	for (const name of [
-		'edit-test.js', 'edit-test.worker.js', 'edit-test.wasm',
-		'edit-core.js', 'edit-core.worker.js', 'edit-core.wasm', 'tracktion-project-worker.js',
-	]) {
-		assets.set(`/${name}`, {
-			body: await readFile(join(output, name)),
-			type: name.endsWith('.wasm') ? 'application/wasm' : 'text/javascript',
-		});
+	const assets = await loadTracktionWebAssets(output);
+	assets.set('/editor', assets.get('/index.html'));
+	assets.set('/', { body: '<!doctype html><meta charset="utf-8"><title>Tracktion WASM test</title>', type: 'text/html' });
+	assets.set('/worker.js', { body: worker, type: 'text/javascript' });
+	for (const name of ['edit-test.js', 'edit-test.worker.js', 'edit-test.wasm']) {
+		assets.set(`/${name}`, await loadAsset(output, name));
 	}
-	const server = createServer((request, response) => {
-		const asset = assets.get(request.url);
-		response.writeHead(asset ? 200 : 404, {
-			'Content-Type': asset?.type ?? 'text/plain',
-			'Cross-Origin-Opener-Policy': 'same-origin',
-			'Cross-Origin-Embedder-Policy': 'require-corp',
-			'Cross-Origin-Resource-Policy': 'same-origin',
-		});
-		response.end(asset?.body);
-	});
+	const server = createTracktionWebServer(assets);
 	server.listen(0, '127.0.0.1');
 	try {
 		await once(server, 'listening');
 		const address = server.address();
 		assert.ok(address && typeof address !== 'string');
+		const origin = `http://127.0.0.1:${address.port}`;
 		for (const browserType of [chromium, firefox, webkit]) {
 			const browser = await browserType.launch();
 			try {
 				const page = await browser.newPage();
-				await page.goto(`http://127.0.0.1:${address.port}/`);
+				await page.goto(origin);
 				await page.evaluate(verifyWorkerSession);
 				console.log(`${browserType.name()} passed Tracktion session editing, rendering and hosted playback in WebAssembly.`);
 				await page.evaluate(verifyWorkerCommands);
 				console.log(`${browserType.name()} passed Tracktion worker commands, WAV exchange and persistent project reopen.`);
+				await verifyTracktionWebEditor(page, origin);
+				console.log(`${browserType.name()} passed the Tracktion web editor from WAV import through save, reload and export.`);
 			} finally {
 				await browser.close();
 			}

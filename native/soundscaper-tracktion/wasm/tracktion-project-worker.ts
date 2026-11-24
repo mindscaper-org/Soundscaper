@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	discardWorkingProject, publishTracktionProject, restoreTracktionProject,
+	discardWorkingProject, listTracktionProjects, publishTracktionProject, restoreTracktionProject,
 	type TracktionVirtualFilesystem, type WorkingProject,
 } from './tracktion-project-store.ts';
 
@@ -91,10 +91,17 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 	if (typeof request.project !== 'string' || !assetId.test(request.project)) {
 		throw new Error('The browser Tracktion project handle is invalid');
 	}
-	let next: WorkingProject = { id: request.project, directory: crypto.randomUUID().replaceAll('-', ''), generation: 0 };
+	const { name, ...native } = request;
+	if (name !== undefined && (typeof name !== 'string' || name.trim().length === 0 || name.length > 128)) {
+		throw new Error('The browser Tracktion project name is invalid');
+	}
+	let next: WorkingProject = {
+		id: request.project, directory: crypto.randomUUID().replaceAll('-', ''), generation: 0,
+		name: name?.trim() ?? 'Untitled project',
+	};
 	try {
 		if (request.kind === 'open') next = await restoreTracktionProject(runtime.FS, next);
-		const reply = await submit(runtime, { ...message, request: { ...request, project: next.directory } });
+		const reply = await submit(runtime, { ...message, request: { ...native, project: next.directory } });
 		if (!reply.error) {
 			const previous = activeProject;
 			activeProject = next;
@@ -108,6 +115,7 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 
 async function run(message: CommandMessage): Promise<WorkerReply> {
 	const { request, input } = message;
+	if (request.kind === 'projects') return { value: await listTracktionProjects() };
 	await ready;
 	if (failed) throw failed;
 	const runtime = scope.Module as WasmRuntime;
