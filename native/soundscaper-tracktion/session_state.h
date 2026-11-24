@@ -17,6 +17,9 @@ class SessionBehaviour final : public te::EngineBehaviour
 public:
 	bool autoInitialiseDeviceManager() override { return false; }
 	bool shouldLoadPlugin(te::ExternalPlugin&) override { return false; }
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	void addHostAudioIODeviceTypes(juce::OwnedArray<juce::AudioIODeviceType>&) override;
+#endif
 	bool isDescriptionOfWaveDevicesSupported() override { return true; }
 	void describeWaveDevices(std::vector<te::WaveDeviceDescription>&, juce::AudioIODevice&, bool input) override;
 	juce::File getFileForNewAudioRecording(te::Track&, const juce::String& extension) override;

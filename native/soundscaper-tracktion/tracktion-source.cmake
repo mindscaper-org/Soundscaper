@@ -26,6 +26,8 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
+		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
+		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
 		PATTERN "tracktion_WaveDeviceDescription.cpp" EXCLUDE)
 
 	# Keep the original split margin for other clip types. Audio clips can
@@ -114,4 +116,20 @@ function(soundscaper_prepare_tracktion_source source destination)
 		message(FATAL_ERROR "The Tracktion wave layout rescan patch no longer matches")
 	endif()
 	file(CONFIGURE OUTPUT "${destination}/${wave_layout}" CONTENT "${code}" @ONLY)
+
+	# Let the host register platform devices through Tracktion's JUCE manager.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/utilities/tracktion_EngineBehaviour.h"
+		"fdea5d391c1bd6d5d2deb1b6950bb74bdb1ab9233797d2a2e3520a4110c5b6ee"
+		"    /// In plugin builds, you might want to avoid adding the system audio devices"
+		"    virtual void addHostAudioIODeviceTypes (juce::OwnedArray<juce::AudioIODeviceType>&) {}
+
+    /// In plugin builds, you might want to avoid adding the system audio devices")
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/playback/tracktion_DeviceManager.cpp"
+		"28f900c36a68f768706bad72ef7d65cac7ff2adc313f7aa0c2b047cab398696e"
+		"    if (engine.getEngineBehaviour().addSystemAudioIODeviceTypes())"
+		"    engine.getEngineBehaviour().addHostAudioIODeviceTypes (types);
+
+    if (engine.getEngineBehaviour().addSystemAudioIODeviceTypes())")
 endfunction()

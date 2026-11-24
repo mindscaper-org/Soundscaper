@@ -113,7 +113,11 @@ AudioHosts Session::audioHosts()
 	result.selected = s.systemAudioSetup;
 	const auto& types = s.engine.getDeviceManager().deviceManager.getAvailableDeviceTypes();
 	for (int index = 0; index < std::min(types.size(), maxHosts); ++index)
-		result.hosts.push_back(choice(types[index]->getTypeName()));
+	{
+		auto* type = types[index];
+		type->scanForDevices();
+		if (!type->getDeviceNames(false).isEmpty()) result.hosts.push_back(choice(type->getTypeName()));
+	}
 	return result;
 }
 

@@ -30,6 +30,8 @@ target_include_directories(soundscaper_tracktion_session PUBLIC
 target_link_libraries(soundscaper_tracktion_session PRIVATE tracktion::tracktion_engine)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(soundscaper_tracktion_session PRIVATE atomic)
+	include(pipewire-transport.cmake)
+	soundscaper_add_pipewire(soundscaper_tracktion_session)
 endif()
 
 add_executable(soundscaper_tracktion_peer peer_main.cpp peer_commands.cpp)

@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -348,6 +349,109 @@ test('Tracktion applies a named ALSA route and preserves it when a replacement i
 	} finally {
 		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
 		else process.env.ALSA_CONFIG_PATH = previous;
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test('Tracktion streams through the named PipeWire source and sink', {
+	skip: process.platform !== 'linux' || process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE !== '1',
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-pipewire-'));
+	try {
+		const exchangeDirectory = join(root, 'exchange');
+		await mkdir(join(exchangeDirectory, 'output'), { recursive: true });
+		const peer = launchTracktionPeer({
+			executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings'),
+		});
+		try {
+			const { hosts } = await peer.request({ kind: 'audioHosts' });
+			const host = hosts.find(({ name }) => name === 'PipeWire');
+			assert.ok(host, 'Tracktion exposes the running PipeWire host');
+			const devices = await peer.request({ kind: 'audioDevices', hostId: host.id });
+			const output = devices.outputs.find(({ name }) => name === 'tracktion.test.speakers');
+			const input = devices.inputs.find(({ name }) => name === 'tracktion.test.microphone');
+			assert.ok(output && input, JSON.stringify(devices));
+			const setup = { hostId: host.id, inputId: input.id, outputId: output.id, inputChannel: 1,
+				outputChannel: 0, sampleRate: 48_000, blockSize: 256 };
+			const applied = await peer.request({ kind: 'setAudioSetup', ...setup });
+			assert.deepEqual(applied.setup, setup);
+			assert.equal(applied.actualSampleRate, 48_000);
+			assert.equal(applied.actualBlockSize, 256);
+			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+			assert.ok(track);
+			assert.equal((await peer.request({ kind: 'startRecording', revision: 0, trackId: track.id, frame: 0 })).recording, true);
+			const deadline = performance.now() + 3000;
+			let transport = await peer.request({ kind: 'transportStatus' });
+			while (transport.frame < 8192 && performance.now() < deadline) {
+				await sleep(20);
+				transport = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.ok(transport.frame >= 8192 && transport.recording, JSON.stringify(transport));
+			const take = await peer.request({ kind: 'finishRecording', revision: 0, discard: false });
+			assert.ok(take.itemId);
+			assert.deepEqual((await peer.request({ kind: 'audioHosts' })).selected, applied);
+			await peer.request({ kind: 'render', revision: 1, asset, start: 0, end: 8192 });
+			const pcm = waveData(await readFile(join(exchangeDirectory, 'output', `${asset}.wav`)));
+			let audibleFrames = 0;
+			for (let offset = 0; offset + 4 <= pcm.length; offset += 4)
+				if (Math.abs(pcm.readInt16LE(offset)) > 1024) audibleFrames += 1;
+			assert.ok(audibleFrames > 4096, 'Tracktion captured the virtual PipeWire generator');
+			const monitorFile = join(root, 'speaker-monitor.wav');
+			const monitor = spawn('pw-record', [
+				'--target=tracktion.test.speakers', '--properties=stream.capture.sink=true',
+				'--rate=48000', '--channels=2', '--format=s16', monitorFile,
+			], { stdio: ['ignore', 'ignore', 'pipe'] });
+			let diagnostics = '';
+			monitor.stderr.setEncoding('utf8').on('data', (chunk: string) => { diagnostics = (diagnostics + chunk).slice(-4096); });
+			let stoppingMonitor = false;
+			const monitorClosed = new Promise<Error | null>((resolve) => {
+				monitor.once('close', (code) => {
+					// PipeWire 1.0's CLI can return 1 after an orderly SIGINT.
+					const expected = code === 0 || (stoppingMonitor && code === 1 && !diagnostics.trim());
+					resolve(expected ? null : new Error(`PipeWire monitor exited with ${code}. ${diagnostics}`));
+				});
+				monitor.once('error', resolve);
+			});
+			try {
+				const cacheDeadline = performance.now() + 3000;
+				let ready = false;
+				while (!ready && performance.now() < cacheDeadline) {
+					const monitorSize = await stat(monitorFile).then((file) => file.size, () => 0);
+					ready = monitorSize > 44 && (await peer.request({ kind: 'transportStatus' })).ready;
+					if (!ready) await sleep(20);
+				}
+				assert.ok(ready, 'the speaker monitor and Tracktion playback are both ready');
+				assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, true);
+				while ((await peer.request({ kind: 'transportStatus' })).frame < 8192 && performance.now() < cacheDeadline) await sleep(20);
+				assert.ok((await peer.request({ kind: 'transportStatus' })).frame >= 8192);
+				// A playhead read directly after Play can still describe the previous take.
+				// Wait for the real sink to consume fresh output before stopping.
+				const beforePlayback = (await stat(monitorFile)).size;
+				const speakerDeadline = performance.now() + 3000;
+				while ((await stat(monitorFile)).size < beforePlayback + 12_288 * 4 && performance.now() < speakerDeadline) await sleep(20);
+				assert.ok((await stat(monitorFile)).size >= beforePlayback + 12_288 * 4);
+				await peer.request({ kind: 'stop' });
+			} finally {
+				stoppingMonitor = monitor.kill('SIGINT');
+				await monitorClosed;
+			}
+			const monitorError = await monitorClosed;
+			if (monitorError) throw monitorError;
+			const played = waveData(await readFile(monitorFile));
+			let stereoFrames = 0;
+			let peak = 0;
+			for (let offset = 0; offset + 4 <= played.length; offset += 4) {
+				const left = Math.abs(played.readInt16LE(offset));
+				const right = Math.abs(played.readInt16LE(offset + 2));
+				peak = Math.max(peak, left, right);
+				if (left > 1024 && right > 1024) stereoFrames += 1;
+			}
+			assert.ok(stereoFrames > 2048, `the named sink received ${stereoFrames} audible stereo frames, peak ${peak} in ${played.length} bytes`);
+		} finally {
+			await peer.close();
+		}
+	} finally {
 		await rm(root, { recursive: true, force: true });
 	}
 });
