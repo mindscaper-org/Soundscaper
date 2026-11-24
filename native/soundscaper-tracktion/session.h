@@ -82,8 +82,8 @@ public:
 
 	// The host opens its own device and supplies exactly one stereo block at a time.
 	// Setup and transport commands run on the message thread. The host stops
-	// delivering blocks before tearing down the session.
-	void preparePlayback(int blockFrames);
+	// delivering blocks at the start and end of recording and before teardown.
+	void preparePlayback(int blockFrames, bool monoInput = false);
 	void prepareSystemOutput();
 	bool playbackReady() const;
 	bool isPlaying() const;
@@ -93,7 +93,8 @@ public:
 	void setLoop(bool enabled, Frame start, Frame end);
 	Frame playbackPosition() const;
 	void stop();
-	bool processPlaybackBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) noexcept;
+	// A supplied input block may be shorter at the end of a hosted take.
+	bool processPlaybackBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&, const float* monoInput = nullptr) noexcept;
 	void startRecording(Revision, TrackId, Frame);
 	std::optional<ClipId> finishRecording(Revision, bool discard);
 

@@ -41,7 +41,7 @@ struct Session::State
 	{
 		TrackId track;
 		juce::File file;
-		juce::AudioDeviceManager::AudioDeviceSetup outputSetup;
+		std::optional<juce::AudioDeviceManager::AudioDeviceSetup> outputSetup;
 		juce::String inputId;
 	};
 
@@ -53,6 +53,7 @@ struct Session::State
 	int sampleRate = 0;
 	te::HostedAudioDeviceInterface* playback = nullptr;
 	int playbackBlockFrames = 0;
+	bool hostedMonoInput = false;
 	bool systemOutput = false;
 	std::optional<Recording> recording;
 };

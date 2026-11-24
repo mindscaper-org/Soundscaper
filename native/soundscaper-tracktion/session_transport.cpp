@@ -17,7 +17,7 @@ Session::~Session()
 		state->engine.getDeviceManager().deviceManager.closeAudioDevice();
 }
 
-void Session::preparePlayback(int blockFrames)
+void Session::preparePlayback(int blockFrames, bool monoInput)
 {
 	auto& s = *state;
 	if (s.systemOutput || s.playback != nullptr || blockFrames < 32 || blockFrames > 4096)
@@ -27,14 +27,17 @@ void Session::preparePlayback(int blockFrames)
 	te::HostedAudioDeviceInterface::Parameters format;
 	format.sampleRate = s.sampleRate;
 	format.blockSize = blockFrames;
-	format.inputChannels = 0;
+	format.inputChannels = monoInput ? 1 : 0;
 	format.outputChannels = 2;
 	playback.initialise(format);
 	playback.prepareToPlay(format.sampleRate, format.blockSize);
+	for (auto* input : devices.getWaveInputDevices())
+		input->setMonitorMode(te::InputDevice::MonitorMode::off);
 	devices.dispatchPendingUpdates();
 	s.edit->dispatchPendingUpdatesSynchronously();
 	s.edit->getTransport().ensureContextAllocated();
 	s.playbackBlockFrames = blockFrames;
+	s.hostedMonoInput = monoInput;
 	s.playback = &playback;
 }
 
@@ -127,12 +130,15 @@ void Session::stop()
 	state->edit->getTransport().stop(false, false, false);
 }
 
-bool Session::processPlaybackBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi) noexcept
+bool Session::processPlaybackBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi, const float* monoInput) noexcept
 {
 	const auto& s = *state;
 	audio.clear();
-	if (s.playback == nullptr || audio.getNumChannels() != 2 || audio.getNumSamples() != s.playbackBlockFrames)
+	const auto frames = audio.getNumSamples();
+	if (s.playback == nullptr || audio.getNumChannels() != 2 || frames <= 0 || frames > s.playbackBlockFrames
+	    || (monoInput ? !s.hostedMonoInput : frames != s.playbackBlockFrames))
 		return false;
+	if (monoInput) audio.copyFrom(0, 0, monoInput, frames);
 	s.playback->processBlock(audio, midi);
 	return true;
 }

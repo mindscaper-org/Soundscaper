@@ -38,13 +38,14 @@ function(soundscaper_prepare_tracktion_source source destination)
 
 	# Clip order is part of the same transaction as clip insertion. JUCE's
 	# undo uses child indexes, so the sort must remain undoable.
+	# Empty notifications queued by the sort must also finish before undo.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"
 		"modules/tracktion_engine/model/clips/tracktion_ClipOwner.h"
 		"cc332f9847996d75c8af0f20c04557692a22bd1c341afb94ac5aacabaed549db"
 		"    const juce::Array<Clip*>& getClips() const;"
 		"    const juce::Array<Clip*>& getClips() const;\n    void dispatchPendingClipOrdering();")
 	string(REPLACE "    void handleAsyncUpdate() override"
-		"    void dispatchPendingOrdering() { handleUpdateNowIfNeeded(); }\n\n    void handleAsyncUpdate() override"
+		"    void dispatchPendingOrdering() { while (isUpdatePending()) handleUpdateNowIfNeeded(); }\n\n    void handleAsyncUpdate() override"
 		code "${code}")
 	string(REPLACE "const juce::Array<Clip*>& ClipOwner::getClips() const"
 		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"

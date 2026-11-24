@@ -195,6 +195,56 @@ void runSessionTest(const juce::File& root)
 		verifyRender(destination);
 	}
 }
+
+void verifyHostedRecording(const juce::File& root)
+{
+	constexpr int blockFrames = 128;
+	constexpr int finalFrames = 37;
+	constexpr int fullBlocks = 16;
+	constexpr Frame start = 257;
+	const auto project = root.getChildFile("hosted-recording");
+	Session session(project, root.getChildFile("recording-runtime"), OpenMode::create, 48000);
+	const auto track = session.snapshot().tracks.front().id;
+	session.preparePlayback(blockFrames, true);
+	session.startRecording(0, track, start);
+	require(session.isRecording(), "hosted input records to the selected track");
+	juce::AudioBuffer<float> block(2, blockFrames);
+	juce::MidiBuffer midi;
+	const auto capturedSample = [](int frame) { return static_cast<float>(frame % 251 - 125) / 512; };
+	float input[blockFrames];
+	for (int index = 0; index < fullBlocks; ++index)
+	{
+		for (int i = 0; i < blockFrames; ++i) input[i] = capturedSample(index * blockFrames + i);
+		require(session.processPlaybackBlock(block, midi, input), "hosted input accepts PCM");
+		require(block.getMagnitude(0, blockFrames) == 0, "hosted microphone has monitoring off");
+	}
+	block.setSize(2, finalFrames, false, false, true);
+	for (int i = 0; i < finalFrames; ++i) input[i] = capturedSample(fullBlocks * blockFrames + i);
+	require(session.processPlaybackBlock(block, midi, input), "hosted input accepts a short final block");
+	const auto take = session.finishRecording(0, false);
+	const auto view = session.snapshot();
+	require(take.has_value() && view.revision == 1 && view.tracks.front().clips.size() == 1, "hosted take is one Edit mutation");
+	const auto clip = view.tracks.front().clips.front();
+	if (clip.start != start || clip.end != start + blockFrames * fullBlocks + finalFrames)
+		throw std::runtime_error("Hosted take has frame range " + std::to_string(clip.start) + " to " + std::to_string(clip.end));
+	const auto media = project.getChildFile("media").findChildFiles(juce::File::findFiles, false, "*.wav");
+	require(media.size() == 1, "hosted take is owned project WAV media");
+	juce::WavAudioFormat format;
+	std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(media[0].createInputStream().release(), true));
+	require(reader && reader->numChannels == 1 && reader->lengthInSamples == clip.end - clip.start, "hosted file has exact mono geometry");
+	juce::AudioBuffer<float> pcm(1, static_cast<int>(reader->lengthInSamples));
+	require(reader->read(&pcm, 0, pcm.getNumSamples(), 0, true, false), "read hosted take WAV samples");
+	for (int i = 0; i < pcm.getNumSamples(); ++i)
+		require(std::abs(pcm.getSample(0, i) - capturedSample(i)) < 1.0f / 32768, "hosted file preserves input samples");
+	require(session.undo(1) && session.snapshot().tracks.front().clips.empty(), "undo hosted input take");
+	require(session.redo(2), "redo hosted input take");
+	const auto redone = session.snapshot().tracks.front().clips;
+	require(redone.size() == 1 && redone.front().id == *take, "redo restores the same hosted take");
+	session.startRecording(3, track, 0);
+	require(session.processPlaybackBlock(block, midi, input), "hosted input can record again");
+	require(!session.finishRecording(3, true) && session.revision() == 3, "discard hosted input without publishing a revision");
+	require(project.getChildFile("media").getNumberOfChildFiles(juce::File::findFiles) == 1, "discard removes just the new hosted media");
+}
 }
 
 int main()
@@ -208,6 +258,7 @@ int main()
 	try
 	{
 		runSessionTest(root);
+		verifyHostedRecording(root);
 		root.deleteRecursively();
 		std::cout << "Tracktion session editing, rendering and hosted playback passed.\n";
 		return 0;

@@ -2,6 +2,8 @@
 
 #include "session_state.h"
 
+#include <tracktion_graph/tracktion_graph.h>
+
 #include <algorithm>
 #include <stdexcept>
 
@@ -55,6 +57,24 @@ void armDefaultInput(te::Edit& edit, te::EditItemID track, juce::String& inputId
 		}
 	throw std::invalid_argument("Tracktion could not arm the selected audio track");
 }
+
+void openSystemInput(te::DeviceManager& devices, juce::AudioDeviceManager::AudioDeviceSetup setup)
+{
+	setup.inputDeviceName = defaultInput(devices.deviceManager);
+	if (setup.inputDeviceName.isEmpty())
+		throw std::invalid_argument("The default audio input device is unavailable");
+	setup.inputChannels.clear();
+	setup.inputChannels.setBit(0);
+	setup.useDefaultInputChannels = false;
+	const auto error = devices.deviceManager.setAudioDeviceSetup(setup, false);
+	auto* device = devices.deviceManager.getCurrentAudioDevice();
+	if (error.isNotEmpty() || device == nullptr || device->getActiveInputChannels().isZero())
+		throw std::invalid_argument("Tracktion could not open the default recording input");
+	devices.deviceManager.dispatchPendingMessages();
+	devices.rescanWaveDeviceList();
+	devices.setAllWaveInputsToNumChannels(1);
+	devices.dispatchPendingUpdates();
+}
 }
 
 void Session::State::requireNoRecording() const
@@ -79,10 +99,13 @@ void Session::State::releaseRecordingInput()
 	auto& behaviour = static_cast<SessionBehaviour&>(engine.getEngineBehaviour());
 	behaviour.recordingFile = juce::File{};
 	auto& devices = engine.getDeviceManager();
-	devices.deviceManager.closeAudioDevice();
-	systemOutput = devices.deviceManager.setAudioDeviceSetup(recording->outputSetup, false).isEmpty()
-		&& devices.deviceManager.getCurrentAudioDevice() != nullptr;
-	devices.deviceManager.dispatchPendingMessages();
+	if (recording->outputSetup)
+	{
+		devices.deviceManager.closeAudioDevice();
+		systemOutput = devices.deviceManager.setAudioDeviceSetup(*recording->outputSetup, false).isEmpty()
+			&& devices.deviceManager.getCurrentAudioDevice() != nullptr;
+		devices.deviceManager.dispatchPendingMessages();
+	}
 	devices.dispatchPendingUpdates();
 	recording.reset();
 }
@@ -96,12 +119,15 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	auto& transport = s.edit->getTransport();
 	if (transport.isPlaying() || transport.looping || s.edit->recordingPunchInOut)
 		throw std::invalid_argument("Stop playback and turn off loop or punch recording before recording a take");
-	prepareSystemOutput();
 	auto& devices = s.engine.getDeviceManager();
-	auto setup = devices.deviceManager.getAudioDeviceSetup();
-	const auto input = defaultInput(devices.deviceManager);
-	if (input.isEmpty())
-		throw std::invalid_argument("The default audio input device is unavailable");
+	std::optional<juce::AudioDeviceManager::AudioDeviceSetup> outputSetup;
+	if (s.playback == nullptr)
+	{
+		prepareSystemOutput();
+		outputSetup = devices.deviceManager.getAudioDeviceSetup();
+	}
+	else if (!s.hostedMonoInput)
+		throw std::invalid_argument("The Tracktion hosted device has no recording input");
 	const auto media = s.directory.getChildFile(mediaDirectory);
 	if (!media.isDirectory() || media.isSymbolicLink())
 		throw std::invalid_argument("The project media directory is unavailable");
@@ -109,23 +135,12 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	if (file.exists() || file.isSymbolicLink())
 		throw std::invalid_argument("Tracktion could not reserve a recording name");
 
-	s.recording.emplace(State::Recording{trackId, file, setup, {}});
+	s.recording.emplace(State::Recording{trackId, file, std::move(outputSetup), {}});
 	auto& behaviour = static_cast<SessionBehaviour&>(s.engine.getEngineBehaviour());
 	behaviour.recordingFile = file;
 	try
 	{
-		setup.inputDeviceName = input;
-		setup.inputChannels.clear();
-		setup.inputChannels.setBit(0);
-		setup.useDefaultInputChannels = false;
-		const auto error = devices.deviceManager.setAudioDeviceSetup(setup, false);
-		auto* device = devices.deviceManager.getCurrentAudioDevice();
-		if (error.isNotEmpty() || device == nullptr || device->getActiveInputChannels().isZero())
-			throw std::invalid_argument("Tracktion could not open the default recording input");
-		devices.deviceManager.dispatchPendingMessages();
-		devices.rescanWaveDeviceList();
-		devices.setAllWaveInputsToNumChannels(1);
-		devices.dispatchPendingUpdates();
+		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup);
 		armDefaultInput(*s.edit, target, s.recording->inputId);
 		s.edit->dispatchPendingUpdatesSynchronously();
 		s.begin("Record audio");
@@ -138,6 +153,16 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 		});
 		if (!transport.isRecording() || !inputIsRecording)
 			throw std::invalid_argument("Tracktion could not start recording");
+		if (s.hostedMonoInput)
+		{
+			// The wave input consumes the first captured block before the
+			// graph applies the queued position. Align both to the device clock.
+			const auto streamTime = devices.getCurrentStreamTime();
+			auto* context = transport.getCurrentPlaybackContext();
+			context->resyncToGlobalStreamTime({streamTime, streamTime}, s.sampleRate);
+			if (auto* head = context->getNodePlayHead())
+				head->setPosition(tracktion::toSamples(transport.getPosition(), s.sampleRate));
+		}
 	}
 	catch (...)
 	{
@@ -159,18 +184,34 @@ std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 	auto& track = s.track(s.recording->track);
 	const te::Edit::UndoTransactionInhibitor transaction(*s.edit);
 	s.begin("Record audio");
-	s.edit->getTransport().stop(discard, false, false);
+	auto& transport = s.edit->getTransport();
+	if (!discard && s.hostedMonoInput)
+		if (auto* head = transport.getCurrentPlaybackContext()->getNodePlayHead(); head && head->isPlaying())
+		{
+			// Tracktion stops at the start of the most recent device block.
+			// The hosted caller drains complete capture before stopping.
+			const auto end = head->getReferenceSampleRange().getEnd();
+			head->setReferenceSampleRange({end, end});
+		}
+	transport.stop(discard, false, false);
 	s.releaseRecordingInput();
 
 	if (!discard && file.existsAsFile() && !file.isSymbolicLink())
+	{
+		// Tracktion derives the base from an Edit file that might not exist until
+		// the first save. Match its generated reference before storing our portable one.
+		const auto recordedReference = te::SourceFileReference::findPathFromFile(*s.edit, file, true);
+		const auto ownedReference = juce::String(mediaDirectory) + "/" + file.getFileName();
 		for (auto* clip : track.getClips())
-			if (clip->getSourceFileReference().getFile() == file)
+			if (clip->state[te::IDs::source].toString() == recordedReference
+			    || clip->getSourceFileReference().getFile() == file)
 			{
-				clip->state.setProperty(te::IDs::source, juce::String(mediaDirectory) + "/" + file.getFileName(),
-				                       &s.edit->getUndoManager());
+				// The insertion owns the undo action and retains this clip state.
+				clip->state.setProperty(te::IDs::source, ownedReference, nullptr);
 				s.commit();
 				return clip->itemID.getRawID();
 			}
+	}
 	s.edit->getUndoManager().undoCurrentTransactionOnly();
 	file.deleteFile();
 	return std::nullopt;
