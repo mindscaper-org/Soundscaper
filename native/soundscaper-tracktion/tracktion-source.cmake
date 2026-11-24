@@ -25,7 +25,8 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
-		PATTERN "tracktion_InputDevice.h" EXCLUDE)
+		PATTERN "tracktion_InputDevice.h" EXCLUDE
+		PATTERN "tracktion_WaveDeviceDescription.cpp" EXCLUDE)
 
 	# Keep the original split margin for other clip types. Audio clips can
 	# split at any valid project sample.
@@ -71,4 +72,46 @@ function(soundscaper_prepare_tracktion_source source destination)
 		"9e3041acdd4712ce40f4b0701b74e43ed83f091d4fc2435422b5eed73e795ad7"
 		"    void setRecordingEnabled (EditItemID, bool);"
 		"    void setRecordingEnabled (EditItemID, bool);\n    void dispatchPendingRecordingRouting() { recordStatusUpdater.handleUpdateNowIfNeeded(); }")
+
+	# A host can describe the enabled JUCE callback channels independently
+	# of the names and indices of all physical inputs and outputs.
+	set(wave_layout "modules/tracktion_engine/playback/devices/tracktion_WaveDeviceDescription.cpp")
+	soundscaper_read_tracktion_source("${source}" "${wave_layout}"
+		"6bd283d750704a1fa225e3f6239fc99595e7732a691878e1479305bac730d86d" code)
+	string(REPLACE [=[
+    if (initialiseFromCustomBehaviour (device, engine.getEngineBehaviour()))
+    {
+        // The host's describeWaveDevices result is authoritative — don't run
+        // ensureFullChannelCoverage over it. Just refresh display names.
+        refreshNamesInList (inputs,  deviceInputChannelNames,  true);
+        refreshNamesInList (outputs, deviceOutputChannelNames, false);
+        return;
+    }
+]=] [=[
+    if (initialiseFromCustomBehaviour (device, engine.getEngineBehaviour()))
+        return;
+]=] changed "${code}")
+	if(changed STREQUAL code)
+		message(FATAL_ERROR "The Tracktion custom wave layout patch no longer matches")
+	endif()
+	string(REPLACE [=[
+    if (wasInitialisedFromCustomBehaviour)
+    {
+        refreshNamesInList (inputs,  deviceInputChannelNames,  true);
+        refreshNamesInList (outputs, deviceOutputChannelNames, false);
+    }
+    else
+    {
+        sanityCheckList();
+    }
+]=] [=[
+    if (wasInitialisedFromCustomBehaviour)
+        return false; // Rebuild the host layout when its active channel mask changes.
+
+    sanityCheckList();
+]=] code "${changed}")
+	if(code STREQUAL changed)
+		message(FATAL_ERROR "The Tracktion wave layout rescan patch no longer matches")
+	endif()
+	file(CONFIGURE OUTPUT "${destination}/${wave_layout}" CONTENT "${code}" @ONLY)
 endfunction()

@@ -75,6 +75,45 @@ juce::String text(const juce::DynamicObject& request, const char* field, int max
 	return parsed;
 }
 
+#if ! JUCE_WASM
+std::string deviceId(const juce::DynamicObject& request, const char* field, bool defaultAllowed = false)
+{
+	const auto& value = request.getProperty(field);
+	const auto id = value.toString();
+	if (!value.isString() || (!(id.isEmpty() && defaultAllowed) && (id.length() != 16 || !id.containsOnly("0123456789abcdef"))))
+		throw std::invalid_argument("The Tracktion audio device handle is invalid");
+	return id.toStdString();
+}
+
+int audioNumber(const juce::DynamicObject& request, const char* field, int limit)
+{
+	const auto value = boundedInteger(request, field);
+	if (value > limit) throw std::invalid_argument("The Tracktion audio setting is out of range");
+	return static_cast<int>(value);
+}
+
+juce::var deviceChoices(const std::vector<DeviceChoice>& choices)
+{
+	juce::Array<juce::var> result;
+	for (const auto& item : choices)
+		result.add(record({{"id", juce::String(item.id)}, {"name", juce::String(item.name)}}));
+	return juce::var(result);
+}
+
+juce::var appliedAudioSetup(const AppliedAudioSetup& entry)
+{
+	const auto& setup = entry.setup;
+	return record({
+		{"setup", record({
+			{"hostId", juce::String(setup.hostId)}, {"inputId", juce::String(setup.inputId)}, {"outputId", juce::String(setup.outputId)},
+			{"inputChannel", setup.inputChannel}, {"outputChannel", setup.outputChannel},
+			{"sampleRate", setup.sampleRate}, {"blockSize", setup.blockSize},
+		})},
+		{"actualSampleRate", entry.actualSampleRate}, {"actualBlockSize", entry.actualBlockSize},
+	});
+}
+#endif
+
 std::uint64_t itemId(const juce::DynamicObject& request, const char* field)
 {
 	const auto value = text(request, field, 20).toStdString();
@@ -167,6 +206,30 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	const auto& request = *payload;
 	const auto kind = text(request, "kind", 16);
 	const auto integer = [&request](const char* field) { return boundedInteger(request, field); };
+#if ! JUCE_WASM
+	if (kind == "audioHosts")
+	{
+		requireFields(request, {});
+		const auto view = session.audioHosts();
+		return record({{"hosts", deviceChoices(view.hosts)}, {"selected", view.selected ? appliedAudioSetup(*view.selected) : juce::var{}}});
+	}
+	if (kind == "audioDevices")
+	{
+		requireFields(request, {"hostId"});
+		const auto view = session.audioDevices(deviceId(request, "hostId"));
+		return record({{"inputs", deviceChoices(view.inputs)}, {"outputs", deviceChoices(view.outputs)}, {"separateDevices", view.separateDevices}});
+	}
+	if (kind == "setAudioSetup")
+	{
+		requireFields(request, {"hostId", "inputId", "outputId", "inputChannel", "outputChannel", "sampleRate", "blockSize"});
+		return appliedAudioSetup(session.setAudioSetup({
+			deviceId(request, "hostId"), deviceId(request, "outputId", true), deviceId(request, "inputId", true),
+			audioNumber(request, "inputChannel", 63), audioNumber(request, "outputChannel", 62),
+			audioNumber(request, "sampleRate", 192000), audioNumber(request, "blockSize", 8192),
+		}));
+	}
+#endif
+
 	if (kind == "project")
 	{
 		requireFields(request, {"offset"});

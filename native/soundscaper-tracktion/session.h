@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "session_device_types.h"
+
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -85,6 +87,9 @@ public:
 	// delivering blocks at the start and end of recording and before teardown.
 	void preparePlayback(int blockFrames, bool monoInput = false);
 	void prepareSystemOutput();
+	AudioHosts audioHosts();
+	AudioDevices audioDevices(const std::string& hostId);
+	AppliedAudioSetup setAudioSetup(AudioSetup);
 	bool playbackReady() const;
 	bool isPlaying() const;
 	bool isRecording() const;

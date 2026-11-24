@@ -28,14 +28,18 @@ juce::String defaultInput(juce::AudioDeviceManager& devices)
 	return {};
 }
 
-void armDefaultInput(te::Edit& edit, te::EditItemID track, juce::String& inputId)
+void armInput(te::Edit& edit, te::EditItemID track, juce::String& inputId)
 {
 	auto& devices = edit.engine.getDeviceManager();
-	auto* wave = devices.getDefaultWaveInDevice();
-	if (wave == nullptr && devices.getNumWaveInDevices() > 0)
-		wave = devices.getWaveInDevice(0);
+	te::WaveInputDevice* wave = nullptr;
+	for (auto* input : devices.getWaveInputDevices())
+		if (input->getChannels().getNumChannels() == 1)
+		{
+			wave = input;
+			break;
+		}
 	if (wave == nullptr)
-		throw std::invalid_argument("Tracktion could not route the default recording input");
+		throw std::invalid_argument("Tracktion could not route the selected recording channel");
 	const auto deviceId = wave->getDeviceID();
 	wave->setMonitorMode(te::InputDevice::MonitorMode::off);
 	wave->setOutputFormat(edit.engine.getAudioFileFormatManager().getWavFormat()->getFormatName());
@@ -58,21 +62,24 @@ void armDefaultInput(te::Edit& edit, te::EditItemID track, juce::String& inputId
 	throw std::invalid_argument("Tracktion could not arm the selected audio track");
 }
 
-void openSystemInput(te::DeviceManager& devices, juce::AudioDeviceManager::AudioDeviceSetup setup)
+void openSystemInput(te::DeviceManager& devices, juce::AudioDeviceManager::AudioDeviceSetup setup,
+                     juce::String name, int channel)
 {
-	setup.inputDeviceName = defaultInput(devices.deviceManager);
+	setup.inputDeviceName = name.isEmpty() ? defaultInput(devices.deviceManager) : name;
 	if (setup.inputDeviceName.isEmpty())
 		throw std::invalid_argument("The default audio input device is unavailable");
 	setup.inputChannels.clear();
-	setup.inputChannels.setBit(0);
+	setup.inputChannels.setBit(channel);
 	setup.useDefaultInputChannels = false;
 	const auto error = devices.deviceManager.setAudioDeviceSetup(setup, false);
 	auto* device = devices.deviceManager.getCurrentAudioDevice();
-	if (error.isNotEmpty() || device == nullptr || device->getActiveInputChannels().isZero())
+	if (error.isNotEmpty() || device == nullptr || device->getActiveInputChannels() != setup.inputChannels
+	    || device->getActiveOutputChannels() != setup.outputChannels
+	    || device->getCurrentSampleRate() != setup.sampleRate
+	    || device->getCurrentBufferSizeSamples() != setup.bufferSize)
 		throw std::invalid_argument("Tracktion could not open the default recording input");
 	devices.deviceManager.dispatchPendingMessages();
 	devices.rescanWaveDeviceList();
-	devices.setAllWaveInputsToNumChannels(1);
 	devices.dispatchPendingUpdates();
 }
 }
@@ -140,8 +147,9 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	behaviour.recordingFile = file;
 	try
 	{
-		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup);
-		armDefaultInput(*s.edit, target, s.recording->inputId);
+		const auto channel = s.systemAudioSetup ? s.systemAudioSetup->setup.inputChannel : 0;
+		if (s.recording->outputSetup) openSystemInput(devices, *s.recording->outputSetup, s.systemInputName, channel);
+		armInput(*s.edit, target, s.recording->inputId);
 		s.edit->dispatchPendingUpdatesSynchronously();
 		s.begin("Record audio");
 		transport.setPosition(start);

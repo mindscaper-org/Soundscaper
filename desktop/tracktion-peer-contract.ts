@@ -1,10 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from '../src/soundscaper/tracktion-audio-device-contract.ts';
 import type {
 	TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage, TracktionRecordingCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
+
+import { readTracktionAudioDeviceReply } from './tracktion-audio-device-wire.ts';
 
 export const TRACKTION_CONTROL_BYTES = 64 * 1024;
 const PAGE_SIZE = 32;
@@ -25,13 +28,15 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
+	| TracktionAudioDeviceCommand
 	| TracktionTransportCommand
 	| TracktionRecordingCommand;
 
 export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
 	: Command extends { kind: 'clips' } ? TracktionClipPage
 		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
-			: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
+			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
+				: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -69,6 +74,9 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (command.kind === 'project') return readTracktionProjectPage(value, command.offset) as TracktionReply<Command>;
 	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
 	if (command.kind === 'trackMix') return readTracktionTrackMix(value) as TracktionReply<Command>;
+	if (command.kind === 'audioHosts' || command.kind === 'audioDevices' || command.kind === 'setAudioSetup') {
+		return readTracktionAudioDeviceReply(value, command) as TracktionReply<Command>;
+	}
 	if (transportKinds.has(command.kind)) return readTracktionTransportView(value) as TracktionReply<Command>;
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);

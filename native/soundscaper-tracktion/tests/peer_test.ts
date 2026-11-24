@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import { writeAlsaCaptureFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
+import { writeAlsaCaptureFixture, writeAlsaOutputFixture, writeAlsaRoutingFixture } from './alsa_fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -250,6 +250,100 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 			assert.ok(matchingFrames >= 1024, 'captured 0.25-amplitude input survives stereo rendering');
 		} finally {
 			await reopened.close();
+		}
+	} finally {
+		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
+		else process.env.ALSA_CONFIG_PATH = previous;
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test('Tracktion applies a named ALSA route and preserves it when a replacement is refused', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-route-'));
+	const config = join(root, 'alsa.conf');
+	const outputFile = join(root, 'output.raw');
+	const previous = process.env.ALSA_CONFIG_PATH;
+	try {
+		await writeAlsaRoutingFixture(config, join(root, 'input.raw'), outputFile);
+		await mkdir(join(root, 'exchange', 'output'), { recursive: true });
+		process.env.ALSA_CONFIG_PATH = config;
+		const peer = launchTracktionPeer({
+			executable, mode: 'create', sampleRate: 48_000, projectDirectory: join(root, 'project'),
+			stateDirectory: join(root, 'settings'), exchangeDirectory: join(root, 'exchange'),
+		});
+		try {
+			const initial = await peer.request({ kind: 'audioHosts' });
+			assert.equal(initial.selected, null);
+			assert.equal((await peer.request({ kind: 'transportStatus' })).ready, false);
+			const host = initial.hosts.find((entry) => entry.name === 'ALSA');
+			assert.ok(host);
+			const devices = await peer.request({ kind: 'audioDevices', hostId: host.id });
+			const input = devices.inputs.find((entry) => entry.name.includes('Selected duplex'));
+			const output = devices.outputs.find((entry) => entry.name.includes('Selected duplex'));
+			assert.ok(input && output, JSON.stringify(devices));
+			const route = {
+				hostId: host.id, inputId: input.id, outputId: output.id, inputChannel: 1, outputChannel: 2,
+				sampleRate: 48_000, blockSize: 0,
+			} as const;
+			const selected = await peer.request({ kind: 'setAudioSetup', ...route });
+			assert.equal(selected.actualSampleRate, 48_000);
+			assert.ok(selected.actualBlockSize > 0);
+			assert.deepEqual(selected.setup, route);
+			await assert.rejects(peer.request({ kind: 'setAudioSetup', ...route, outputId: 'deaf000000000000' }), /unavailable/u);
+			await assert.rejects(peer.request({ kind: 'setAudioSetup', ...route, sampleRate: 47_000 }), /sample rate/u);
+			assert.deepEqual((await peer.request({ kind: 'audioHosts' })).selected, selected);
+			const track = (await peer.request({ kind: 'project', offset: 0 })).tracks[0];
+			assert.ok(track);
+			await peer.request({ kind: 'startRecording', revision: 0, trackId: track.id, frame: 0 });
+			await assert.rejects(peer.request({ kind: 'setAudioSetup', ...route }), /recording/u);
+			const deadline = performance.now() + 2500;
+			let transport = await peer.request({ kind: 'transportStatus' });
+			while (transport.frame < 4096 && performance.now() < deadline) {
+				await sleep(10);
+				transport = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.ok(transport.frame >= 4096);
+			const take = await peer.request({ kind: 'finishRecording', revision: 0, discard: false });
+			assert.ok(take.itemId);
+			assert.deepEqual((await peer.request({ kind: 'audioHosts' })).selected, selected);
+			await peer.request({ kind: 'render', revision: 1, asset, start: 0, end: 4096 });
+			const pcm = waveData(await readFile(join(root, 'exchange', 'output', `${asset}.wav`)));
+			let matchingFrames = 0;
+			for (let offset = 0; offset + 4 <= pcm.length; offset += 4)
+				if (Math.abs(pcm.readInt16LE(offset) - 12288) <= 1 && Math.abs(pcm.readInt16LE(offset + 2) - 12288) <= 1) matchingFrames += 1;
+			assert.ok(matchingFrames > 1024, 'the take contains the selected second hardware channel');
+			const playbackDeadline = performance.now() + 2500;
+			while (!(await peer.request({ kind: 'transportStatus' })).ready && performance.now() < playbackDeadline) await sleep(10);
+			assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, true);
+			let playback = await peer.request({ kind: 'transportStatus' });
+			while (playback.frame < 4096 && performance.now() < playbackDeadline) {
+				await sleep(10);
+				playback = await peer.request({ kind: 'transportStatus' });
+			}
+			assert.ok(playback.frame >= 4096);
+		} finally {
+			await peer.close();
+		}
+		const rawOutput = await open(outputFile, 'r');
+		try {
+			const samples = Buffer.alloc(256 * 1024);
+			let found = 0;
+			let position = 0;
+			while (found < 1024) {
+				const { bytesRead } = await rawOutput.read(samples, 0, samples.length, position);
+				if (!bytesRead) break;
+				for (let offset = 0; offset + 16 <= bytesRead; offset += 16) {
+					if (Math.abs(samples.readFloatLE(offset + 8) - 0.375) >= 0.001
+						|| Math.abs(samples.readFloatLE(offset + 12) - 0.375) >= 0.001) continue;
+					assert.equal(samples.readFloatLE(offset), 0);
+					assert.equal(samples.readFloatLE(offset + 4), 0);
+					found += 1;
+				}
+				position += bytesRead;
+			}
+			assert.ok(found >= 1024, `expected PCM on the third and fourth channels after reading ${position} bytes`);
+		} finally {
+			await rawOutput.close();
 		}
 	} finally {
 		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;

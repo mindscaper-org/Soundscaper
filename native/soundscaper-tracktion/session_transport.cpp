@@ -41,6 +41,21 @@ void Session::preparePlayback(int blockFrames, bool monoInput)
 	s.playback = &playback;
 }
 
+bool Session::State::hasSystemOutput() const
+{
+	auto& manager = engine.getDeviceManager().deviceManager;
+	auto* device = manager.getCurrentAudioDevice();
+	if (!systemOutput || device == nullptr || !device->isOpen()) return false;
+	if (!systemAudioSetup) return true;
+	const auto& applied = *systemAudioSetup;
+	const auto setup = manager.getAudioDeviceSetup();
+	return device->getTypeName() == systemHostName && setup.outputDeviceName == systemOutputName
+		&& setup.sampleRate == applied.actualSampleRate && setup.bufferSize == applied.actualBlockSize
+		&& setup.outputChannels.countNumberOfSetBits() == 2
+		&& setup.outputChannels.findNextSetBit(0) == applied.setup.outputChannel
+		&& setup.outputChannels[applied.setup.outputChannel + 1];
+}
+
 void Session::prepareSystemOutput()
 {
 	auto& s = *state;
@@ -48,11 +63,16 @@ void Session::prepareSystemOutput()
 	if (s.playback != nullptr)
 		throw std::invalid_argument("The Tracktion session already has a hosted device");
 	auto& devices = s.engine.getDeviceManager();
-	auto* output = devices.deviceManager.getCurrentAudioDevice();
-	if (s.systemOutput && output != nullptr && output->isOpen())
+	if (s.hasSystemOutput())
 		return;
+	if (s.systemAudioSetup)
+	{
+		setAudioSetup(s.systemAudioSetup->setup);
+		return;
+	}
 	devices.initialise(0, 2);
-	output = devices.deviceManager.getCurrentAudioDevice();
+	s.systemDeviceManagerInitialised = true;
+	auto* output = devices.deviceManager.getCurrentAudioDevice();
 	if (output == nullptr || !output->isOpen() || output->getActiveOutputChannels().countNumberOfSetBits() < 2)
 	{
 		devices.deviceManager.closeAudioDevice();
@@ -66,8 +86,7 @@ void Session::prepareSystemOutput()
 bool Session::playbackReady() const
 {
 	auto& s = *state;
-	auto* output = s.systemOutput ? s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice() : nullptr;
-	if (s.playback == nullptr && (output == nullptr || !output->isOpen()))
+	if (s.playback == nullptr && !s.hasSystemOutput())
 		return false;
 	auto& cache = s.engine.getAudioFileManager().cache;
 	for (auto* track : te::getAudioTracks(*s.edit))
@@ -86,7 +105,7 @@ void Session::play(Frame start)
 {
 	auto& s = *state;
 	s.requireNoRecording();
-	if (s.playback == nullptr && !s.systemOutput)
+	if (s.playback == nullptr && !s.hasSystemOutput())
 		throw std::invalid_argument("Prepare the Tracktion playback device before playing");
 	auto& transport = s.edit->getTransport();
 	transport.setPosition(s.position(start));

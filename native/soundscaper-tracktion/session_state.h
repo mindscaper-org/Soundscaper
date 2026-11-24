@@ -17,6 +17,8 @@ class SessionBehaviour final : public te::EngineBehaviour
 public:
 	bool autoInitialiseDeviceManager() override { return false; }
 	bool shouldLoadPlugin(te::ExternalPlugin&) override { return false; }
+	bool isDescriptionOfWaveDevicesSupported() override { return true; }
+	void describeWaveDevices(std::vector<te::WaveDeviceDescription>&, juce::AudioIODevice&, bool input) override;
 	juce::File getFileForNewAudioRecording(te::Track&, const juce::String& extension) override;
 	juce::File recordingFile;
 };
@@ -55,6 +57,10 @@ struct Session::State
 	int playbackBlockFrames = 0;
 	bool hostedMonoInput = false;
 	bool systemOutput = false;
+	bool systemDeviceManagerInitialised = false;
+	std::optional<AppliedAudioSetup> systemAudioSetup;
+	juce::String systemInputName, systemOutputName, systemHostName;
+	bool hasSystemOutput() const;
 	std::optional<Recording> recording;
 };
 }
