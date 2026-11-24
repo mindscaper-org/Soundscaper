@@ -1,0 +1,65 @@
+name: Tracktion native tests
+
+on:
+  push:
+    branches: [tracktion]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tracktion (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-22.04
+            node_arch: x64
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            node_arch: arm64
+          - target: mac-arm64
+            runner: macos-15
+            node_arch: arm64
+          - target: win-x64
+            runner: windows-2025
+            node_arch: x64
+          - target: win-arm64
+            runner: windows-11-arm
+            node_arch: arm64
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install authenticated CMake for Ubuntu 22.04
+        if: matrix.target == 'linux-x64'
+        run: bash scripts/ci-install-professional-cmake.sh
+      - name: Install JUCE Linux development dependencies
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: >-
+          bash scripts/ci-apt-install.sh
+          libasound2-dev libfontconfig-dev libfreetype-dev libx11-dev
+          libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxi-dev
+          libxrandr-dev libxrender-dev xauth xvfb
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .nvmrc
+          architecture: ${{ matrix.node_arch }}
+          cache: npm
+      - uses: ./.github/actions/setup-native-tooling
+      - run: npm install --global npm@12.0.1
+      - uses: ./.github/actions/verified-node-dependencies
+        with:
+          scope: desktop-native
+      - name: Exercise Tracktion on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:tracktion
+      - name: Exercise Tracktion on Windows and macOS
+        if: runner.os != 'Linux'
+        run: npm run test:tracktion
