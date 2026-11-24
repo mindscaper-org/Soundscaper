@@ -25,9 +25,25 @@ test('Windows ARM64 build lanes reuse the same authenticated installed dependenc
 			const cached = steps.filter(step => step.uses === './.github/actions/verified-node-dependencies');
 			assert.equal(cached.length, 1, `${workflow}/${id} restores verified installed dependencies`);
 			assert.equal(cached[0]?.with?.scope, 'desktop-native');
+			const setupNode = steps.find(step => step.uses?.startsWith('actions/setup-node@'));
+			assert.equal(setupNode?.with?.['package-manager-cache'], false);
 			assert.equal(steps.some(step => /\bnpm ci\b/u.test(step.run ?? '')), false);
 		}
 	}
+});
+
+test('a verified installed tree skips restoring or saving a second npm cache', async () => {
+	const action = load(await readFile(new URL('../.github/actions/verified-node-dependencies/action.yml', import.meta.url), 'utf8')) as unknown as {
+		runs: { steps: Step[] };
+	};
+	const { steps } = action.runs;
+	const verify = steps.findIndex(step => step.id === 'verification');
+	const restore = steps.findIndex(step => step.id === 'npm-downloads');
+	const install = steps.findIndex(step => step.run === 'npm ci');
+	assert.ok(verify >= 0 && restore > verify && install > restore);
+	assert.equal(steps[restore]?.if, "steps.verification.outputs.valid != 'true'");
+	assert.equal(steps.find(step => step.name === 'Save npm downloads after a cold install')?.if,
+		"steps.verification.outputs.valid != 'true' && steps.npm-downloads.outputs.cache-hit != 'true'");
 });
 
 test('AI producers prepare verified Kokoro bundles before runtime staging and replace damaged cache entries', async () => {

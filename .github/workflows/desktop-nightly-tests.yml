@@ -168,7 +168,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           architecture: ${{ matrix.target.node_arch }}
-          cache: npm
+          package-manager-cache: false
           cache-dependency-path: package-lock.json
 
       - name: Set up native tooling

@@ -27,10 +27,30 @@ runs:
       env:
         CI_INPUT_CACHE_SCOPE: ${{ inputs.scope }}
       run: node scripts/ci-input-cache.mjs verify dependencies >> "$GITHUB_OUTPUT"
+    - name: Locate the npm download cache for a fresh install
+      if: steps.verification.outputs.valid != 'true'
+      id: npm-location
+      shell: bash
+      run: |
+        echo "path=$(npm config get cache)" >> "$GITHUB_OUTPUT"
+        echo "arch=$(node -p process.arch)" >> "$GITHUB_OUTPUT"
+    - name: Restore npm downloads only when installing
+      if: steps.verification.outputs.valid != 'true'
+      id: npm-downloads
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.npm-location.outputs.path }}
+        key: node-cache-${{ runner.os }}-${{ steps.npm-location.outputs.arch }}-npm-${{ hashFiles('package-lock.json') }}
     - name: Install fresh authenticated dependencies on a miss or corruption
       if: steps.verification.outputs.valid != 'true'
       shell: bash
       run: npm ci
+    - name: Save npm downloads after a cold install
+      if: steps.verification.outputs.valid != 'true' && steps.npm-downloads.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.npm-location.outputs.path }}
+        key: ${{ steps.npm-downloads.outputs.cache-primary-key }}
     - name: Record the fresh installed tree
       if: steps.verification.outputs.valid != 'true'
       shell: bash

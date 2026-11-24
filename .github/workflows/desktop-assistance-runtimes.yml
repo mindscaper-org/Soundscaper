@@ -36,7 +36,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           architecture: arm64
-          cache: npm
+          package-manager-cache: false
       - name: Set up native tooling
         uses: ./.github/actions/setup-native-tooling
       - name: Pin npm
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           architecture: ${{ fromJSON(inputs.target).node_arch }}
-          cache: npm
+          package-manager-cache: false
 
       - name: Set up native tooling
         uses: ./.github/actions/setup-native-tooling
