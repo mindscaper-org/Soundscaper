@@ -24,6 +24,8 @@ const macPreAuthenticatedRuntimePayload = [
 	`${regexEscape(professionalNativePayloadManifest.staging.runtimePrefix)}/mac-arm64(?:/.*)?`,
 	')$',
 ].join('');
+// Keep pinned notice bytes as resources sealed by the outer app signature.
+const macProfessionalNativeNotices = '/Contents/Resources/licenses/professional-native/';
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -127,7 +129,7 @@ module.exports = {
 		hardenedRuntime: signing.mac.notarize,
 		entitlements: macEntitlements,
 		entitlementsInherit: macEntitlements,
-		signIgnore: signing.mac.notarize ? '/Contents/Resources/runtime/' : macPreAuthenticatedRuntimePayload,
+		signIgnore: `${signing.mac.notarize ? '/Contents/Resources/runtime/' : macPreAuthenticatedRuntimePayload}|${macProfessionalNativeNotices}`,
 		gatekeeperAssess: false,
 		category: framescaper ? 'public.app-category.video' : 'public.app-category.music',
 		// The after-all hook builds the PKG with optional components from this same sealed app.

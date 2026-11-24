@@ -29,6 +29,7 @@ test('macOS development signing ignores bundled native files but not optional AI
 	assert.equal(typeof configuration.mac.signIgnore, 'string');
 	const ignored = new RegExp(configuration.mac.signIgnore, 'u');
 	for (const path of [
+		'/tmp/Soundscaper.app/Contents/Resources/licenses/professional-native/surge-xt-020-VST3_License_Agreement.pdf',
 		'/tmp/Soundscaper.app/Contents/Resources/runtime/native/soundscaper-os-audio-codec/mac-arm64/soundscaper_os_audio_codec.node',
 		`${professionalRoot}/mac-arm64/${professional.addon.payloadName}`,
 		`${professionalRoot}/mac-arm64/soundscaper_os_audio_codec.node`,
@@ -38,6 +39,7 @@ test('macOS development signing ignores bundled native files but not optional AI
 		`${professionalRoot}/mac-arm64/${professional.isolation.runtimeDirectory}/libowned.dylib`,
 	]) assert.equal(ignored.test(path), true, path);
 	for (const path of [
+		'/tmp/Soundscaper.app/Contents/Resources/licenses/professional-native-other/addon.node',
 		'/tmp/Soundscaper.app/Contents/Resources/runtime/native/soundscaper-os-audio-codec/mac-arm64/other.node',
 		'/tmp/Soundscaper.app/Contents/Resources/runtime/native/mac-arm64/addon.node',
 		`${professionalRoot}/linux-x64/${professional.addon.payloadName}`,
