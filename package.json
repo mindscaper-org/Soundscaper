@@ -66,6 +66,8 @@
 		"check:startup-graph:tighten": "node scripts/tighten-startup-graph.mjs",
 		"check:notices": "node scripts/check-third-party-notices.mjs",
 		"test": "node scripts/run-node-tests.mjs",
+		"test:tracktion": "node scripts/test-tracktion-session.mjs",
+		"probe:tracktion:wasm": "node scripts/probe-tracktion-wasm.mjs",
 		"test:shard": "node scripts/run-node-tests.mjs --coverage-directory=coverage/v8-shard",
 		"test:coverage": "node scripts/run-node-tests.mjs --coverage-directory=coverage/v8-all && node scripts/report-local-node-coverage.mjs coverage/v8-all",
 		"coverage:compact": "node scripts/compact-v8-coverage.mjs coverage/v8-shard",
