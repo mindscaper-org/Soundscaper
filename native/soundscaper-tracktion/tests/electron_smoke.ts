@@ -2,42 +2,41 @@
 
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync } from 'node:fs';
-import { mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
-import { app, BrowserWindow, ipcMain, utilityProcess } from 'electron/main';
+import { app, type BrowserWindow } from 'electron/main';
 
-import { createTrustedDesktopIpc } from '../../../desktop/main-trusted-ipc.ts';
-import { registerTracktionProjectIpc } from '../../../desktop/tracktion-project-ipc.ts';
-import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
-import { startTracktionUtilitySession } from '../../../desktop/tracktion-utility-session.ts';
+import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executableFlag = '--tracktion-peer=';
 const binary = process.argv.find((value) => value.startsWith(executableFlag))?.slice(executableFlag.length);
 if (!binary) throw new Error('Pass --tracktion-peer with the built executable path.');
+const rendererFlag = '--tracktion-editor=';
+const renderer = process.argv.find((value) => value.startsWith(rendererFlag))?.slice(rendererFlag.length);
+if (!renderer) throw new Error('Pass --tracktion-editor with the built renderer directory.');
 
-void run(binary).catch((error: unknown) => {
+registerTracktionScheme();
+void run(binary, renderer).catch((error: unknown) => {
 	console.error(error);
 	app.exit(1);
 });
 
-async function run(binaryPath: string): Promise<void> {
+async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 	const scratch = mkdtempSync(join(tmpdir(), 'soundscaper-tracktion-electron-'));
 	const userData = join(scratch, 'electron');
 	mkdirSync(userData);
 	app.setPath('userData', userData);
+	app.setPath('sessionData', userData);
 	app.on('window-all-closed', () => undefined);
 
 	let exitCode = 0;
-	let window: BrowserWindow | undefined;
-	let service: TracktionProjectService | undefined;
+	let editor: Awaited<ReturnType<typeof openTracktionWindow>> | undefined;
 	try {
 		await app.whenReady();
-		const executable = await realpath(binaryPath);
-		const entry = resolve(import.meta.dirname, '../../../desktop/tracktion-utility-process.ts');
 		const projectDirectory = join(scratch, 'Project');
 		const projectFile = join(projectDirectory, 'project.tracktionedit');
 		const wave = join(scratch, 'Reference.wav');
@@ -45,39 +44,28 @@ async function run(binaryPath: string): Promise<void> {
 		const archive = join(scratch, 'Project.zip');
 		await mkdir(projectDirectory);
 		await writeFile(wave, wavFixture());
-		window = new BrowserWindow({
+		editor = await openTracktionWindow({
+			bundleRoot, peer: binaryPath, scratchRoot: join(scratch, 'sessions'),
 			show: false,
-			webPreferences: {
-				preload: resolve(import.meta.dirname, '../../../desktop/tracktion-preload.cjs'),
-				contextIsolation: true, sandbox: true, nodeIntegration: false, partition: 'tracktion-smoke',
+			dialogs: {
+				chooseCreateDirectory: async () => projectDirectory,
+				chooseOpenProject: async () => projectFile,
+				chooseWave: async () => wave,
+				chooseExport: async (kind) => kind === 'wav' ? output : archive,
 			},
 		});
-
-		const owner = {};
-		const url = 'data:text/html;charset=utf-8,Tracktion';
-		const { handle } = createTrustedDesktopIpc({
-			ipcMain, windowFor: () => window ?? null,
-			assertDocumentUrl: (sender) => { assert.equal(sender, url); },
-		});
-		service = new TracktionProjectService({
-			scratchRoot: join(scratch, 'sessions'),
-			isOwnerCurrent: (candidate) => candidate === owner,
-			chooseCreateDirectory: async () => projectDirectory,
-			chooseOpenProject: async () => projectFile,
-			chooseWave: async () => wave,
-			chooseExport: async (kind) => kind === 'wav' ? output : archive,
-			startPeer: (launch) => startTracktionUtilitySession(utilityProcess.fork, entry, { ...launch, executable }),
-		});
-		registerTracktionProjectIpc({ handle, ownerFor: () => owner, service });
-		await runRendererWorkflow(window, url, { scratch, projectFile, output, archive });
+		assert.equal(new URL(editor.window.webContents.getURL()).protocol, 'soundscaper-tracktion-app:');
+		assert.equal(await editor.window.webContents.executeJavaScript('typeof require'), 'undefined');
+		await runRendererWorkflow(editor.window, { scratch, projectFile, output, archive });
+		await runEditorWorkflow(editor.window);
 		console.log('The Electron renderer created, edited, saved, exported and reopened a Tracktion project.');
 	} catch (error) {
 		console.error(error);
 		exitCode = 1;
 	} finally {
 		try {
-			await service?.dispose();
-			window?.destroy();
+			editor?.window.destroy();
+			await editor?.dispose();
 			await rm(scratch, { recursive: true, force: true, maxRetries: 3 });
 		} catch (error) {
 			console.error(error);
@@ -88,11 +76,42 @@ async function run(binaryPath: string): Promise<void> {
 	}
 }
 
+async function runEditorWorkflow(window: BrowserWindow): Promise<void> {
+	async function click(label: string): Promise<void> {
+		await window.webContents.executeJavaScript(`
+			Array.from(document.querySelectorAll('button, summary'))
+				.find((candidate) => candidate.textContent.trim() === ${JSON.stringify(label)}).click()
+		`);
+	}
+	async function waitForVisible(text: string): Promise<void> {
+		await window.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+			const timer = setTimeout(() => reject(new Error('Text did not appear')), 5000);
+			const poll = setInterval(() => {
+				if (document.body.innerText.includes(${JSON.stringify(text)})) {
+					clearTimeout(timer);
+					clearInterval(poll);
+					resolve();
+				}
+			}, 25);
+		})`);
+	}
+
+	await waitForVisible('File');
+	await click('File');
+	await click('Open projects');
+	await waitForVisible('Reference');
+	await click('File');
+	await click('Import audio');
+	await waitForVisible('3 clips');
+	await click('File');
+	await click('Save project');
+	await waitForVisible('All changes saved locally');
+}
+
 async function runRendererWorkflow(
-	window: BrowserWindow, url: string,
+	window: BrowserWindow,
 	paths: { scratch: string; projectFile: string; output: string; archive: string },
 ): Promise<void> {
-	await window.loadURL(url);
 	async function send<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 		return await window.webContents.executeJavaScript(
 			`globalThis.soundscaperTracktion.request(${JSON.stringify(command)})`,

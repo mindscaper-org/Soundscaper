@@ -1,0 +1,52 @@
+:root {
+	color-scheme: light dark;
+	font-family: system-ui, sans-serif;
+}
+
+body {
+	margin: 0;
+	color: CanvasText;
+	background: Canvas;
+}
+
+nav {
+	min-height: 2rem;
+	border-bottom: 1px solid GrayText;
+}
+
+details {
+	position: relative;
+	width: max-content;
+}
+
+summary {
+	cursor: pointer;
+	padding: 0.35rem 0.65rem;
+}
+
+details > div {
+	position: absolute;
+	padding: 0.25rem;
+	min-width: max-content;
+	border: 1px solid GrayText;
+	background: Canvas;
+}
+
+nav button {
+	display: block;
+	width: 100%;
+	padding: 0.35rem 0.65rem;
+	text-align: start;
+}
+
+button, select {
+	font: inherit;
+}
+
+main {
+	padding: 1rem;
+}
+
+main li {
+	font-variant-numeric: tabular-nums;
+}

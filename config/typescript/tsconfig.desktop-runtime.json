@@ -165,6 +165,7 @@
 		"../../desktop/tracktion-utility-process.ts",
 		"../../desktop/tracktion-utility-session.ts",
 		"../../desktop/tracktion-project-ipc.ts",
+		"../../desktop/tracktion-main.ts",
 		"../../desktop/soundscaper-professional-linux-system-libraries.ts",
 		"../../desktop/soundscaper-professional-linux-system-runtime.ts",
 		"../../desktop/professional-candidate-custody.ts",
