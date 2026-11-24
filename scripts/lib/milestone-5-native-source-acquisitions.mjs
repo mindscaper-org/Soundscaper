@@ -15,6 +15,7 @@ import { authenticateMilestone5SourceArchiveExtraction } from './milestone-5-sou
 import {
 	authenticateMilestone5SourceArchive as authenticateArchive,
 	canonicalMilestone5SourceDirectory as canonicalDirectory,
+	verifyMilestone5SourceArchive,
 } from './milestone-5-source-filesystem-authority.mjs';
 import { milestone5EngineeringScope, SOUNDSCAPER_MILESTONE_5_SOURCE_IDS } from './milestone-5-product-scope.mjs';
 
@@ -222,20 +223,15 @@ export function verifyMilestone5NativeSourceInput(witness) {
 	if (!witness || typeof witness !== 'object' || !AUTHENTICATED_SOURCE_INPUTS.has(witness)) {
 		throw new Error('Milestone 5 native source verification requires an authenticated in-process witness.');
 	}
-	const authenticatedArchive = authenticateArchive(witness.archive.path, witness.archive, witness.id);
-	const archive = authenticatedArchive.descriptor;
-	const archiveExtraction = authenticateMilestone5SourceArchiveExtraction({
-		archiveBytes: authenticatedArchive.bytes,
-		archiveName: basename(archive.path),
-		expectedTree: witness.extractedTree,
-	});
+	// The same archive digest binds the extraction already verified in this process.
+	const archive = verifyMilestone5SourceArchive(witness.archive, witness.id);
 	const tree = collectExtractedSourceTree(witness.extractedTree.root);
 	if (tree.algorithm !== witness.extractedTree.algorithm
 		|| tree.fileCount !== witness.extractedTree.fileCount
 		|| tree.sha256 !== witness.extractedTree.sha256) {
 		throw new Error(`${witness.id}: extracted source tree changed after authentication.`);
 	}
-	return deepFreeze({ archive, archiveExtraction, extractedTree: { ...witness.extractedTree } });
+	return deepFreeze({ archive, archiveExtraction: witness.archiveExtraction, extractedTree: { ...witness.extractedTree } });
 }
 
 /**

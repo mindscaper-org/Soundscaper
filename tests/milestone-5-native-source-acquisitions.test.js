@@ -240,12 +240,21 @@ test('source authentication binds one exact archive and extracted tree and reche
 		});
 		assert.equal(witness.id, 'juce');
 		assert.equal(witness.archive.sha256, sha256(archiveBytes));
-		assert.equal(verifyMilestone5NativeSourceInput(witness).extractedTree.sha256, tree.sha256);
+		const verified = verifyMilestone5NativeSourceInput(witness);
+		assert.equal(verified.extractedTree.sha256, tree.sha256);
+		assert.equal(verified.archiveExtraction, witness.archiveExtraction);
 		const snapshot = snapshotMilestone5NativeSourceInput(witness, {
 			snapshotRoot: join(root, 'auditor-snapshot'),
 		});
 		assert.equal(snapshot.extractedTree.root, join(root, 'auditor-snapshot'));
-		assert.equal(verifyMilestone5NativeSourceInput(snapshot).extractedTree.sha256, tree.sha256);
+		const verifiedSnapshot = verifyMilestone5NativeSourceInput(snapshot);
+		assert.equal(verifiedSnapshot.extractedTree.sha256, tree.sha256);
+		assert.equal(verifiedSnapshot.archiveExtraction, snapshot.archiveExtraction);
+		const changedArchive = Buffer.from(archiveBytes);
+		changedArchive[changedArchive.length - 1] ^= 0xff;
+		writeFileSync(archivePath, changedArchive);
+		assert.throws(() => verifyMilestone5NativeSourceInput(snapshot), /archive bytes drifted/iu);
+		writeFileSync(archivePath, archiveBytes);
 		writeFileSync(join(sourceRoot, 'include/api.h'), 'mutable cache changed\n');
 		assert.equal(verifyMilestone5NativeSourceInput(snapshot).extractedTree.sha256, tree.sha256);
 		chmodSync(join(snapshot.extractedTree.root, 'include/api.h'), 0o600);

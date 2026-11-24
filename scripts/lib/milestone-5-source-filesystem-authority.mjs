@@ -9,6 +9,14 @@ import {
 import { isAbsolute, resolve } from 'node:path';
 
 export function authenticateMilestone5SourceArchive(pathValue, expected, sourceId) {
+	return readMilestone5SourceArchive(pathValue, expected, sourceId, true);
+}
+
+export function verifyMilestone5SourceArchive(expected, sourceId) {
+	return readMilestone5SourceArchive(expected.path, expected, sourceId, false).descriptor;
+}
+
+function readMilestone5SourceArchive(pathValue, expected, sourceId, captureBytes) {
 	const path = canonicalMilestone5SourceFile(pathValue, `${sourceId} source archive`);
 	const before = lstatSync(path);
 	if (before.size !== expected.byteLength) {
@@ -24,7 +32,7 @@ export function authenticateMilestone5SourceArchive(pathValue, expected, sourceI
 		}
 		const hash = createHash('sha256');
 		const buffer = Buffer.allocUnsafe(1024 * 1024);
-		const chunks = [];
+		const bytes = captureBytes ? Buffer.allocUnsafe(before.size) : null;
 		let byteLength = 0;
 		for (;;) {
 			const bytesRead = readSync(handle, buffer, 0, buffer.byteLength, null);
@@ -33,8 +41,9 @@ export function authenticateMilestone5SourceArchive(pathValue, expected, sourceI
 			if (byteLength > expected.byteLength) {
 				throw new Error(`${sourceId}: source archive exceeds its pinned byte length.`);
 			}
-			hash.update(buffer.subarray(0, bytesRead));
-			chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
+			const chunk = buffer.subarray(0, bytesRead);
+			hash.update(chunk);
+			if (bytes !== null) chunk.copy(bytes, byteLength - bytesRead);
 		}
 		const after = fstatSync(handle);
 		const sha256 = hash.digest('hex');
@@ -45,7 +54,7 @@ export function authenticateMilestone5SourceArchive(pathValue, expected, sourceI
 		}
 		return {
 			descriptor: Object.freeze({ path, byteLength, sha256 }),
-			bytes: Buffer.concat(chunks, byteLength),
+			bytes,
 		};
 	} finally { closeSync(handle); }
 }
