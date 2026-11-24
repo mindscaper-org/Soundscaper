@@ -181,6 +181,7 @@ int main()
 	{
 		runSessionTest(root);
 		root.deleteRecursively();
+		std::cout << "Tracktion session editing, rendering and hosted playback passed.\n";
 		return 0;
 	}
 	catch (const std::exception& error)

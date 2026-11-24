@@ -1,31 +1,36 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { cpSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { provisionTracktionSources } from './lib/tracktion-sources.mjs';
+import { prepareTracktionWasmPlatform, replaceWasmSource } from './lib/tracktion-wasm-platform.mjs';
 
 const sdk = 'emscripten/emsdk:3.1.64@sha256:8847dad4171ebc8a53d9ae5cda86a2546ef5b2e68834c14dc1ba2b2962e125cc';
 const cache = resolve(import.meta.dirname, '../.native-build');
-const graphOnly = process.argv[2] === '--graph' && process.argv.length === 3;
-if (process.argv.length !== 2 && !graphOnly) throw new Error('Usage: probe-tracktion-wasm.mjs [--graph]');
+const project = resolve(import.meta.dirname, '../native/soundscaper-tracktion');
+const graphOnly = process.argv[2] === '--graph';
+const browserCheck = process.argv[2] === '--browser';
+if (process.argv.length > 3 || (process.argv.length === 3 && !graphOnly && !browserCheck)) {
+	throw new Error('Usage: probe-tracktion-wasm.mjs [--graph | --browser]');
+}
 const sources = await provisionTracktionSources();
 mkdirSync(cache, { recursive: true });
 const workspace = mkdtempSync(resolve(cache, 'tracktion-wasm-probe-'));
+const output = resolve(workspace, 'output');
 
-function replaceOnce(path, original, replacement) {
-	const file = resolve(workspace, path);
-	const text = readFileSync(file, 'utf8');
-	if (text.indexOf(original) < 0 || text.indexOf(original) !== text.lastIndexOf(original)) {
-		throw new Error(`The WASM probe patch does not match ${path}.`);
-	}
-	writeFileSync(file, text.replace(original, replacement));
-}
+const replaceOnce = (path, original, replacement) => replaceWasmSource(workspace, path, original, replacement);
 
 try {
-	cpSync(sources.tracktion, resolve(workspace, 'tracktion'), { recursive: true });
+	const tracktion = resolve(workspace, 'tracktion');
+	if (graphOnly) cpSync(sources.tracktion, tracktion, { recursive: true });
+	else execFileSync('cmake', [
+		`-DSOUNDSCAPER_TRACKTION_SOURCE=${sources.tracktion}`, `-DSOUNDSCAPER_TRACKTION_WORKSPACE=${tracktion}`,
+		'-P', resolve(project, 'wasm/prepare-tracktion.cmake'),
+	], { stdio: 'inherit' });
 	cpSync(sources.juce, resolve(workspace, 'juce'), { recursive: true });
+	mkdirSync(output);
 
 	// Browsers do not expose a physical CPU cycle counter or an x86 pause
 	// instruction. Keep a compiler fence for non-realtime spin lock callers.
@@ -42,22 +47,25 @@ try {
 	replaceOnce('juce/modules/juce_core/native/juce_ThreadPriorities_native.h', '#if JUCE_LINUX || JUCE_BSD',
 		'#if JUCE_LINUX || JUCE_BSD || JUCE_WASM');
 
-	replaceOnce('juce/modules/juce_core/native/juce_SystemStats_wasm.cpp', '\r\nnamespace juce\r\n',
-		'\r\n#include <emscripten.h>\r\n\r\nnamespace juce\r\n');
+	replaceOnce('juce/modules/juce_core/native/juce_SystemStats_wasm.cpp', '\nnamespace juce\n',
+		'\n#include <emscripten.h>\n\nnamespace juce\n');
+	replaceOnce('juce/modules/juce_core/system/juce_TargetPlatform.h', '#define       JUCE_WASM 1',
+		'#define       JUCE_WASM 1\n  #define       JUCE_LITTLE_ENDIAN 1\n  #define       JUCE_32BIT 1');
 
 	const backoff = 'tracktion/modules/3rd_party/crill/progressive_backoff_wait.h';
 	replaceOnce(backoff, '#include "platform.h"', '#include <thread>\n#include "platform.h"');
 	replaceOnce(backoff, '  #else\n    #error "Platform not supported!"',
 		'  #elif defined (__wasm__)\n    while (!pred()) std::this_thread::yield();\n  #else\n    #error "Platform not supported!"');
 
-	const graphTest = resolve(import.meta.dirname, '../native/soundscaper-tracktion/tests/wasm_graph_test.cpp');
+	if (!graphOnly) prepareTracktionWasmPlatform(workspace, resolve(project, 'wasm'));
+
 	const graphBuild = `
 set -e
 emcc -O0 -pthread -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -I/source/juce/modules -c /source/juce/modules/juce_core/juce_core_zlib.c -o juce-core-zlib.o
 em++ -std=c++20 -O0 -pthread -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 \\
 	-DJUCE_USE_CURL=0 -DJUCE_USE_FLAC=0 -DJUCE_USE_OGGVORBIS=0 -DJUCE_USE_OPUS=0 \\
 	-I/source/juce/modules -I/source/tracktion/modules \\
-	/graph-test.cpp /source/tracktion/modules/tracktion_graph/tracktion_graph.cpp \\
+	/project/tests/wasm_graph_test.cpp /source/tracktion/modules/tracktion_graph/tracktion_graph.cpp \\
 	/source/tracktion/modules/tracktion_core/tracktion_core.cpp \\
 	/source/juce/modules/juce_audio_formats/juce_audio_formats.cpp \\
 	/source/juce/modules/juce_audio_basics/juce_audio_basics.cpp \\
@@ -69,24 +77,15 @@ node graph-test.js
 `;
 	const probe = spawnSync('docker', [
 		'run', '--rm', '--network', 'none', '--memory', '4g', '--cpus', '2',
-		'--volume', `${workspace}:/source:ro`, '--volume', `${graphTest}:/graph-test.cpp:ro`,
-		'--workdir', '/tmp', sdk, 'bash', '-c', graphOnly ? graphBuild : `
-failed=0
-for source in juce/modules/juce_core/juce_core.cpp tracktion/modules/tracktion_graph/tracktion_graph.cpp tracktion/modules/tracktion_engine/tracktion_engine_model_1.cpp juce/modules/juce_gui_basics/juce_gui_basics.cpp; do
-	printf '\\n%s\\n' "$source"
-	if em++ -std=c++20 -pthread -fsyntax-only -ferror-limit=2 -fno-caret-diagnostics \\
-	        -DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -DJUCE_USE_CURL=0 -DJUCE_WEB_BROWSER=0 \\
-	        -I/source/juce/modules -I/source/tracktion/modules "/source/$source"; then
-		printf 'passed\\n'
-	else
-		failed=1
-	fi
-done
-exit "$failed"
-`,
+		'--volume', `${workspace}:/source:ro`, '--volume', `${project}:/project:ro`, '--volume', `${output}:/output`,
+		'--workdir', '/tmp', sdk, 'bash', ...(graphOnly ? ['-c', graphBuild] : ['/project/wasm/build-edit.sh']),
 	], { stdio: 'inherit' });
 	if (probe.error) throw probe.error;
 	process.exitCode = probe.status ?? 1;
+	if (browserCheck && probe.status === 0) {
+		const { verifyTracktionWasmInBrowsers } = await import('./lib/tracktion-wasm-browser-check.mjs');
+		await verifyTracktionWasmInBrowsers(output);
+	}
 } finally {
 	rmSync(workspace, { recursive: true, force: true });
 }
