@@ -100,6 +100,12 @@ jobs:
         with:
           name: ${{ inputs.source-cache-artifact }}
           path: ${{ runner.temp }}/soundscaper-native-sources
+
+      - name: Restore and authenticate transferred native sources
+        shell: bash
+        run: >-
+          node scripts/provision-milestone-5-native-sources.mjs --restore-archives --soundscaper-professional
+          --root "$RUNNER_TEMP/soundscaper-native-sources"
       - name: Download the source-bound AI runtime handoff
         if: inputs.assistance-runtime-handoff-artifact-prefix != ''
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

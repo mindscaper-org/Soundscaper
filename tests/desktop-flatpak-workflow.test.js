@@ -47,9 +47,9 @@ test('Flatpak bundles join the release checksum inventory while their manifests 
 	assert.match(job, /if-no-files-found: error/u);
 	assert.match(job, /retention-days: 14/u);
 	const release = extractJob(workflow, 'release-inventory');
-	assert.match(release, /needs: \[quality, package, flatpak\]/u);
+	assert.match(release, /needs: \[quality, package, flatpak, milestone-5-native-audit-source\]/u);
 	assert.match(release, /pattern: flatpak-\$\{\{ needs\.quality\.outputs\.release-product-pattern \}\}-linux-\*/u);
-	assert.doesNotMatch(extractJob(workflow, 'milestone-5-package-audit-summary'), /pattern: flatpak-|needs:.*flatpak/u);
+	assert.ok(release.indexOf('Collect Flatpak bundles') > release.indexOf('Re-audit tagged packages'));
 	for (const match of job.matchAll(/uses: [^@\s]+@([^\s]+)/gu)) {
 		assert.match(match[1], /^[a-f0-9]{40}$/u, 'actions must use immutable commit pins');
 	}

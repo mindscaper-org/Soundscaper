@@ -128,5 +128,12 @@ only after verifying that it extracts as regular files. It normalizes bounded
 AppleDouble code-signing attributes paired with regular application files;
 resource forks, unrelated attributes, orphaned metadata, and symbolic links
 are rejected as signing metadata. The original PKG retains its signing attributes.
+
+Desktop preview audits each installer on its build runner. Release inventory
+assembly uses the same download for verification and gathering the release
+files. Nightlies check every installer and runtime manifest against the target
+audit's SHA-256 and byte length. Tagged previews independently extract and audit
+the downloaded installers before assembling the release inventory.
+
 Portable script and package-plan tests do not establish that native installers
 or online package-manager bootstraps work on a particular user's machine.

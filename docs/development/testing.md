@@ -170,6 +170,13 @@ action. Cache identities bind the runner image, architecture, Node/npm versions,
 lockfile, package patches, and installation policy. A restored tree is checked
 before use; Windows admits absolute workspace junctions only to the exact
 checkout workspace. Missing or damaged trees fall back to `npm ci`.
+Only the fresh-install path restores the npm download cache. A cold install
+saves that cache for subsequent runs.
+
+Native source jobs provision and authenticate the pinned archives before
+uploading them. Each receiving runner reconstructs and verifies the extracted
+trees locally. Framescaper package audits add the six media source archives to
+the shared professional-native sources.
 
 Pinned GitHub release downloads can recover from a failing public download URL
 through the official release-asset API. The fallback selects the exact tag,

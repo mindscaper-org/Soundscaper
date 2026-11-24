@@ -16,6 +16,7 @@ import {
 	milestone5ProductIds,
 } from './milestone-5-product-scope.mjs';
 import { snapshotStrictJsonData } from './strict-json-snapshot.mjs';
+import { verifyAuditedPackageFiles } from './milestone-5-package-transfer.ts';
 
 const SOURCE_REVISION = /^(?:[a-f\d]{40}|[a-f\d]{64})$/u;
 const SHA256 = /^[a-f\d]{64}$/u;
@@ -133,7 +134,7 @@ export async function assembleMilestone5PackageAuditSummary(optionsValue) {
 	return summary;
 }
 
-export async function readMilestone5PackageAuditDirectory(directoryValue, productIdsValue) {
+export async function readMilestone5PackageAuditDirectory(directoryValue, productIdsValue, transfer) {
 	const productIds = milestone5ProductIds(productIdsValue);
 	const identities = milestone5PackageAuditIdentities(productIds);
 	const directory = resolve(String(directoryValue));
@@ -173,10 +174,19 @@ export async function readMilestone5PackageAuditDirectory(directoryValue, produc
 		values.push(value);
 		fileDescriptors.push({ name, byteLength: bytes.byteLength, sha256: sha256(bytes) });
 	}
-	return deepFreeze({
-		...summarizeMilestone5PackageAudits(values, productIds),
-		fileDescriptors,
-	});
+	const summary = summarizeMilestone5PackageAudits(values, productIds);
+	if (transfer === undefined) return deepFreeze({ ...summary, fileDescriptors });
+	if (summary.sourceRevision !== transfer.sourceRevision || !values.every(({ passed }) => passed)
+		|| summary.failures.length !== 0) {
+		throw new Error('Desktop package transfer requires passing audit receipts from this revision.');
+	}
+	const packageDirectory = resolve(transfer.packageDirectory);
+	const packageNames = await validatePackageDirectory(packageDirectory, identities);
+	for (const [index, { package: audited }] of values.entries()) {
+		await verifyAuditedPackageFiles(resolve(packageDirectory, packageNames[index]),
+			[audited.runtimeManifest, ...audited.packages]);
+	}
+	return deepFreeze({ ...summary, fileDescriptors, passed: true, status: 'passed', packageDigestsVerified: true });
 }
 
 async function validatePackageDirectory(directory, identities) {

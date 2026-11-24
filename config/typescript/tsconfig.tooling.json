@@ -27,6 +27,7 @@
 		"../../scripts/lib/check-module*.ts",
 		"../../scripts/lib/module-*.ts",
 		"../../scripts/lib/ci-artifact-fetch.ts",
+		"../../scripts/lib/milestone-5-package-transfer.ts",
 		"../../scripts/lib/handbook-deploy.ts",
 		"../../scripts/docs-comparisons.ts",
 		"../../scripts/lib/handbook-comparisons.ts",

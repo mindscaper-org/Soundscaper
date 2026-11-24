@@ -46,13 +46,14 @@ for (let index = 2; index < process.argv.length; index += 1) {
 	}
 	throw new Error(`Unexpected Milestone 5 package-audit summary argument: ${argument}`);
 }
-if ((auditDirectory === null) === (packageDirectory === null)) {
-	throw new Error('Supply exactly one of --input-directory or --package-directory.');
+if (auditDirectory === null && packageDirectory === null) {
+	throw new Error('Supply --input-directory, --package-directory, or both to verify transferred packages.');
 }
 
-const summary = packageDirectory === null
+const summary = auditDirectory !== null
 	? await readMilestone5PackageAuditDirectory(
 		resolve(auditDirectory), productId === null ? undefined : [productId],
+		packageDirectory === null ? undefined : { packageDirectory, sourceRevision: process.env.SOUNDSCAPER_SOURCE_REVISION },
 	)
 	: await assembleMilestone5PackageAuditSummary({
 		repositoryRoot: resolve(import.meta.dirname, '..'),

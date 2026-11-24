@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -101,6 +102,40 @@ test('serialized package audits must be canonical, complete, and direct', async 
 		readMilestone5PackageAuditDirectory(directory),
 		/missing or unexpected entries/iu,
 	);
+});
+
+test('nightly verification requires exact package bytes and passing receipts from this run', async (context) => {
+	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-m5-package-transfer-'));
+	context.after(() => rm(directory, { recursive: true, force: true }));
+	const receipts = join(directory, 'receipts');
+	const packages = join(directory, 'packages');
+	await mkdir(receipts);
+	const bytes = Buffer.from('package bytes');
+	const productIds = ['soundscaper'];
+	const identities = MILESTONE_5_PACKAGE_AUDIT_IDENTITIES.filter(({ productId }) => productIds.includes(productId));
+	for (const identity of identities) {
+		const name = `${identity.productId}-${identity.targetId}`;
+		const row = audit(identity);
+		await mkdir(join(packages, `nightly-${name}`), { recursive: true });
+		for (const descriptor of [row.package.runtimeManifest, ...row.package.packages]) {
+			descriptor.byteLength = bytes.byteLength;
+			descriptor.sha256 = createHash('sha256').update(bytes).digest('hex');
+			await writeFile(join(packages, `nightly-${name}`, descriptor.name), bytes);
+		}
+		row.package.totalPackageBytes = bytes.byteLength;
+		await writeFile(join(receipts, `milestone-5-package-audit-${name}.json`), `${JSON.stringify(row, null, '\t')}\n`);
+	}
+	const verify = (sourceRevision = REVISION) => readMilestone5PackageAuditDirectory(receipts, productIds, {
+		packageDirectory: packages, sourceRevision,
+	});
+	const summary = await verify();
+	assert.equal(summary.passed, true);
+	assert.equal(summary.packageDigestsVerified, true);
+	assert.equal(summary.packageFilesRevalidated, false);
+	await assert.rejects(verify('c'.repeat(40)), /passing audit receipts from this revision/u);
+	const changedName = `${identities[0].productId}-${identities[0].targetId}`;
+	await writeFile(join(packages, `nightly-${changedName}`, `${changedName}.zip`), Buffer.alloc(bytes.length));
+	await assert.rejects(verify(), /bytes differ from the audit/u);
 });
 
 function audit(identity) {

@@ -31,13 +31,13 @@ jobs:
           node scripts/provision-milestone-5-native-sources.mjs \
             --root "$RUNNER_TEMP/native-helper-sources" \
             --source electron-node-api-headers
-          node scripts/provision-milestone-5-native-sources.mjs --check \
-            --root "$RUNNER_TEMP/native-helper-sources" \
-            --source electron-node-api-headers
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: native-helper-addon-source-cache
-          path: ${{ runner.temp }}/native-helper-sources
+          path: |
+            ${{ runner.temp }}/native-helper-sources/*/*.tar.gz
+            ${{ runner.temp }}/native-helper-sources/*/*.zip
+          compression-level: 0
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -99,6 +99,12 @@ jobs:
         with:
           name: native-helper-addon-source-cache
           path: ${{ runner.temp }}/native-helper-sources
+
+      - name: Restore and authenticate transferred native sources
+        shell: bash
+        run: >-
+          node scripts/provision-milestone-5-native-sources.mjs --restore-archives --source electron-node-api-headers
+          --root "$RUNNER_TEMP/native-helper-sources"
       - name: Verify target-native Node.js
         shell: bash
         env:

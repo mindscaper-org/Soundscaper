@@ -54,9 +54,12 @@ export function assessMilestone5PackageAudit(inputs, productIdsValue = MILESTONE
 	const declaredPayloadRows = payloadManifestEntries(inputs, engineeringScope).flatMap(
 		([, manifest, product]) => validatePayloadManifest(manifest, product),
 	);
-	const payloadRows = payloadsVerified
+	const auditedRows = payloadsVerified
 		? validateAuditedPayloads(inputs, declaredPayloadRows, engineeringScope)
 		: declaredPayloadRows;
+	const payloadRows = packageContentAudited
+		? auditedRows.filter(({ targetId }) => targetId === inputs.packageAudit.targetId)
+		: auditedRows;
 	if (packageContentAudited && payloadsVerified) {
 		validateMilestone5PackagePayloadBinding(
 			inputs.packageAudit, inputs.payloadAudit, MILESTONE_5_PACKAGE_AUDIT_INPUT_PATHS, engineeringScope,

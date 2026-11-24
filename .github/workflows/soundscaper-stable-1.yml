@@ -249,12 +249,13 @@ jobs:
           umask 077
           npm run provision:milestone-5-native-sources -- --soundscaper-professional \
             --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache"
-          npm run provision:milestone-5-native-sources -- --check --soundscaper-professional \
-            --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: soundscaper-stable-native-source-cache
-          path: ${{ runner.temp }}/soundscaper-professional-native-source-cache
+          path: |
+            ${{ runner.temp }}/soundscaper-professional-native-source-cache/*/*.tar.gz
+            ${{ runner.temp }}/soundscaper-professional-native-source-cache/*/*.zip
+          compression-level: 0
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -343,6 +344,12 @@ jobs:
         with:
           name: soundscaper-stable-native-source-cache
           path: ${{ runner.temp }}/soundscaper-professional-native-source-cache
+
+      - name: Restore and authenticate transferred native sources
+        shell: bash
+        run: >-
+          node scripts/provision-milestone-5-native-sources.mjs --restore-archives --soundscaper-professional
+          --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: soundscaper-professional-native-build-result-${{ matrix.target.target }}
@@ -429,6 +436,7 @@ jobs:
             release/desktop/*.zip
             release/desktop/runtime-manifest-soundscaper-${{ matrix.target.target }}.json
           if-no-files-found: error
+          compression-level: 0
           retention-days: 30
 
       - name: Remove the temporary signing keychain
@@ -453,6 +461,12 @@ jobs:
         with:
           name: soundscaper-stable-native-source-cache
           path: ${{ runner.temp }}/soundscaper-professional-native-source-cache
+
+      - name: Restore and authenticate transferred native sources
+        shell: bash
+        run: >-
+          node scripts/provision-milestone-5-native-sources.mjs --restore-archives --soundscaper-professional
+          --root "$RUNNER_TEMP/soundscaper-professional-native-source-cache"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: soundscaper-stable-package-*
@@ -482,6 +496,7 @@ jobs:
         with:
           name: soundscaper-stable-1-release
           path: release/desktop/
+          compression-level: 0
           if-no-files-found: error
           retention-days: 90
 

@@ -158,20 +158,13 @@ test('desktop preview builds real ARA peers and retains the same authenticated o
 	assert.match(extractJob(workflow, 'professional-native-build'), /uses: \.\/\.github\/workflows\/soundscaper-professional-native-build\.yml/u);
 	const packageJob = extractJob(workflow, 'package');
 	assert.match(packageJob, /needs: \[[^\]]*professional-native-build/u);
-	for (const job of [packageJob, extractJob(workflow, 'milestone-5-package-audit-summary')]) {
-		assert.match(job, /pattern: soundscaper-professional-native-build-result-\*/u);
-		assert.match(job, /--result-directory="\$RUNNER_TEMP\/soundscaper-professional-native-build-results"/u);
-		for (const [name, directory] of [
-			['SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT', 'soundscaper-professional-native-source-cache'],
-			['SOUNDSCAPER_M5_NATIVE_BUILD_RESULT_ROOT', 'soundscaper-professional-native-build-results'],
-		] as const) {
-			const binding = `printf '${name}=%s/${directory}\\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"`;
-			assert.ok(job.includes(binding), `${name} must persist the authenticated runner root for subsequent steps`);
-			assert.ok(job.indexOf(binding) < job.indexOf('node scripts/stage-soundscaper-professional-native-build-result.mjs'),
-				`${name} must be available before staging the authenticated overlay`);
-		}
-	}
+	assert.match(packageJob, /name: soundscaper-professional-native-build-result-\$\{\{ matrix\.target\.platform \}\}-\$\{\{ matrix\.target\.arch \}\}/u);
+	assert.doesNotMatch(packageJob, /pattern: soundscaper-professional-native-build-result-\*/u);
+	assert.match(packageJob, /--result="\$RUNNER_TEMP\/soundscaper-professional-native-build-results\//u);
 	const release = extractJob(workflow, 'release-inventory');
+	assert.match(release, /if: github\.ref_type == 'tag'[\s\S]*?pattern: soundscaper-professional-native-build-result-\*/u);
+	assert.match(release, /--result-directory="\$RUNNER_TEMP\/soundscaper-professional-native-build-results"/u);
+	assert.match(release, /SOUNDSCAPER_M5_NATIVE_BUILD_RESULT_ROOT:/u);
 	assert.match(release, /SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT:/u);
 	assert.match(release, /path: release\/desktop\//u);
 	assert.match(release, /path: release\/desktop-ci\/\*\.json/u);

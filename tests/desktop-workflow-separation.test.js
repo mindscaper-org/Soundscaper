@@ -63,7 +63,7 @@ test('desktop distribution and automated test artifacts have separate workflow e
 	assert.match(previewHeader, /push:\s+tags:/u);
 	assert.match(previewHeader, /workflow_dispatch:/u);
 	assert.doesNotMatch(previewHeader, /workflow_run:|artifact_variant:|nightly_tests_targets:/u);
-	for (const job of ['package', 'milestone-5-package-audit-summary', 'release-inventory', 'soundscaper-project-library-lease-matrix']) {
+	for (const job of ['package', 'release-inventory', 'soundscaper-project-library-lease-matrix']) {
 		assert.ok(extractJob(preview, job).length > 0, `${job} belongs to desktop distribution`);
 	}
 	for (const job of ['nightly-test-targets', 'verify-assistance-runtime-handoff', 'package-with-tests']) {
@@ -81,7 +81,7 @@ test('desktop distribution and automated test artifacts have separate workflow e
 	for (const job of ['quality', 'tests', 'coverage', 'browser', 'firefox']) {
 		assert.doesNotMatch(tested, new RegExp(`^  ${job}:`, 'mu'));
 	}
-	for (const job of ['package', 'milestone-5-package-audit-summary', 'release-inventory', 'soundscaper-project-library-lease-matrix']) {
+	for (const job of ['package', 'release-inventory', 'soundscaper-project-library-lease-matrix']) {
 		assert.doesNotMatch(tested, new RegExp(`^  ${job}:`, 'mu'));
 	}
 	assert.match(testedHeader, /cancel-in-progress: false/u);

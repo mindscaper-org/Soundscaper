@@ -190,7 +190,7 @@ test('all OS-capable desktop staging paths build the codec host while Linux rece
 	assert.match(runtimeWorkflow, /run: node scripts\/prepare-assistance-runtimes\.mjs/u);
 	assert.doesNotMatch(runtimeWorkflow, /scripts\/(?:ci-build-os-audio-codec-host|desktop-prepare)\.mjs/u);
 	assert.doesNotMatch(previewProducerJob, /scripts\/(?:ci-build-os-audio-codec-host|desktop-prepare)\.mjs/u);
-	const packageJob = jobSource(workflow, 'package', 'milestone-5-package-audit-summary');
+	const packageJob = jobSource(workflow, 'package', 'release-inventory');
 	assert.match(packageJob,
 		/if: matrix\.product == 'soundscaper' && matrix\.target\.platform != 'linux'[\s\S]*ci-build-os-audio-codec-host/u);
 	const testsJob = jobSource(testedWorkflow, 'package-with-tests', null);

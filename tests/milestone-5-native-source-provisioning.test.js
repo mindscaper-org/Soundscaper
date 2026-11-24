@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -62,14 +62,14 @@ test('the Soundscaper professional cache covers exactly the inputs to all native
 test('retained OrbitAmp source archives provision and authenticate without their upstream URLs', async (context) => {
 	const root = await mkdtemp(join(tmpdir(), 'm5-provision-retained-'));
 	context.after(() => rm(root, { recursive: true, force: true }));
-	const sources = ['orbit-amp', 'orbit-core', 'orbit-guitar', 'orbit-appkit', 'orbit-eigen'];
+	const sources = ['orbit-amp', 'orbit-core', 'orbit-guitar', 'orbit-appkit', 'orbit-eigen', 'orbit-cab-ir'];
 	const args = [...sources.flatMap(id => ['--source', id]), '--root', root];
 	const provisioned = provision(args, ['--permission', '--allow-fs-read=*', '--allow-fs-write=*']);
 	assert.equal(provisioned.status, 0, provisioned.output);
 	for (const id of sources) assert.match(provisioned.output, new RegExp(`provisioned\\s+${id}\\b`, 'u'));
 	const checked = provision(['--check', ...args]);
 	assert.equal(checked.status, 0, checked.output);
-	assert.match(checked.output, /5\/5 exact archive\/extracted-tree inputs authenticated/u);
+	assert.match(checked.output, /6\/6 exact archive\/extracted-tree inputs authenticated/u);
 });
 
 test('an archive that does not match its pin provisions nothing', async (context) => {
@@ -87,6 +87,23 @@ test('an archive that does not match its pin provisions nothing', async (context
 	assert.match(output, /failed\s+lv2\s+archive drifted from its pin/u);
 	assert.equal(existsSync(join(cache, 'lv2')), false, 'a refused archive leaves no cache entry');
 	assert.deepEqual(readdirSync(cache), [], 'no staging directory survives a refused source');
+});
+
+test('CI restores transferred source archives offline and refuses missing or damaged inputs', async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'm5-provision-transfer-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const entry = join(root, 'orbit-eigen');
+	const name = 'orbit-eigen-bc3b39870ecb.tar.gz';
+	mkdirSync(entry);
+	const args = ['--restore-archives', '--source', 'orbit-eigen', '--root', root];
+	assert.match(provision(args).output, /not.*archive/u);
+	writeFileSync(join(entry, name), 'damaged');
+	assert.match(provision(args).output, /archive byte length drifted from its pin/u);
+	assert.equal(existsSync(join(entry, 'source')), false);
+	cpSync(new URL(`../vendor/milestone-5-source-archives/${name}`, import.meta.url), join(entry, name));
+	const restored = provision(args, ['--permission', '--allow-fs-read=*', '--allow-fs-write=*']);
+	assert.equal(restored.status, 0, restored.output);
+	assert.equal(provision(['--check', ...args.slice(1)]).status, 0);
 });
 
 test('a cache entry holding anything but its exact pair is reported as drifted', async (context) => {

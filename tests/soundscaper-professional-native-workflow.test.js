@@ -75,7 +75,7 @@ test('dispatchable native-build workflow produces results without promotion cont
 	assert.doesNotMatch(source, /promot|signing|certificate|secrets: inherit/iu);
 });
 
-test('every professional-native source producer provisions and checks the shared source scope before upload', async () => {
+test('every professional-native source producer authenticates once before uploading only pinned archives', async () => {
 	for (const [workflow, job] of [
 		['desktop-nightly-tests.yml', 'professional-native-source'],
 		['desktop-preview.yml', 'professional-native-source'],
@@ -86,8 +86,8 @@ test('every professional-native source producer provisions and checks the shared
 		const upload = source.indexOf('uses: actions/upload-artifact@');
 		assert.ok(upload > 0, workflow);
 		const scopeLines = source.slice(0, upload).split('\n').filter(line => line.includes('--soundscaper-professional'));
-		assert.equal(scopeLines.length, 2, workflow);
+		assert.equal(scopeLines.length, 1, workflow);
 		assert.doesNotMatch(scopeLines[0], /--check/u, workflow);
-		assert.match(scopeLines[1], /--check/u, workflow);
+		assert.match(source.slice(upload), /\*\/\*\.tar\.gz[\s\S]*?\*\/\*\.zip[\s\S]*?compression-level: 0/u, workflow);
 	}
 });
