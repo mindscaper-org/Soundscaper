@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const TRACKTION_BLOCK_FRAMES = 128;
+export type TracktionAudioBuffers = Readonly<{ output: SharedArrayBuffer; capture?: SharedArrayBuffer }>;
+
 const capacity = 2048;
 const cursorBytes = 2 * Int32Array.BYTES_PER_ELEMENT;
 const bufferBytes = cursorBytes + capacity * 2 * Float32Array.BYTES_PER_ELEMENT;

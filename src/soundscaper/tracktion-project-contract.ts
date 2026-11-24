@@ -100,5 +100,6 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;
+	onRecordingInterrupted?(listener: () => void): () => void;
 	openArchive?(): Promise<TracktionOpenedProject | null>;
 }

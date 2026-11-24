@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { RECORDING_RECOVERY_COPY } from '../../common/i18n/editor-recording-recovery-copy.ts';
@@ -42,6 +42,11 @@ export function TracktionEditor({ bridge, recordingInput = true }: {
 		window.addEventListener('beforeunload', onUnload);
 		return () => window.removeEventListener('beforeunload', onUnload);
 	}, [dirty, recording]);
+
+	const recoverMicrophone = useEffectEvent(() => {
+		finishRecording(false);
+	});
+	useEffect(() => bridge.onRecordingInterrupted?.(() => recoverMicrophone()), [bridge]);
 
 	function run(work: () => Promise<void>): void {
 		if (pending.current) return;

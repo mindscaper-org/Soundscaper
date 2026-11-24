@@ -25,6 +25,13 @@ std::mutex playbackMutex;
 bool playbackPrepared = false;
 std::unique_ptr<Session> session;
 
+void prepareHostedDevice()
+{
+	const std::scoped_lock lock(playbackMutex);
+	if (!playbackPrepared) session->preparePlayback(blockFrames, true);
+	playbackPrepared = true;
+}
+
 juce::var execute(const juce::var& request)
 {
 	const auto* object = request.getDynamicObject();
@@ -78,15 +85,12 @@ juce::var execute(const juce::var& request)
 	{
 		if (object->getProperties().size() != 1)
 			throw std::invalid_argument("The Tracktion playback command is invalid");
-		{
-			const std::scoped_lock lock(playbackMutex);
-			if (!playbackPrepared) session->preparePlayback(blockFrames);
-			playbackPrepared = true;
-		}
+		prepareHostedDevice();
 		juce::DynamicObject::Ptr status = new juce::DynamicObject();
 		status->setProperty("kind", "transportStatus");
 		return dispatch(*session, juce::File("/exchange"), juce::var(status.get()));
 	}
+	if (kind == "startRecording") prepareHostedDevice();
 	return dispatch(*session, juce::File("/exchange"), request);
 }
 
@@ -127,16 +131,17 @@ extern "C" EMSCRIPTEN_KEEPALIVE int soundscaper_submit(int id, const char* bytes
 	return juce::MessageManager::callAsync([id, body] { respond(id, body); });
 }
 
-extern "C" EMSCRIPTEN_KEEPALIVE int soundscaper_read_playback(float* output)
+extern "C" EMSCRIPTEN_KEEPALIVE int soundscaper_read_playback(float* output, const float* input, int frames)
 {
 	const std::unique_lock lock(playbackMutex, std::try_to_lock);
-	if (!output || !lock.owns_lock() || !session || !playbackPrepared) return 0;
+	if (!output || !lock.owns_lock() || !session || !playbackPrepared || frames <= 0 || frames > blockFrames) return 0;
 	static juce::AudioBuffer<float> audio(2, blockFrames);
 	static juce::MidiBuffer midi;
+	audio.setSize(2, frames, false, false, true);
 	midi.clear();
-	if (!session->processPlaybackBlock(audio, midi)) return 0;
+	if (!session->processPlaybackBlock(audio, midi, input)) return 0;
 	for (int channel = 0; channel < 2; ++channel)
-		std::copy_n(audio.getReadPointer(channel), blockFrames, output + channel * blockFrames);
+		std::copy_n(audio.getReadPointer(channel), frames, output + channel * blockFrames);
 	return 1;
 }
 

@@ -57,10 +57,11 @@ for source in /source/juce/modules/juce_core/juce_core_zlib.c \
 	emcc "${flags[@]}" -c "$source" -o "$object"
 done
 
-# The command thread can wait for cache readers while the Emscripten runtime
-# continues servicing their proxied file I/O.
+# Keep JUCE file reads and recording writes in Wasm across pthreads.
+# The JavaScript worker can continue serving editor and hosted audio requests.
 link() {
 	em++ -pthread -fexceptions "${objects[@]}" -sINITIAL_MEMORY=134217728 \
+		-sWASMFS=1 -sFORCE_FILESYSTEM=1 \
 		-sPTHREAD_POOL_SIZE=16 -sPTHREAD_POOL_SIZE_STRICT=2 -sPROXY_TO_PTHREAD=1 -sSTACK_SIZE=524288 "$@"
 }
 

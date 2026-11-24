@@ -3,13 +3,11 @@
 import { request, transact } from '../../../src/common/media/indexeddb.ts';
 
 export interface TracktionVirtualFilesystem {
-	analyzePath(path: string): { exists: boolean };
+	findObject(path: string): { isFolder: boolean } | null;
 	mkdirTree(path: string): void;
 	readFile(path: string): Uint8Array;
 	writeFile(path: string, data: Uint8Array): void;
 	readdir(path: string): string[];
-	stat(path: string): { mode: number };
-	isDir(mode: number): boolean;
 	unlink(path: string): void;
 	rmdir(path: string): void;
 }
@@ -135,11 +133,11 @@ export function discardWorkingProject(fs: TracktionVirtualFilesystem, project: W
 		for (const name of fs.readdir(path)) {
 			if (name === '.' || name === '..') continue;
 			const child = `${path}/${name}`;
-			if (fs.isDir(fs.stat(child).mode)) discard(child);
+			if (fs.findObject(child)?.isFolder) discard(child);
 			else fs.unlink(child);
 		}
 		fs.rmdir(path);
 	}
 	const path = `/projects/${project.directory}`;
-	if (fs.analyzePath(path).exists) discard(path);
+	if (fs.findObject(path)) discard(path);
 }
