@@ -4,11 +4,14 @@
 #include "project_archive.h"
 #include "session.h"
 
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_events/juce_events.h>
 #include <emscripten.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
 #include <stdexcept>
 
 namespace
@@ -17,6 +20,9 @@ using namespace soundscaper::tracktion_backend;
 
 constexpr int maximumCommandBytes = 64 * 1024;
 constexpr std::int64_t maximumExpandedArchiveBytes = 64 * 1024 * 1024;
+constexpr auto blockFrames = 128;
+std::mutex playbackMutex;
+bool playbackPrepared = false;
 std::unique_ptr<Session> session;
 
 juce::var execute(const juce::var& request)
@@ -53,6 +59,8 @@ juce::var execute(const juce::var& request)
 		page->setProperty("kind", "project");
 		page->setProperty("offset", 0);
 		auto result = dispatch(*next, juce::File("/exchange"), juce::var(page.get()));
+		const std::scoped_lock lock(playbackMutex);
+		playbackPrepared = false;
 		session = std::move(next);
 		return result;
 	}
@@ -60,10 +68,25 @@ juce::var execute(const juce::var& request)
 	{
 		if (object->getProperties().size() != 1)
 			throw std::invalid_argument("The Tracktion close command is invalid");
+		const std::scoped_lock lock(playbackMutex);
+		playbackPrepared = false;
 		session.reset();
 		return {};
 	}
 	if (!session) throw std::invalid_argument("There is no open Tracktion project");
+	if (kind == "prepareOutput")
+	{
+		if (object->getProperties().size() != 1)
+			throw std::invalid_argument("The Tracktion playback command is invalid");
+		{
+			const std::scoped_lock lock(playbackMutex);
+			if (!playbackPrepared) session->preparePlayback(blockFrames);
+			playbackPrepared = true;
+		}
+		juce::DynamicObject::Ptr status = new juce::DynamicObject();
+		status->setProperty("kind", "transportStatus");
+		return dispatch(*session, juce::File("/exchange"), juce::var(status.get()));
+	}
 	return dispatch(*session, juce::File("/exchange"), request);
 }
 
@@ -102,6 +125,19 @@ extern "C" EMSCRIPTEN_KEEPALIVE int soundscaper_submit(int id, const char* bytes
 	if (id <= 0 || !bytes || size <= 0 || size > maximumCommandBytes) return 0;
 	const auto body = juce::String::fromUTF8(bytes, size);
 	return juce::MessageManager::callAsync([id, body] { respond(id, body); });
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE int soundscaper_read_playback(float* output)
+{
+	const std::unique_lock lock(playbackMutex, std::try_to_lock);
+	if (!output || !lock.owns_lock() || !session || !playbackPrepared) return 0;
+	static juce::AudioBuffer<float> audio(2, blockFrames);
+	static juce::MidiBuffer midi;
+	midi.clear();
+	if (!session->processPlaybackBlock(audio, midi)) return 0;
+	for (int channel = 0; channel < 2; ++channel)
+		std::copy_n(audio.getReadPointer(channel), blockFrames, output + channel * blockFrames);
+	return 1;
 }
 
 int main()

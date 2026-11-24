@@ -17,9 +17,9 @@ const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
 
-export function TracktionEditor({ bridge, deviceTransport = true }: {
+export function TracktionEditor({ bridge, recordingInput = true }: {
 	readonly bridge: TracktionProjectBridge;
-	readonly deviceTransport?: boolean;
+	readonly recordingInput?: boolean;
 }) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
@@ -71,7 +71,7 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readTracktionWorkspace(bridge, opened);
-			setTransport(deviceTransport ? await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }) : null);
+			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
 		});
@@ -216,7 +216,7 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
 			</details>
-			{deviceTransport && <details>
+			<details>
 				<summary>{transportCopy.transport}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={() => controlPlayback('play')}>
@@ -231,14 +231,14 @@ export function TracktionEditor({ bridge, deviceTransport = true }: {
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => controlPlayback('seek')}>
 						{transportCopy.jumpStart}
 					</button>
-					<button type="button" disabled={busy || recording || !workspace?.selectedTrack || transport?.playing} onClick={startRecording}>
+					{recordingInput && <button type="button" disabled={busy || recording || !workspace?.selectedTrack || transport?.playing} onClick={startRecording}>
 						{transportCopy.recordActiveTrack}
-					</button>
+					</button>}
 					{recording && <button type="button" disabled={busy} onClick={() => finishRecording(true)}>
 						{RECORDING_RECOVERY_COPY.ordinaryRecoveryDiscard}
 					</button>}
 				</div>
-			</details>}
+			</details>
 		</nav>
 		{clipEdit && workspace && <TracktionClipEditDialog kind={clipEdit}
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyClipEdit} onDismiss={() => setClipEdit(null)} />}

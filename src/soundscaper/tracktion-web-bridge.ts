@@ -4,7 +4,9 @@ import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../common/i18n/project-command-c
 
 import type {
 	TracktionOpenedProject, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply,
+	TracktionTransportView,
 } from './tracktion-project-contract.ts';
+import { TracktionWebAudio } from './tracktion-web-audio.ts';
 
 type LocalProject = Readonly<{ id: string; name: string }>;
 type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string }>;
@@ -15,7 +17,8 @@ const handle = () => crypto.randomUUID().replaceAll('-', '');
 
 export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge {
 	const pending = new Map<number, Readonly<{ resolve(reply: WorkerReply): void; reject(error: Error): void }>>();
-	let project: Readonly<{ sessionId: string; name: string }> | undefined;
+	const audio = new TracktionWebAudio();
+	let project: Readonly<{ sessionId: string; name: string; sampleRate: number }> | undefined;
 	let sequence = 0;
 	let failure: Error | undefined;
 
@@ -27,10 +30,12 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 	});
 	worker.addEventListener('error', (event) => {
 		failure = new Error(event.message || 'The Tracktion browser worker stopped');
+		audio.stop();
+		worker.terminate();
 		for (const request of pending.values()) request.reject(failure);
 	});
 
-	async function send(request: Readonly<Record<string, unknown>>, input?: ArrayBuffer): Promise<WorkerReply> {
+	async function send(request: Readonly<Record<string, unknown>>, input?: ArrayBuffer, shared?: SharedArrayBuffer): Promise<WorkerReply> {
 		if (failure) throw failure;
 		const id = ++sequence;
 		let deadline: number | undefined;
@@ -39,10 +44,11 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 				pending.set(id, { resolve, reject });
 				deadline = window.setTimeout(() => {
 					failure = new Error('The Tracktion browser worker did not respond');
+					audio.stop();
 					worker.terminate();
 					for (const request of pending.values()) request.reject(failure);
 				}, 60_000);
-				worker.postMessage({ id, request, input }, input ? [input] : []);
+				worker.postMessage({ id, request, input, audio: shared }, input ? [input] : []);
 			});
 		} finally {
 			window.clearTimeout(deadline);
@@ -58,11 +64,25 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 			if (!selection?.name) return null;
 			const request = { ...command, project: selection.id };
 			const { value } = await send(command.kind === 'create' ? { ...request, name: selection.name } : request);
-			return describeOpened(selection.name, value, command.kind === 'create');
+			return await describeOpened(selection.name, value, command.kind === 'create');
 		}
 
 		const { sessionId, ...request } = command;
 		if (project?.sessionId !== sessionId) throw new Error('This Tracktion project handle has expired');
+		if (request.kind === 'prepareOutput') await audio.prepare(project.sampleRate);
+		if (request.kind === 'play' || (request.kind === 'seek' && audio.playing)) {
+			const shared = audio.buffer();
+			const { value } = await send(request, undefined, shared);
+			try {
+				if ((value as TracktionTransportView).playing) audio.connect(shared);
+				else audio.stop();
+			} catch (error) {
+				audio.stop();
+				await send({ kind: 'stop' }).catch(() => undefined);
+				throw error;
+			}
+			return value;
+		}
 		if (request.kind === 'import') {
 			const wave = await chooseFile('.wav,audio/wav');
 			if (!wave) return null;
@@ -75,15 +95,20 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 			download(reply.output, project.name, request.kind === 'archive' ? 'zip' : 'wav');
 			return reply.value;
 		}
+		if (request.kind === 'stop') audio.stop();
 		const reply = await send(request);
 		if (request.kind !== 'close') return reply.value;
 		project = undefined;
+		await audio.close();
 		return null;
 	}
 
-	function describeOpened(name: string, value: unknown, initiallyUnsaved: boolean): TracktionOpenedProject {
-		project = { sessionId: handle(), name };
-		return { ...project, project: value as TracktionProjectPage, initiallyUnsaved };
+	async function describeOpened(name: string, value: unknown, initiallyUnsaved: boolean): Promise<TracktionOpenedProject> {
+		await audio.close();
+		const page = value as TracktionProjectPage;
+		const sessionId = handle();
+		project = { sessionId, name, sampleRate: page.sampleRate };
+		return { sessionId, name, project: page, initiallyUnsaved };
 	}
 
 	return {
@@ -96,7 +121,7 @@ export function createTracktionWebBridge(worker: Worker): TracktionProjectBridge
 			if (archive.size > 16 * 1024 * 1024) throw new Error('The browser Tracktion core accepts ZIP files up to 16 MiB');
 			const name = archive.name.replace(/\.zip$/iu, '').slice(0, 128).trim() || copy.untitledProject;
 			const { value } = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
-			return describeOpened(name, value, true);
+			return await describeOpened(name, value, true);
 		},
 	};
 }

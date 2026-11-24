@@ -46,7 +46,7 @@ export async function verifyTracktionWasmInBrowsers(output) {
 				await page.evaluate(verifyWorkerCommands);
 				console.log(`${browserType.name()} passed Tracktion worker commands, WAV exchange and persistent project reopen.`);
 				await verifyTracktionWebEditor(page, origin);
-				console.log(`${browserType.name()} passed the Tracktion web editor from WAV import through save, reload and export.`);
+				console.log(`${browserType.name()} passed Tracktion browser playback, editing, persistent reopen and ZIP exchange.`);
 			} finally {
 				await browser.close();
 			}

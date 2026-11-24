@@ -7,6 +7,8 @@ import type { Page } from 'playwright-core';
 
 import { wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
 
+type PlaybackWindow = Window & { tracktionTestAnalyser?: AnalyserNode; tracktionTestStarts?: number };
+
 export async function verifyTracktionWebEditor(page: Page, origin: string): Promise<void> {
 	const name = 'Tracktion browser project';
 	const fileMenu = page.getByText('File', { exact: true });
@@ -15,6 +17,20 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 		if (await fileMenu.locator('..').getAttribute('open') === null) await fileMenu.click();
 		await button(label).click();
 	}
+	await page.addInitScript(() => {
+		if (!window.AudioWorkletNode) return;
+		class ObservedWorklet extends AudioWorkletNode {
+			constructor(context: BaseAudioContext, name: string, options?: AudioWorkletNodeOptions) {
+				super(context, name, options);
+				const analyser = context.createAnalyser();
+				this.connect(analyser);
+				const observed = window as PlaybackWindow;
+				observed.tracktionTestAnalyser = analyser;
+				observed.tracktionTestStarts = (observed.tracktionTestStarts ?? 0) + 1;
+			}
+		}
+		window.AudioWorkletNode = ObservedWorklet;
+	});
 	await page.goto(`${origin}/editor`);
 	await page.getByRole('heading', { name: 'Soundscaper Tracktion' }).waitFor();
 	const nameProject = page.waitForEvent('dialog').then((dialog) => dialog.accept(name));
@@ -24,10 +40,32 @@ export async function verifyTracktionWebEditor(page: Page, origin: string): Prom
 	await Promise.all([keepProject, fileCommand('Close project')]);
 	await page.getByRole('heading', { name }).waitFor();
 	const upload = page.waitForEvent('filechooser').then((chooser) => chooser.setFiles({
-		name: 'Tracktion web media.wav', mimeType: 'audio/wav', buffer: wavFixture(1024),
+		name: 'Tracktion web media.wav', mimeType: 'audio/wav', buffer: wavFixture(96_000),
 	}));
 	await Promise.all([upload, fileCommand('Import audio')]);
-	await page.getByText('Tracktion web media (0–1024)', { exact: true }).waitFor();
+	await page.getByText('Tracktion web media (0–96000)', { exact: true }).waitFor();
+	const transport = page.getByText('Playback and recording', { exact: true });
+	await transport.click();
+	await button('Play').click();
+	try {
+		await page.getByRole('status').filter({ hasText: 'Playing' }).waitFor({ timeout: 12_000 });
+	} catch (cause) {
+		const details = await page.getByRole('alert').allTextContents();
+		throw new Error(`Tracktion browser playback did not start. ${details.join(' ')}`, { cause });
+	}
+	await page.waitForFunction(() => {
+		const analyser = (window as PlaybackWindow).tracktionTestAnalyser;
+		if (!analyser) return false;
+		const samples = new Float32Array(analyser.fftSize);
+		analyser.getFloatTimeDomainData(samples);
+		return samples.some((sample) => Math.abs(sample) >= 0.025);
+	}, undefined, { timeout: 5_000 });
+	await transport.click();
+	await button('Jump to project start').click();
+	await page.waitForFunction(() => (window as PlaybackWindow).tracktionTestStarts === 2);
+	await transport.click();
+	await button('Stop').click();
+	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
 	const editing = page.getByText('Editing tools', { exact: true });
 	await editing.click();
 	await button('Split clip').click();

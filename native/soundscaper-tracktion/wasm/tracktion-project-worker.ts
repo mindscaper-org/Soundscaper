@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { TRACKTION_BLOCK_FRAMES, TracktionAudioQueue } from '../../../src/soundscaper/tracktion-audio-queue.ts';
+
 import {
 	discardWorkingProject, listTracktionProjects, publishTracktionProject, restoreTracktionProject,
 	type TracktionVirtualFilesystem, type WorkingProject,
@@ -11,6 +13,7 @@ interface WasmRuntime {
 	_malloc(size: number): number;
 	_free(pointer: number): void;
 	_soundscaper_submit(id: number, pointer: number, length: number): number;
+	_soundscaper_read_playback(pointer: number): number;
 	UTF8ToString(pointer: number): string;
 }
 
@@ -22,7 +25,7 @@ interface WasmSettings {
 }
 
 type ProjectCommand = Readonly<{ kind: string; asset?: string }> & Readonly<Record<string, unknown>>;
-type CommandMessage = Readonly<{ id: number; request: ProjectCommand; input?: ArrayBuffer }>;
+type CommandMessage = Readonly<{ id: number; request: ProjectCommand; input?: ArrayBuffer; audio?: SharedArrayBuffer }>;
 type NativeReply = Readonly<{ error?: string; detail?: string; value?: unknown }>;
 type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer }>;
 
@@ -41,6 +44,7 @@ const maxInputBytes = 16 * 1024 * 1024;
 let completion: Readonly<{ id: number; resolve: (result: NativeReply) => void }> | undefined;
 let failed: Error | undefined;
 let activeProject: WorkingProject | undefined;
+let stopAudio: (() => void) | undefined;
 
 const ready = new Promise<void>((resolve) => {
 	scope.Module = {
@@ -86,6 +90,31 @@ function hostError(error: unknown): NativeReply {
 	return { error: 'host', detail: error instanceof Error ? error.message : String(error) };
 }
 
+function stopPlayback(): void {
+	stopAudio?.();
+	stopAudio = undefined;
+}
+
+function startPlayback(runtime: WasmRuntime, shared: SharedArrayBuffer): void {
+	const queue = new TracktionAudioQueue(shared);
+	const pointer = runtime._malloc(TRACKTION_BLOCK_FRAMES * 2 * Float32Array.BYTES_PER_ELEMENT);
+	if (!pointer) throw new Error('Tracktion ran out of playback memory');
+	const block = new Float32Array(runtime.HEAPU8.buffer, pointer, TRACKTION_BLOCK_FRAMES * 2);
+	function produce(): void {
+		const available = queue.writableBlocks();
+		for (let index = 0; index < available; index += 1) {
+			if (runtime._soundscaper_read_playback(pointer) === 0) return;
+			queue.writeBlock(block);
+		}
+	}
+	const timer = setInterval(produce, 4);
+	stopAudio = () => {
+		clearInterval(timer);
+		runtime._free(pointer);
+	};
+	produce();
+}
+
 async function openProject(runtime: WasmRuntime, message: CommandMessage): Promise<NativeReply> {
 	const { request } = message;
 	if (typeof request.project !== 'string' || !assetId.test(request.project)) {
@@ -103,6 +132,7 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 		if (request.kind === 'open') next = await restoreTracktionProject(runtime.FS, next);
 		const reply = await submit(runtime, { ...message, request: { ...native, project: next.directory } });
 		if (!reply.error) {
+			stopPlayback();
 			const previous = activeProject;
 			activeProject = next;
 			if (previous) discardWorkingProject(runtime.FS, previous);
@@ -138,8 +168,11 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 			}
 		}
 		if (request.kind === 'openArchive') return await openProject(runtime, message);
+		if (request.kind === 'stop' || request.kind === 'seek' || request.kind === 'play' || request.kind === 'close') stopPlayback();
 		const reply = await submit(runtime, message);
 		if (reply.error) return reply;
+		if (message.audio && (request.kind === 'play' || request.kind === 'seek')
+			&& (reply.value as { playing?: boolean } | undefined)?.playing) startPlayback(runtime, message.audio);
 		if (request.kind === 'save' && activeProject) {
 			activeProject = await publishTracktionProject(runtime.FS, activeProject);
 		}

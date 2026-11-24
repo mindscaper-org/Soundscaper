@@ -7,7 +7,10 @@ import { extname, join } from 'node:path';
 const contentTypes = {
 	'.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
 };
-const editorFiles = ['index.html', 'editor.js', 'editor.css', 'edit-core.js', 'edit-core.worker.js', 'edit-core.wasm', 'tracktion-project-worker.js'];
+const editorFiles = [
+	'index.html', 'editor.js', 'editor.css', 'edit-core.js', 'edit-core.worker.js', 'edit-core.wasm',
+	'tracktion-project-worker.js', 'tracktion-audio-worklet.js',
+];
 
 export async function loadTracktionWebAssets(directory) {
 	return new Map(await Promise.all(editorFiles.map(async (name) => [`/${name}`, await loadAsset(directory, name)])));

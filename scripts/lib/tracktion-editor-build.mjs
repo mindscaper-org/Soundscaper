@@ -23,6 +23,11 @@ export async function buildTracktionEditor(destination, browser = false) {
 		}),
 		copyFile(resolve(source, 'tracktion-editor.html'), resolve(destination, 'index.html')),
 		copyFile(resolve(source, 'tracktion-editor.css'), resolve(destination, 'editor.css')),
+		...(browser ? [build({
+			entryPoints: [resolve(root, 'src/soundscaper/tracktion-audio-worklet.ts')],
+			outfile: resolve(destination, 'tracktion-audio-worklet.js'),
+			platform: 'browser', format: 'iife', bundle: true, minify: true,
+		})] : []),
 	]);
 }
 

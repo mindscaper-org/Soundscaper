@@ -157,9 +157,13 @@ void runSessionTest(const juce::File& root)
 		const auto wrappedPosition = reopened.playbackPosition();
 		require(wrappedPosition >= 450 && wrappedPosition <= 975, "hosted playhead wraps within the loop");
 		reopened.stop();
-		const auto archive = root.getChildFile("project.zip");
 		std::cout << "Rendered the reopened project and checked hosted playback." << std::endl;
-		reopened.archive(saved.revision, archive);
+	}
+	{
+		Session savedProject(moved, state, OpenMode::open, 0);
+		const auto archive = root.getChildFile("project.zip");
+		savedProject.archive(savedProject.revision(), archive);
+		std::cout << "Wrote the Tracktion project ZIP." << std::endl;
 		const auto extracted = root.getChildFile("archive-copy");
 		rejectArchive(archive, root.getChildFile("oversized-archive"), 64);
 		extractProjectArchive(archive, extracted, 4 * 1024 * 1024);
