@@ -261,7 +261,7 @@ test('mapped repository sources cannot hide stable-spelling executable producers
 	}
 });
 
-test('actual product control sources retain exactly the attested renderer recipe callsite', async (context) => {
+test('actual desktop main processes enforce their renderer recipe contracts', async (context) => {
 	const framescaper = await readFile(resolve(ROOT, 'desktop/renderer-smoke-execution.js'), 'utf8');
 	assert.doesNotThrow(() => validateE2EDynamicScriptExclusions([{
 		artifactPath: 'app/desktop/renderer-smoke-execution.js', source: framescaper,
@@ -272,10 +272,15 @@ test('actual product control sources retain exactly the attested renderer recipe
 	const applicationRoot = join(temporary, 'desktop');
 	await mkdir(applicationRoot, { recursive: true });
 	await stageSoundscaperDesktopEntrySources(resolve(ROOT, 'desktop'), applicationRoot);
-	const soundscaper = await readFile(join(applicationRoot, 'desktop-smoke.js'), 'utf8');
-	assert.doesNotThrow(() => validateE2EDynamicScriptExclusions([{
-		artifactPath: 'app/desktop/desktop-smoke.js', source: soundscaper,
-	}], 'soundscaper'));
+	const soundscaper = await readFile(join(applicationRoot, 'main.mjs'), 'utf8');
+	assert.deepEqual(validateE2EDynamicScriptExclusions([{
+		artifactPath: 'app/desktop/main.mjs', source: soundscaper,
+	}], 'soundscaper'), []);
+	assert.throws(() => validateE2EDynamicScriptExclusions([{ source: framescaper }], 'soundscaper'),
+		/unapproved dynamic-script recipes/u);
+	assert.throws(() => validateE2EDynamicScriptExclusions([{
+		source: 'window.webContents.executeJavaScript(untrustedSource);',
+	}], 'soundscaper'), /unattested executable-string primitive/u);
 });
 
 function canonicalExecuteRecipeSource() {

@@ -8,11 +8,6 @@ import {
 	soundscaperAssistanceRegistrationSource,
 	soundscaperConstantsSource,
 	soundscaperDesktopCodecSource,
-	soundscaperDesktopSmokeDeferredModuleSource,
-	soundscaperDesktopSmokeSource,
-	soundscaperNativeTierSource,
-	soundscaperProductIsolationModuleSource,
-	soundscaperProjectRuntimeSource,
 	soundscaperProtocolSource,
 } from './desktop-product-package-files.mjs';
 import { stageTracktionDesktopApplication } from './tracktion-desktop-staging.mjs';
@@ -183,69 +178,14 @@ export async function stageSoundscaperDesktopEntrySources(sourceRoot, applicatio
 			join(sourceRoot, 'assistance-registration.mjs'), 'utf8',
 		)));
 	await stageTracktionDesktopApplication(sourceRoot, applicationRoot);
-	await writeFile(join(applicationRoot, 'native-tier-registration.mjs'),
-		soundscaperNativeTierSource(await readFile(
-			join(sourceRoot, 'native-tier-registration.mjs'), 'utf8',
-		)));
 	await writeFile(join(applicationRoot, 'constants.js'),
 		soundscaperConstantsSource(await readFile(join(sourceRoot, 'constants.js'), 'utf8')));
 	await writeFile(join(applicationRoot, 'desktop-codec-main-integration.mjs'),
 		soundscaperDesktopCodecSource(await readFile(
 			join(sourceRoot, 'desktop-codec-main-integration.mjs'), 'utf8',
 		)));
-	await writeFile(join(applicationRoot, 'project-library-product-runtime.js'),
-		soundscaperProjectRuntimeSource(await readFile(
-			join(sourceRoot, 'project-library-product-runtime.js'), 'utf8',
-		)));
 	await writeFile(join(applicationRoot, 'protocol.js'),
 		soundscaperProtocolSource(await readFile(join(sourceRoot, 'protocol.js'), 'utf8')));
-	await writeFile(join(applicationRoot, 'soundscaper-product-isolation.mjs'),
-		soundscaperProductIsolationModuleSource(), { flag: 'wx' });
-	await bundleSoundscaperDesktopSmoke(sourceRoot, applicationRoot);
-}
-
-async function bundleSoundscaperDesktopSmoke(sourceRoot, applicationRoot) {
-	await build({
-		stdin: {
-			contents: soundscaperDesktopSmokeSource(await readFile(
-				join(sourceRoot, 'desktop-smoke.js'), 'utf8',
-			)),
-			loader: 'js', resolveDir: sourceRoot, sourcefile: 'desktop-smoke.js',
-		},
-		outfile: join(applicationRoot, 'desktop-smoke.js'),
-		bundle: true,
-		platform: 'node',
-		format: 'esm',
-		target: 'node26',
-		plugins: [{
-			name: 'deferred-product-smoke',
-			setup(pluginBuild) {
-				pluginBuild.onLoad({ filter: /\.m?js$/ }, async (args) => ({
-					contents: (await readFile(args.path, 'utf8'))
-						.replaceAll('scope?.framescaperDesktop?.v1?.projectLibrary', 'undefined')
-						.replaceAll('globalScope.framescaperDesktop?.v1?.projectLibrary', 'undefined')
-						.replaceAll("new Set(['soundscaper', 'framescaper'])", "new Set(['soundscaper'])")
-						.replaceAll("['soundscaper', 'framescaper'].includes(plan.productId)",
-							"plan.productId === 'soundscaper'"),
-					loader: 'js',
-				}));
-				pluginBuild.onResolve({ filter: /^\.\/project-library-runtime\// }, (args) => ({
-					path: args.path, external: true,
-				}));
-				pluginBuild.onResolve({ filter: /(^|\/)framescaper-/ }, () => ({
-					path: 'deferred-product-smoke', namespace: 'deferred-product-smoke',
-				}));
-				pluginBuild.onLoad({ filter: /.*/, namespace: 'deferred-product-smoke' }, () => ({
-					contents: soundscaperDesktopSmokeDeferredModuleSource(), loader: 'js',
-				}));
-			},
-		}],
-		minifyIdentifiers: true,
-		minifySyntax: true,
-		minifyWhitespace: true,
-		logLevel: 'silent',
-		allowOverwrite: true,
-	});
 }
 
 /** Inline TypeScript grant helpers while retaining the application's product-specific JavaScript imports. */

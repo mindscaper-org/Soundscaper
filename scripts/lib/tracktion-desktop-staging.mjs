@@ -20,7 +20,10 @@ export async function stageTracktionDesktopApplication(sourceRoot, applicationRo
 		platform: 'node',
 		format: 'esm',
 		target: 'node26',
-		external: ['electron', 'electron/*', './constants.js', './protocol.js', './save-targets.js'],
+		external: [
+			'electron', 'electron/*', './constants.js', './protocol.js', './save-targets.js',
+			'./tracktion-installed-plugin-registration.mjs',
+		],
 	});
 }
 

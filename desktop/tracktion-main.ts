@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { existsSync, mkdirSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 
 import { app, Menu } from 'electron/main';
 
@@ -61,15 +59,10 @@ async function start(): Promise<void> {
 }
 
 async function installedPlugins(parentWindow: () => Electron.BrowserWindow | null) {
-	const entry = join(prepared ? root : join(root, '.desktop-build/app'), 'desktop/tracktion-installed-plugin-registration.mjs');
-	try { await stat(entry); }
-	catch (error) {
-		if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') return null;
-		throw error;
-	}
+	if (!prepared) return null;
 	type PluginRuntime = { library: TracktionPluginLibrary; dispose(): Promise<void> };
-	const { startTracktionInstalledPlugins } = await import(pathToFileURL(entry).href) as {
+	const { startTracktionInstalledPlugins } = await import('./tracktion-installed-plugin-registration.mjs') as {
 		startTracktionInstalledPlugins(options: { profile: string; parentWindow: typeof parentWindow; resourcesPath: string }): Promise<PluginRuntime>;
 	};
-	return await startTracktionInstalledPlugins({ profile, parentWindow, resourcesPath: prepared ? resources : join(root, '.desktop-build') });
+	return await startTracktionInstalledPlugins({ profile, parentWindow, resourcesPath: resources });
 }

@@ -238,13 +238,15 @@ export function validateE2EDynamicScriptExclusions(scripts, productId = 'package
 	const approvedPaths = new Set(recipes.map(({ pathPrefix }) => pathPrefix));
 	const observedMarkers = source.match(/soundscaper-e2e-recipe:[a-z\d-]+/gu) ?? [];
 	const observedPaths = source.match(/__e2e-excluded__\/[a-z\d-]+-v\d+-/gu) ?? [];
+	const tracktion = productId === 'soundscaper';
 	const invalid = observedMarkers.some((marker) => !approvedMarkers.has(marker))
 		|| observedPaths.some((path) => !approvedPaths.has(path));
 	const countsAreInvalid = recipes.some(({ marker, pathPrefix, products }) => {
 		const markerCount = observedMarkers.filter((value) => value === marker).length;
 		const pathCount = observedPaths.filter((value) => value === pathPrefix).length;
 		const required = productId === 'packaged product' || products.includes(productId);
-		return markerCount !== pathCount || markerCount > 1 || (required && markerCount !== 1);
+		return tracktion ? markerCount !== 0 || pathCount !== 0
+			: markerCount !== pathCount || markerCount > 1 || (required && markerCount !== 1);
 	});
 	if (invalid || countsAreInvalid) {
 		throw new Error(
@@ -252,7 +254,7 @@ export function validateE2EDynamicScriptExclusions(scripts, productId = 'package
 		);
 	}
 	assertE2EExecutableStringPolicy(scripts, {
-		allowRendererRecipe: true,
+		allowRendererRecipe: !tracktion,
 		label: `${productId} Electron`,
 	});
 	return Object.freeze(observedMarkers.sort());

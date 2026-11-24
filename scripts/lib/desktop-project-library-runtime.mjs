@@ -130,18 +130,20 @@ export async function stageDesktopApplicationSources({
 		else await cp(join(compiledRoot, name), output, { errorOnExist: true });
 	}
 	await stageBundledAudioCodecRuntimeManifest({ desktopRoot: applicationRoot });
-	await bundleDesktopFileCapabilities(sourceRoot, applicationRoot);
-	if (productId === 'framescaper') await bundleDesktopMainPreload(applicationRoot);
+	if (productId === 'framescaper') {
+		await bundleDesktopFileCapabilities(sourceRoot, applicationRoot);
+		await bundleDesktopMainPreload(applicationRoot);
+	}
 	packagedRuntimeFiles = await retainDesktopRuntimeClosureAfterBundling({ applicationRoot, applicationFiles: stagedSourceFiles, compiledRoot, completeFiles: runtimeFiles, stagedFiles: packagedRuntimeFiles, productId, runtimePackageImports });
 	await assertStagedDesktopImportsResolve(applicationRoot, runtimePackageImports);
 	assertRuntimePackageImportTargets(productId, packagedRuntimeFiles);
-	await bundleSandboxPreload({
-		entryPoint: join(sourceRoot, 'soundscaper-project-library-sandbox-preload.ts'),
-		cryptoShim: join(sourceRoot, 'soundscaper-project-library-sandbox-crypto.ts'),
-		outputPath: join(applicationRoot, SOUNDSCAPER_PRELOAD_BUNDLE),
-		productName: 'Soundscaper 1.0',
-	});
 	if (productId === 'framescaper') {
+		await bundleSandboxPreload({
+			entryPoint: join(sourceRoot, 'soundscaper-project-library-sandbox-preload.ts'),
+			cryptoShim: join(sourceRoot, 'soundscaper-project-library-sandbox-crypto.ts'),
+			outputPath: join(applicationRoot, SOUNDSCAPER_PRELOAD_BUNDLE),
+			productName: 'Soundscaper 1.0',
+		});
 		await bundleSandboxPreload({
 			entryPoint: join(sourceRoot, 'framescaper-capture-sandbox-preload.ts'),
 			cryptoShim: join(sourceRoot, 'project-library-sandbox-crypto.ts'),

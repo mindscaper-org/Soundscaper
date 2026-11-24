@@ -72,15 +72,24 @@ const DESKTOP_RETIRED_SOURCE_FILES = new Set([
 const SOUNDSCAPER_REPLACED_SOURCE_FILES = new Set([
 	'main.mjs',
 	'preload.mjs',
+	'desktop-smoke.js',
 	'desktop-smoke-configuration.js',
 	'direct-wav-smoke.js',
+	'file-capabilities.js',
+	'main-file-capability-ipc.mjs',
+	'native-tier-registration.mjs',
 	'project-library-lease-smoke.js',
+	'project-library-product-runtime.js',
+	'renderer-ownership-cleanup.js',
+	'renderer-save-owner.js',
 	'renderer-smoke-execution.js',
 	'scape-open-smoke.js',
 	'scape-reopen-smoke.js',
 	'helper-registration.mjs',
+	'soundscaper-delivery-registration.mjs',
 	'soundscaper-delivery-restart-smoke.mjs',
 	'soundscaper-professional-native-utility-smoke.mjs',
+	'soundscaper-project-library-sandbox-preload.cjs',
 ]);
 const SOUNDSCAPER_RUNTIME_PACKAGE_IMPORTS = new Set([
 	'#desktop-runtime/bundled-native-plugins', '#desktop-runtime/bundled-plugin-resources',
@@ -165,83 +174,6 @@ function isNightlyTestLauncherPath(path) {
 	return NIGHTLY_TEST_LAUNCHER_FILES.has(path.replace(/^desktop\//u, ''));
 }
 
-export function soundscaperPreloadSource(sourceValue) {
-	let source = textSource(sourceValue, 'desktop preload');
-	source = replaceOnce(source,
-		/import \{ presentFramescaperExternalDisplayFrame \} from '[^']+';\n/u,
-		'', 'clean-display preload import');
-	source = replaceOnce(source,
-		/import \{ createAssistanceKeyedVideoPreloadBridge \} from '[^']+'; ?/u,
-		'', 'keyed-video preload import');
-	source = replaceOnce(source,
-		'videoKeying: createAssistanceKeyedVideoPreloadBridge({ invoke: (channel, value) => ipcRenderer.invoke(channel, value), claim: assistanceOutputClaim }), ',
-		'', 'keyed-video preload API');
-	source = replaceRange(source,
-		'const PRELOAD_PRODUCT_ID =',
-		'/* Keys main may hold',
-		"const PRELOAD_PRODUCT_ID = 'soundscaper';\nconst SOAK_DEBUG_ENABLED = PRELOAD_PRODUCT_ID === 'soundscaper' && PRELOAD_ARGUMENTS.includes('--soundscaper-soak-debug');\n/* Keys main may hold",
-		'preload product selection');
-	source = replaceRange(source,
-		'\n\tframescaperNativeCapabilities:',
-		'\n\tlistAssistanceModels:',
-		'\n\tlistAssistanceModels:',
-		'Framescaper preload channels');
-	source = replaceRange(source,
-		'\n\tnativeServices: Object.freeze({',
-		'\n\tlistAssistanceModels:',
-		'\n\tlistAssistanceModels:',
-		'Framescaper preload API');
-	source = replaceRange(source,
-		'\n\tchooseLinkedVideoOriginal:',
-		'\n\tchooseLinkedAudioOriginal:',
-		'\n\tchooseLinkedAudioOriginal:',
-		'linked-video preload API');
-	source = replaceRange(source,
-		'\n\tprobeHelperAvailability:',
-		'\n\tnativeAudioHelperAvailability:',
-		'\n\tnativeAudioHelperAvailability:',
-		'video probe preload API');
-	source = replaceRange(source,
-		'getDesktopVideoExportCapabilities:',
-		'\n\trunWindowAction:',
-		'\n\trunWindowAction:',
-		'desktop video preload API');
-	source = replaceRange(source,
-		'function desktopVideoCapabilities',
-		'function nativeTierControlRequest',
-		'function nativeTierControlRequest',
-		'desktop video preload validation');
-	for (const pattern of [
-		/ chooseLinkedVideoOriginal: '[^']+',/u,
-		/ loadLinkedVideoOriginal: '[^']+',/u,
-		/ reconcileLinkedVideoOriginals: '[^']+',/u,
-		/ releaseLinkedVideoOriginal: '[^']+',/u,
-	]) source = replaceOnce(source, pattern, '', 'linked-video preload channel');
-	source = replaceRange(source,
-		"helperProbeAvailability: 'soundscaper:v1:helper:probe-availability'",
-		'\n\tnativeAudioAvailability:',
-		'\n\tnativeAudioAvailability:',
-		'video probe preload channels');
-	source = replaceRange(source,
-		"desktopVideoCodecCapabilities: 'soundscaper:v1:codecs:video:capabilities'",
-		'\n\tcheckForUpdates:',
-		'\n\tcheckForUpdates:',
-		'desktop video preload channels');
-	source = replaceRange(source,
-		'\nconst FRAMESCAPER_PROJECT_LIBRARY_HANDSHAKE',
-		'\nif (PRELOAD_PRODUCT_ID',
-		'\nif (PRELOAD_PRODUCT_ID',
-		'Framescaper preload project library');
-	source = replaceOnce(source, /const apiWithoutPersistentDelivery[^\n]+\n/u, [
-		"const bridge = Object.freeze({ v1: api }); for (const [channel, type] of [[CHANNELS.nativeAudioRealtimePort, 'soundscaper-native-realtime-port-v1'], [CHANNELS.nativePluginRpcPort, 'soundscaper-native-plugin-rpc-port-v1']]) ipcRenderer.on(channel, (event, offer) => { const ports = Array.from(event.ports ?? []); if (ports.length !== 1) { for (const port of ports) port.close(); return; } window.postMessage(Object.freeze({ type, offer: nativePluginStatus(offer) }), '*', ports); });",
-		'',
-	].join('\n'), 'preload product bridge');
-	source = replaceOnce(source,
-		"contextBridge.exposeInMainWorld('framescaperDesktop', framescaperBridge);\n",
-		'', 'Framescaper preload exposure');
-	return source;
-}
-
 export function soundscaperConstantsSource(sourceValue) {
 	let source = textSource(sourceValue, 'desktop constants');
 	source = replaceRange(source, 'export const PRODUCT_ID',
@@ -306,61 +238,6 @@ export function soundscaperProtocolSource(sourceValue) {
 	return source;
 }
 
-export function soundscaperNativeTierSource(sourceValue) {
-	let source = textSource(sourceValue, 'desktop native tier');
-	source = replaceOnce(source,
-		"import { registerDesktopHelperProbe } from './helper-registration.mjs';\n",
-		'', 'video probe registration import');
-	source = replaceOnce(source,
-		'\t\tprobe: registerDesktopHelperProbe(seams),\n',
-		'\t\tprobe: null,\n', 'video probe registration');
-	return source;
-}
-
-export function soundscaperProjectRuntimeSource(sourceValue) {
-	let source = textSource(sourceValue, 'project-library product runtime');
-	source = replaceRange(source,
-		"\tif (productId === 'framescaper') {",
-		"\n\tif (productId === 'soundscaper') {",
-		"\n\tif (productId === 'soundscaper') {",
-		'Framescaper project runtime branch');
-	return source
-		.replace("\t\tif (this.#productId !== 'framescaper'", "\t\tif (true")
-		.replace("if (value !== 'soundscaper' && value !== 'framescaper')", "if (value !== 'soundscaper')");
-}
-
-export function soundscaperProductIsolationModuleSource() {
-	return `/* SPDX-License-Identifier: AGPL-3.0-only */
-import { configureSoundscaperCaptureSessionSecurityV1 } from './project-library-runtime/desktop/soundscaper-capture-session-security.js';
-import { isEditorDocumentUrl } from './validation.js';
-
-export const FOREIGN_IMAGE_SEQUENCE_IMPORT_AUTHORITY = null;
-export function createDeferredNativeServicesElectronPorts() { return Object.freeze({}); }
-export async function startDeferredNativeServicesRegistration() { return null; }
-export function deferredWebVcrSmokeTrust() { return null; }
-export function revokeDesktopCaptureOwner(registration, owner) { return registration?.revokeOwner(owner); }
-export function disposeDesktopCaptureSecurity(registration) { return registration?.dispose(); }
-export function registerDesktopCaptureSecurity(options) {
-\treturn configureSoundscaperCaptureSessionSecurityV1({
-\t\tproductId: options.productId,
-\t\ttrustedOrigin: options.appOrigin,
-\t\tplatform: options.platform,
-\t\tdesktopCapturer: options.desktopCapturer,
-\t\tsession: options.desktopSession,
-\t\twindowFor: options.windowFor,
-\t\tisEditorDocumentUrl,
-\t});
-}
-`;
-}
-
-export function soundscaperDesktopSmokeSource(sourceValue) {
-	return textSource(sourceValue, 'desktop smoke')
-		.replaceAll("productId === 'framescaper'", 'false')
-		.replaceAll("productId !== 'framescaper'", 'true')
-		.replace("value !== 'soundscaper' && value !== 'framescaper'", "value !== 'soundscaper'");
-}
-
 export function soundscaperAssistanceRegistrationSource(sourceValue) {
 	let source = textSource(sourceValue, 'assistance registration');
 	for (const pattern of [
@@ -383,23 +260,6 @@ export function soundscaperAssistanceRegistrationSource(sourceValue) {
 		'\tconst deterministicHandlers = Object.freeze({ ...audioCutHandlers });\n\tconst workflowExecute =',
 		'deferred visual assistance workflow');
 	return source;
-}
-
-export function soundscaperDesktopSmokeDeferredModuleSource() {
-	return `
-export const FRAMESCAPER_BASELINE_ARTIFACT_LIBRARY_IDENTITY = null;
-export const FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_MODE = 'deferred-product-dormant-v1';
-export const FRAMESCAPER_WEB_VCR_DORMANT_SMOKE_PREFIX = 'DEFERRED_PRODUCT_DORMANT ';
-export const FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_MODE = 'deferred-product-packaged-v1';
-export const FRAMESCAPER_WEB_VCR_PACKAGED_SMOKE_PREFIX = 'DEFERRED_PRODUCT_PACKAGED ';
-export const FRAMESCAPER_WEB_VCR_SMOKE_STAGE_KEY = '__deferredProductSmokeStageV1';
-export function createFramescaperWebVcrSmokeSession() { return null; }
-export function decodeFramescaperWebVcrSmokePlan() { throw new Error('Deferred product smoke is unavailable.'); }
-export function joinFramescaperBaselineArtifactEvidence() { throw new Error('Deferred product smoke is unavailable.'); }
-export function runFramescaperBaselineArtifactRendererSmoke() { throw new Error('Deferred product smoke is unavailable.'); }
-export function runFramescaperCaptureArtifactRendererSmoke() { throw new Error('Deferred product smoke is unavailable.'); }
-export function validateFramescaperCaptureArtifactEvidence() { throw new Error('Deferred product smoke is unavailable.'); }
-`;
 }
 
 function soundscaperForbiddenPackagePath(path) {
