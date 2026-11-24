@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -61,7 +62,7 @@ public:
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
-	                  Frame frameCount, const std::string& name = {});
+	                  std::optional<Frame> frameCount, const std::string& name = {});
 	void trim(Revision, ClipId, Frame start, Frame end);
 	ClipId split(Revision, ClipId, Frame);
 	bool undo(Revision);

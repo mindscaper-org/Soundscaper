@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import type {
+	TracktionClipPage, TracktionEditResult, TracktionProjectPage,
+} from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 
 export const TRACKTION_CONTROL_BYTES = 64 * 1024;
@@ -14,45 +17,15 @@ export type TracktionCommand =
 	| (Revision & Readonly<{
 		kind: 'import'; trackId: string; asset: string; name: string; start: number; sourceOffset: number; frames: number;
 	}>)
+	| (Revision & Readonly<{ kind: 'importFile'; trackId: string; asset: string; name: string; start: number }>)
 	| (Revision & Readonly<{ kind: 'trim'; clipId: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'split'; clipId: string; frame: number }>)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
 	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>);
 
-export interface TracktionTrackView {
-	readonly id: string;
-	readonly name: string;
-	readonly clipCount: number;
-}
-
-export interface TracktionClipView {
-	readonly id: string;
-	readonly name: string;
-	readonly start: number;
-	readonly end: number;
-	readonly sourceOffset: number;
-}
-
-interface ProjectPage extends Revision {
-	readonly sampleRate: number;
-	readonly canUndo: boolean;
-	readonly canRedo: boolean;
-	readonly nextOffset: number | null;
-	readonly tracks: readonly TracktionTrackView[];
-}
-
-interface ClipPage extends Revision {
-	readonly nextOffset: number | null;
-	readonly clips: readonly TracktionClipView[];
-}
-
-interface EditResult extends Revision {
-	readonly itemId: string | null;
-}
-
-export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? ProjectPage
-	: Command extends { kind: 'clips' } ? ClipPage : EditResult;
+export type TracktionReply<Command extends TracktionCommand> = Command extends { kind: 'project' } ? TracktionProjectPage
+	: Command extends { kind: 'clips' } ? TracktionClipPage : TracktionEditResult;
 
 export class TracktionRejectedCommand extends Error {}
 
@@ -83,14 +56,14 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (header.ok !== true) throw new TypeError('Invalid Tracktion success flag.');
 	const { value } = readClosedDomainRecord(parsed, 'Tracktion success', ['ok', 'value']);
 	// The command's discriminator selects the closed reply schema.
-	if (command.kind === 'project') return readProjectPage(value, command.offset) as TracktionReply<Command>;
-	if (command.kind === 'clips') return readClipPage(value, command) as TracktionReply<Command>;
+	if (command.kind === 'project') return readTracktionProjectPage(value, command.offset) as TracktionReply<Command>;
+	if (command.kind === 'clips') return readTracktionClipPage(value, command) as TracktionReply<Command>;
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
 	const revision = nonnegativeInteger(result.revision);
 	if (revision < command.revision || revision > command.revision + 1) {
 		throw new TypeError('A Tracktion edit returned an invalid revision.');
 	}
-	const createsItem = command.kind === 'addTrack' || command.kind === 'import' || command.kind === 'split';
+	const createsItem = command.kind === 'addTrack' || command.kind === 'import' || command.kind === 'importFile' || command.kind === 'split';
 	const itemId = createsItem ? readItemId(result.itemId) : null;
 	if ((!createsItem && result.itemId !== null) || (createsItem && revision !== command.revision + 1)) {
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
@@ -98,7 +71,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	return Object.freeze({ revision, itemId }) as TracktionReply<Command>;
 }
 
-function readProjectPage(value: unknown, offset: number): ProjectPage {
+function readTracktionProjectPage(value: unknown, offset: number): TracktionProjectPage {
 	const page = readClosedDomainRecord(
 		value, 'Tracktion project page', ['revision', 'sampleRate', 'canUndo', 'canRedo', 'tracks', 'nextOffset'],
 	);
@@ -118,7 +91,7 @@ function readProjectPage(value: unknown, offset: number): ProjectPage {
 	});
 }
 
-function readClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): ClipPage {
+function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): TracktionClipPage {
 	const page = readClosedDomainRecord(value, 'Tracktion clip page', ['revision', 'clips', 'nextOffset']);
 	if (page.revision !== command.revision) throw new TypeError('A Tracktion clip page has changed revision.');
 	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, PAGE_SIZE).map((entry) => {

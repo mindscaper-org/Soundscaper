@@ -240,23 +240,26 @@ TrackId Session::addTrack(Revision expected, const std::string& name)
 }
 
 ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File& source, Frame start,
-                           Frame offset, Frame count, const std::string& name)
+                           Frame offset, std::optional<Frame> requestedCount, const std::string& name)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
 	auto& track = s.track(trackId);
 	const auto from = s.position(start);
 	const auto maxFrame = tracktion::toSamples(te::Edit::getMaximumEditEnd(), s.sampleRate);
-	if (count <= 0 || count > maxFrame - start || offset < 0 || name.size() > 512
+	if (offset < 0 || name.size() > 512
 	    || !source.existsAsFile() || source.isSymbolicLink())
 		throw std::invalid_argument("Invalid audio import or clip range");
 
 	juce::WavAudioFormat format;
 	std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(source.createInputStream().release(), true));
 	if (reader == nullptr || reader->sampleRate != s.sampleRate || reader->numChannels < 1
-	    || reader->numChannels > 2 || offset > reader->lengthInSamples
-	    || count > reader->lengthInSamples - offset)
+	    || reader->numChannels > 2 || offset > reader->lengthInSamples)
 		throw std::invalid_argument("Import requires project-rate mono or stereo WAV with the requested source range");
+	const auto available = reader->lengthInSamples - offset;
+	const auto count = requestedCount.value_or(available);
+	if (count <= 0 || count > available || count > maxFrame - start)
+		throw std::invalid_argument("The source interval is outside the Tracktion Edit");
 	reader.reset();
 
 	const auto media = s.directory.getChildFile(mediaDirectory);

@@ -1,0 +1,283 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { randomBytes } from 'node:crypto';
+import { lstat, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+
+import type {
+	TracktionOpenedProject, TracktionProjectCommand, TracktionProjectReply,
+} from '../src/soundscaper/tracktion-project-contract.ts';
+import type { TracktionCommand, TracktionReply } from './tracktion-peer-contract.ts';
+import { createTracktionExportWriter, stageTracktionWave } from './tracktion-project-files.ts';
+import { readTracktionProjectRequest } from './tracktion-project-request.ts';
+
+interface TracktionProjectPeer {
+	request<Command extends TracktionCommand>(command: Command): Promise<TracktionReply<Command>>;
+	close(): Promise<void>;
+}
+
+type LaunchMode = Readonly<{ mode: 'create'; sampleRate: number }> | Readonly<{ mode: 'open' }>;
+type ProjectLaunch = LaunchMode & Readonly<{
+	projectDirectory: string;
+	stateDirectory: string;
+	exchangeDirectory: string;
+}>;
+
+interface Ports {
+	readonly scratchRoot: string;
+	readonly isOwnerCurrent: (owner: object) => boolean;
+	readonly chooseCreateDirectory: () => Promise<string | null>;
+	readonly chooseOpenProject: () => Promise<string | null>;
+	readonly chooseWave: () => Promise<string | null>;
+	readonly chooseExport: (format: 'wav' | 'zip') => Promise<string | null>;
+	readonly startPeer: (launch: ProjectLaunch) => Promise<TracktionProjectPeer>;
+}
+
+type Reply = TracktionProjectReply<TracktionProjectCommand>;
+type OpeningCommand = Extract<TracktionProjectCommand, { kind: 'open' | 'create' }>;
+type ActiveCommand = Exclude<TracktionProjectCommand, OpeningCommand>;
+
+interface ActiveProject {
+	readonly owner: object;
+	readonly id: string;
+	readonly directory: string;
+	readonly scratch: string;
+	readonly exchange: string;
+	readonly peer: TracktionProjectPeer;
+}
+
+interface Operation {
+	readonly owner: object;
+	readonly controller: AbortController;
+	readonly result: Promise<Reply>;
+}
+
+const EDIT_FILE = 'project.tracktionedit';
+
+/** Main-side lifetime and file authority for one experimental Soundscaper editor window. */
+export class TracktionProjectService {
+	readonly #ports: Ports;
+	readonly #revoked = new WeakSet<object>();
+	readonly #exports = createTracktionExportWriter();
+	#active: ActiveProject | null = null;
+	#operation: Operation | null = null;
+	#closing = false;
+	#disposal: Promise<void> | null = null;
+
+	constructor(ports: Ports) { this.#ports = ports; }
+
+	async request(owner: object, value: unknown): Promise<Reply> {
+		const command = readTracktionProjectRequest(value);
+		this.#assertOwner(owner);
+		if (this.#operation) throw new Error('A Tracktion project command is already in progress.');
+
+		const controller = new AbortController();
+		const operation = {
+			owner, controller,
+			result: Promise.resolve().then(() => this.#execute(owner, command, controller.signal)),
+		};
+		this.#operation = operation;
+		try {
+			const result = await operation.result;
+			this.#assertOwner(owner, controller.signal);
+			return result;
+		} finally {
+			if (this.#operation === operation) this.#operation = null;
+		}
+	}
+
+	revokeOwner(owner: object): Promise<void> {
+		this.#revoked.add(owner);
+		const running = this.#operation?.owner === owner ? this.#operation : null;
+		running?.controller.abort(new Error('This Tracktion editor window was replaced.'));
+		const active = this.#active?.owner === owner ? this.#active : null;
+		if (active) this.#active = null;
+		return this.#retireOwner(owner, active, running);
+	}
+
+	dispose(): Promise<void> {
+		if (this.#disposal) return this.#disposal;
+		this.#closing = true;
+		const owners = new Set([this.#operation?.owner, this.#active?.owner]);
+		this.#disposal = Promise.allSettled([...owners].flatMap((owner) => owner ? [this.revokeOwner(owner)] : []))
+			.then(async (results) => {
+				await this.#exports.dispose();
+				for (const result of results) if (result.status === 'rejected') throw result.reason;
+			});
+		return this.#disposal;
+	}
+
+	async #retireOwner(owner: object, active: ActiveProject | null, running: Operation | null): Promise<void> {
+		const results = await Promise.allSettled([
+			active?.peer.close(),
+			running?.result.catch(() => undefined),
+			this.#exports.revokeOwner(owner),
+		]);
+		if (active) await rm(active.scratch, { force: true, recursive: true });
+		for (const result of results) if (result.status === 'rejected') throw result.reason;
+	}
+
+	#assertOwner(owner: object, signal?: AbortSignal): void {
+		signal?.throwIfAborted();
+		if (this.#closing || this.#revoked.has(owner) || !this.#ports.isOwnerCurrent(owner)) {
+			throw new Error('The Tracktion editor window is no longer current.');
+		}
+	}
+
+	#requireProject(owner: object, id: string): ActiveProject {
+		const active = this.#active;
+		if (!active || active.owner !== owner || active.id !== id) {
+			throw new Error('This Tracktion project handle has expired.');
+		}
+		return active;
+	}
+
+	async #execute(owner: object, command: TracktionProjectCommand, signal: AbortSignal): Promise<Reply> {
+		this.#assertOwner(owner, signal);
+		if (command.kind === 'create' || command.kind === 'open') return this.#open(owner, command, signal);
+		const active = this.#requireProject(owner, command.sessionId);
+		if (command.kind === 'close') {
+			this.#active = null;
+			await closeProject(active);
+			return null;
+		}
+		if (command.kind === 'import') return this.#import(active, command, signal);
+		if (command.kind === 'render' || command.kind === 'archive') return this.#export(active, command, signal);
+		return active.peer.request(withoutSession(command));
+	}
+
+	async #open(owner: object, command: OpeningCommand, signal: AbortSignal): Promise<TracktionOpenedProject | null> {
+		const selection = command.kind === 'create'
+			? await this.#ports.chooseCreateDirectory()
+			: await this.#ports.chooseOpenProject();
+		this.#assertOwner(owner, signal);
+		if (selection === null) return null;
+
+		const directory = await selectedProjectDirectory(selection, command.kind);
+		const previous = this.#active;
+		if (previous?.owner === owner && previous.directory === directory && command.kind === 'open') {
+			return describe(previous);
+		}
+
+		await mkdir(this.#ports.scratchRoot, { recursive: true, mode: 0o700 });
+		const scratch = await mkdtemp(join(await realpath(this.#ports.scratchRoot), 'edit-'));
+		const exchange = join(scratch, 'exchange');
+		let candidate: ActiveProject | null = null;
+		try {
+			await Promise.all(['input', 'output'].map((direction) => mkdir(join(exchange, direction), { recursive: true, mode: 0o700 })));
+			this.#assertOwner(owner, signal);
+			const location = { projectDirectory: directory, stateDirectory: join(scratch, 'state'), exchangeDirectory: exchange };
+			const peer = await this.#ports.startPeer(command.kind === 'create'
+				? { ...location, mode: 'create', sampleRate: command.sampleRate }
+				: { ...location, mode: 'open' });
+			candidate = { owner, directory, scratch, exchange, peer, id: randomBytes(16).toString('hex') };
+			this.#assertOwner(owner, signal);
+			if (command.kind === 'create') await peer.request({ kind: 'save', revision: 0 });
+			const opened = await describe(candidate);
+			this.#assertOwner(owner, signal);
+			if (previous) {
+				this.#active = null;
+				await closeProject(previous);
+			}
+			this.#assertOwner(owner, signal);
+			this.#active = candidate;
+			return opened;
+		} catch (error) {
+			if (candidate) await closeProject(candidate);
+			else await rm(scratch, { force: true, recursive: true });
+			throw error;
+		}
+	}
+
+	async #import(active: ActiveProject, command: Extract<ActiveCommand, { kind: 'import' }>, signal: AbortSignal): Promise<Reply> {
+		const selection = await this.#ports.chooseWave();
+		this.#assertOwner(active.owner, signal);
+		if (selection === null) return null;
+		requireAbsoluteExtension(selection, '.wav');
+		const asset = randomBytes(16).toString('hex');
+		const staged = join(active.exchange, 'input', `${asset}.wav`);
+		try {
+			await stageTracktionWave(selection, staged, signal);
+			this.#assertOwner(active.owner, signal);
+			return await active.peer.request({
+				kind: 'importFile', revision: command.revision, trackId: command.trackId, start: command.start,
+				asset, name: mediaLabel(selection),
+			});
+		} finally {
+			await rm(staged, { force: true });
+		}
+	}
+
+	async #export(
+		active: ActiveProject,
+		command: Extract<ActiveCommand, { kind: 'render' | 'archive' }>,
+		signal: AbortSignal,
+	): Promise<Reply> {
+		const format = command.kind === 'render' ? 'wav' : 'zip';
+		const selection = await this.#ports.chooseExport(format);
+		this.#assertOwner(active.owner, signal);
+		if (selection === null) return null;
+		requireAbsoluteExtension(selection, `.${format}`);
+		const destination = join(await realpath(dirname(selection)), basename(selection));
+		if (inside(join(active.directory, 'media'), destination) || inside(active.scratch, destination)) {
+			throw new Error('Choose an export destination outside the project media and temporary data.');
+		}
+		const asset = randomBytes(16).toString('hex');
+		const staged = join(active.exchange, 'output', `${asset}.${format}`);
+		try {
+			const result = await active.peer.request({ ...withoutSession(command), asset });
+			this.#assertOwner(active.owner, signal);
+			await this.#exports.publish(staged, destination, active.owner, signal);
+			return result;
+		} finally {
+			await rm(staged, { force: true });
+		}
+	}
+}
+
+async function closeProject(active: ActiveProject): Promise<void> {
+	try { await active.peer.close(); }
+	finally { await rm(active.scratch, { force: true, recursive: true }); }
+}
+
+async function describe(active: ActiveProject): Promise<TracktionOpenedProject> {
+	return {
+		sessionId: active.id,
+		name: basename(active.directory),
+		project: await active.peer.request({ kind: 'project', offset: 0 }),
+	};
+}
+
+async function selectedProjectDirectory(selection: string, kind: 'create' | 'open'): Promise<string> {
+	if (!isAbsolute(selection)) throw new TypeError('A Tracktion project selection must be absolute.');
+	const metadata = await lstat(selection);
+	if (kind === 'open' && (!metadata.isFile() || basename(selection) !== EDIT_FILE)) {
+		throw new TypeError(`Select the ${EDIT_FILE} file of a Tracktion project.`);
+	}
+	if (kind === 'create' && !metadata.isDirectory()) throw new TypeError('Select an empty project directory.');
+	return await realpath(kind === 'create' ? selection : dirname(selection));
+}
+
+type WithoutSession<Command> = Command extends ActiveCommand ? Omit<Command, 'sessionId'> : never;
+
+function withoutSession<Command extends ActiveCommand>(command: Command): WithoutSession<Command> {
+	const { sessionId: _sessionId, ...rest } = command;
+	return rest as WithoutSession<Command>;
+}
+
+function requireAbsoluteExtension(path: string, extension: string): void {
+	if (!isAbsolute(path) || extname(path).toLowerCase() !== extension) {
+		throw new TypeError(`Select a ${extension} file.`);
+	}
+}
+
+function mediaLabel(path: string): string {
+	const name = basename(path, extname(path)).trim() || 'Audio';
+	// UTF-8 takes at most four bytes per Unicode code point.
+	return Array.from(name).slice(0, 128).join('');
+}
+
+function inside(directory: string, path: string): boolean {
+	const fromDirectory = relative(resolve(directory), path);
+	return fromDirectory === '' || (fromDirectory !== '..' && !fromDirectory.startsWith(`..${sep}`) && !isAbsolute(fromDirectory));
+}

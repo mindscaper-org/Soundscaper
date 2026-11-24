@@ -169,6 +169,13 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 		                              integer("start"), integer("sourceOffset"), integer("frames"),
 		                              text(request, "name", 512).toStdString());
 	}
+	else if (kind == "importFile")
+	{
+		requireFields(request, {"revision", "trackId", "asset", "name", "start"});
+		const auto input = exchangeFile(exchange, request, "input", ".wav");
+		created = session.insertAudio(revision, itemId(request, "trackId"), input,
+		                              integer("start"), 0, std::nullopt, text(request, "name", 512).toStdString());
+	}
 	else if (kind == "trim")
 	{
 		requireFields(request, {"revision", "clipId", "start", "end"});
