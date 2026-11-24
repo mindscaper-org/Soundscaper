@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync } from 'node:fs';
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdirSync } from 'node:fs';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -23,15 +22,17 @@ if (!binary) throw new Error('Pass --tracktion-peer with the built executable pa
 const rendererFlag = '--tracktion-editor=';
 const renderer = process.argv.find((value) => value.startsWith(rendererFlag))?.slice(rendererFlag.length);
 if (!renderer) throw new Error('Pass --tracktion-editor with the built renderer directory.');
+const scratchFlag = '--tracktion-scratch=';
+const scratch = process.argv.find((value) => value.startsWith(scratchFlag))?.slice(scratchFlag.length);
+if (!scratch) throw new Error('Start the editor smoke with run_electron_smoke.mjs.');
 
 registerTracktionScheme();
-void run(binary, renderer).catch((error: unknown) => {
+void run(binary, renderer, scratch).catch((error: unknown) => {
 	console.error(error);
 	app.exit(1);
 });
 
-async function run(binaryPath: string, bundleRoot: string): Promise<void> {
-	const scratch = mkdtempSync(join(tmpdir(), 'soundscaper-tracktion-electron-'));
+async function run(binaryPath: string, bundleRoot: string, scratch: string): Promise<void> {
 	const userData = join(scratch, 'electron');
 	mkdirSync(userData);
 	app.setPath('userData', userData);
@@ -75,7 +76,6 @@ async function run(binaryPath: string, bundleRoot: string): Promise<void> {
 		try {
 			editor?.window.destroy();
 			await editor?.dispose();
-			await rm(scratch, { recursive: true, force: true, maxRetries: 3 });
 		} catch (error) {
 			console.error(error);
 			exitCode = 1;
@@ -177,6 +177,21 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string): Prom
 	await click('File');
 	await click('Save project');
 	await waitForVisible('All changes saved locally');
+	if (process.platform === 'win32' && process.env.SOUNDSCAPER_TRACKTION_TEST_ASIO === '1') {
+		await click('Playback and recording');
+		await click('Audio setup');
+		await waitFor('document.querySelector("dialog[open] select[name=hostId]:enabled") !== null');
+		await window.webContents.executeJavaScript(`
+			const host = document.querySelector('dialog[open] select[name=hostId]');
+			const asio = Array.from(host.options).find((entry) => entry.textContent === 'ASIO');
+			if (!asio) throw new Error('Audio setup did not list the Windows ASIO host');
+			host.value = asio.value;
+			host.dispatchEvent(new Event('change', { bubbles: true }));
+		`);
+		await waitFor('document.querySelectorAll("dialog[open] select[name=outputId] option").length > 1'
+			+ ' && document.querySelector("dialog[open] select[name=inputId]") === null');
+		await click('Cancel');
+	}
 	if (process.platform === 'linux') {
 		await click('Playback and recording');
 		await click('Audio setup');
