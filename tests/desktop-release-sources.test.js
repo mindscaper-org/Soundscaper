@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -45,7 +45,7 @@ test('source bundling refuses altered, symbolic, conflicting, or unsafe input ar
 		const fixture = await sourceFixture(context);
 		const input = fixture.options.inputs[0];
 		const path = join(fixture.options.sourceInputsRoot, input.name);
-		if (failure === 'altered') await writeFile(path, 'changed source');
+		if (failure === 'altered') await writeFile(path, Buffer.alloc(input.byteLength));
 		else if (failure === 'symbolic') {
 			await rm(path);
 			await symlink(join(fixture.root, 'source.txt'), path);
@@ -53,6 +53,7 @@ test('source bundling refuses altered, symbolic, conflicting, or unsafe input ar
 		else input.bundlePath = '../escape.tar.gz';
 		await assert.rejects(stageDesktopReleaseSources(fixture.options), /source.*(digest|bytes|regular|conflict|path)/iu, failure);
 		await assert.rejects(readFile(join(fixture.options.outputRoot, 'sources.zip')), { code: 'ENOENT' });
+		assert.deepEqual(await readdir(fixture.options.outputRoot), [], 'failed bundles leave no staged files');
 	}
 });
 
