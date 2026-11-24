@@ -8,13 +8,26 @@ import { provisionTracktionSources } from './lib/tracktion-sources.mjs';
 
 const root = realpathSync(resolve(import.meta.dirname, '..'));
 const buildDirectory = resolve(root, '.native-build/tracktion-session');
+const isWindows = process.platform === 'win32';
 const sources = await provisionTracktionSources();
 const options = { cwd: root, stdio: 'inherit', env: { ...process.env, CMAKE_BUILD_PARALLEL_LEVEL: '2' } };
+const windowsDefinitions = [];
+if (isWindows) {
+	const nativeSourceCache = resolve(root, '.native-build/tracktion-windows-sources');
+	execFileSync(process.execPath, [
+		'scripts/provision-milestone-5-native-sources.mjs', '--source', 'asio-sdk', '--root', nativeSourceCache,
+	], options);
+	windowsDefinitions.push(`-DSOUNDSCAPER_ASIO_ROOT=${resolve(nativeSourceCache, 'asio-sdk/source')}`);
+	const generator = process.env.CMAKE_GENERATOR;
+	if (!generator || generator.startsWith('Visual Studio ')) {
+		windowsDefinitions.push('-A', process.arch === 'arm64' ? 'ARM64' : 'x64');
+	}
+}
 
 execFileSync('cmake', [
 	'-S', 'native/soundscaper-tracktion', '-B', buildDirectory, '-DCMAKE_BUILD_TYPE=Release',
 	`-DSOUNDSCAPER_TRACKTION_SOURCE=${sources.tracktion}`, `-DSOUNDSCAPER_TRACKTION_JUCE_SOURCE=${sources.juce}`,
-	...(process.platform === 'win32' ? [] : ['-DCMAKE_C_FLAGS_RELEASE=-O0 -DNDEBUG', '-DCMAKE_CXX_FLAGS_RELEASE=-O0 -DNDEBUG']),
+	...(isWindows ? windowsDefinitions : ['-DCMAKE_C_FLAGS_RELEASE=-O0 -DNDEBUG', '-DCMAKE_CXX_FLAGS_RELEASE=-O0 -DNDEBUG']),
 ], options);
 execFileSync('cmake', ['--build', buildDirectory, '--config', 'Release', '--parallel', '2'], options);
 execFileSync('ctest', ['--test-dir', buildDirectory, '-C', 'Release', '--output-on-failure'], options);

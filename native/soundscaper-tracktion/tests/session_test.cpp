@@ -6,6 +6,13 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_events/juce_events.h>
 
+#if JUCE_WINDOWS
+#include <juce_audio_devices/juce_audio_devices.h>
+#include <algorithm>
+
+static_assert(JUCE_ASIO && JUCE_ASIO_USE_EXTERNAL_SDK, "Use the authenticated external ASIO SDK on Windows");
+#endif
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -260,6 +267,13 @@ int main()
 		return 1;
 	try
 	{
+#if JUCE_WINDOWS
+		juce::AudioDeviceManager manager;
+		require(std::ranges::any_of(manager.getAvailableDeviceTypes(), [](const auto* type)
+		{
+			return type->getTypeName() == "ASIO" && !type->hasSeparateInputsAndOutputs();
+		}), "Windows builds must register the ASIO host in JUCE's device manager");
+#endif
 		runSessionTest(root);
 		verifyHostedRecording(root);
 		root.deleteRecursively();

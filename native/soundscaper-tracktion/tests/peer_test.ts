@@ -18,6 +18,33 @@ if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
 
+test('Tracktion publishes the installed Windows ASIO drivers as coupled audio devices', {
+	skip: process.platform !== 'win32' || process.env.SOUNDSCAPER_TRACKTION_TEST_ASIO !== '1',
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-asio-'));
+	try {
+		const exchangeDirectory = join(root, 'exchange');
+		await mkdir(exchangeDirectory);
+		const peer = launchTracktionPeer({
+			executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings'),
+		});
+		try {
+			const { hosts } = await peer.request({ kind: 'audioHosts' });
+			const asio = hosts.find(({ name }) => name === 'ASIO');
+			assert.ok(asio, 'the Windows machine has at least one exposed ASIO driver');
+			const devices = await peer.request({ kind: 'audioDevices', hostId: asio.id });
+			assert.equal(devices.separateDevices, false);
+			assert.ok(devices.outputs.length > 0);
+			assert.deepEqual(devices.inputs, devices.outputs);
+		} finally {
+			await peer.close();
+		}
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
 test('the framed Tracktion peer owns edits and publishes output through opaque exchange slots', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-peer-'));
 	const projectDirectory = join(root, 'project');

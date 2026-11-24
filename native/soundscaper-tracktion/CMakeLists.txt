@@ -7,6 +7,10 @@ endif()
 if(NOT EXISTS "${SOUNDSCAPER_TRACKTION_JUCE_SOURCE}/CMakeLists.txt")
 	message(FATAL_ERROR "SOUNDSCAPER_TRACKTION_JUCE_SOURCE must name the provisioned JUCE source")
 endif()
+if(WIN32 AND (NOT SOUNDSCAPER_ASIO_ROOT OR NOT EXISTS "${SOUNDSCAPER_ASIO_ROOT}/common/iasiodrv.h"
+		OR NOT EXISTS "${SOUNDSCAPER_ASIO_ROOT}/common/asio.h" OR NOT EXISTS "${SOUNDSCAPER_ASIO_ROOT}/common/asiosys.h"))
+	message(FATAL_ERROR "Windows Tracktion builds require SOUNDSCAPER_ASIO_ROOT to name the authenticated ASIO SDK")
+endif()
 
 set(TE_ADD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory("${SOUNDSCAPER_TRACKTION_JUCE_SOURCE}" juce EXCLUDE_FROM_ALL)
@@ -28,7 +32,10 @@ target_include_directories(soundscaper_tracktion_session PUBLIC
 	"${CMAKE_CURRENT_SOURCE_DIR}"
 	"${SOUNDSCAPER_TRACKTION_JUCE_SOURCE}/modules")
 target_link_libraries(soundscaper_tracktion_session PRIVATE tracktion::tracktion_engine)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+if(WIN32)
+	target_compile_definitions(soundscaper_tracktion_session PUBLIC JUCE_ASIO=1 JUCE_ASIO_USE_EXTERNAL_SDK=1)
+	target_include_directories(soundscaper_tracktion_session PRIVATE "${SOUNDSCAPER_ASIO_ROOT}/common")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
 	target_link_libraries(soundscaper_tracktion_session PRIVATE atomic)
 	include(pipewire-transport.cmake)
 	soundscaper_add_pipewire(soundscaper_tracktion_session)
