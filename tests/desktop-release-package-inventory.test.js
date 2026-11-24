@@ -180,6 +180,8 @@ test('stable Soundscaper assembly refuses incomplete or substituted professional
 		[(value) => { value.isolation.runtimeClosure[0].path = value.isolation.runtimeClosure[0].path
 			.replace('/runtime/', '/foreign/'); },
 			/runtime closure/iu],
+		[(value) => { value.isolation.pluginResources[0].path = value.isolation.runtimeClosure[0].path; },
+			/plug-in resource/iu],
 		[(value) => { value.buildAuthority.sourceRevision = 'f'.repeat(40); },
 			/build source revision.*runtime manifest|runtime manifest.*build source revision/iu],
 	];
@@ -422,6 +424,7 @@ function stableProfessionalSummary(target) {
 	const sandboxProfile = artifact('native-isolation-profile-v1.json', 76);
 	const brokerPolicy = artifact('native-isolation-broker-v1.json', 77);
 	const runtimeClosure = [artifact('runtime/libprofessional-runtime.dylib', 78)];
+	const pluginResources = [artifact('runtime/effects/OrbitAmp.vst3/Contents/Resources/Factory/Fixture.orbitrig.zip', 79)];
 	const sourceAuthentication = {
 		schemaVersion: 1, status: 'authenticated', sources: [{ id: 'electron-node-api-headers' }],
 	};
@@ -434,7 +437,7 @@ function stableProfessionalSummary(target) {
 		buildAuthority,
 		payload, buildResult, osAudioCodec, pluginPeer, deliveryFilesystem,
 		isolation: {
-			launcher, sandboxProfile, brokerPolicy, entrypointPath: pluginPeer.path, runtimeClosure,
+			launcher, sandboxProfile, brokerPolicy, entrypointPath: pluginPeer.path, runtimeClosure, pluginResources,
 		},
 	};
 }

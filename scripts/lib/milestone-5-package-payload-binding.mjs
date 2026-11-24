@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { isSoundscaperOnlyBundledPluginArtifactPath } from '../../desktop/bundled-native-plugins.ts';
+
 /**
  * Bind an extracted package runtime to the independently verified payload audit.
  * @param {*} packageAudit
@@ -86,6 +88,11 @@ function bindFramescaperProfessionalPeer(professional, payloadAudit, inputPaths,
 	const manifest = payloadAudit.manifests.soundscaperProfessional;
 	const target = exactTarget(manifest, targetId, 'professional audio plug-in host');
 	const descriptor = payloadAudit.inputDigests[inputPaths.soundscaperProfessionalPayload];
+	const isolation = target.isolation === null ? null : {
+		...target.isolation,
+		runtimeClosure: target.isolation.runtimeClosure.filter(({ path }) => !isSoundscaperOnlyBundledPluginArtifactPath(path)),
+		pluginResources: [],
+	};
 	assert(professional.hostingScope === 'audio-plugin-host'
 		&& professional.payload === null && professional.osAudioCodec === null
 		&& professional.deliveryFilesystem === null,
@@ -100,7 +107,7 @@ function bindFramescaperProfessionalPeer(professional, payloadAudit, inputPaths,
 		&& professional.toolchainIdentity === target.toolchainIdentity
 		&& sameJson(professional.buildResult, target.buildResult)
 		&& sameJson(professional.pluginPeer, target.pluginPeer)
-		&& sameJson(professional.isolation, target.isolation),
+		&& sameJson(professional.isolation, isolation),
 	'Milestone 5 package professional native peer closure disagrees with the authenticated payload audit.');
 }
 

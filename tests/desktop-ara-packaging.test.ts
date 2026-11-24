@@ -46,7 +46,8 @@ function fixture() {
 			sandboxProfile: artifact('native-isolation-profile-v1.json'),
 			brokerPolicy: artifact('native-isolation-broker-v1.json'),
 			entrypointPath: pluginPeer.path,
-			runtimeClosure: [artifact('runtime/libfixture.so')],
+			runtimeClosure: [artifact('runtime/libfixture.so'), artifact('runtime/effects/OrbitAmp.vst3/Contents/x86_64-linux/OrbitAmp.so')],
+			pluginResources: [artifact('runtime/effects/OrbitAmp.vst3/Contents/Resources/Factory/Fixture.orbitrig.zip')],
 		},
 	};
 	const professional = {
@@ -56,13 +57,14 @@ function fixture() {
 		sourceAuthentication: target.sourceAuthentication, toolchainIdentity: target.toolchainIdentity,
 		buildAuthority: { sourceRevision: REVISION, buildPlanSha256: DIGEST },
 		payload: null, osAudioCodec: null, deliveryFilesystem: null,
-		buildResult: target.buildResult, pluginPeer: target.pluginPeer, isolation: target.isolation,
+		buildResult: target.buildResult, pluginPeer: target.pluginPeer,
+		isolation: { ...target.isolation, runtimeClosure: [artifact('runtime/libfixture.so')], pluginResources: [] },
 	};
 	return { professional, target };
 }
 
 test('Framescaper releases admit the authenticated audio plug-in peer and refuse device or delivery scope', () => {
-	const { professional } = fixture();
+	const { professional, target } = fixture();
 	const validate = (summary: unknown, revision = REVISION) =>
 		validateFramescaperProfessionalNativeSummary(summary, 'linux-x64', 'framescaper fixture', revision);
 	assert.doesNotThrow(() => validate(professional));
@@ -70,6 +72,8 @@ test('Framescaper releases admit the authenticated audio plug-in peer and refuse
 	assert.throws(() => validate({ ...professional, payload: { name: 'addon.node' } }), /device or delivery/u);
 	assert.throws(() => validate({ ...professional, deliveryFilesystem: professional.pluginPeer }), /device or delivery/u);
 	assert.throws(() => validate({ ...professional, hostingScope: 'all-native-services' }), /scope/u);
+	assert.throws(() => validate({ ...professional, isolation: { ...professional.isolation,
+		pluginResources: target.isolation.pluginResources } }), /plug-in resource/u);
 	assert.doesNotThrow(() => validate(null));
 });
 
@@ -103,6 +107,9 @@ test('Framescaper package binding authenticates the peer, receipt and isolation 
 	const changed = structuredClone(packageAudit);
 	changed.runtimeManifest.value.soundscaperProfessionalNative.isolation.runtimeClosure[0]!.sha256 = 'b'.repeat(64);
 	assert.throws(() => validate(changed), /professional native.*closure/u);
+	const extra = structuredClone(packageAudit);
+	extra.runtimeManifest.value.soundscaperProfessionalNative.isolation.runtimeClosure.push(target.isolation.runtimeClosure[1]!);
+	assert.throws(() => validate(extra), /professional native.*closure/u);
 });
 
 test('both product sandbox preloads bundle ARA validation without an ESM runtime loader', async (context) => {

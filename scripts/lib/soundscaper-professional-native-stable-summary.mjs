@@ -2,6 +2,8 @@
 
 /** Stable-package validation for an already verified professional-native build result. */
 
+import { isSoundscaperOnlyBundledPluginArtifactPath } from '../../desktop/bundled-native-plugins.ts';
+import { validateBundledPluginResources } from '../../desktop/bundled-plugin-resources.ts';
 import { targetNativeExecutableName }
 	from './soundscaper-professional-native-payload-names.mjs';
 
@@ -76,7 +78,7 @@ function validateBuiltSummary(summary, targetId, manifestName, runtimeSourceRevi
 			`${root}soundscaper_os_audio_codec.node`, `${label} OS audio codec`);
 	}
 	const isolation = exactRecord(summary.isolation, [
-		'launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure',
+		'launcher', 'sandboxProfile', 'brokerPolicy', 'entrypointPath', 'runtimeClosure', 'pluginResources',
 	], `${label} isolation closure`);
 	assertSummaryArtifact(isolation.launcher,
 		`${root}${targetNativeExecutableName('milestone5-native-isolation-launcher', targetId)}`,
@@ -90,10 +92,14 @@ function validateBuiltSummary(summary, targetId, manifestName, runtimeSourceRevi
 	const closurePaths = new Set();
 	for (const artifact of isolation.runtimeClosure) {
 		assertSummaryArtifact(artifact, null, `${label} runtime closure`);
-		assert(artifact.path.startsWith(`${root}runtime/`) && !closurePaths.has(artifact.path),
+		assert(artifact.path.startsWith(`${root}runtime/`) && !closurePaths.has(artifact.path)
+			&& (!pluginOnly || !isSoundscaperOnlyBundledPluginArtifactPath(artifact.path)),
 			`${label} runtime closure is invalid.`);
 		closurePaths.add(artifact.path);
 	}
+	const resources = validateBundledPluginResources(isolation.pluginResources, `${root}runtime/`);
+	assert((!pluginOnly || resources.length === 0) && resources.every(({ path }) => !closurePaths.has(path)),
+		`${label} plug-in resource closure is invalid.`);
 	assert(isolation.entrypointPath === summary.pluginPeer.path
 		|| closurePaths.has(isolation.entrypointPath), `${label} isolation entrypoint is invalid.`);
 }
