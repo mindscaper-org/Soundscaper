@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <charconv>
 #include <initializer_list>
+#include <limits>
 #include <stdexcept>
 
 namespace soundscaper::tracktion_backend
@@ -45,6 +46,14 @@ std::int64_t boundedInteger(const juce::DynamicObject& request, const char* fiel
 	if ((!value.isInt() && !value.isInt64()) || parsed < 0 || parsed > maxJsInteger)
 		throw std::invalid_argument("The Tracktion command requires a nonnegative safe integer");
 	return parsed;
+}
+
+size_t pageOffset(const juce::DynamicObject& request)
+{
+	const auto offset = static_cast<std::uint64_t>(boundedInteger(request, "offset"));
+	if (offset > std::numeric_limits<size_t>::max())
+		throw std::invalid_argument("The Tracktion page offset is outside the project");
+	return static_cast<size_t>(offset);
 }
 
 juce::String text(const juce::DynamicObject& request, const char* field, int maxBytes)
@@ -151,7 +160,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	if (kind == "project")
 	{
 		requireFields(request, {"offset"});
-		return projectPage(session.snapshot(), static_cast<size_t>(integer("offset")));
+		return projectPage(session.snapshot(), pageOffset(request));
 	}
 	if (kind == "transportStatus" || kind == "prepareOutput" || kind == "play" || kind == "stop" || kind == "seek" || kind == "setLoop")
 	{
@@ -195,7 +204,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::var
 	if (kind == "clips")
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
-		return clipPage(session.snapshot(), itemId(request, "trackId"), static_cast<size_t>(integer("offset")));
+		return clipPage(session.snapshot(), itemId(request, "trackId"), pageOffset(request));
 	}
 	if (kind == "finishRecording")
 	{

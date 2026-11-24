@@ -11,6 +11,7 @@
 	"include": [
 		"../../native/soundscaper-tracktion/tests/peer_test.ts",
 		"../../native/soundscaper-tracktion/tests/electron_smoke.ts",
+		"../../native/soundscaper-tracktion/wasm/tracktion-project-worker.ts",
 		"../../src/vite-env.d.ts",
 		"../../vite.config.mjs",
 		"../../playwright.config.mjs",
@@ -28,6 +29,7 @@
 		"../../scripts/lib/check-all*.ts",
 		"../../scripts/lib/check-module*.ts",
 		"../../scripts/lib/module-*.ts",
+		"../../scripts/lib/tracktion-wasm-command-check.ts",
 		"../../scripts/lib/ci-artifact-fetch.ts",
 		"../../scripts/lib/handbook-deploy.ts",
 		"../../scripts/docs-comparisons.ts",

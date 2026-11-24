@@ -33,8 +33,7 @@ sources=("${modules[@]/#/\/source\/juce\/modules\/}"
 	/source/tracktion/modules/tracktion_engine/tracktion_engine_*.cpp
 	/source/tracktion/modules/tracktion_core/tracktion_core.cpp
 	/source/tracktion/modules/tracktion_graph/tracktion_graph.cpp
-	/project/session.cpp /project/session_transport.cpp /project/session_recording.cpp
-	/project/tests/session_test.cpp)
+	/project/session.cpp /project/session_transport.cpp /project/session_recording.cpp)
 objects=()
 pids=()
 for source in "${sources[@]}"; do
@@ -60,9 +59,21 @@ done
 
 # The command thread can wait for cache readers while the Emscripten runtime
 # continues servicing their proxied file I/O.
-em++ -pthread -fexceptions "${objects[@]}" -sEXIT_RUNTIME=1 -sINITIAL_MEMORY=134217728 \
-	-sPTHREAD_POOL_SIZE=16 -sPTHREAD_POOL_SIZE_STRICT=2 -sPROXY_TO_PTHREAD=1 -sSTACK_SIZE=524288 \
-	-o /output/edit-test.js
+link() {
+	em++ -pthread -fexceptions "${objects[@]}" -sINITIAL_MEMORY=134217728 \
+		-sPTHREAD_POOL_SIZE=16 -sPTHREAD_POOL_SIZE_STRICT=2 -sPROXY_TO_PTHREAD=1 -sSTACK_SIZE=524288 "$@"
+}
+
+em++ -std=c++20 "${flags[@]}" -c /project/tests/session_test.cpp -o session_test.o
+link session_test.o -sEXIT_RUNTIME=1 -o /output/edit-test.js
 result=$(timeout 40s node /output/edit-test.js)
 printf '%s\n' "$result"
 [[ "$result" == *'Tracktion session editing, rendering and hosted playback passed.'* ]]
+
+if [[ "${1:-}" == --browser ]]; then
+	em++ -std=c++20 "${flags[@]}" -c /project/wasm/command_main.cpp -o command_main.o
+	em++ -std=c++20 "${flags[@]}" -c /project/peer_commands.cpp -o peer_commands.o
+	link command_main.o peer_commands.o -sENVIRONMENT=web,worker \
+		-sEXPORTED_FUNCTIONS=_main,_malloc,_free -sEXPORTED_RUNTIME_METHODS=FS,UTF8ToString \
+		-o /output/edit-core.js
+fi

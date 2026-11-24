@@ -12,8 +12,10 @@ const cache = resolve(import.meta.dirname, '../.native-build');
 const project = resolve(import.meta.dirname, '../native/soundscaper-tracktion');
 const graphOnly = process.argv[2] === '--graph';
 const browserCheck = process.argv[2] === '--browser';
-if (process.argv.length > 3 || (process.argv.length === 3 && !graphOnly && !browserCheck)) {
-	throw new Error('Usage: probe-tracktion-wasm.mjs [--graph | --browser]');
+const browserBuild = process.argv[2] === '--build-browser';
+const buildWorker = browserCheck || browserBuild;
+if (process.argv.length > 3 || (process.argv.length === 3 && !graphOnly && !buildWorker)) {
+	throw new Error('Usage: probe-tracktion-wasm.mjs [--graph | --browser | --build-browser]');
 }
 const sources = await provisionTracktionSources();
 mkdirSync(cache, { recursive: true });
@@ -78,13 +80,31 @@ node graph-test.js
 	const probe = spawnSync('docker', [
 		'run', '--rm', '--network', 'none', '--memory', '4g', '--cpus', '2',
 		'--volume', `${workspace}:/source:ro`, '--volume', `${project}:/project:ro`, '--volume', `${output}:/output`,
-		'--workdir', '/tmp', sdk, 'bash', ...(graphOnly ? ['-c', graphBuild] : ['/project/wasm/build-edit.sh']),
+		'--workdir', '/tmp', sdk, 'bash',
+		...(graphOnly ? ['-c', graphBuild] : ['/project/wasm/build-edit.sh', ...(buildWorker ? ['--browser'] : [])]),
 	], { stdio: 'inherit' });
 	if (probe.error) throw probe.error;
 	process.exitCode = probe.status ?? 1;
-	if (browserCheck && probe.status === 0) {
-		const { verifyTracktionWasmInBrowsers } = await import('./lib/tracktion-wasm-browser-check.mjs');
-		await verifyTracktionWasmInBrowsers(output);
+	if (buildWorker && probe.status === 0) {
+		const { build } = await import('esbuild');
+		await build({
+			entryPoints: [resolve(project, 'wasm/tracktion-project-worker.ts')],
+			outfile: resolve(output, 'tracktion-project-worker.js'),
+			platform: 'browser',
+			format: 'iife',
+			bundle: true,
+		});
+		if (browserCheck) {
+			const { verifyTracktionWasmInBrowsers } = await import('./lib/tracktion-wasm-browser-check.mjs');
+			await verifyTracktionWasmInBrowsers(output);
+		} else {
+			const destination = resolve(cache, 'tracktion-wasm-core');
+			mkdirSync(destination, { recursive: true });
+			for (const name of ['edit-core.js', 'edit-core.wasm', 'edit-core.worker.js', 'tracktion-project-worker.js']) {
+				cpSync(resolve(output, name), resolve(destination, name));
+			}
+			console.log(`Built the Tracktion browser worker in ${destination}.`);
+		}
 	}
 } finally {
 	rmSync(workspace, { recursive: true, force: true });

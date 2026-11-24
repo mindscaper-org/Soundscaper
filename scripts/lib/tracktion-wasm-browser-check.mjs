@@ -8,6 +8,8 @@ import { join } from 'node:path';
 
 import { chromium, firefox, webkit } from 'playwright-core';
 
+import { verifyWorkerCommands } from './tracktion-wasm-command-check.ts';
+
 const worker = `
 self.Module = {
 	mainScriptUrlOrBlob: new URL('/edit-test.js', self.location.href).href,
@@ -25,7 +27,10 @@ export async function verifyTracktionWasmInBrowsers(output) {
 		['/', { body: '<!doctype html><meta charset="utf-8"><title>Tracktion WASM test</title>', type: 'text/html' }],
 		['/worker.js', { body: worker, type: 'text/javascript' }],
 	]);
-	for (const name of ['edit-test.js', 'edit-test.worker.js', 'edit-test.wasm']) {
+	for (const name of [
+		'edit-test.js', 'edit-test.worker.js', 'edit-test.wasm',
+		'edit-core.js', 'edit-core.worker.js', 'edit-core.wasm', 'tracktion-project-worker.js',
+	]) {
 		assets.set(`/${name}`, {
 			body: await readFile(join(output, name)),
 			type: name.endsWith('.wasm') ? 'application/wasm' : 'text/javascript',
@@ -53,6 +58,8 @@ export async function verifyTracktionWasmInBrowsers(output) {
 				await page.goto(`http://127.0.0.1:${address.port}/`);
 				await page.evaluate(verifyWorkerSession);
 				console.log(`${browserType.name()} passed Tracktion session editing, rendering and hosted playback in WebAssembly.`);
+				await page.evaluate(verifyWorkerCommands);
+				console.log(`${browserType.name()} passed Tracktion worker commands, WAV exchange and persistent project reopen.`);
 			} finally {
 				await browser.close();
 			}
@@ -81,7 +88,8 @@ function verifyWorkerSession() {
 			if (data.stdout || data.stderr) report.push(data.stdout || data.stderr);
 			if (data.failure) finish(data.failure);
 			else if (Number.isInteger(data.status)) {
-				finish(data.status === 0 && verified ? null : `Tracktion WASM exited with status ${String(data.status)}.`);
+				if (data.status !== 0) finish(`Tracktion WASM exited with status ${String(data.status)}.`);
+				else finish(verified ? null : 'Tracktion WASM exited before reporting a successful session test.');
 			}
 		};
 		engine.onerror = (event) => finish(event.message);
