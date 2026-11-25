@@ -79,6 +79,8 @@ test.describe('Soundscaper native production workflows', () => {
 		await commitInput(dialog.locator('[data-effect-param="gain"] input'), '2');
 		await dialog.getByRole('button', { name: 'Apply to selection', exact: true }).click();
 		await expect(dialog).toBeHidden({ timeout: 20_000 });
+		await expect(editor.locator('[data-status]')).toHaveText('Applied the Audacity effect.');
+		await expect(editor.getByRole('alert')).toHaveCount(0);
 		await expect(editor.getByRole('button', { name: 'Undo', exact: true })).toBeEnabled();
 		await editor.getByRole('button', { name: 'Undo', exact: true }).click();
 		expect(errors).toEqual([]);

@@ -14,7 +14,13 @@ import { initializePffft } from '../src/common/editor/pffft.js';
 
 await initializePffft();
 
-for (const sourceRate of [24_000, 48_000]) test(`spectral source deletion keeps its ${sourceRate} Hz frequency clock`, async () => {
+const cases = [
+	{ sourceRate: 24_000, range: { minimumFrequency: 900, maximumFrequency: 1100 }, remainingTone: 0.1 },
+	{ sourceRate: 48_000, range: { minimumFrequency: 900, maximumFrequency: 1100 }, remainingTone: 0.1 },
+	{ sourceRate: 24_000, range: { minimumFrequency: 0, maximumFrequency: 12_000 }, remainingTone: 0 },
+];
+
+for (const { sourceRate, range, remainingTone } of cases) test(`spectral source deletion uses the ${sourceRate} Hz clock for ${range.minimumFrequency}–${range.maximumFrequency} Hz`, async () => {
 	const input = Float32Array.from({ length: sourceRate }, (_, frame) =>
 		0.35 * Math.sin(2 * Math.PI * 1000 * frame / sourceRate)
 		+ 0.1 * Math.sin(2 * Math.PI * 6000 * frame / sourceRate));
@@ -25,7 +31,7 @@ for (const sourceRate of [24_000, 48_000]) test(`spectral source deletion keeps 
 	const project = createSoundscaperProject({ id: 'spectral-source-project', sampleRate: 48_000,
 		sources: [source], clips: [clip], tracks: [createAudioTrack({ id: 'audio', clipIds: [clip.id] })],
 		selection: { startFrame: 0, endFrame: 48_000, trackIds: ['audio'], clipIds: [],
-			frequencyRange: { minimumFrequency: 900, maximumFrequency: 1100 } } });
+			frequencyRange: range } });
 	const buffer = { sampleRate: sourceRate, length: sourceRate, numberOfChannels: 1,
 		getChannelData: () => input };
 	const sourceEditor = createSourceEditorEffects({
@@ -47,7 +53,8 @@ for (const sourceRate of [24_000, 48_000]) test(`spectral source deletion keeps 
 	assert.ok(processed);
 	assert.equal(processed.length, sourceRate);
 	assert.ok(toneAmplitude(processed, 1000, sourceRate) < 0.01, 'the selected 1000 Hz tone is deleted');
-	assert.ok(toneAmplitude(processed, 6000, sourceRate) > 0.095, 'the unselected 6000 Hz tone survives');
+	assert.ok(Math.abs(toneAmplitude(processed, 6000, sourceRate) - remainingTone) < 0.005,
+		'the 6000 Hz tone follows the selected band');
 	assert.equal(harness.persisted.length, 1);
 });
 

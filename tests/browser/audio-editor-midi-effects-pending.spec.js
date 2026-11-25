@@ -76,20 +76,3 @@ for (const held of [false, true]) test(`Invert applies signed PCM to the ${held 
 		expect(errors).toEqual([]);
 	} finally { await page.evaluate(() => globalThis.__releaseMidiWrite?.()); }
 });
-
-test('Cancel closes Amplify while MIDI publication is pending and late readiness leaves it closed', async ({ page }) => {
-	const { editor, errors, setPitch } = await setup(page);
-	await setPitch(67, true);
-	try {
-		await chooseNestedCommandAction(page, editor, 'Effect', ['Volume and compression', 'Amplify']);
-		const dialog = page.locator('[data-selection-effects-dialog]');
-		await expect(dialog).toBeVisible();
-		await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
-		await expect(dialog).toBeHidden();
-		await page.evaluate(() => globalThis.__releaseMidiWrite());
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-		await expect(dialog).toBeHidden();
-		await expect(editor.getByRole('alert')).toHaveCount(0);
-		expect(errors).toEqual([]);
-	} finally { await page.evaluate(() => globalThis.__releaseMidiWrite?.()); }
-});

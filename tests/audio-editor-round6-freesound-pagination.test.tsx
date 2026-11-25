@@ -17,7 +17,7 @@ test('Freesound preserves a query entered at mount and paginates the displayed r
 	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	const requests: FreesoundSearchRequest[] = [];
 	const state: FreesoundPanelState = {
-		query: 'rain', license: 'commercial', sort: 'rating', page: 2, pageCount: 3,
+		query: 'rain', license: 'commercial', sort: 'rating', page: 1, pageCount: 3,
 		totalResults: 60, status: 'ready', previewingSoundId: null, previewPaused: false, results: [],
 	};
 	function EditBeforePassiveEffects({ children }: { readonly children: ReactNode }) {
@@ -34,11 +34,12 @@ test('Freesound preserves a query entered at mount and paginates the displayed r
 		await act(async () => root.render(<EditBeforePassiveEffects>{panel(state)}</EditBeforePassiveEffects>));
 		const input = dom.one('input');
 		assert.equal(input.value, 'wind', 'the initial draft survives the mount effects');
-		for (const [label, page] of [['Next', 3], ['Previous', 1]] as const) {
+		for (const [label, page] of [['Next', 2], ['Previous', 1]] as const) {
 			const button = dom.container.querySelectorAll('button').find(candidate => candidate.textContent === label);
 			assert.ok(button);
 			await act(async () => { reactProps(button).onClick({}); });
 			assert.deepEqual(requests.at(-1), { query: 'rain', license: 'commercial', sort: 'rating', page });
+			await act(async () => root.render(<EditBeforePassiveEffects>{panel({ ...state, page })}</EditBeforePassiveEffects>));
 			assert.equal(input.value, 'wind', 'paging does not consume an unsubmitted draft');
 		}
 		await act(async () => { reactProps(dom.one('form')).onSubmit({ preventDefault() {} }); });

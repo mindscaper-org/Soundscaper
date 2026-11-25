@@ -68,6 +68,7 @@ for (const cancel of [false, true]) test(`Amplify ${cancel ? 'cancellation' : 'e
 	if (cancel) {
 		await assert.rejects(Promise.resolve(preparing), { name: 'AbortError' });
 		assert.equal(f.inputs.length, 0);
+		assertRequestedPitch(await f.samples());
 	} else {
 		assert.equal((await preparing).gainDb, 6, 'the scan cannot overwrite an edit made during the MIDI wait');
 		const input = f.inputs[0]; assert.ok(input); assertRequestedPitch(input);
