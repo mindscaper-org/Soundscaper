@@ -141,7 +141,8 @@ test('package audit rejects missing, unexpected, wrong-version, source-revision,
 			await writeFile(join(fixture.packageRoot, 'ffmpeg-corresponding-source.json'), 'forbidden source evidence');
 		}
 		if (failure === 'unexpected') {
-			await writeFile(join(fixture.packageRoot, `Soundscaper-${VERSION}-win-x64.zip`), 'extra');
+			const msi = `${releaseArtifactStem(VERSION, 'Soundscaper')}-win-x64.msi`;
+			await writeFile(join(fixture.packageRoot, msi), 'extra');
 		}
 		if (failure === 'version') {
 			await rename(
@@ -166,13 +167,15 @@ test('package audit rejects missing, unexpected, wrong-version, source-revision,
 			await writeJson(manifestPath, manifest);
 		}
 		const targetId = failure === 'target' ? 'win-x64' : 'linux-x64';
+		const expectedError = failure === 'unexpected'
+			? /unexpected packaged files: .*\.msi/iu : /package|manifest|expected|unexpected|target|source/iu;
 		try {
 			await assert.rejects(auditMilestone5PackageContent({
 				repositoryRoot: fixture.root,
 				packageRoot: fixture.packageRoot,
 				productId: 'soundscaper',
 				targetId,
-			}), /package|manifest|expected|unexpected|target|source/iu, failure);
+			}), expectedError, failure);
 		} finally {
 			await rm(fixture.packageRoot, { recursive: true, force: true });
 		}
