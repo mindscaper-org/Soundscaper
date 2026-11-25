@@ -9,10 +9,10 @@ for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '
 		const editor = await bootEditor(page, route);
 		const file = editor.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true });
 		await file.click();
-		const menu = editor.locator('.kw-audio-editor__application-menu');
+		const menu = page.getByRole('menu', { name: 'File', exact: true });
 		const create = menu.locator('[data-menu-tooltip-id="new-project"]');
 		await create.hover();
-		const tooltip = page.locator('.menu-tooltip');
+		const tooltip = page.getByRole('tooltip');
 		await expect(tooltip).toContainText('Start an empty timeline for a separate piece of work.');
 		await expect(tooltip.locator('kbd')).toHaveText('Ctrl+N');
 		await expect(tooltip).toHaveAttribute('data-side', 'right');
@@ -20,8 +20,9 @@ for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '
 		const tooltipBounds = await tooltip.boundingBox();
 		expect(tooltipBounds.x).toBeGreaterThanOrEqual(itemBounds.x + itemBounds.width);
 		await expect(create).toHaveAttribute('aria-describedby', await tooltip.getAttribute('id'));
-		await tooltip.hover();
-		await expect(tooltip).toBeVisible();
+		// Cross the gap at the height of the menu item, away from adjacent items.
+		await page.mouse.move(tooltipBounds.x + 8, itemBounds.y + itemBounds.height / 2, { steps: 8 });
+		await expect(tooltip).toContainText('Start an empty timeline for a separate piece of work.');
 		await page.mouse.move(1400, 850);
 		await expect(tooltip).toHaveCount(0);
 		await expect(create).not.toHaveAttribute('aria-describedby');
