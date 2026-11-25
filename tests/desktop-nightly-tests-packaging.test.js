@@ -29,8 +29,8 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	assert.equal(config.afterPack, './scripts/desktop-nightly-tests-after-pack.mjs');
 	assert.deepEqual(config.win.target, ['portable']);
 	assert.equal(config.portable.splashImage, '.desktop-build/icons/nightly-tests-splash.bmp');
-	assert.equal(config.portable.useZip, true);
-	assert.equal(config.portable.unpackDirName, false);
+	assert.equal(config.portable.useZip, false);
+	assert.equal(config.portable.unpackDirName, true);
 	assert.deepEqual(config.mac.target, ['zip']);
 	assert.equal(config.mac.signIgnore, '/Contents/Resources/nightly-tests/products/');
 	const macSignIgnore = new RegExp(config.mac.signIgnore, 'u');
@@ -101,23 +101,13 @@ test('nightly-with-tests packaging is isolated, portable, and keeps its payload 
 	assert.equal(config.extraResources.some(({ to }) => to === 'renderer' || to === 'runtime'), false);
 });
 
-test('the Windows ARM64 portable package uses an embedded archive until direct-directory NSIS supports it', () => {
-	const configPath = resolve(ROOT, 'config/electron/electron-builder.nightly-tests.config.cjs');
-	const originalArch = process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH;
-	try {
-		for (const [arch, useZip] of [['x64', true], ['arm64', false]]) {
-			process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH = arch;
-			delete require.cache[configPath];
-			assert.equal(require(configPath).portable.useZip, useZip, arch);
-		}
-		process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH = 'ia32';
-		delete require.cache[configPath];
-		assert.throws(() => require(configPath), /SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH must be x64 or arm64/u);
-	} finally {
-		if (originalArch === undefined) delete process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH;
-		else process.env.SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH = originalArch;
-		delete require.cache[configPath];
-	}
+test('the nightly NSIS launcher extracts its embedded Windows archive with the system tar', async () => {
+	const portable = await readFile(require.resolve('app-builder-lib/templates/nsis/portable.nsi'), 'utf8');
+	const extraction = await readFile(require.resolve('app-builder-lib/templates/nsis/include/extractAppPackage.nsh'), 'utf8');
+	assert.match(portable, /!if "\$\{APP_ID\}" == "org\.soundscaper\.desktop\.nightly-tests"\s+!define SOUNDSCAPER_NIGHTLY_PORTABLE/u);
+	assert.match(extraction, /!ifdef SOUNDSCAPER_NIGHTLY_PORTABLE\s+!insertmacro scapeNightlyExtractPayload "\$\{FILE\}"\s+!else[\s\S]*?CopyFiles /u);
+	assert.match(portable, /Sysnative\\tar\.exe[\s\S]*?StrCmp \$R0 "0"[\s\S]*?SetErrorLevel 1[\s\S]*?Quit/u);
+	assert.match(portable, /ExecWait[^\n]+\n[\s\S]*?!insertmacro scapeNightlyRemovePayload/u);
 });
 
 test('generated nightly-with-tests packages stay outside version control', async () => {
@@ -304,7 +294,6 @@ test('desktop test artifacts build on main pushes and manual target selections w
 		testJob,
 		/ci-electron-builder\.sh[\s\\]*--config config\/electron\/electron-builder\.nightly-tests\.config\.cjs/u,
 	);
-	assert.match(testJob, /SOUNDSCAPER_NIGHTLY_TESTS_PACKAGE_ARCH: \$\{\{ matrix\.target\.arch \}\}/u);
 	assert.match(testJob, /name: nightly-with-tests-\$\{\{ matrix\.target\.platform \}\}-\$\{\{ matrix\.target\.arch \}\}/u);
 	assert.match(testJob, /release\/desktop-nightly-tests\/\*\.AppImage/u);
 	assert.match(testJob, /release\/desktop-nightly-tests\/\*\.exe/u);

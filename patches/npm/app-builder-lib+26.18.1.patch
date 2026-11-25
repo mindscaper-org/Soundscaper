@@ -1,0 +1,57 @@
+diff --git a/node_modules/app-builder-lib/templates/nsis/portable.nsi b/node_modules/app-builder-lib/templates/nsis/portable.nsi
+--- a/node_modules/app-builder-lib/templates/nsis/portable.nsi
++++ b/node_modules/app-builder-lib/templates/nsis/portable.nsi
+@@ -1,2 +1,29 @@
++!if "${APP_ID}" == "org.soundscaper.desktop.nightly-tests"
++  !define SOUNDSCAPER_NIGHTLY_PORTABLE
++!endif
++
+ !include "common.nsh"
+ !include "extractAppPackage.nsh"
++
++!ifdef SOUNDSCAPER_NIGHTLY_PORTABLE
++  ; The private per-launch app tree can contain files too deep for NSIS RMDir.
++  !macro scapeNightlyRemovePayload
++    System::Call 'Kernel32::SetEnvironmentVariable(t, t)i ("SOUNDSCAPER_NIGHTLY_TEMP_APP", "$PLUGINSDIR\app").r9'
++    nsExec::Exec `"$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -Command "$$ErrorActionPreference = 'Stop'; $$app = [Environment]::GetEnvironmentVariable('SOUNDSCAPER_NIGHTLY_TEMP_APP'); if ([IO.Directory]::Exists($$app)) { if ($$app.StartsWith('\\')) { $$app = '\\?\UNC\' + $$app.Substring(2) } else { $$app = '\\?\' + $$app }; [IO.Directory]::Delete($$app, $$true) }"`
++    Pop $R2
++  !macroend
++
++  ; NSIS runs as a 32-bit process. Sysnative addresses the native system tar.
++  !macro scapeNightlyExtractPayload FILE
++    nsExec::ExecToStack '"$WINDIR\Sysnative\tar.exe" -xf "${FILE}" -C "$OUTDIR"'
++    Pop $R0
++    Pop $R1
++    StrCmp $R0 "0" scapeNightlyArchiveExtracted
++    SetOutPath $EXEDIR
++    !insertmacro scapeNightlyRemovePayload
++    MessageBox MB_OK|MB_ICONSTOP "Could not unpack the nightly test application.$\n$R1" /SD IDOK
++    SetErrorLevel 1
++    Quit
++    scapeNightlyArchiveExtracted:
++  !macroend
++!endif
+@@ -89,3 +116,7 @@
+   SetOutPath $EXEDIR
+-	RMDir /r $INSTDIR
++  !ifdef SOUNDSCAPER_NIGHTLY_PORTABLE
++    !insertmacro scapeNightlyRemovePayload
++  !else
++    RMDir /r $INSTDIR
++  !endif
+ SectionEnd
+diff --git a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
+--- a/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
++++ b/node_modules/app-builder-lib/templates/nsis/include/extractAppPackage.nsh
+@@ -92,4 +92,7 @@
+ !macro extractUsing7za FILE
++  !ifdef SOUNDSCAPER_NIGHTLY_PORTABLE
++    !insertmacro scapeNightlyExtractPayload "${FILE}"
++  !else
+   Push $OUTDIR
+   CreateDirectory "$PLUGINSDIR\7z-out"
+   ClearErrors
+@@ -137,2 +140,3 @@
+   DoneExtract7za:
++  !endif
+ !macroend
