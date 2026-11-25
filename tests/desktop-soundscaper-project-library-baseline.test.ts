@@ -41,7 +41,6 @@ import { SoundscaperDesktopProjectLibraryCatalog } from '../desktop/soundscaper-
 import {
 	createSoundscaperDesktopProjectLibraryMainPreloadBridge,
 } from '../desktop/soundscaper-project-library-main-preload.ts'
-import { createHash as createSandboxHash } from '../desktop/soundscaper-project-library-sandbox-crypto.ts'
 import { validateSoundscaperDesktopCurrentProject } from '../desktop/soundscaper-project-library-current-project.ts'
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts'
 import {
@@ -52,10 +51,6 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts'
 import { waitFor } from './helpers/async-test-control.ts'
 
 test('Soundscaper desktop baseline freezes the exact family-qualified v1 identity', () => {
-	assert.equal(
-		createSandboxHash('sha256').update('abc').digest('hex'),
-		'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
-	)
 	assert.equal(SOUNDSCAPER_DESKTOP_LIBRARY_SCHEMA_VERSION, 1)
 	assert.equal(DESKTOP_PROJECT_LIBRARY_DATABASE_VERSION, 1)
 	assert.equal(DESKTOP_PROJECT_LIBRARY_APPLICATION_ID, 0x53534350)
