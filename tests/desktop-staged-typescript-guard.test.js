@@ -54,6 +54,9 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 		/videoKeying:|assistance:operation:encode-keyed-video/u,
 		'Soundscaper must omit the Framescaper alpha-video preload capability');
 	assert.equal(stagedRuntime.files.includes('desktop/assistance-keyed-video-service.js'), false);
+	for (const retired of ['native-audio-helper-adapter', 'native-audio-session-service', 'native-helper-service', 'native-realtime-broker']) {
+		assert.equal(stagedRuntime.files.includes(`desktop/${retired}.js`), false, `${retired} belongs to the legacy audio route`);
+	}
 	assert.equal(await readFile(join(applicationDesktopRoot, 'blender/soundscaper_blender.py'), 'utf8'),
 		await readFile(join(ROOT, 'desktop/blender/soundscaper_blender.py'), 'utf8'),
 		'the desktop package must carry the installable Blender receiver');
@@ -100,6 +103,10 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 	}
 	for (const retired of [
 		'preload.mjs',
+		'native-audio-device-job.js',
+		'native-audio-helper-process.js',
+		'native-audio-helper-registration.mjs',
+		'native-helper-persistent-audio-job.js',
 		'native-helper-realtime-job.js',
 		'project-library-fallback-role-witnesses.js',
 		'project-library-source-bearing-smoke.js',
@@ -116,6 +123,8 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 	await assert.rejects(access(join(framescaperDesktopRoot, 'soundscaper-project-library-sandbox-preload.cjs')), { code: 'ENOENT' });
 	assert.equal(framescaperRuntime.files.includes('desktop/soundscaper-project-library-main-ipc.js'), false);
 	assert.ok(framescaperRuntime.files.includes('desktop/framescaper-project-library-main-ipc.js'));
+	assert.ok(framescaperRuntime.files.includes('desktop/native-audio-session-service.js'));
+	await access(join(framescaperDesktopRoot, 'native-audio-helper-process.js'));
 	assert.match(await readFile(join(framescaperDesktopRoot, 'preload.mjs'), 'utf8'),
 		/assistance:operation:encode-keyed-video/u,
 		'Framescaper must bundle its authenticated alpha-video preload capability');

@@ -7,7 +7,7 @@ import type { HelperDataPlaneTransferPort } from '../desktop/helper-data-plane-t
 import { createHarness, settled } from './helpers/helper-supervisor-double.ts';
 import { createSettings } from './helpers/desktop-native-tier-harness.js';
 
-const { registerDesktopNativeAudioHelper } = await import('../desktop/native-helper-registration.mjs');
+const { registerDesktopNativeAudioHelper } = await import('../desktop/native-audio-helper-registration.mjs');
 
 test('registered native input, output, and inventory each reach an independent real helper supervisor', async () => {
 	const fixture = registrationFixture();

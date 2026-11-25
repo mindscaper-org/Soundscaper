@@ -59,6 +59,15 @@ test('registering the native tier claims every declared channel exactly once', a
 	await disposeDesktopNativeTier(registration.tier);
 });
 
+test('Framescaper starts the native tier without Soundscaper project storage', async (context) => {
+	const registration = createRegistration(await temporaryUserData(context), {}, {
+		productId: 'framescaper', nativePluginStateAuthority: undefined,
+	});
+	context.after(() => disposeDesktopNativeTier(registration.tier));
+	await registration.tier.ready();
+	assert.ok(registration.channels.includes(IPC.helperProbeAvailability));
+});
+
 test('the renderer can change native-audio preference through the bounded main channel', async (context) => {
 	let ownerReads = 0;
 	const registration = createRegistration(await temporaryUserData(context), { nativeAudioHelperEnabled: false }, {

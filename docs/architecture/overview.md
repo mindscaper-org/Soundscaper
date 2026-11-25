@@ -213,8 +213,9 @@ WASM Edit and commits project revisions with their media in IndexedDB. On
 desktop, the Electron main process owns file selection and publication.
 The Tracktion utility process supervises the native peer, which owns the Edit,
 audio transport, and render. Soundscaper staging includes the Tracktion preload
-and utility entry. The existing Framescaper project library uses its own
-desktop bridge and lazy browser startup.
+and utility entry. Its desktop plug-in processes handle scanning, effects, and
+analyzers. The separate audio-device helper is available in the Framescaper
+desktop composition, which also owns the existing project-library bridge.
 
 Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
 editing states, without project identity or media bodies. The enclosing document

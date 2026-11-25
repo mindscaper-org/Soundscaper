@@ -71,12 +71,14 @@ const TSX_IMPORT = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).
 
 function harnessSource() {
 	const helperModule = pathToFileURL(join(ROOT, 'desktop/native-helper-process.js')).href;
+	const addonModule = pathToFileURL(join(ROOT, 'desktop/native-helper-addon.js')).href;
 	const scanModule = pathToFileURL(join(ROOT, 'desktop/native-helper-scan-job.js')).href;
 	return [
 		'/* SPDX-License-Identifier: AGPL-3.0-only */',
 		"import { createHash } from 'node:crypto';",
 		"import { readFile } from 'node:fs/promises';",
-		`import { createNativeHelperWorker, loadVerifiedNativeAddon } from '${helperModule}';`,
+		`import { createNativeHelperWorker } from '${helperModule}';`,
+		`import { loadVerifiedNativeAddon } from '${addonModule}';`,
 		`import { createNativePluginScanJobRunner } from '${scanModule}';`,
 		'const config = JSON.parse(process.argv[2]);',
 		'const hashFile = async (path) => {',
@@ -86,7 +88,6 @@ function harnessSource() {
 		'const worker = createNativeHelperWorker({',
 		"\trole: 'plugin-scanner',",
 		'\tpost: (message) => process.send(message),',
-		"\trunDeviceJob: () => { throw new Error('this helper serves plug-in scans only'); },",
 		'\trunScanJob: createNativePluginScanJobRunner({',
 		'\t\taddonPath: config.addonPath,',
 		'\t\taddonSha256: config.addonSha256,',

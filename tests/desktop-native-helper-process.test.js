@@ -15,16 +15,19 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { validateHelperProcessMessage } from '../desktop/helper-contract.ts';
+import { createSingleKindHelperWorker } from '../desktop/helper-single-kind-worker.js';
 import {
 	NATIVE_AUDIO_INVENTORY_BOUNDS,
 	NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE,
-	NATIVE_HELPER_JOB_KINDS,
 	SYNTHETIC_ENGINE_MODES,
 	SYNTHETIC_LOOPBACK_DEVICE_HANDLE,
 	createNativeDeviceJobRunner,
+} from '../desktop/native-audio-device-job.js';
+import { loadVerifiedNativeAddon } from '../desktop/native-helper-addon.js';
+import {
+	NATIVE_HELPER_JOB_KINDS,
 	createNativeHelperWorker,
 	createProfessionalNativeHelperRoleSeams,
-	loadVerifiedNativeAddon,
 } from '../desktop/native-helper-process.js';
 import {
 	MAXIMUM_NATIVE_AUDIO_DEVICES,
@@ -53,7 +56,8 @@ function jobMessage(jobId = JOB_ID, grant = GRANT, kind = 'audio-device') {
 function createWorker(runJob) {
 	const posted = [];
 	const exits = [];
-	const worker = createNativeHelperWorker({
+	const worker = createSingleKindHelperWorker({
+		kind: 'audio-device',
 		post: (message) => posted.push(message),
 		runJob,
 		heartbeatIntervalMs: 1_000_000,
@@ -100,7 +104,11 @@ test('the helper announces exactly the kinds it implements', () => {
 	const { types, posted } = createWorker(() => manualJob().handle);
 	assert.deepEqual(types(), ['hello']);
 	assert.deepEqual(posted[0].kinds, ['audio-device']);
-	assert.deepEqual([...NATIVE_HELPER_JOB_KINDS], ['audio-device', 'plugin-scan', 'plugin-host', 'plugin-analyze']);
+	assert.deepEqual([...NATIVE_HELPER_JOB_KINDS], ['plugin-scan', 'plugin-host', 'plugin-analyze']);
+});
+
+test('the plug-in utility refuses the legacy audio-device role', () => {
+	assert.throws(() => createNativeHelperWorker({ role: 'audio', post: () => {}, runJob: () => manualJob().handle }), /closed role/u);
 });
 
 test('professional scanner and host roles derive machine containment and select only the isolated peer', async () => {
