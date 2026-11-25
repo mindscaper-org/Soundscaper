@@ -45,7 +45,7 @@ export async function writeDesktopPackageContentManifest({
 		'desktop runtime manifest');
 	const runtimeManifest = canonicalJson(runtimeManifestBytes, 'desktop runtime manifest');
 	validateRuntimeManifest(runtimeManifest, productId, targetId);
-	const files = await collectClosure(root, [DESKTOP_PACKAGE_CONTENT_MANIFEST_NAME]);
+	const files = await collectClosure(root, [DESKTOP_PACKAGE_CONTENT_MANIFEST_NAME], targetId);
 	await assertRuntimePayloadClosure(runtimeManifest, files, dependencies, root);
 	const closureSha256 = digest(Buffer.from(JSON.stringify(files), 'utf8'));
 	const value = {
@@ -81,6 +81,7 @@ export async function writeDesktopPackageContentManifest({
 		contentManifestSha256: digest(bytes),
 	});
 }
+/** @param {{extractedRoot: string, packageFormat?: string | null, runtimeManifestBytes: Uint8Array, productId: string, targetId: string}} options */
 export async function auditExtractedDesktopPackageContent({
 	extractedRoot,
 	packageFormat = null,
@@ -119,17 +120,18 @@ export async function auditExtractedDesktopPackageContent({
 	const files = await collectClosure(resourcesRoot, [
 		DESKTOP_PACKAGE_CONTENT_MANIFEST_NAME,
 		...packageResourceExclusions,
-	]);
+	], targetId);
 	await assertRuntimePayloadClosure(adjacent, files, dependencies, resourcesRoot);
-	if (JSON.stringify(files) !== JSON.stringify(content.files)
+	const declaredFiles = content.files.map((file) => ({ ...file, path: packagePathSpelling(file.path, targetId) }));
+	if (JSON.stringify(files) !== JSON.stringify(declaredFiles)
 		|| content.fileCount !== files.length
 		|| content.totalBytes !== files.reduce((total, file) => total + file.byteLength, 0)
-		|| content.closureSha256 !== digest(Buffer.from(JSON.stringify(files), 'utf8'))) {
+		|| content.closureSha256 !== digest(Buffer.from(JSON.stringify(content.files), 'utf8'))) {
 		throw new Error('The extracted desktop resource closure disagrees with its embedded manifest.');
 	}
 	await assertExecutableArchitecture(layout.executable, targetId);
 	const installedFiles = await normalizeDesktopPackageInstalledClosure(
-		await collectInstalledClosure(layout.applicationRoot),
+		await collectInstalledClosure(layout.applicationRoot, targetId),
 		{
 			appImageCompatibilityLibraryAuthority:
 				dependencies.appImageCompatibilityLibraryAuthority,
@@ -159,16 +161,13 @@ export async function auditExtractedDesktopPackageContent({
 		installedClosureSha256,
 	});
 }
-async function collectInstalledClosure(root) {
+async function collectInstalledClosure(root, targetId) {
 	const files = [];
 	let totalBytes = 0;
 	async function visit(directory, prefix) {
-		const entries = await readdir(directory, { withFileTypes: true });
-		entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
-		for (const entry of entries) {
-			assertPortableSegment(entry.name);
+		for (const { entry, name: segment } of await packageEntries(directory, targetId)) {
 			const path = resolve(directory, entry.name);
-			const name = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+			const name = prefix === '' ? segment : `${prefix}/${segment}`;
 			const metadata = await lstat(path);
 			if (metadata.isSymbolicLink()) {
 				const target = await readlink(path);
@@ -210,13 +209,14 @@ async function assertRuntimePayloadClosure(runtime, files, dependencies, resourc
 			|| !SHA256.test(descriptor.sha256)) {
 			throw new Error(`The desktop runtime manifest has invalid ${label} evidence.`);
 		}
-		const actual = inventory.get(path);
+		const name = packagePathSpelling(path, nativeTarget);
+		const actual = inventory.get(name);
 		if (actual?.byteLength !== descriptor.byteLength || actual.sha256 !== descriptor.sha256) {
-			throw new Error(`The installed desktop resource closure does not contain authenticated ${label}.`);
+			throw new Error(`The installed desktop resource closure does not contain authenticated ${label} (${name}).`);
 		}
 		if (prefix !== null) {
 			const names = expectedByPrefix.get(prefix) ?? new Set();
-			names.add(path);
+			names.add(name);
 			expectedByPrefix.set(prefix, names);
 		}
 	};
@@ -295,18 +295,29 @@ async function assertRuntimePayloadClosure(runtime, files, dependencies, resourc
 		}
 	}
 }
-async function collectClosure(root, excludedNames) {
+async function packageEntries(directory, targetId) {
+	const entries = (await readdir(directory, { withFileTypes: true })).map((entry) => {
+		assertPortableSegment(entry.name);
+		return { entry, name: packagePathSpelling(entry.name, targetId) };
+	});
+	if (new Set(entries.map(({ name }) => name)).size !== entries.length) {
+		throw new Error('The desktop package contains canonically equivalent file names.');
+	}
+	return entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
+}
+
+// An HFS+ DMG can expose decomposed names while its staged app uses NFC.
+function packagePathSpelling(name, targetId) { return targetId.startsWith('mac-') ? name.normalize('NFC') : name; }
+
+async function collectClosure(root, excludedNames, targetId) {
 	const excluded = new Set(excludedNames);
 	const files = [];
 	let totalBytes = 0;
 	async function visit(directory, prefix) {
-		const entries = await readdir(directory, { withFileTypes: true });
-		entries.sort((left, right) => left.name.localeCompare(right.name, 'en'));
-		for (const entry of entries) {
+		for (const { entry, name: segment } of await packageEntries(directory, targetId)) {
 			if (prefix === '' && excluded.has(entry.name)) continue;
-			assertPortableSegment(entry.name);
 			const path = resolve(directory, entry.name);
-			const name = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
+			const name = prefix === '' ? segment : `${prefix}/${segment}`;
 			if (entry.isSymbolicLink()) {
 				throw new Error(`The desktop resource closure contains symbolic entry ${name}.`);
 			}
