@@ -3,6 +3,7 @@ import { strFromU8, unzipSync } from 'fflate';
 import { libsndfileWave64Fixture } from '../helpers/libsndfile-wave64-fixture.ts';
 import { nativeWave64Fixture } from '../helpers/native-wave64-fixture.ts';
 import { inspectWavBlobPcm } from '../../src/common/editor/wav-import.js';
+import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseCommandAction, chooseDropdown, chooseExportProjectFileAction, disableNativeSavePicker, downloadBytes,
 	openExportDialog, readDownloadBytes } from './audio-editor-test-helpers.js';
@@ -73,7 +74,9 @@ for (const format of ['w64']) test(`native ${format} retains authored48k PCM and
 		expect(native[channel].slice(4800).every(value => value === 0)).toBe(true);
 	}
 	expect(error).toBeLessThan(1e-7);
-	await editor.locator('[data-import-input]').setInputFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
+	const selecting = page.waitForEvent('filechooser');
+	await chooseCommandAction(page, editor, 'File', 'Import');
+	await (await selecting).setFiles({ name: file.name, mimeType: file.type, buffer: Buffer.from(await file.arrayBuffer()) });
 	// Native WebKit decoding can outlast the ordinary UI assertion window in CI.
 	await expect(editor).toHaveAttribute('data-clip-count', '1', { timeout: 60_000 });
 	await expect(editor).not.toHaveAttribute('data-edit-block-reason', 'importing');
@@ -93,10 +96,7 @@ for (const format of ['w64']) test(`native ${format} retains authored48k PCM and
 	const wave = await readDownloadBytes(page, link);
 	expect(await inspectWavBlobPcm(new Blob([wave]))).toMatchObject({ sampleRate: 48_000, frameCount: 4800, channelCount: 2 });
 	expect(await page.evaluate(() => globalThis.__wave64NativeBuffers)).toContainEqual({ native: true, frames: 4800, channels: 2 });
-	const rendered = await page.evaluate(async bytes => {
-		const buffer = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(Uint8Array.from(bytes).buffer);
-		return [0, 1].map(channel => [...buffer.getChannelData(channel)]);
-	}, [...wave]);
+	const { channels: rendered } = readWavePcm(wave);
 	error = 0;
 	for (let channel = 0; channel < 2; channel++) for (let frame = 1000; frame < 3800; frame++) error = Math.max(error, Math.abs(rendered[channel][frame] - channels[channel][frame]));
 	expect(error).toBeLessThan(1e-6);

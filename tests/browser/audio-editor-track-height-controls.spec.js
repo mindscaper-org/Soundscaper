@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { expect, test, toneA, toneB } from './audio-editor-test-fixtures.js';
 import { bootEditor, collectClientErrors, importFiles, setDocumentTheme, waitForEditor } from './audio-editor-test-helpers.js';
+import { savedNativePreferences } from './helpers/preferences-state-workflow.js';
 
-for (const theme of ['light', 'dark']) test(`default track height toolbar steps every row and can be hidden in ${theme}`, async ({ page }) => {
+test('default track height toolbar steps every row and persists hidden controls', async ({ page }) => {
 	const errors = collectClientErrors(page);
 	let editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await setDocumentTheme(page, theme);
 	await importFiles(editor, [toneA, toneB]);
 	const labels = ['Decrease all track heights', 'Increase all track heights', 'Fit tracks to height'];
-	for (const name of labels) await expect(editor.getByRole('button', { name, exact: true })).toBeVisible();
+	for (const theme of ['light', 'dark']) {
+		await setDocumentTheme(page, theme);
+		for (const name of labels) await expect(editor.getByRole('button', { name, exact: true })).toBeVisible();
+	}
 	const rows = editor.locator('[data-track-row]');
 	const heights = () => rows.evaluateAll(elements => elements.map(element => element.getBoundingClientRect().height));
 	const initial = await heights();
@@ -28,6 +31,12 @@ for (const theme of ['light', 'dark']) test(`default track height toolbar steps 
 		await expect(option).toHaveAttribute('aria-checked', 'false');
 	}
 	await page.keyboard.press('Escape');
+	await expect(customize).toBeHidden();
+	await expect.poll(async () => (await savedNativePreferences(page))?.workspace?.toolbarButtons).toMatchObject({
+		'decrease-track-heights': false,
+		'increase-track-heights': false,
+		'fit-tracks-height': false,
+	});
 	await page.reload();
 	editor = await waitForEditor(page);
 	for (const name of labels) await expect(editor.getByRole('button', { name, exact: true })).toHaveCount(0);

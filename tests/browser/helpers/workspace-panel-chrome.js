@@ -47,7 +47,10 @@ export async function openWorkspacePanelMenu(editor, panelId) {
  */
 export async function closeWorkspacePanel(editor, panelId, copy = null) {
 	const menu = await openWorkspacePanelMenu(editor, panelId);
-	await menu.getByRole('menuitem', copy ? { name: copy.close, exact: true } : { name: CLOSE_MENU_LABEL }).click();
+	const close = menu.getByRole('menuitem', copy ? { name: copy.close, exact: true } : { name: CLOSE_MENU_LABEL });
+	await close.focus();
+	await expect(close).toBeFocused();
+	await close.press('Enter');
 	await expect(editor.locator(`[data-workspace-panel="${panelId}"]`)).toBeHidden();
 }
 

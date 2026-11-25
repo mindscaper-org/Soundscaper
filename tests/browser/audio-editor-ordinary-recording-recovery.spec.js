@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium } from '@playwright/test';
+import { readWavePcm } from '../helpers/read-wave-pcm.ts';
 import { expect, test } from './audio-editor-test-fixtures.js';
 import { bootEditor, chooseDropdown, disableNativeSavePicker, downloadBytes, openExportDialog, registerAudioEditorHooks } from './audio-editor-test-helpers.js';
 import { SOUNDSCAPER_DATABASE_NAME } from './helpers/editor-databases.js';
@@ -65,23 +66,12 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 		await expect(link).toBeVisible({ timeout: 30_000 });
 		const download = page.waitForEvent('download'); await link.click();
 		const bytes = await downloadBytes(await download);
-		const decoded = await page.evaluate(async (values) => {
-			const audioContext = new AudioContext({ sampleRate: 48_000 });
-			try {
-				const buffer = await audioContext.decodeAudioData(Uint8Array.from(values).buffer);
-				const samples = buffer.getChannelData(0); const begin = Math.round(buffer.sampleRate);
-				const end = begin + Math.round(buffer.sampleRate / 2);
-				let energy = 0; let crossings = 0;
-				for (let index = begin; index < end; index += 1) {
-					energy += samples[index] ** 2;
-					if (samples[index - 1] <= 0 && samples[index] > 0) crossings += 1;
-				}
-				return { frames: buffer.length, sampleRate: buffer.sampleRate, rms: Math.sqrt(energy / (end - begin)), frequency: crossings * buffer.sampleRate / (end - begin) };
-			} finally { await audioContext.close(); }
-		}, [...bytes]);
-		expect(decoded.frames).toBe(after.projectEndFrame);
-		expect(decoded.rms).toBeGreaterThan(0.05);
-		expect(Math.abs(decoded.frequency - 440)).toBeLessThan(4);
+		const { sampleRate, channels: [samples] } = readWavePcm(bytes);
+		expect(samples.length).toBe(after.projectEndFrame);
+		const window = samples.subarray(sampleRate, Math.round(1.5 * sampleRate));
+		expect(window.length).toBe(Math.round(sampleRate / 2));
+		expect(Math.sqrt(window.reduce((energy, sample) => energy + sample ** 2, 0) / window.length)).toBeGreaterThan(0.05);
+		expect(Math.abs(recordedToneFrequency(window, sampleRate) - 440)).toBeLessThan(4);
 		await exported.getByRole('button', { name: 'Close', exact: true }).last().click();
 
 		// An ordinary Stop must settle the same journal without a restart prompt.
@@ -94,6 +84,23 @@ test('ordinary recording survives a renderer crash with its saved checkpoints an
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+function recordedToneFrequency(samples, sampleRate) {
+	// Comparing nearby periods across the window avoids counting capture glitches
+	// or extra zero crossings at recovered checkpoint boundaries as new cycles.
+	let bestLag = 0;
+	let bestError = Infinity;
+	const maximumLag = Math.ceil(sampleRate / 350);
+	for (let lag = Math.floor(sampleRate / 530); lag <= maximumLag; lag++) {
+		let error = 0;
+		for (let frame = maximumLag; frame < samples.length; frame++) error += (samples[frame] - samples[frame - lag]) ** 2;
+		if (error < bestError) {
+			bestError = error;
+			bestLag = lag;
+		}
+	}
+	return sampleRate / bestLag;
+}
 
 async function launch(directory, baseURL, input) {
 	const context = await chromium.launchPersistentContext(directory, {

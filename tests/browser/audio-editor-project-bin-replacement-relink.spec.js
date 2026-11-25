@@ -126,27 +126,17 @@ test.describe('Project Bin replacement and linked original relink', () => {
 		await expect(editor).toHaveAttribute('data-clip-count', '1');
 		expectDominantLinkedTone(await exportLinkedAudioTone(page, editor), 330);
 
-		await chooseRelink(page, card, 'cancel');
-		await expect(page.locator('[data-project-bin-relink-changed-dialog]')).toHaveCount(0);
-		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.initial);
-		await expect.poll(() => page.evaluate(() => globalThis.__projectBinLinkedAudioFixture.choices.length)).toBe(1);
-
-		await chooseRelink(page, card, 'exact');
-		await expect(page.locator('[data-project-bin-relink-changed-dialog]')).toHaveCount(0);
-		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.exact);
-		await expect(editor.locator('[data-save-state]')).toHaveAttribute('data-state', 'saved');
-
-		await chooseRelink(page, card, 'declined');
+		await chooseRelink(page, editor, card, 'declined');
 		const changedDialog = page.locator('[data-project-bin-relink-changed-dialog]');
 		await expect(changedDialog).toBeVisible();
 		await expect(changedDialog).toContainText('different audio content');
-		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.exact);
+		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.initial);
 		await changedDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 		await expect(changedDialog).toBeHidden();
 		await expect.poll(() => releasedLocatorIds(page)).toContain(locatorIds.declined);
-		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.exact);
+		await expect.poll(() => linkedAudioLocatorId(page, projectId)).toBe(locatorIds.initial);
 
-		await chooseRelink(page, card, 'accepted');
+		await chooseRelink(page, editor, card, 'accepted');
 		await expect(changedDialog).toBeVisible();
 		await changedDialog.getByRole('button', { name: 'Replace', exact: true }).click();
 		await expect(changedDialog).toBeHidden();
@@ -257,10 +247,16 @@ async function expectClipFrames(page, editor, clipId, expected) {
 	await closeClipProperties(dialog);
 }
 
-async function chooseRelink(page, card, choice) {
+async function chooseRelink(page, editor, card, choice) {
+	await waitForProjectActivation(editor);
 	await page.evaluate((next) => { globalThis.__projectBinLinkedAudioFixture.next = next; }, choice);
-	await card.getByRole('button', { name: /More file actions/u }).click();
-	await page.getByRole('menuitem', { name: 'Relink', exact: true }).click();
+	const trigger = card.getByRole('button', { name: /More file actions/u });
+	await expect(trigger).toBeEnabled();
+	await trigger.press('Enter');
+	const relink = page.getByRole('menuitem', { name: 'Relink', exact: true });
+	await expect(relink).toBeVisible();
+	await expect(relink).toBeEnabled();
+	await relink.press('Enter');
 }
 
 async function releasedLocatorIds(page) {

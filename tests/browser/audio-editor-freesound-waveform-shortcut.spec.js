@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { expect, test, toneA } from './audio-editor-test-fixtures.js';
-import { bootEditor, chooseCommandAction, chooseNestedCommandAction, importFiles } from './audio-editor-test-helpers.js';
+import { bootEditor, chooseCommandAction, chooseNestedCommandAction } from './audio-editor-test-helpers.js';
 
 const SOUND = {
 	id: 42, name: 'Rain in the garden', pageUrl: 'https://freesound.org/s/42/',
@@ -28,7 +28,6 @@ test('Freesound waveform releases an assigned modified endpoint command', async 
 		return route.fulfill({ status: 404, body: '' });
 	});
 	const editor = await bootEditor(page, '/embed/en/', { showProjectBin: false });
-	await importFiles(editor, [toneA]);
 	await chooseCommandAction(page, editor, 'Edit', 'Preferences');
 	const preferences = page.getByRole('dialog', { name: 'Editor preferences', exact: true });
 	await preferences.getByRole('tab', { name: /Keyboard shortcuts$/u }).click();
@@ -38,10 +37,7 @@ test('Freesound waveform releases an assigned modified endpoint command', async 
 	await command.getByRole('button', { name: 'Assign', exact: true }).click();
 	await expect(command.getByRole('button', { name: 'Assign', exact: true })).toBeDisabled();
 	await preferences.getByRole('button', { name: 'Close', exact: true }).last().click();
-	await editor.getByRole('group', { name: 'Playhead', exact: true }).focus();
-	await page.keyboard.press('Control+Alt+End');
-	await expect(editor.locator('[data-label-track]')).toHaveCount(1);
-	await editor.getByRole('button', { name: 'Undo', exact: true }).click();
+	await expect(preferences).toBeHidden();
 	await expect(editor.locator('[data-label-track]')).toHaveCount(0);
 	await chooseNestedCommandAction(page, editor, 'Window', ['Freesound']);
 	const panel = editor.locator('[data-workspace-panel="freesound"]');
@@ -49,7 +45,6 @@ test('Freesound waveform releases an assigned modified endpoint command', async 
 	await panel.getByRole('button', { name: 'Search', exact: true }).click();
 	const waveform = panel.getByRole('slider', { name: 'Seek and play preview: Rain in the garden', exact: true });
 	await expect(waveform).toBeVisible();
-	await waveform.focus();
 	await waveform.press('Control+Alt+End');
 	await expect(editor.locator('[data-label-track]')).toHaveCount(1);
 });

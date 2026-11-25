@@ -104,7 +104,7 @@ export async function exerciseNativeEffectMenuOrganization(page, editor) {
 	await page.keyboard.press('Escape');
 }
 
-function savedNativePreferences(page) {
+export function savedNativePreferences(page) {
 	return page.evaluate(() => new Promise((resolve, reject) => {
 		const opened = globalThis.indexedDB.open('kw-media-soundscaper-editor-v1');
 		opened.onerror = () => reject(opened.error);
