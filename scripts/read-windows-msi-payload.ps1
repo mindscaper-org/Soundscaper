@@ -11,7 +11,8 @@ $database = $installer.OpenDatabase($Artifact, 0)
 function Read-Rows($sql, $names) {
     $view = $database.OpenView($sql)
     try {
-        $view.Execute()
+        # Suppress COM return values so this function emits only the row array.
+        [void]$view.Execute()
         $rows = [System.Collections.Generic.List[object]]::new()
         while ($null -ne ($record = $view.Fetch())) {
             try {
@@ -22,7 +23,7 @@ function Read-Rows($sql, $names) {
             } finally { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) }
         }
         return ,$rows.ToArray()
-    } finally { $view.Close(); [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view) }
+    } finally { [void]$view.Close(); [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view) }
 }
 try {
     $tables = Read-Rows 'SELECT `Name` FROM `_Tables`' @('name')
@@ -43,7 +44,7 @@ try {
         $name = $cabinet.cabinet.Substring(1)
         $view = $database.OpenView("SELECT ``Data`` FROM ``_Streams`` WHERE ``Name`` = '$name'")
         try {
-            $view.Execute()
+            [void]$view.Execute()
             $record = $view.Fetch()
             if ($null -eq $record) { throw 'MSI embedded cabinet is missing' }
             try {
@@ -59,7 +60,7 @@ try {
                     } while ($bytes.Length -gt 0)
                 } finally { $output.Dispose() }
             } finally { [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($record) }
-        } finally { $view.Close(); [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view) }
+        } finally { [void]$view.Close(); [void][Runtime.InteropServices.Marshal]::FinalReleaseComObject($view) }
         $index++
     }
     @{ files = $files; directories = $directories; components = $components; cabinets = $cabinets } | ConvertTo-Json -Compress -Depth 6
