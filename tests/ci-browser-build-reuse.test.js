@@ -22,9 +22,9 @@ test('Stable 1 preflights the checked product site without rebuilding the indepe
 	assert.match(source, /node scripts\/preflight-pages-deploy\.mjs/u);
 });
 
-test('nightly target jobs preserve npm download caching and verified native installation', async () => {
+test('nightly target jobs select the target Node architecture and delegate npm caching', async () => {
 	const job = extractJob(await readWorkflow('desktop-nightly-tests.yml'), 'package-with-tests');
-	assert.match(job, /architecture: \$\{\{ matrix\.target\.node_arch \}\}[\s\S]*?cache: npm/u);
-	assert.match(job, /cache-dependency-path: package-lock\.json/u);
+	assert.match(job, /architecture: \$\{\{ matrix\.target\.node_arch \}\}\s+package-manager-cache: false/u);
+	assert.doesNotMatch(job, /^\s+cache: npm$/mu);
 	assert.match(job, /uses: \.\/\.github\/actions\/verified-node-dependencies\n\s+with:\n\s+scope: desktop-native/u);
 });

@@ -394,10 +394,12 @@ test('the desktop nightly assembles the release inventory rather than leaving it
 	assert.equal(packageMetadata.scripts['desktop:release-assets:soundscaper'],
 		'node scripts/desktop-release-assets.mjs --product soundscaper');
 	assert.ok(npmScriptsRunBy(job).has('desktop:release-assets'));
-	assert.match(job, /pattern: nightly-\$\{\{ needs\.quality\.outputs\.release-product-pattern \}\}-\*/u,
+	assert.match(job, /pattern: nightly-\$\{\{ needs\.quality\.outputs\.release-product-pattern \}\}-\*\s+path: \$\{\{ runner\.temp \}\}\/milestone-5-packages/u,
 		'the job must collect every target in the resolved product scope');
-	assert.match(job, /merge-multiple: true/u, 'the targets must land in one release directory');
-	assert.match(job, /needs: \[quality, package, flatpak\]/u, 'the assembler needs the resolved scope and every package format');
+	assert.match(job, /destination="release\/desktop\/\$\{file##\*\/\}"\s+test ! -e "\$destination"\s+mv -- "\$file" "\$destination"/u,
+		'verified target files must land in the release directory without overwriting an existing file');
+	assert.match(job, /needs: \[quality, package, flatpak, milestone-5-native-audit-source\]/u,
+		'the assembler needs the resolved scope, every package format, and the native audit sources');
 	assert.match(job,
 		/npm run desktop:release-assets -- \$\{\{ needs\.quality\.outputs\.release-assembler-arguments \}\}/u,
 		'the assembler must receive the resolved product scope');
