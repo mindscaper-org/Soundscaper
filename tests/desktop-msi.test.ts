@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
-import { msiPackageVersion, prepareMsiProject } from '../scripts/lib/desktop-msi-project.ts';
+import { msiPackageVersion, prepareMsiProject, stageLongMsiSources } from '../scripts/lib/desktop-msi-project.ts';
 
 test('MSI versions preserve date/build/channel order within all three native field limits', () => {
 	assert.equal(msiPackageVersion('Soundscaper-rc.2026.Nov.11.a'), '38.83.2');
@@ -30,6 +32,27 @@ test('the generated WiX project registers MSI ownership without changing applica
 	assert.match(output, /Root="HKLM"/u);
 	assert.throws(() => prepareMsiProject(input, 'framescaper', 'Framescaper.2026.Nov.11.a'), /product/u);
 	assert.throws(() => prepareMsiProject('<invalid/>', 'soundscaper', 'Soundscaper.2026.Nov.11.a'), /project/u);
+});
+
+test('WiX binds long source paths from short aliases while retaining installed names', async context => {
+	const root = await mkdtemp(join(tmpdir(), 'desktop-msi-source-'));
+	context.after(() => rm(root, { recursive: true, force: true }));
+	const applicationRoot = join(root, 'win-arm64-unpacked');
+	const projectDirectory = join(root, '__msi-arm64');
+	const first = 'a'.repeat(115), second = 'b'.repeat(115);
+	const longSource = join(applicationRoot, first, second, 'A & B.pdf');
+	await mkdir(join(applicationRoot, first, second), { recursive: true });
+	await mkdir(projectDirectory);
+	await writeFile(longSource, 'tuning notes');
+	const shortFile = '<File Name="short.txt" Source="$(var.appDir)\\short.txt"/>';
+	const output = await stageLongMsiSources(shortFile
+		+ `<File Name="A &amp; B.pdf" Source="$(var.appDir)\\${first}\\${second}\\A &amp; B.pdf"/>`,
+	join(projectDirectory, 'project.wxs'), applicationRoot);
+	assert.ok(output.startsWith(shortFile));
+	const alias = /<File Name="A &amp; B\.pdf" Source="([^"]+)"/u.exec(output)?.[1];
+	assert.ok(alias);
+	assert.ok(alias.startsWith(projectDirectory) && alias.length < 260);
+	assert.equal(await readFile(alias, 'utf8'), 'tuning notes');
 });
 
 test('each product ships silent per-machine MSI configuration and policy templates', async () => {

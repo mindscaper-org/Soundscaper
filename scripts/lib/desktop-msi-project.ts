@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { createHash } from 'node:crypto';
+import { link, mkdtemp } from 'node:fs/promises';
+import { dirname, extname, join } from 'node:path';
 import { calendarPackageVersion } from '../../src/common/release/release-packaging.ts';
 import { parseReleaseVersion } from '../../src/common/release/release-version.ts';
 
@@ -28,6 +30,40 @@ export function prepareMsiProject(source: string, productId: string, version: st
       <Component Id="ManagedInstallerRegistration" Guid="*" Win64="yes">
         <RegistryValue Root="HKLM" Key="Software\\Mindscaper\\${product}\\Installation" Name="ManagedByWindowsInstaller" Type="integer" Value="1" KeyPath="yes"/>
       </Component>`);
+}
+
+/** Keep WiX's legacy binder paths short without changing the files in the installed tree. */
+export async function stageLongMsiSources(source: string, projectPath: string, applicationRoot: string): Promise<string> {
+	const declaration = /(<File\b[^>]*?\sSource=")\$\(var\.appDir\)[\\/]([^"]+)"/gu;
+	const aliases = new Map<string, string>();
+	let directory: string | undefined;
+	for (const match of source.matchAll(declaration)) {
+		const relative = match[2]!;
+		if (aliases.has(relative)) continue;
+		const parts = unescapeXml(relative).split(/[\\/]/u);
+		if (parts.some(part => part === '' || part === '.' || part === '..' || part.includes(':'))) {
+			throw new Error('WiX source must stay inside the unpacked application.');
+		}
+		const path = join(applicationRoot, ...parts);
+		if (path.length < 260) continue;
+		directory ??= await mkdtemp(join(dirname(projectPath), 'files-'));
+		const alias = join(directory, `${aliases.size}${extname(path)}`);
+		if (alias.length >= 260) throw new Error('The WiX build directory is too deep for a short source path.');
+		await link(path, alias);
+		aliases.set(relative, alias.replace(/[&<>"']/gu, character => `&${XML_ENTITIES[character]};`));
+	}
+	return source.replaceAll(declaration, (whole: string, prefix: string, relative: string) => {
+		const alias = aliases.get(relative);
+		return alias === undefined ? whole : `${prefix}${alias}"`;
+	});
+}
+
+const XML_ENTITIES: Readonly<Record<string, string>> = {
+	'&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot', "'": 'apos',
+};
+const XML_CHARACTERS = Object.fromEntries(Object.entries(XML_ENTITIES).map(([character, name]) => [name, character]));
+function unescapeXml(value: string): string {
+	return value.replace(/&(amp|lt|gt|quot|apos);/gu, (_entity: string, name: string) => XML_CHARACTERS[name]!);
 }
 
 // Match electron-builder's existing NSIS product identity, without changing its namespace.
