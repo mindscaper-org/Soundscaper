@@ -9,6 +9,7 @@ import { build } from 'esbuild';
 import { _electron, expect } from '@playwright/test';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const OPEN_FIXTURE_WINDOW = 'cpu-profiling-test:open-window';
 
 test('Help opens the desktop CPU panel and real effect CPU is sampled independently', {
 	skip: process.platform !== 'linux' || !process.env.DISPLAY ? 'Requires Electron and a display (use xvfb-run).' : false,
@@ -42,15 +43,18 @@ test('Help opens the desktop CPU panel and real effect CPU is sampled independen
 		import { APP_SCHEME, APP_ORIGIN } from './desktop/constants.js';
 		import { registerCpuProfiler } from './desktop/cpu-profile-service.ts';
 		registerAppScheme(protocol);
-		void (async () => {
-		await app.whenReady();
-		await session.defaultSession.protocol.handle(APP_SCHEME, createProtocolHandler({
-			rendererRoot: ${JSON.stringify(temporary)}, runtimeRoot: ${JSON.stringify(temporary)}, readCapabilities: { get() { return null; } },
-		}));
-		const window = new BrowserWindow({ webPreferences: { preload: ${JSON.stringify(join(temporary, 'preload.cjs'))}, contextIsolation: true, sandbox: true } });
-		registerCpuProfiler({ handle: (channel, listener) => ipcMain.handle(channel, listener), windowFor: () => window, metrics: () => app.getAppMetrics(), mainPid: process.pid });
-		await window.loadURL(APP_ORIGIN + '/');
-		})().catch(error => { console.error(error); app.exit(1); });
+		app.once(${JSON.stringify(OPEN_FIXTURE_WINDOW)}, () => {
+			void openWindow().catch(error => { console.error(error); app.exit(1); });
+		});
+		async function openWindow() {
+			await app.whenReady();
+			await session.defaultSession.protocol.handle(APP_SCHEME, createProtocolHandler({
+				rendererRoot: ${JSON.stringify(temporary)}, runtimeRoot: ${JSON.stringify(temporary)}, readCapabilities: { get() { return null; } },
+			}));
+			const window = new BrowserWindow({ webPreferences: { preload: ${JSON.stringify(join(temporary, 'preload.cjs'))}, contextIsolation: true, sandbox: true } });
+			registerCpuProfiler({ handle: (channel, listener) => ipcMain.handle(channel, listener), windowFor: () => window, metrics: () => app.getAppMetrics(), mainPid: process.pid });
+			await window.loadURL(APP_ORIGIN + '/');
+		}
 	` }, outfile: join(temporary, 'main.mjs'), bundle: true, platform: 'node', format: 'esm', external: ['electron'] });
 	const environment = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] =>
 		typeof entry[1] === 'string' && entry[0] !== 'ELECTRON_RUN_AS_NODE'));
@@ -58,6 +62,11 @@ test('Help opens the desktop CPU panel and real effect CPU is sampled independen
 		args: ['--no-sandbox', '--disable-audio-output', '--autoplay-policy=no-user-gesture-required',
 			`--user-data-dir=${join(temporary, 'profile')}`, join(temporary, 'main.mjs')], env: environment });
 	context.after(() => app.close());
+	await expect.poll(() => app.evaluate(({ app: electronApp }, event) => electronApp.listenerCount(event), OPEN_FIXTURE_WINDOW))
+		.toBe(1);
+	assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length), 0,
+		'Playwright must attach before the fixture creates its renderer window');
+	assert.equal(await app.evaluate(({ app: electronApp }, event) => electronApp.emit(event), OPEN_FIXTURE_WINDOW), true);
 	const page = await app.firstWindow();
 	const errors: string[] = [];
 	page.on('pageerror', error => { errors.push(error.message); context.diagnostic(error.message); });
