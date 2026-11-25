@@ -229,8 +229,22 @@ test('desktop test artifacts build on main pushes and manual target selections w
 	assert.ok(testGuard.startsWith('if: >-'));
 	assert.doesNotMatch(testGuard, /github\.event_name|workflow_run/u);
 	assert.doesNotMatch(testGuard, /inputs\.artifact_variant/u);
-	assert.match(testJob, /needs: \[nightly-test-targets, browser-sites, professional-native-build\]/u);
+	assert.match(testJob, /needs: \[nightly-test-targets, browser-sites, professional-native-source, professional-native-build\]/u);
 	assert.match(testGuard, /needs\.nightly-test-targets\.result == 'success'/u);
+	assert.match(testGuard, /needs\.professional-native-source\.result == 'success'/u);
+	const { steps } = require('js-yaml').load(workflow).jobs['package-with-tests'];
+	const downloadSources = steps.findIndex(step => step.uses?.startsWith('actions/download-artifact@')
+		&& step.with?.name === 'nightly-professional-native-source-cache');
+	const restoreSources = steps.findIndex(step => step.run?.startsWith(
+		'node scripts/provision-milestone-5-native-sources.mjs --restore-archives --soundscaper-professional',
+	));
+	const packageProducts = steps.findIndex(step => step.run === 'node scripts/desktop-nightly-tests-products.mjs');
+	assert.ok(downloadSources >= 0 && downloadSources < restoreSources && restoreSources < packageProducts,
+		'packaging must restore and authenticate the native source archives before staging product notices');
+	const sourceRoot = steps[downloadSources].with.path;
+	assert.match(steps[restoreSources].run, /--root "\$RUNNER_TEMP\/nightly-professional-native-source-cache"/u);
+	assert.equal(sourceRoot, '${{ runner.temp }}/nightly-professional-native-source-cache');
+	assert.equal(steps[packageProducts].env.SOUNDSCAPER_M5_NATIVE_SOURCE_ROOT, sourceRoot);
 	// The package still names the selected commit while reusing an older runtime handoff.
 	const sourceRevision = String.raw`\$\{\{ github\.sha \}\}`;
 	assert.doesNotMatch(workflow, /^ {2}verify-assistance-runtime-handoff:|npm run desktop:publish:assistance-runtimes|R2_MODELS_/mu);
