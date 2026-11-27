@@ -313,7 +313,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await trim.getByRole('button', { name: 'Apply' }).click();
 	const clip = page.getByText('Tracktion web media (128–896)', { exact: true });
 	await clip.waitFor();
-	assert.deepEqual(await commandsSince(changedTrim), ['trim', 'project', 'clips']);
+	assert.deepEqual(await commandsSince(changedTrim), ['trim']);
 	await editing.click();
 	const addedTrack = (await commandsSince()).length;
 	await button('Add track').click();
