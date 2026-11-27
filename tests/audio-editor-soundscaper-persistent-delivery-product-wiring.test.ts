@@ -28,3 +28,10 @@ test('the retired persistent-delivery private transport is absent from the sourc
 	const transport = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-private-transport.ts', import.meta.url);
 	await assert.rejects(access(transport), { code: 'ENOENT' });
 });
+
+test('the retired persistent-delivery adapter and publication guard are absent from the source tree', async () => {
+	const adapter = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-adapter-v1.ts', import.meta.url);
+	const publication = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
+	await assert.rejects(access(publication), { code: 'ENOENT' });
+});

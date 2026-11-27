@@ -347,11 +347,6 @@
       "count": 1
     }
   },
-  "src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-private-transport.ts": {
     "no-control-regex": {
       "count": 1
