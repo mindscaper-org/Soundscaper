@@ -8,10 +8,19 @@ import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { readTracktionProjectRequest } from '../../../desktop/tracktion-project-request.ts';
+import { exerciseInterruptedExport } from './export_peer_fixture.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion render test through CTest.');
+
+test('desktop Tracktion WAV export refuses unavailable project media and retries with exact PCM', async () => {
+	const { reference, retried, source } = await exerciseInterruptedExport(executable, 'render');
+	const pcm = waveData(retried);
+	assert.deepEqual(pcm, waveData(reference));
+	assert.deepEqual(pcm.subarray(0, 64 * 4), Buffer.alloc(64 * 4));
+	assert.deepEqual(pcm.subarray(64 * 4), waveData(source));
+});
 
 test('a Tracktion whole mix uses the last audio clip and matches explicit range PCM', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-mix-'));
