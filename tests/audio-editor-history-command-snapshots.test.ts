@@ -46,6 +46,15 @@ test('common history snapshots commands at every history ownership boundary', ()
 	assert.notStrictEqual(redone.undoStack[0]?.command, undone.redoStack[0]?.command);
 });
 
+test('Soundscaper history omits the unused full-stack clone entry points', async () => {
+	const [history, productionHistory] = await Promise.all([
+		import('../src/soundscaper/editor-project-history.ts'),
+		import('../src/soundscaper/editor-project-production-history.ts'),
+	]);
+	assert.equal(Reflect.has(history, 'cloneSoundscaperProjectHistory'), false);
+	assert.equal(Reflect.has(productionHistory, 'cloneSoundscaperProductionHistory'), false);
+});
+
 test('Soundscaper production history snapshots commands when moving between stacks', () => {
 	const command = { type: 'project/rename', title: 'Edited' } as const;
 	const initial = createSoundscaperProjectHistory(createSoundscaperProject({ now: CREATED_AT }));
