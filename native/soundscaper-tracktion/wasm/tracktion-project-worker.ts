@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioBuffers } from '../../../src/soundscaper/tracktion-audio-queue.ts';
+import { requireTracktionWebUpload } from '../../../src/soundscaper/tracktion-web-upload.ts';
 
 import { TracktionHostedAudio, type HostedAudioRuntime } from './tracktion-hosted-audio.ts';
 
@@ -38,7 +39,6 @@ const core = new URL('edit-core.js', scope.location.href).href;
 const encoder = new TextEncoder();
 const assetId = /^[0-9a-f]{32}$/;
 const maxCommandBytes = 64 * 1024;
-const maxInputBytes = 16 * 1024 * 1024;
 let completion: Readonly<{ id: number; resolve: (result: NativeReply) => void }> | undefined;
 let failed: Error | undefined;
 let activeProject: WorkingProject | undefined;
@@ -168,9 +168,8 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 			path = `${directory}/${request.asset}${archive ? '.zip' : '.wav'}`;
 			runtime.FS.mkdirTree(directory);
 			if (importing) {
-				if (!(input instanceof ArrayBuffer) || input.byteLength === 0 || input.byteLength > maxInputBytes) {
-					throw new Error('The browser Tracktion core accepts imports up to 16 MiB');
-				}
+				if (!(input instanceof ArrayBuffer)) throw new Error('The Tracktion import did not contain a file');
+				requireTracktionWebUpload(input.byteLength, archive ? 'ZIP' : 'WAV');
 				runtime.FS.writeFile(path, new Uint8Array(input));
 			}
 		}

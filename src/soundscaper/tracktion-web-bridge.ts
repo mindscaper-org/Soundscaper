@@ -8,6 +8,7 @@ import type {
 	TracktionTransportView,
 } from './tracktion-project-contract.ts';
 import { TracktionWebAudio } from './tracktion-web-audio.ts';
+import { requireTracktionWebUpload } from './tracktion-web-upload.ts';
 
 type LocalProject = Readonly<{ id: string; name: string }>;
 type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string }>;
@@ -139,7 +140,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		if (request.kind === 'import') {
 			const wave = await chooseFile('.wav,audio/wav');
 			if (!wave) return null;
-			if (wave.size > 16 * 1024 * 1024) throw new Error('The browser Tracktion core accepts WAV files up to 16 MiB');
+			requireTracktionWebUpload(wave.size, 'WAV');
 			return (await sendToProject({ ...request, kind: 'importFile', asset: handle(), name: wave.name.replace(/\.wav$/iu, '') }, await wave.arrayBuffer())).value;
 		}
 		if (request.kind === 'render' || request.kind === 'archive') {
@@ -181,7 +182,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		async openArchive(): Promise<TracktionOpenedProject | null> {
 			const archive = await chooseFile('.zip,application/zip');
 			if (!archive) return null;
-			if (archive.size > 16 * 1024 * 1024) throw new Error('The browser Tracktion core accepts ZIP files up to 16 MiB');
+			requireTracktionWebUpload(archive.size, 'ZIP');
 			const name = archive.name.replace(/\.zip$/iu, '').slice(0, 128).trim() || copy.untitledProject;
 			const { value } = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
 			return await describeOpened(name, value, true);

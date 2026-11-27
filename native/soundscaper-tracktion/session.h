@@ -4,6 +4,7 @@
 
 #include "session_device_types.h"
 #include "offline_effect.h"
+#include "project_archive.h"
 
 #include <atomic>
 #include <cstddef>
@@ -127,7 +128,7 @@ public:
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);
-	void archive(Revision, const juce::File& output);
+	void archive(Revision, const juce::File& output, ProjectArchiveLimits = projectArchiveExportLimits);
 
 	// The host opens its own device and supplies exactly one stereo block at a time.
 	// Setup and transport commands run on the message thread. The host stops

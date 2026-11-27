@@ -55,6 +55,7 @@ done
 # The JavaScript worker can continue serving editor and hosted audio requests.
 link() {
 	em++ -O2 -pthread -fexceptions "${objects[@]}" -sINITIAL_MEMORY=134217728 \
+		-sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=536870912 \
 		-sWASMFS=1 -sFORCE_FILESYSTEM=1 \
 		-sPTHREAD_POOL_SIZE=16 -sPTHREAD_POOL_SIZE_STRICT=2 -sPROXY_TO_PTHREAD=1 -sSTACK_SIZE=524288 "$@"
 }

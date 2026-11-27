@@ -198,10 +198,10 @@ void verifyRangeDelete(const juce::File& root)
 		&& grouped.redo(2) && readProjectSnapshot(grouped).tracks.size() == 3, "failed range split restores clips and prior redo history");
 }
 
-void rejectArchive(const juce::File& archive, const juce::File& target, std::int64_t limit)
+void rejectArchive(const juce::File& archive, const juce::File& target, ProjectArchiveLimits limits)
 {
 	bool rejected = false;
-	try { extractProjectArchive(archive, target, limit); }
+	try { extractProjectArchive(archive, target, limits); }
 	catch (const std::invalid_argument&) { rejected = true; }
 	require(rejected && !target.exists(), "invalid archive must leave no project files");
 }
@@ -299,11 +299,20 @@ void runSessionTest(const juce::File& root)
 	{
 		Session savedProject(moved, state, OpenMode::open, 0);
 		const auto archive = root.getChildFile("project.zip");
+		const auto limited = root.getChildFile("bounded-export.zip");
+		for (const auto limits : {ProjectArchiveLimits{64}, ProjectArchiveLimits{4 * 1024 * 1024, 64}})
+		{
+			bool rejected = false;
+			try { savedProject.archive(savedProject.revision(), limited, limits); }
+			catch (const std::invalid_argument&) { rejected = true; }
+			require(rejected && !limited.exists(), "an oversized project ZIP must not publish a file");
+		}
 		savedProject.archive(savedProject.revision(), archive);
 		std::cout << "Wrote the Tracktion project ZIP." << std::endl;
 		const auto extracted = root.getChildFile("archive-copy");
-		rejectArchive(archive, root.getChildFile("oversized-archive"), 64);
-		extractProjectArchive(archive, extracted, 4 * 1024 * 1024);
+		rejectArchive(archive, root.getChildFile("oversized-archive"), {64});
+		rejectArchive(archive, root.getChildFile("oversized-zip"), {4 * 1024 * 1024, archive.getSize() - 1});
+		extractProjectArchive(archive, extracted, {4 * 1024 * 1024, archive.getSize()});
 		require(extracted.getChildFile("project.tracktionedit").existsAsFile(), "archive contains the native Edit");
 		const auto archiveInfo = juce::JSON::parse(extracted.getChildFile("project_info.json"));
 		require(static_cast<int>(archiveInfo.getProperty("archive_type", {})) == 1, "archive retains Tracktion's project metadata");
@@ -318,7 +327,7 @@ void runSessionTest(const juce::File& root)
 			auto output = invalid.createOutputStream();
 			require(output != nullptr && builder.writeToStream(*output, nullptr), "write traversal archive fixture");
 		}
-		rejectArchive(invalid, root.getChildFile("invalid-project"), 4 * 1024 * 1024);
+		rejectArchive(invalid, root.getChildFile("invalid-project"), {4 * 1024 * 1024});
 		require(!root.getChildFile("escaped.wav").exists(), "archive cannot write outside its project");
 		std::cout << "Extracted and validated the Tracktion project ZIP." << std::endl;
 	}

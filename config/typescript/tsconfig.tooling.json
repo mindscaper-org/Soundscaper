@@ -39,6 +39,7 @@
 		"../../scripts/lib/module-*.ts",
 		"../../scripts/lib/tracktion-wasm-command-check.ts",
 		"../../scripts/lib/tracktion-web-editor-check.ts",
+		"../../scripts/test-tracktion-web-archives.ts",
 		"../../scripts/lib/ci-artifact-fetch.ts",
 		"../../scripts/lib/handbook-deploy.ts",
 		"../../scripts/docs-comparisons.ts",

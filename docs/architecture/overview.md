@@ -217,6 +217,12 @@ and utility entry. Its desktop plug-in processes handle scanning, effects, and
 analyzers. The separate audio-device helper is available in the Framescaper
 desktop composition, which also owns the existing project-library bridge.
 
+Browser Tracktion ZIP import and export share a 65 MiB file size limit and a
+64 MiB uncompressed limit for the Edit, metadata, and referenced media. Export
+checks those entries before compression and checks the ZIP before publishing.
+Individual browser WAV imports are limited to 16 MiB. The browser engine starts
+with 128 MiB of shared WebAssembly memory and can grow up to 512 MiB.
+
 Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
 editing states, without project identity or media bodies. The enclosing document
 owns one source inventory. Snapshot source IDs are retention roots, independently

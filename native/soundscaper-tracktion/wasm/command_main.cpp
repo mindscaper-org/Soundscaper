@@ -19,7 +19,6 @@ namespace
 using namespace soundscaper::tracktion_backend;
 
 constexpr int maximumCommandBytes = 64 * 1024;
-constexpr std::int64_t maximumExpandedArchiveBytes = 64 * 1024 * 1024;
 constexpr auto blockFrames = 128;
 std::mutex playbackMutex;
 bool playbackPrepared = false;
@@ -58,7 +57,7 @@ juce::var execute(const juce::var& request)
 			if (!value.isString() || asset.length() != 32 || !asset.containsOnly("0123456789abcdef"))
 				throw std::invalid_argument("The Tracktion archive handle is invalid");
 			const auto archive = juce::File("/exchange/input").getChildFile(asset + ".zip");
-			extractProjectArchive(archive, directory, maximumExpandedArchiveBytes);
+			extractProjectArchive(archive, directory, browserProjectArchiveLimits);
 		}
 		auto next = std::make_unique<Session>(directory, juce::File("/runtime"),
 		                                      create ? OpenMode::create : OpenMode::open, static_cast<int>(rate));

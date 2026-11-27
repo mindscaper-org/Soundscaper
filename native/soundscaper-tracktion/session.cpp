@@ -3,7 +3,6 @@
 #include "session_state.h"
 
 #include <cmath>
-#include <set>
 #include <stdexcept>
 
 namespace soundscaper::tracktion_backend
@@ -477,50 +476,6 @@ void Session::save(Revision expected)
 	te::EditFileOperations files(*state->edit);
 	if (!files.writeToFile(state->editFile, false))
 		throw std::runtime_error("Cannot save the Tracktion Edit");
-}
-
-void Session::archive(Revision expected, const juce::File& output)
-{
-	auto& s = *state;
-	s.checkRevision(expected);
-	if (output.exists() || output.isSymbolicLink() || !output.hasFileExtension("zip"))
-		throw std::invalid_argument("Archive requires a new ZIP file");
-
-	const juce::TemporaryFile snapshot(".tracktionedit");
-	te::EditFileOperations files(*s.edit);
-	if (!files.writeToFile(snapshot.getFile(), false))
-		throw std::runtime_error("Cannot stage the Tracktion archive Edit");
-	juce::ZipFile::Builder archive;
-	archive.addFile(snapshot.getFile(), 1, "project.tracktionedit");
-	static constexpr char archiveInfo[] = "{\"archive_type\":1}";
-	archive.addEntry(std::make_unique<juce::MemoryInputStream>(archiveInfo, sizeof(archiveInfo) - 1, false), 1,
-	                 "project_info.json", juce::Time::getCurrentTime());
-
-	// The Edit already refers to owned relative media. Pack those references
-	// directly and exclude caches, files left by undo, and unrelated contents.
-	std::set<juce::File> sources;
-	for (auto* track : te::getAudioTracks(*s.edit))
-		for (auto* clip : track->getClips())
-			sources.insert(clip->getSourceFileReference().getFile());
-	for (const auto& file : sources)
-	{
-		const auto path = juce::String(mediaDirectory) + "/" + file.getFileName();
-		if (ownedMediaFile(s.directory, path) != file)
-			throw std::runtime_error("Cannot read the Tracktion archive media");
-		archive.addFile(file, 1, path);
-	}
-
-	juce::TemporaryFile staging(output);
-	{
-		auto stream = staging.getFile().createOutputStream();
-		if (!stream || !archive.writeToStream(*stream, nullptr))
-			throw std::runtime_error("Cannot write the Tracktion archive");
-		stream->flush();
-		if (stream->getStatus().failed())
-			throw std::runtime_error("Cannot finish the Tracktion archive");
-	}
-	if (!staging.overwriteTargetFileWithTemporary())
-		throw std::runtime_error("Cannot publish the Tracktion archive");
 }
 
 }
