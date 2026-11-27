@@ -305,7 +305,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!workspace) return;
 		const { sessionId, project: { revision } } = workspace;
 		run(async () => {
-			await bridge.request({ kind: format, sessionId, revision });
+			await bridge.request(format === 'archive' ? { kind: 'archive', sessionId, revision } : { kind: 'render', sessionId, revision });
 		});
 	}
 
