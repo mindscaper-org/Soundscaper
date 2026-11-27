@@ -18,9 +18,6 @@ import {
 	FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS,
 	registerFramescaperNativeImageSequenceImportMainIpc,
 } from '../desktop/native-image-sequence-import-main-ipc.ts';
-import {
-	createFramescaperNativeImageSequenceImportPreloadTransport,
-} from '../desktop/native-image-sequence-import-preload.ts';
 import { imageSequenceStorageSha256 } from '../desktop/native-image-sequence-import-storage.ts';
 import { createNativeMediaCapabilitySnapshotV1 } from '../src/common/editor/native-media-capability-snapshot.ts';
 import {
@@ -36,8 +33,10 @@ import {
 } from '../src/framescaper/editor-native-image-sequence-import-production-ports.ts';
 import type {
 	FramescaperImageSequenceNativeAdmissionRequest,
+	FramescaperNativeImageSequenceImportRendererPortProfessionalMedia,
 } from '../src/framescaper/editor-native-image-sequence-import-production-ports.ts';
 import type { NativeMediaHelperPoolJobRequest } from '../desktop/native-media-helper-pool.ts';
+import { loadPreload } from './helpers/framescaper-native-services-preload-fixture.mjs';
 
 const OWNER = Object.freeze({ id: 'candidate-renderer' });
 const PROJECT_IDENTITY = Object.freeze({
@@ -45,36 +44,44 @@ const PROJECT_IDENTITY = Object.freeze({
 	schemaVersion: 1 as const,
 });
 
-test('the production baseline ports stream pathless bytes over the negotiated MessagePort', async () => {
+test('the bundled Framescaper preload streams pathless bytes through the real main IPC', async (context) => {
 	const fixture = await authorityFixture(true);
 	const assets = await sequenceAssets(['one', 'two']);
 	const handlers = new Map<string, (event: unknown, request: unknown) => unknown>();
 	const listeners = new Map<string, (event: unknown, request: unknown) => void>();
-	const controlValues: unknown[] = [];
+	const rendererEvent = Object.freeze({ sender: OWNER });
 	const registration = registerFramescaperNativeImageSequenceImportMainIpc({
 		handle: (channel, handler) => handlers.set(channel, handler),
 		removeHandler: (channel) => { handlers.delete(channel); },
 		on: (channel, listener) => listeners.set(channel, listener),
 		removeListener: (channel) => { listeners.delete(channel); },
-		authorizeOwner: () => OWNER,
+		authorizeOwner: (event) => (event as { sender?: unknown })?.sender === OWNER ? OWNER : null,
 		authority: fixture.authority,
 	});
-	await assert.rejects(async () => handlers.get(
-		FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS.control,
-	)!({}, { operation: 'write', transactionId: '0'.repeat(40), asset: 'pack', offset: 0,
+	context.after(() => registration.dispose());
+	const control = handlers.get(FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS.control);
+	assert.ok(control);
+	await assert.rejects(async () => control(
+		rendererEvent, { operation: 'write', transactionId: '0'.repeat(40), asset: 'pack', offset: 0,
 		bytes: new Uint8Array([1]) }), /MessagePort data plane/iu);
-	const transport = createFramescaperNativeImageSequenceImportPreloadTransport({
-		invoke: async (channel, request) => {
-			controlValues.push(structuredClone(request));
-			return handlers.get(channel)!({}, request);
+	const preload = await loadPreload([], {
+		invoke: (channel, request) => {
+			const handler = handlers.get(channel);
+			assert.ok(handler, channel);
+			return handler(rendererEvent, structuredClone(request));
 		},
-		postMessage: (channel, request, transfer) => {
-			listeners.get(channel)!({ ports: transfer }, request);
+		postMessage: (channel, request, ports) => {
+			const listener = listeners.get(channel);
+			assert.ok(listener, channel);
+			listener({ ...rendererEvent, ports }, structuredClone(request));
 		},
-		createMessageChannel: () => new MessageChannel() as never,
 	});
+	const bundledBridge = preload.bridge as Readonly<{
+		nativeServices: FramescaperNativeImageSequenceImportRendererPortProfessionalMedia;
+	}> | undefined;
+	assert.ok(bundledBridge?.nativeServices);
 	const ports = createFramescaperImageSequenceProductionPortsProfessionalMedia({
-		bridge: { ...transport, capabilities: async () => capabilitySnapshot(true) },
+		bridge: { ...bundledBridge.nativeServices, capabilities: async () => capabilitySnapshot(true) },
 		projectId: 'candidate-project', projectRevision: 4,
 	});
 	const writer = await ports.createSourcePackWriter();
@@ -104,18 +111,27 @@ test('the production baseline ports stream pathless bytes over the negotiated Me
 	fixture.project.storageKeys.add(assets.pack.storageKey);
 	await ports.complete!(request);
 	assert.equal(fixture.probedFrames, 2);
+	const controlValues: unknown[] = preload.invocations.map(([, value]) => value);
+	const streamBindings = preload.invocations.filter(([channel]) => (
+		channel === FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS.port
+	)).map(([, value]) => (value as { binding: { sha256: string; streamId: string } }).binding);
+	assert.ok(new Set(streamBindings.map(({ sha256 }) => sha256)).size < streamBindings.length,
+		'the pack contains repeated chunks');
+	assert.equal(new Set(streamBindings.map(({ streamId }) => streamId)).size, streamBindings.length,
+		'each chunk has its own ingress stream even when its bytes repeat');
 	assert.equal(controlValues.some((value) => JSON.stringify(value).includes(fixture.root)), false);
 	assert.equal(controlValues.some((value) => containsBytes(value)), false,
 		'control IPC never carries media bytes');
 	const transactionId = String((controlValues.find((value) => (
 		(value as { operation?: string }).operation === 'prepare-write'
 	)) as { transactionId: string }).transactionId);
-	await assert.rejects(() => fixture.authority.request({}, {
-		operation: 'read', transactionId,
-		asset: 'pack', offset: 0, length: 1,
-	}), /owner/iu, 'a caller cannot read another renderer transaction by digest or ID');
+	const readRequest = { operation: 'read', transactionId, asset: 'pack', offset: 0, length: 1 } as const;
+	await assert.rejects(async () => control({ sender: {} }, readRequest), /not authorized/iu);
+	await assert.rejects(() => fixture.authority.request({}, readRequest), /owner/iu,
+		'a caller cannot read another renderer transaction by digest or ID');
 	await registration.dispose();
 	assert.equal(handlers.has(FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS.control), false);
+	assert.equal(listeners.has(FRAMESCAPER_NATIVE_IMAGE_SEQUENCE_IMPORT_CHANNELS.port), false);
 });
 
 test('the main-owned authority durably admits exact pathless pack and inventory bytes', async () => {
