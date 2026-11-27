@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { randomBytes } from 'node:crypto';
-import { lstat, mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, realpath, rm, rmdir } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import type {
@@ -9,7 +9,7 @@ import type {
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import type { TracktionAudioPreferences } from './tracktion-audio-preferences.ts';
 import type { TracktionPluginLibrary } from './tracktion-plugin-library.ts';
-import type { TracktionCommand, TracktionReply } from './tracktion-peer-contract.ts';
+import { TracktionRejectedCommand, type TracktionCommand, type TracktionReply } from './tracktion-peer-contract.ts';
 import { createTracktionExportWriter, stageTracktionWave } from './tracktion-project-files.ts';
 import { readTracktionProjectRequest } from './tracktion-project-request.ts';
 
@@ -224,8 +224,9 @@ export class TracktionProjectService {
 			candidate = { owner, directory, scratch, exchange, peer, audioPreferencesApplied: false,
 				savedRevision: 0, id: randomBytes(16).toString('hex') };
 			this.#assertOwner(owner, signal);
-			if (command.kind === 'create') await peer.request({ kind: 'save', revision: 0 });
 			const opened = await describe(candidate);
+			this.#assertOwner(owner, signal);
+			if (command.kind === 'create') await saveNewProject(candidate);
 			candidate.savedRevision = opened.project.revision;
 			this.#assertOwner(owner, signal);
 			if (previous) {
@@ -291,6 +292,23 @@ export class TracktionProjectService {
 async function closeProject(active: ActiveProject): Promise<void> {
 	try { await active.peer.close(); }
 	finally { await rm(active.scratch, { force: true, recursive: true }); }
+}
+
+async function saveNewProject(active: ActiveProject): Promise<void> {
+	// A successful native description means this Create started with an empty directory.
+	const media = join(active.directory, 'media');
+	const created = await lstat(media, { bigint: true });
+	try {
+		await active.peer.request({ kind: 'save', revision: 0 });
+	} catch (error) {
+		if (error instanceof TracktionRejectedCommand && created.isDirectory()) {
+			const current = await lstat(media, { bigint: true }).catch(() => null);
+			if (current?.isDirectory() && current.dev === created.dev && current.ino === created.ino) {
+				await rmdir(media).catch(() => undefined);
+			}
+		}
+		throw error;
+	}
 }
 
 async function describe(active: ActiveProject): Promise<TracktionOpenedProject> {

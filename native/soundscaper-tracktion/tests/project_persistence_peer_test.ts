@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { TracktionRejectedCommand } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -53,4 +54,59 @@ test('a short Tracktion Save preserves the existing file and the unsaved Edit', 
 			assert.deepEqual((await reopened.request(project)).tracks.map(({ name }) => name), ['Track 1', 'Added 1']);
 		} finally { await reopened.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a short initial Tracktion Save preserves the prior desktop Edit and leaves Create retryable', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-short-create-'));
+	const original = join(root, 'original');
+	const next = join(root, 'next');
+	const nonempty = join(root, 'nonempty');
+	const limited = join(root, 'limited-peer');
+	const owner = {};
+	let selected = original;
+	let peerExecutable = executable;
+	const create = { kind: 'create', sampleRate: 48_000 } as const;
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'),
+		isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => selected,
+		chooseOpenProject: async () => join(selected, 'project.tracktionedit'),
+		chooseWave: async () => null,
+		chooseExport: async () => null,
+		startPeer: async (options) => launchTracktionPeer({ ...options, executable: peerExecutable }),
+	});
+	try {
+		await Promise.all([mkdir(original), mkdir(next), mkdir(join(nonempty, 'media'), { recursive: true })]);
+		await writeFileSizeLimitedPeer(limited, 1);
+		const opened = await service.request(owner, create);
+		assert.ok(opened && 'sessionId' in opened);
+		const { sessionId } = opened;
+		await service.request(owner, { kind: 'addTrack', sessionId, revision: 0, name: 'Unsaved witness' });
+		const current = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, current);
+		assert.ok(before && 'tracks' in before && before.canUndo);
+
+		selected = nonempty;
+		await assert.rejects(service.request(owner, create));
+		assert.deepEqual(await readdir(nonempty), ['media']);
+		assert.deepEqual(await service.request(owner, current), before);
+
+		selected = next;
+		peerExecutable = limited;
+		await assert.rejects(service.request(owner, create), /Cannot save the Tracktion Edit/u);
+		assert.deepEqual(await service.request(owner, current), before);
+		assert.deepEqual(await readdir(next), []);
+
+		await service.request(owner, { kind: 'save', sessionId, revision: before.revision });
+		peerExecutable = executable;
+		const replacement = await service.request(owner, create);
+		assert.ok(replacement && 'sessionId' in replacement && replacement.sessionId !== sessionId);
+		await service.request(owner, { kind: 'close', sessionId: replacement.sessionId });
+		const reopened = await service.request(owner, { kind: 'open' });
+		assert.ok(reopened && 'sessionId' in reopened);
+		assert.deepEqual(reopened.project, replacement.project);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
 });
