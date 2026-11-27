@@ -89,13 +89,28 @@ test('legacy inline Tracktion audio reopens and is moved into its own record on 
 	assert.equal(restored.generation, 7);
 	assert.equal(restored.name, 'Untitled project');
 	assert.deepEqual(reopened.files.get(`/projects/legacy/media/${firstName}`), initialMedia);
-	await publishTracktionProject(reopened, restored);
+	const otherFilesystem = new ProjectFilesystem();
+	const other = await restoreTracktionProject(otherFilesystem, { ...draft, directory: 'other-legacy' });
+	const migrated = await publishTracktionProject(reopened, restored);
+	assert.equal(migrated.generation, 7);
+	assert.deepEqual(storage.records(name, generations), [7]);
 	assert.deepEqual(storage.records(name, projects), [
 		{ edit: initialEdit, mediaNames: [firstName] }, initialMedia,
 	]);
 	const saved = new ProjectFilesystem();
 	await restoreTracktionProject(saved, { ...draft, directory: 'migrated' });
 	assert.deepEqual(saved.files.get(`/projects/migrated/media/${firstName}`), initialMedia);
+
+	otherFilesystem.unlink(`/projects/other-legacy/media/${firstName}`);
+	otherFilesystem.writeFile(`/projects/other-legacy/media/${secondName}`, addedMedia);
+	const otherEdit = Uint8Array.of(2, 4, 8);
+	otherFilesystem.writeFile('/projects/other-legacy/project.tracktionedit', otherEdit);
+	const changed = await publishTracktionProject(otherFilesystem, other);
+	assert.equal(changed.generation, 8);
+	assert.deepEqual(storage.records(name, projects), [
+		{ edit: otherEdit, mediaNames: [secondName] }, addedMedia,
+	]);
+	await assert.rejects(publishTracktionProject(reopened, migrated), /Another browser tab saved/u);
 });
 
 test('a failed or stale Tracktion save keeps the previous Edit and all its audio', async (context) => {
@@ -116,4 +131,35 @@ test('a failed or stale Tracktion save keeps the previous Edit and all its audio
 	assert.equal(restored.files.has(`/projects/after-failure/media/${secondName}`), false);
 	const retried = await publishTracktionProject(fs, first);
 	assert.equal(retried.generation, 2);
+});
+
+test('an unchanged Tracktion save lets a second tab publish its real edit', async (context) => {
+	const { fs, storage, name } = await setup(context);
+	const encoder = new TextEncoder();
+	const edit = (rootId: string, clipId: string) => encoder.encode(
+		`<?xml version="1.0" encoding="UTF-8"?>\r\n\r\n<EDIT name="Piano 🎹" projectID="${rootId}"><CLIP projectID="${clipId}"/></EDIT>`,
+	);
+	fs.writeFile('/projects/original/project.tracktionedit', edit('0/f', '0/7'));
+	const first = await publishTracktionProject(fs, draft);
+	const otherFilesystem = new ProjectFilesystem();
+	const second = await restoreTracktionProject(otherFilesystem, { ...draft, directory: 'second' });
+	const metadata = storage.records(name, generations);
+	const savedEdit = storage.records(name, projects);
+	fs.writeFile('/projects/original/project.tracktionedit', edit('0/102bad', '0/7'));
+	assert.equal((await publishTracktionProject(fs, first)).generation, first.generation);
+	assert.deepEqual(storage.records(name, generations), metadata);
+	assert.deepEqual(storage.records(name, projects), savedEdit);
+	assert.equal((await publishTracktionProject(otherFilesystem, second)).generation, second.generation);
+
+	const revisedEdit = edit('0/102bad', '0/8');
+	otherFilesystem.writeFile('/projects/second/project.tracktionedit', revisedEdit);
+	otherFilesystem.writeFile(`/projects/second/media/${secondName}`, addedMedia);
+	const updated = await publishTracktionProject(otherFilesystem, second);
+	assert.equal(updated.generation, first.generation + 1);
+	assert.deepEqual(updated.savedMedia, [firstName, secondName]);
+	await assert.rejects(publishTracktionProject(fs, first), /Another browser tab saved/u);
+	const reopened = new ProjectFilesystem();
+	await restoreTracktionProject(reopened, { ...draft, directory: 'reopened' });
+	assert.deepEqual(reopened.files.get('/projects/reopened/project.tracktionedit'), revisedEdit);
+	assert.deepEqual(reopened.files.get(`/projects/reopened/media/${secondName}`), addedMedia);
 });
