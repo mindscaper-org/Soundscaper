@@ -252,7 +252,8 @@ void test('persistent delivery admission accepts complete sealed reports and rej
 	const report = sealDeliveryReport(draft);
 	assert.equal(isDeliveryReport(report), true);
 	assert.equal(isDeliveryReport(structuredClone(report)), true);
-	for (const value of [null, draft, { ...report, format: 'aup4' },
+	assert.equal(isDeliveryReport(sealDeliveryReport(createDeliveryReport({ format: 'wav' }))), true);
+	for (const value of [null, draft, { format: 'aup4', items: [], counts: {} }, { ...report, format: 'aup4' },
 		{ ...report, direction: 'import' }, { ...report, subject: { format: 'wav' } },
 		{ ...report, items: [{ code: 'invalid' }] },
 		{ ...report, counts: { ...report.counts, preserved: 99 } }]) {

@@ -56,7 +56,7 @@ import { deferredArchiveRuntime } from './controller/document/deferred-archive-r
 import { connectControllerNativeRenderInput } from './controller/composition/native-render-input-composition.ts';
 import { createAnalysisComposition } from './controller/analysis/analysis-composition.ts'; import { resolveProductCompositionDecision } from './controller/composition/product-composition-policy.ts';
 import { createControllerActionComposition } from './controller/composition/controller-action-composition.ts';
-import { productActionRuntime } from './controller/composition/product-action-runtime.ts'; import { createScapeProjectFileService } from './controller/document/scape-project-file-service.ts'; import { bindSoundscaperPersistentDeliveryRuntime } from './controller/export/soundscaper-persistent-delivery-runtime-binding.ts';
+import { productActionRuntime } from './controller/composition/product-action-runtime.ts'; import { createScapeProjectFileService } from './controller/document/scape-project-file-service.ts';
 
 import { createControllerProjectQueries, createResolvedCommandProjectReader } from './controller/composition/controller-project-queries.ts';
 import { createPreferencesComposition } from './controller/preferences/preferences-composition.ts';
@@ -520,8 +520,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		addTrack, addVideoTrackPair, assignPreferredInputToTrack, addLabelTrack,
 		reorderTrack, moveTrack, setTrackDisplayMode, setTrackRate,
 	} = tracks.trackActions;
-	const { cancelPersistentAudioDelivery, exportVideo, handleExportAction, renderSnapshot } = tracks.export;
-	bindSoundscaperPersistentDeliveryRuntime(options, { exportService: tracks.export, getProject: documentScope.get, getSaveState: () => state.saveState, captureProjectGeneration: documentScope.captureCurrent, assertProjectGeneration: documentScope.assertCurrent, deliveryReport: () => state.deliveryReport ?? null, cancelExport: cancelPersistentAudioDelivery, publishDocumentSnapshot });
+	const { exportVideo, handleExportAction, renderSnapshot } = tracks.export;
 	const effects = createEffectsComposition({
 		importMidiDocument: bindings.midiController.importDocument, state: effectsAccess, copy, locale, composition, absentSubsystem, isDesktop: fileService.isDesktop, lifetime, projectGeneration, projectRuntime, store, engine, sourceBuffers, sourceChunkProviders, sourcePeaks, pauseSourcePreview: () => { clips.clipSourcePreview.stop(); void bindings.projectBin.stopPreview().catch(bindings.handleError); },
 		taskProgress, nyquistEvaluator, getProject: () => documentState.project, getCommandProject, activeSelection, selectedTracksTimeRange: bindings.selectedTracksTimeRange, editingBlocked, setSelection: bindings.selection.setSelection,
