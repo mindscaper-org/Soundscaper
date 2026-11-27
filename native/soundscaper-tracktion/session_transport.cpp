@@ -128,16 +128,24 @@ bool Session::playbackReady() const
 			{
 				auto file = clip->getSourceFileReference().getFile();
 				if (file == juce::File{}) return false;
-				files.insert(std::move(file));
+				const auto [source, inserted] = files.insert(std::move(file));
+				if (inserted && ownedMediaFile(s.directory, juce::String(mediaDirectory) + "/" + source->getFileName()) != *source)
+					return false;
 			}
-		s.playbackMedia.assign(files.begin(), files.end());
+		s.playbackMedia.clear();
+		s.playbackMedia.reserve(files.size());
+		for (const auto& file : files) s.playbackMedia.emplace_back(s.engine, file);
 		s.playbackMediaRevision = s.revision;
 	}
+	if (s.playbackMedia.empty()) return true;
+	// Paths and hashes are fixed for this revision, but files can disappear or
+	// become symlinks without an Edit. Check the common directory once per poll.
+	if (s.directory.getChildFile(mediaDirectory).isSymbolicLink()) return false;
 	auto& cache = s.engine.getAudioFileManager().cache;
-	return std::ranges::all_of(s.playbackMedia, [&](const auto& file)
+	return std::ranges::all_of(s.playbackMedia, [&](const auto& source)
 	{
-		return ownedMediaFile(s.directory, juce::String(mediaDirectory) + "/" + file.getFileName()) == file
-		    && cache.hasMappedReader(te::AudioFile(s.engine, file), 0);
+		const auto& file = source.getFile();
+		return !file.isSymbolicLink() && file.existsAsFile() && cache.hasMappedReader(source, 0);
 	});
 }
 

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -66,6 +66,7 @@ test('Tracktion sustains PipeWire playback and can restart from the stopped play
 				assert.ok(frames - before > 153_600, `the ${blockSize}-frame stream carries sustained audio`);
 				const stopped = await peer.request({ kind: 'stop' });
 				assert.equal(stopped.playing, false);
+				if (blockSize === 256) await verifyProjectMediaReadiness(peer, options.projectDirectory);
 				await peer.request({ kind: 'prepareOutput' });
 				await waitForTransport(status, (snapshot) => snapshot.ready);
 				const beforeRestart = frames;
@@ -83,6 +84,31 @@ test('Tracktion sustains PipeWire playback and can restart from the stopped play
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+async function verifyProjectMediaReadiness(peer: ReturnType<typeof launchTracktionPeer>, projectDirectory: string): Promise<void> {
+	const media = join(projectDirectory, 'media');
+	const [name] = await readdir(media);
+	assert.ok(name);
+	const file = join(media, name);
+	const moved = `${file}.moved`;
+	const status = () => peer.request({ kind: 'transportStatus' });
+	await rename(file, moved);
+	assert.equal((await status()).ready, false, 'readiness notices a missing cached source');
+	await symlink(moved, file);
+	assert.equal((await status()).ready, false, 'readiness refuses a symlink in place of the cached source');
+	assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, false);
+	await unlink(file);
+	await rename(moved, file);
+	await waitForTransport(status, (snapshot) => snapshot.ready);
+
+	const movedMedia = `${media}.moved`;
+	await rename(media, movedMedia);
+	await symlink(movedMedia, media, 'dir');
+	assert.equal((await status()).ready, false, 'readiness refuses a substituted project media directory');
+	await unlink(media);
+	await rename(movedMedia, media);
+	await waitForTransport(status, (snapshot) => snapshot.ready);
+}
 
 test('Tracktion keeps capture and playback independent when the named PipeWire sink disappears', {
 	skip: process.platform !== 'linux' || process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT !== '1',

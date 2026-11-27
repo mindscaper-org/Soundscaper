@@ -69,7 +69,7 @@ struct Session::State
 	std::unique_ptr<te::Edit> edit;
 	Revision revision = 0;
 	std::optional<Revision> playbackMediaRevision;
-	std::vector<juce::File> playbackMedia;
+	std::vector<te::AudioFile> playbackMedia;
 	int sampleRate = 0;
 	te::HostedAudioDeviceInterface* playback = nullptr;
 	int playbackBlockFrames = 0;
