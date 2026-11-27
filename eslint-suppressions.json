@@ -19,11 +19,6 @@
       "count": 1
     }
   },
-  "desktop/desktop-audio-external-ffmpeg-contract-adapter.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "desktop/framescaper-capture-desktop-port.ts": {
     "no-control-regex": {
       "count": 1
