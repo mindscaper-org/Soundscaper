@@ -150,6 +150,7 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			await assert.rejects(peer.request({ kind: 'setTrackMix', revision: 4, trackId: initialTrack.id, ...mix, gainDb: 7 }), /range/u);
 			const changed = await peer.request({ kind: 'setTrackMix', revision: 4, trackId: initialTrack.id, ...mix });
 			assert.equal(changed.revision, 5);
+			assert.deepEqual(changed.history, { canUndo: true, canRedo: false });
 			const trackMix = await peer.request({ kind: 'trackMix', revision: 5, trackId: initialTrack.id });
 			assert.ok(Math.abs(trackMix.gainDb - mix.gainDb) < 0.01);
 			assert.equal(trackMix.pan, mix.pan);
@@ -202,7 +203,7 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			const copy = await reopened.request({ ...placement, kind: 'duplicateClip', revision: 34, trackId: origin.id, start: 200 });
 			assert.ok(copy.itemId && copy.itemId !== original.id);
 			const erased = await reopened.request({ kind: 'deleteClip', clipId: original.id, revision: 35 });
-			assert.deepEqual(erased, { revision: 36, itemId: null });
+			assert.deepEqual(erased, { revision: 36, itemId: null, history: { canUndo: true, canRedo: false } });
 			await reopened.request({ kind: 'undo', revision: 36 });
 			const restored = await reopened.request({ kind: 'clips', revision: 37, trackId: destination.id, offset: 0 });
 			const duration = original.end - original.start;

@@ -98,8 +98,10 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		return readTracktionTransport(value, command.kind !== 'transportObservation') as TracktionReply<Command>;
 	}
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
-	const result = readClosedDomainRecord(value, 'Tracktion edit result', command.kind === 'setAutomationPoint'
-		? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId']);
+	const fields = command.kind === 'setAutomationPoint' ? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId'];
+	const permitsHistory = command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
+		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
+	const result = readClosedDomainRecord(value, 'Tracktion edit result', permitsHistory ? [...fields, 'history'] : fields, fields);
 	const revision = nonnegativeInteger(result.revision);
 	const advanced = revision - command.revision;
 	const discarding = command.kind === 'finishRecording' && command.discard;
@@ -118,12 +120,19 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if ((!createsItem && result.itemId !== null) || (createsItem && !edited)) {
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
 	}
+	const history = result.history === undefined ? {} : { history: readEditHistory(result.history) };
 	if (command.kind === 'setAutomationPoint') {
 		const pointIndex = nonnegativeInteger(result.pointIndex);
 		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');
-		return Object.freeze({ revision, itemId: null, pointIndex }) as TracktionReply<Command>;
+		return Object.freeze({ revision, itemId: null, pointIndex, ...history }) as TracktionReply<Command>;
 	}
-	return Object.freeze({ revision, itemId }) as TracktionReply<Command>;
+	return Object.freeze({ revision, itemId, ...history }) as TracktionReply<Command>;
+}
+
+function readEditHistory(value: unknown) {
+	const { canUndo, canRedo } = readClosedDomainRecord(value, 'Tracktion edit history', ['canUndo', 'canRedo']);
+	if (typeof canUndo !== 'boolean' || typeof canRedo !== 'boolean') throw new TypeError('Invalid Tracktion edit history.');
+	return Object.freeze({ canUndo, canRedo });
 }
 
 function readTracktionTrackMix(value: unknown): TracktionTrackMix {

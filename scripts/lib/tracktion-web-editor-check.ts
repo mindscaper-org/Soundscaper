@@ -178,7 +178,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	const mixStart = (await commandsSince()).length;
 	await mixer.getByRole('button', { name: 'Apply' }).click();
 	await page.locator('main[aria-busy="false"]').waitFor();
-	assert.deepEqual(await commandsSince(mixStart), ['setTrackMix', 'project']);
+	assert.deepEqual(await commandsSince(mixStart), ['setTrackMix']);
 	await editing.click();
 	await button('Mixer').click();
 	assert.equal(await mixer.getByRole('spinbutton', { name: /Gain/u }).inputValue(), '-6');
@@ -221,7 +221,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	const automationStart = (await commandsSince()).length;
 	await automation.getByRole('button', { name: 'Add point' }).click();
 	await point.getByRole('option', { name: '0 · 0.000', exact: true }).waitFor({ state: 'attached' });
-	assert.deepEqual(await commandsSince(automationStart), ['setAutomationPoint', 'project', 'trackAutomation']);
+	assert.deepEqual(await commandsSince(automationStart), ['setAutomationPoint', 'trackAutomation']);
 	await frameField.fill('32768');
 	await valueField.fill('-6');
 	await automation.getByRole('button', { name: 'Add point' }).click();

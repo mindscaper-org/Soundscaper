@@ -172,6 +172,12 @@ juce::var projectPageReply(const ProjectPage& project, size_t offset)
 	});
 }
 
+juce::var editHistoryReply(const Session& session)
+{
+	const auto history = session.editHistory();
+	return record({{"canUndo", history.canUndo}, {"canRedo", history.canRedo}});
+}
+
 juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
 {
 	juce::Array<juce::var> clips;
@@ -379,7 +385,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 			{integer("frame"), mixerValue(request, "value", gain ? -100.0 : -1.0, gain ? 6.0 : 1.0),
 			 mixerValue(request, "curve", -1.0, 1.0)});
 		return record({{"revision", number(session.revision())}, {"itemId", juce::var()},
-		               {"pointIndex", number(static_cast<std::int64_t>(pointIndex))}});
+		               {"pointIndex", number(static_cast<std::int64_t>(pointIndex))}, {"history", editHistoryReply(session)}});
 	}
 	else if (kind == "removeAutomationPoint")
 	{
@@ -497,9 +503,12 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		throw std::invalid_argument("The Tracktion command is unsupported");
 	}
 
-	return record({
+	auto reply = record({
 		{"revision", number(session.revision())},
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
+	if (kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
+	return reply;
 }
 }

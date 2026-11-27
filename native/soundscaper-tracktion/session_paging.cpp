@@ -7,16 +7,22 @@
 
 namespace soundscaper::tracktion_backend
 {
+EditHistory Session::editHistory() const
+{
+	const auto& history = state->edit->getUndoManager();
+	return {history.canUndo(), history.canRedo()};
+}
+
 ProjectPage Session::projectPage(std::size_t offset, std::size_t limit) const
 {
 	const auto& s = *state;
-	const auto& history = s.edit->getUndoManager();
+	const auto history = editHistory();
 	const auto tracks = te::getAudioTracks(*s.edit);
 	const auto total = static_cast<std::size_t>(tracks.size());
 	if (offset > total)
 		throw std::invalid_argument("The Tracktion track page offset is outside the project");
 	const auto count = std::min(limit, total - offset);
-	ProjectPage page{s.revision, s.sampleRate, history.canUndo(), history.canRedo(), total, {}};
+	ProjectPage page{s.revision, s.sampleRate, history.canUndo, history.canRedo, total, {}};
 	page.tracks.reserve(count);
 	for (auto index = offset; index < offset + count; ++index)
 	{

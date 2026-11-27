@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	TracktionClipPage, TracktionClipView, TracktionProjectBridge, TracktionOpenedProject, TracktionProjectPage, TracktionTrackView,
+	TracktionClipPage, TracktionClipView, TracktionEditResult, TracktionProjectBridge, TracktionOpenedProject, TracktionProjectPage, TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
 export interface TracktionWorkspace extends TracktionOpenedProject {
@@ -25,28 +25,32 @@ export function readOpenedTracktionWorkspace(bridge: TracktionProjectBridge, pro
 }
 
 export async function readTracktionWorkspaceWithCachedTracks(
-	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, result: TracktionEditResult,
 ): Promise<TracktionWorkspace> {
+	const { revision } = result;
 	if (revision === workspace.project.revision) return workspace;
 	const { sessionId, selectedTrack } = workspace;
-	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	const project = projectWithEdit(workspace, result) ?? await bridge.request({ kind: 'project', sessionId, offset: 0 });
 	if (project.revision !== revision) return await readWorkspaceFromPage(bridge, workspace, project, selectedTrack?.id);
 	return { ...workspace, project };
 }
 
 export async function readTracktionWorkspaceAfterClipEdit(
-	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, result: TracktionEditResult,
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
-	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	const { revision } = result;
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
+	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
+	const localRemoval = removedFromSource && target && target === source ? withClipCount(target, sourceClips.length) : undefined;
+	const localProject = localRemoval && projectWithEdit(workspace, result, localRemoval);
+	const project = localProject ?? await bridge.request({ kind: 'project', sessionId, offset: 0 });
 	if (project.revision !== revision || !target) return await readWorkspaceFromPage(bridge, workspace, project, trackId);
 	const current = project.tracks.find((track) => track.id === target.id);
-	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
-	const clips = removedFromSource && target === source ? sourceClips
+	const clips = localRemoval ? sourceClips
 		: current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id);
-	const selectedTrack = withClipCount(target, clips.length);
+	const selectedTrack = localRemoval ?? withClipCount(target, clips.length);
 	let previousSelection = workspace.previousSelection;
 	let previousTrack = source;
 	if (source && source.id !== target.id) {
@@ -58,6 +62,13 @@ export async function readTracktionWorkspaceAfterClipEdit(
 		return track.id === previousTrack?.id ? previousTrack : track;
 	});
 	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
+}
+
+function projectWithEdit(workspace: TracktionWorkspace, { revision, history }: TracktionEditResult, updatedTrack?: TracktionTrackView) {
+	if (!history || revision !== workspace.project.revision + 1) return undefined;
+	const { tracks } = workspace.project;
+	return { ...workspace.project, ...history, revision,
+		tracks: updatedTrack ? tracks.map((track) => track.id === updatedTrack.id ? updatedTrack : track) : tracks };
 }
 
 function withClipCount(track: TracktionTrackView, clipCount: number): TracktionTrackView {

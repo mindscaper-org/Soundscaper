@@ -8,7 +8,7 @@ import type {
 	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 	TracktionTransportObservation,
 } from '../src/soundscaper/tracktion-project-contract.ts';
-import { readTracktionWorkspaceAfterClipEdit, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
+import { readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -207,7 +207,7 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 			return reply as TracktionProjectReply<Command>;
 		},
 	};
-	const refreshed = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, 8);
+	const refreshed = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, { revision: 8, itemId: null });
 	assert.equal(refreshed.project.revision, 9);
 	assert.equal(refreshed.tracks.at(-1)?.clipCount, 2);
 	assert.equal(refreshed.clips[0]?.start, 16);
@@ -236,12 +236,21 @@ void test('deleting a clip reuses the remaining clips outside the first track pa
 			return refreshedPage as TracktionProjectReply<Command>;
 		},
 	};
-	const updated = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, 8, { removedFromSource: 'removed' });
+	const updated = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, { revision: 8, itemId: null }, { removedFromSource: 'removed' });
 	assert.deepEqual(updated.clips, [retained]);
 	assert.equal(updated.clips[0], retained);
 	assert.equal(updated.selectedTrack?.clipCount, 1);
 	assert.equal(updated.tracks.at(-1), updated.selectedTrack);
 	assert.equal(updated.project, refreshedPage);
+
+	const noRead: TracktionProjectBridge = { async request() { return assert.fail('The current edit reply is sufficient'); } };
+	const acknowledgement = { revision: 8, itemId: null, history: { canUndo: true, canRedo: false } };
+	const deleted = await readTracktionWorkspaceAfterClipEdit(noRead, workspace, acknowledgement, { removedFromSource: 'removed' });
+	assert.deepEqual(deleted, updated);
+	const mixed = await readTracktionWorkspaceWithCachedTracks(noRead, workspace, acknowledgement);
+	assert.equal(mixed.clips, workspace.clips);
+	assert.equal(mixed.tracks, workspace.tracks);
+	assert.deepEqual(mixed.project, refreshedPage);
 });
 
 void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {

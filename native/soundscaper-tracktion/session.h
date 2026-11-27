@@ -55,6 +55,12 @@ struct TrackSummary
 	std::size_t clipCount;
 };
 
+struct EditHistory
+{
+	bool canUndo;
+	bool canRedo;
+};
+
 struct ProjectPage
 {
 	Revision revision;
@@ -102,6 +108,7 @@ public:
 	~Session();
 
 	ProjectPage projectPage(std::size_t offset, std::size_t limit) const;
+	EditHistory editHistory() const;
 	ClipPage clipPage(TrackId, std::size_t offset, std::size_t limit) const;
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);

@@ -109,7 +109,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const lostOutput = next.outputInterrupted && (next.recording || !next.playing) && !transport?.outputInterrupted;
 			const stopped = transport?.playing && !next.playing && !next.recording;
 			if ((!take && !lostOutput && !stopped) || !isCurrent() || pending.current) return;
-			const updated = take?.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, take.revision) : workspace;
+			const updated = take?.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, take) : workspace;
 			if (!isCurrent() || pending.current) return;
 			setWorkspace(updated);
 			setTransport(next);
@@ -216,7 +216,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request({
 				kind: 'import', sessionId: workspace.sessionId, revision: workspace.project.revision, trackId, start,
 			});
-			if (result) setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision));
+			if (result) setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result));
 		});
 	}
 
@@ -290,11 +290,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				const target = 'trackId' in edit ? { trackId: edit.trackId } : undefined;
 				const leavesSource = edit.kind === 'deleteClip' || (edit.kind === 'moveClip' && edit.trackId !== workspace.selectedTrack?.id);
 				const changed = leavesSource ? { ...target, removedFromSource: edit.clipId } : target;
-				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, changed));
+				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result, changed));
 				return;
 			}
 			if (edit.kind !== 'pasteRange' && edit.trackId !== null) {
-				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, { trackId: edit.trackId }));
+				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result, { trackId: edit.trackId }));
 				return;
 			}
 			const selectedTrack = edit.trackId ?? workspace.selectedTrack?.id;
@@ -316,7 +316,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const trackId = workspace.selectedTrack.id;
 		run(async () => {
 			const result = await bridge.request({ ...mix, kind: 'setTrackMix', trackId, sessionId: workspace.sessionId, revision: workspace.project.revision });
-			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision));
+			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result));
 		});
 	}
 
@@ -334,7 +334,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
 		run(async () => {
 			const result = await bridge.request({ ...edit, sessionId, revision, trackId });
-			const updated = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision);
+			const updated = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result);
 			setWorkspace(updated);
 			const { parameter } = edit;
 			const selectedFrame = edit.kind === 'setAutomationPoint' && edit.index !== null ? edit.frame : null;
@@ -423,7 +423,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request('installationId' in selection
 				? { kind: 'addOfflineEffect', sessionId, revision, trackId, ...selection }
 				: { kind: 'removeOfflineEffect', sessionId, revision, trackId, ...selection });
-			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision));
+			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result));
 		});
 	}
 
@@ -435,7 +435,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			});
 			setTransport(await readTransport(workspace.sessionId));
 			if (result.revision !== workspace.project.revision) {
-				setWorkspace(result.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision)
+				setWorkspace(result.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result)
 					: await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
 			}
 			setStatus(result.itemId ? 'Recording added to the track' : discard ? 'Recording discarded' : 'No audio was recorded');

@@ -91,20 +91,21 @@ test('Tracktion returns the ordered automation point index across pages and unch
 			assert.ok(track);
 			const lane = { trackId: track.id, parameter: 'pan' } as const;
 			const point = { ...lane, kind: 'setAutomationPoint', value: -0.5, curve: 0 } as const;
+			const history = { canUndo: true, canRedo: false };
 			for (let index = 0; index <= 32; index += 1) {
 				const added = await peer.request({ ...point, revision: index, index: null, frame: index * 128 });
-				assert.deepEqual(added, { revision: index + 1, itemId: null, pointIndex: index });
+				assert.deepEqual(added, { revision: index + 1, itemId: null, pointIndex: index, history });
 			}
 			const moved = await peer.request({ ...point, revision: 33, index: 0, frame: 4097 });
-			assert.deepEqual(moved, { revision: 34, itemId: null, pointIndex: 32 });
+			assert.deepEqual(moved, { revision: 34, itemId: null, pointIndex: 32, history });
 			const last = await peer.request({ ...lane, kind: 'trackAutomation', revision: moved.revision, offset: 32 });
 			assert.deepEqual(last.points, [{ frame: 4097, value: -0.5, curve: 0 }]);
 			const same = await peer.request({ ...point, revision: 34, index: 32, frame: 4097 });
 			assert.deepEqual(same, moved);
 			const updated = await peer.request({ ...point, revision: 34, index: 32, frame: 4097, value: -0.25 });
-			assert.deepEqual(updated, { revision: 35, itemId: null, pointIndex: 32 });
+			assert.deepEqual(updated, { revision: 35, itemId: null, pointIndex: 32, history });
 			const returned = await peer.request({ ...point, revision: 35, index: 32, frame: 0 });
-			assert.deepEqual(returned, { revision: 36, itemId: null, pointIndex: 0 });
+			assert.deepEqual(returned, { revision: 36, itemId: null, pointIndex: 0, history });
 			const first = await peer.request({ ...lane, kind: 'trackAutomation', revision: returned.revision, offset: 0 });
 			assert.deepEqual(first.points[0], { frame: 0, value: -0.5, curve: 0 });
 		} finally { await peer.close(); }
@@ -117,6 +118,9 @@ test('the peer validates the point index and the revision in automation replies'
 	const changed = { revision: 4, itemId: null, pointIndex: 1 } as const;
 	const read = (value: unknown) => inspectTracktionReply({ ok: true, value }, point);
 	assert.deepEqual(read(changed), changed);
+	const withHistory = { ...changed, history: { canUndo: true, canRedo: false } };
+	assert.deepEqual(read(withHistory), withHistory);
+	assert.throws(() => read({ ...changed, history: { canUndo: true, canRedo: 0 } }), /invalid.*history/iu);
 	assert.throws(() => read({ ...changed, pointIndex: -1 }), /integer/u);
 	assert.throws(() => read({ ...changed, revision: 3 }), /unchanged automation point/u);
 	assert.throws(() => read({ ...changed, revision: 5 }), /invalid revision/u);

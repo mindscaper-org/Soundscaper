@@ -18,11 +18,14 @@ export interface TracktionClipView {
 	readonly sourceOffset: number;
 }
 
-export interface TracktionProjectPage {
-	readonly revision: number;
-	readonly sampleRate: number;
+export interface TracktionEditHistory {
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
+}
+
+export interface TracktionProjectPage extends TracktionEditHistory {
+	readonly revision: number;
+	readonly sampleRate: number;
 	readonly nextOffset: number | null;
 	readonly tracks: readonly TracktionTrackView[];
 }
@@ -36,6 +39,7 @@ export interface TracktionClipPage {
 export interface TracktionEditResult {
 	readonly revision: number;
 	readonly itemId: string | null;
+	readonly history?: TracktionEditHistory;
 }
 
 export interface TracktionAutomationPointResult extends TracktionEditResult {
