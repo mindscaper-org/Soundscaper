@@ -28,6 +28,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_TrackUtils.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
 		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
+		PATTERN "tracktion_EditFileOperations.cpp" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
@@ -92,6 +93,33 @@ function(soundscaper_prepare_tracktion_source source destination)
 		"9d13160775f14680a86b9925f9208c2b286b6a25abc655a7c976e34645b64ad3"
 		"return newFile.getRelativePathFrom (editFile);"
 		"return newFile.getRelativePathFrom (editFile.getParentDirectory()).replaceCharacter (juce::File::getSeparatorChar(), '/');")
+
+	# JUCE's buffered XML writer can miss a positive short write. Preserve
+	# Tracktion's save bookkeeping and verify every byte before replacing the Edit.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/edit/tracktion_EditFileOperations.cpp"
+		"35d860cf315935251fd132ee094d0cdac3bdee26cb5063f872890c85b6778305"
+		[=[
+            if (auto xml = edit.state.createXml())
+                ok = xml->writeTo (file);
+
+            jassert (ok);
+]=] [=[
+            if (auto xml = edit.state.createXml())
+            {
+                juce::MemoryOutputStream bytes;
+                xml->writeTo (bytes, {});
+                juce::TemporaryFile staging (file);
+                const auto& path = staging.getFile();
+                {
+                    juce::FileOutputStream out (path, 0);
+                    ok = out.openedOk() && out.write (bytes.getData(), bytes.getDataSize());
+                    out.flush();
+                    ok = ok && out.getStatus().wasOk() && path.getSize() == static_cast<juce::int64> (bytes.getDataSize());
+                }
+                ok = ok && staging.overwriteTargetFileWithTemporary();
+            }
+]=])
 
 	# Preserve an explicitly chosen start sample even within the first 5 ms.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"

@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
+import './project_persistence_peer_test.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 test('desktop WAV import rejects incomplete media and can retry with its Edit history intact', {
