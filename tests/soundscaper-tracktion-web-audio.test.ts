@@ -135,3 +135,44 @@ test('recording reports a denied microphone while its new output context is stil
 	await audio.close();
 	assert.equal(closed, 2);
 });
+
+test('recording reports failed output while permission is pending and stops a later unused microphone', async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const firstModule = deferred<void>();
+	const outputFailure = new DOMException('The audio worklet could not be loaded', 'AbortError');
+	const lateStopped = deferred<void>();
+	const lateTrack = { stop: () => { lateStopped.resolve(); } };
+	const firstInput = deferred<{ getTracks(): readonly (typeof lateTrack)[] }>();
+	let retryStops = 0;
+	const retryTrack = Object.assign(new EventTarget(), { readyState: 'live', stop: () => { retryStops += 1; } });
+	const retryInput = { getAudioTracks: () => [retryTrack], getTracks: () => [retryTrack] };
+	let inputs = 0;
+	let contexts = 0;
+	let closed = 0;
+	class BrowserAudioContext {
+		readonly number = ++contexts;
+		readonly sampleRate = 48_000;
+		readonly audioWorklet = { addModule: () => this.number === 1 ? firstModule.promise : Promise.resolve() };
+		resume(): Promise<void> { return Promise.resolve(); }
+		createMediaStreamSource() { return { disconnect() {} }; }
+		close(): Promise<void> { closed += 1; return Promise.resolve(); }
+	}
+	replaceBrowserGlobal(context, 'AudioContext', BrowserAudioContext);
+	replaceBrowserGlobal(context, 'navigator', { mediaDevices: {
+		getUserMedia: () => ++inputs === 1 ? firstInput.promise : Promise.resolve(retryInput),
+	} });
+
+	const audio = new TracktionWebAudio();
+	const starting = assert.rejects(audio.microphoneBuffers(48_000), (error) => error === outputFailure);
+	firstModule.reject(outputFailure);
+	assert.equal(await remainsPending(starting), false);
+	await starting;
+	assert.equal(closed, 1);
+	assert.ok((await audio.microphoneBuffers(48_000)).capture);
+	firstInput.resolve({ getTracks: () => [lateTrack] });
+	assert.equal(await remainsPending(lateStopped.promise), false);
+	assert.equal(retryStops, 0);
+	await audio.close();
+	assert.equal(retryStops, 1);
+	assert.equal(closed, 2);
+});

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+import { raceAbortablePromise } from '../common/foundation/abort-race.ts';
 import { TracktionAudioQueue, type TracktionAudioBuffers } from './tracktion-audio-queue.ts';
 import { TracktionCaptureQueue } from './tracktion-capture-queue.ts';
 
@@ -12,6 +13,10 @@ type Microphone = Readonly<{
 const audioStartupTimeoutMs = 10_000;
 const workletPath = '/tracktion/tracktion-audio-worklet.js';
 const microphoneDisconnected = 'The browser microphone disconnected while Tracktion was starting';
+
+function stopMicrophoneTracks(stream: MediaStream): void {
+	for (const track of stream.getTracks()) track.stop();
+}
 
 export class TracktionWebAudio {
 	#context: AudioContext | undefined;
@@ -68,27 +73,31 @@ export class TracktionWebAudio {
 		const devices = navigator.mediaDevices;
 		if (!devices?.getUserMedia) throw new Error('Browser microphone recording is unavailable');
 		// Start output and ask for the input in the same user gesture.
-		const preparing = Promise.allSettled([this.prepare(sampleRate)]);
+		const startup = new AbortController();
+		const preparing = this.prepare(sampleRate);
 		const context = this.#context;
-		const stream = await devices.getUserMedia({
+		let microphoneRefused = false;
+		void preparing.catch((error: unknown) => {
+			if (!microphoneRefused) startup.abort(error);
+		});
+		const requesting = devices.getUserMedia({
 			audio: { channelCount: { ideal: 1 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false },
 		}).catch(async (error: unknown) => {
+			microphoneRefused = true;
 			// A reused audio context can still be resuming before the bridge suspends it again.
-			if (!this.#closeStartingOutput(context)) await preparing;
+			if (!this.#closeStartingOutput(context)) await preparing.catch(() => undefined);
 			throw error;
 		});
 		const disconnected = new Error(microphoneDisconnected);
-		const listeners = new AbortController();
+		let stream: MediaStream | undefined;
 		try {
+			stream = await raceAbortablePromise(requesting, startup.signal);
 			const tracks = stream.getAudioTracks();
 			const hasLiveTrack = () => tracks.some((track) => track.readyState === 'live');
 			if (!hasLiveTrack()) throw disconnected;
-			const ended = new Promise<never>((_, reject) => {
-				const interrupt = () => reject(disconnected);
-				for (const track of tracks) track.addEventListener('ended', interrupt, { signal: listeners.signal });
-			});
-			const [prepared] = await Promise.race([preparing, ended]);
-			if (prepared.status === 'rejected') throw prepared.reason;
+			const interrupt = () => startup.abort(disconnected);
+			for (const track of tracks) track.addEventListener('ended', interrupt, { signal: startup.signal });
+			await raceAbortablePromise(preparing, startup.signal);
 			if (!hasLiveTrack()) throw disconnected;
 			if (!context || this.#context !== context) throw new Error('Browser audio output is unavailable');
 			const source = context.createMediaStreamSource(stream);
@@ -97,10 +106,12 @@ export class TracktionWebAudio {
 			return { output: this.outputBuffer(), capture: queue.shared };
 		} catch (error) {
 			if (error === disconnected) this.#closeStartingOutput(context);
-			for (const track of stream.getTracks()) track.stop();
+			if (stream) stopMicrophoneTracks(stream);
+			// The browser permission prompt can still resolve after this startup has ended.
+			else void requesting.then(stopMicrophoneTracks).catch(() => undefined);
 			throw error;
 		} finally {
-			listeners.abort();
+			startup.abort();
 		}
 	}
 
@@ -144,7 +155,7 @@ export class TracktionWebAudio {
 		if (!microphone) return;
 		microphone.queue.seal();
 		microphone.source.disconnect();
-		for (const track of microphone.stream.getTracks()) track.stop();
+		stopMicrophoneTracks(microphone.stream);
 	}
 
 	#disconnectOutput(): void {
