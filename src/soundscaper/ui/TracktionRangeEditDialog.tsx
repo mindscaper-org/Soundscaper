@@ -22,24 +22,27 @@ const choices = {
 	} },
 };
 
-export function TracktionRangeEditDialog({ kind, trackId, onApply, onDismiss }: {
+export function TracktionRangeEditDialog({ kind, trackId, busy, failure, onApply, onDismiss }: {
 	readonly kind: TracktionRangeCommand['kind'];
 	readonly trackId: string;
+	readonly busy: boolean;
+	readonly failure: string;
 	readonly onApply: (edit: TracktionRangeCommand) => void;
 	readonly onDismiss: () => void;
 }) {
 	const dialog = useRef<HTMLDialogElement>(null);
-	const [failure, setFailure] = useState('');
+	const [validation, setValidation] = useState('');
 	const { title, label, modes } = choices[kind];
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
 	function submit(event: FormEvent<HTMLFormElement>): void {
 		event.preventDefault();
+		if (busy) return;
 		const fields = new FormData(event.currentTarget);
 		const start = Number(fields.get('start'));
 		const end = Number(fields.get('end'));
 		if (start >= end) {
-			setFailure(copy.tracktionClipFrameOrder);
+			setValidation(copy.tracktionClipFrameOrder);
 			return;
 		}
 		const mode = fields.get('mode') as TracktionRangeCommand['mode'];
@@ -47,17 +50,20 @@ export function TracktionRangeEditDialog({ kind, trackId, onApply, onDismiss }: 
 		onApply(mode === 'allTracks' ? { ...range, mode, trackId: null } : { ...range, mode, trackId });
 	}
 
-	return <dialog ref={dialog} aria-label={title} onCancel={onDismiss}>
+	return <dialog ref={dialog} aria-label={title} onCancel={(event) => {
+		event.preventDefault();
+		if (!busy) onDismiss();
+	}}>
 		<h2>{title}</h2>
-		<form onSubmit={submit} onInput={() => setFailure('')}>
-			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" required /></label></p>
-			<p><label>{copy.tracktionEndFrame} <input type="number" name="end" min="1" step="1" required /></label></p>
-			<p><label>{label} <select name="mode" defaultValue="leaveGap">
+		<form onSubmit={submit} onInput={() => setValidation('')}>
+			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" required disabled={busy} /></label></p>
+			<p><label>{copy.tracktionEndFrame} <input type="number" name="end" min="1" step="1" required disabled={busy} /></label></p>
+			<p><label>{label} <select name="mode" defaultValue="leaveGap" disabled={busy}>
 				{Object.entries(modes).map(([mode, label]) => <option key={mode} value={mode}>{label}</option>)}
 			</select></label></p>
-			{failure && <p role="alert">{failure}</p>}
-			<button type="submit">{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
-			<button type="button" onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
+			{(validation || failure) && <p role="alert">{validation || failure}</p>}
+			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
+			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
 		</form>
 	</dialog>;
 }

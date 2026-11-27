@@ -382,9 +382,17 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await editing.click();
 	await button('Copy').click();
 	const copy = page.getByRole('dialog', { name: 'Copy' });
+	await copy.getByRole('spinbutton', { name: 'Start frame' }).fill('0');
+	await copy.getByRole('spinbutton', { name: 'End frame' }).fill('1');
+	await copy.getByRole('button', { name: 'Apply' }).click();
+	await page.getByRole('alert').filter({ hasText: 'The selected time range contains no audio' }).waitFor();
+	assert.equal(await copy.isVisible(), true, 'a rejected copy leaves the range editor open');
+	assert.equal(await copy.getByRole('alert').count(), 1);
+	assert.equal(await copy.getByRole('spinbutton', { name: 'End frame' }).inputValue(), '1');
 	await copy.getByRole('spinbutton', { name: 'Start frame' }).fill('1599');
 	await copy.getByRole('spinbutton', { name: 'End frame' }).fill('1600');
 	await copy.getByRole('button', { name: 'Apply' }).click();
+	await copy.waitFor({ state: 'detached' });
 	await shifted.waitFor();
 	await editing.click();
 	await button('Cut').click();

@@ -240,6 +240,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	function chooseRangeEdit(kind: TracktionRangeCommand['kind']): void {
 		closeMenus();
+		setFailure('');
 		setRangeEdit(kind);
 	}
 
@@ -258,11 +259,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	function applyTimelineEdit(edit: TracktionClipCommand | TracktionRangeCommand | TracktionPasteCommand): void {
 		setClipEdit(null);
-		setRangeEdit(null);
 		setPasteFrame(null);
 		if (!workspace) return;
 		run(async () => {
 			await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
+			setRangeEdit(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
 			if (edit.kind === 'copyRange') return;
 			const selectedTrack = ('trackId' in edit ? edit.trackId : null) ?? workspace.selectedTrack?.id;
@@ -473,7 +474,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			tracks={workspace.tracks} sourceTrackId={workspace.selectedTrack.id}
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyTimelineEdit} onDismiss={() => setClipEdit(null)} />}
 		{rangeEdit && workspace?.selectedTrack && <TracktionRangeEditDialog kind={rangeEdit} trackId={workspace.selectedTrack.id}
-			onApply={applyTimelineEdit} onDismiss={() => setRangeEdit(null)} />}
+			busy={busy} failure={failure} onApply={applyTimelineEdit} onDismiss={() => { setRangeEdit(null); setFailure(''); }} />}
 		{pasteFrame !== null && workspace?.selectedTrack && <TracktionPasteDialog trackId={workspace.selectedTrack.id} position={pasteFrame}
 			onApply={applyTimelineEdit} onDismiss={() => setPasteFrame(null)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
@@ -486,7 +487,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{visibleStatus && <p role="status">{visibleStatus}</p>}
-			{failure && !automation && <p role="alert">{failure}</p>}
+			{failure && !automation && !rangeEdit && <p role="alert">{failure}</p>}
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
 					onChange={(event) => selectTrack(event.currentTarget.value)}>
