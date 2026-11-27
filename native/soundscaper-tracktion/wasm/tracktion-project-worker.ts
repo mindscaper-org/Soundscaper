@@ -139,6 +139,9 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 			const previous = activeProject;
 			activeProject = next;
 			if (previous) discardWorkingProject(runtime.FS, previous);
+			// Warm the native graph while opening the project. The AudioContext
+			// remains owned by the renderer and still starts on the Play gesture.
+			await submit(runtime, { id: message.id, request: { kind: 'prepareOutput' } }).catch(() => undefined);
 		}
 		return reply;
 	} finally {

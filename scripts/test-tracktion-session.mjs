@@ -31,7 +31,7 @@ if (isWindows) {
 execFileSync('cmake', [
 	'-S', 'native/soundscaper-tracktion', '-B', buildDirectory, '-DCMAKE_BUILD_TYPE=Release',
 	`-DSOUNDSCAPER_TRACKTION_SOURCE=${sources.tracktion}`, `-DSOUNDSCAPER_TRACKTION_JUCE_SOURCE=${sources.juce}`,
-	...(isWindows ? windowsDefinitions : ['-DCMAKE_C_FLAGS_RELEASE=-O0 -DNDEBUG', '-DCMAKE_CXX_FLAGS_RELEASE=-O0 -DNDEBUG']),
+	...(isWindows ? windowsDefinitions : ['-DCMAKE_C_FLAGS_RELEASE=-O2 -DNDEBUG', '-DCMAKE_CXX_FLAGS_RELEASE=-O2 -DNDEBUG']),
 ], options);
 execFileSync('cmake', ['--build', buildDirectory, '--config', 'Release', '--parallel', '2',
 	...(buildOnly ? ['--target', 'soundscaper_tracktion_peer'] : [])], options);

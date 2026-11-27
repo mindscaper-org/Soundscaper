@@ -11,7 +11,8 @@ namespace soundscaper::tracktion_backend
 {
 namespace
 {
-constexpr int renderBlockSize = 128;
+constexpr int isolatedEffectBlockSize = 128;
+constexpr int nativeRenderBlockSize = 1024;
 // Match the professional scan bound before allocating Tracktion compensation buffers.
 constexpr int maximumLatencyFrames = 1'048'576;
 const juce::Identifier formatProperty("soundscaperEffectFormat");
@@ -52,7 +53,7 @@ public:
 	{
 		const auto key = identity();
 		validateIdentity(key);
-		auto opened = host.openStereo(key, sampleRate, renderBlockSize);
+		auto opened = host.openStereo(key, sampleRate, isolatedEffectBlockSize);
 		if (!opened) throw std::invalid_argument("The selected isolated Tracktion effect is unavailable");
 		const auto latency = opened->latencyFrames();
 		if (latency < 0 || latency > maximumLatencyFrames)
@@ -81,10 +82,10 @@ public:
 		}
 		try
 		{
-			for (int offset = 0; offset < context.bufferNumSamples; offset += renderBlockSize)
+			for (int offset = 0; offset < context.bufferNumSamples; offset += isolatedEffectBlockSize)
 			{
 				const auto start = context.bufferStartSample + offset;
-				const auto count = static_cast<std::size_t>(std::min(renderBlockSize, context.bufferNumSamples - offset));
+				const auto count = static_cast<std::size_t>(std::min(isolatedEffectBlockSize, context.bufferNumSamples - offset));
 				std::span<float> left(buffer->getWritePointer(0, start), count);
 				std::span<float> right(buffer->getWritePointer(1, start), count);
 				const auto finite = [](float sample) { return std::isfinite(sample); };
@@ -124,6 +125,11 @@ public:
 				effects.push_back(effect);
 				effect->bind(*host, rate, failed);
 			}
+	}
+
+	int renderBlockSize() const noexcept
+	{
+		return effects.empty() ? nativeRenderBlockSize : isolatedEffectBlockSize;
 	}
 
 	std::atomic_bool failed{false};
@@ -216,7 +222,7 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 	params.time = {from, until};
 	params.tracksToDo = te::toBitSet(te::getAllTracks(*renderEdit));
 	params.sampleRateForAudio = s.sampleRate;
-	params.blockSizeForAudio = renderBlockSize;
+	params.blockSizeForAudio = bindings.renderBlockSize();
 	params.bitDepth = 16;
 	params.canRenderInMono = false;
 	params.checkNodesForAudio = false;

@@ -77,7 +77,10 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 
 		const { sessionId, ...request } = command;
 		if (project?.sessionId !== sessionId) throw new Error('This Tracktion project handle has expired');
-		if (request.kind === 'prepareOutput') await audio.prepare(project.sampleRate);
+		if (request.kind === 'prepareOutput') {
+			const [, reply] = await Promise.all([audio.prepare(project.sampleRate), send(request)]);
+			return reply.value;
+		}
 		if (request.kind === 'play' || (request.kind === 'seek' && audio.playing)) {
 			const buffers = { output: audio.outputBuffer() };
 			const { value } = await send(request, undefined, buffers);

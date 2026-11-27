@@ -2,6 +2,8 @@
 
 #include "session_state.h"
 
+#include <algorithm>
+#include <set>
 #include <stdexcept>
 
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
@@ -118,15 +120,25 @@ bool Session::playbackReady() const
 	auto& s = *state;
 	if (s.playback == nullptr && !s.hasSystemOutput())
 		return false;
+	if (s.playbackMediaRevision != s.revision)
+	{
+		std::set<juce::File> files;
+		for (auto* track : te::getAudioTracks(*s.edit))
+			for (auto* clip : track->getClips())
+			{
+				auto file = clip->getSourceFileReference().getFile();
+				if (file == juce::File{}) return false;
+				files.insert(std::move(file));
+			}
+		s.playbackMedia.assign(files.begin(), files.end());
+		s.playbackMediaRevision = s.revision;
+	}
 	auto& cache = s.engine.getAudioFileManager().cache;
-	for (auto* track : te::getAudioTracks(*s.edit))
-		for (auto* clip : track->getClips())
-		{
-			const auto file = clip->getSourceFileReference().getFile();
-			if (!file.existsAsFile() || !cache.hasMappedReader(te::AudioFile(s.engine, file), 0))
-				return false;
-		}
-	return true;
+	return std::ranges::all_of(s.playbackMedia, [&](const auto& file)
+	{
+		return ownedMediaFile(s.directory, juce::String(mediaDirectory) + "/" + file.getFileName()) == file
+		    && cache.hasMappedReader(te::AudioFile(s.engine, file), 0);
+	});
 }
 
 bool Session::isPlaying() const { return state->edit->getTransport().isPlaying(); }

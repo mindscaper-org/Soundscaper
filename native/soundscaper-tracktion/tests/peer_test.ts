@@ -2,14 +2,14 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import { writeAlsaCaptureFixture, writeAlsaOutputFixture, writeAlsaRoutingFixture } from './alsa_fixture.ts';
+import { countAlsaFrames, startAlsaCaptureFixture, startAlsaRoutingFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
@@ -211,20 +211,10 @@ test('Tracktion sends live project audio to the Linux ALSA output', { skip: proc
 		} finally {
 			await peer.close();
 		}
-		const file = await open(output, 'r');
-		try {
-			const sample = Buffer.alloc(4 * 1024 * 1024);
-			const { bytesRead } = await file.read(sample);
-			let matchingFrames = 0;
-			for (let offset = 0; offset + 8 <= bytesRead; offset += 8) {
-				const left = sample.readFloatLE(offset);
-				const right = sample.readFloatLE(offset + 4);
-				if (Math.abs(left - 0.125) < 0.001 && Math.abs(right + 0.0625) < 0.001) matchingFrames += 1;
-			}
-			assert.ok(matchingFrames >= 2048, 'ALSA output has the independent expected stereo PCM');
-		} finally {
-			await file.close();
-		}
+		const matchingFrames = await countAlsaFrames(output, 2, 2048, (samples, offset) =>
+			Math.abs(samples.readFloatLE(offset) - 0.125) < 0.001
+			&& Math.abs(samples.readFloatLE(offset + 4) + 0.0625) < 0.001);
+		assert.ok(matchingFrames >= 2048, 'ALSA output has the independent expected stereo PCM');
 	} finally {
 		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
 		else process.env.ALSA_CONFIG_PATH = previous;
@@ -239,8 +229,9 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 	const projectDirectory = join(root, 'project');
 	const exchangeDirectory = join(root, 'exchange');
 	const launch = { executable, projectDirectory, stateDirectory: join(root, 'settings'), exchangeDirectory };
+	let stopInput: (() => Promise<void>) | undefined;
 	try {
-		await writeAlsaCaptureFixture(config, join(root, 'input.raw'));
+		stopInput = await startAlsaCaptureFixture(config, join(root, 'input.raw'));
 		await mkdir(join(exchangeDirectory, 'output'), { recursive: true });
 		process.env.ALSA_CONFIG_PATH = config;
 		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
@@ -302,7 +293,8 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 	} finally {
 		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
 		else process.env.ALSA_CONFIG_PATH = previous;
-		await rm(root, { recursive: true, force: true });
+		try { await stopInput?.(); }
+		finally { await rm(root, { recursive: true, force: true }); }
 	}
 });
 
@@ -311,8 +303,9 @@ test('Tracktion applies a named ALSA route and preserves it when a replacement i
 	const config = join(root, 'alsa.conf');
 	const outputFile = join(root, 'output.raw');
 	const previous = process.env.ALSA_CONFIG_PATH;
+	let stopInput: (() => Promise<void>) | undefined;
 	try {
-		await writeAlsaRoutingFixture(config, join(root, 'input.raw'), outputFile);
+		stopInput = await startAlsaRoutingFixture(config, join(root, 'input.raw'), outputFile);
 		await mkdir(join(root, 'exchange', 'output'), { recursive: true });
 		process.env.ALSA_CONFIG_PATH = config;
 		const peer = launchTracktionPeer({
@@ -372,31 +365,19 @@ test('Tracktion applies a named ALSA route and preserves it when a replacement i
 		} finally {
 			await peer.close();
 		}
-		const rawOutput = await open(outputFile, 'r');
-		try {
-			const samples = Buffer.alloc(256 * 1024);
-			let found = 0;
-			let position = 0;
-			while (found < 1024) {
-				const { bytesRead } = await rawOutput.read(samples, 0, samples.length, position);
-				if (!bytesRead) break;
-				for (let offset = 0; offset + 16 <= bytesRead; offset += 16) {
-					if (Math.abs(samples.readFloatLE(offset + 8) - 0.375) >= 0.001
-						|| Math.abs(samples.readFloatLE(offset + 12) - 0.375) >= 0.001) continue;
-					assert.equal(samples.readFloatLE(offset), 0);
-					assert.equal(samples.readFloatLE(offset + 4), 0);
-					found += 1;
-				}
-				position += bytesRead;
-			}
-			assert.ok(found >= 1024, `expected PCM on the third and fourth channels after reading ${position} bytes`);
-		} finally {
-			await rawOutput.close();
-		}
+		const found = await countAlsaFrames(outputFile, 4, 1024, (samples, offset) => {
+			if (Math.abs(samples.readFloatLE(offset + 8) - 0.375) >= 0.001
+				|| Math.abs(samples.readFloatLE(offset + 12) - 0.375) >= 0.001) return false;
+			assert.equal(samples.readFloatLE(offset), 0);
+			assert.equal(samples.readFloatLE(offset + 4), 0);
+			return true;
+		});
+		assert.ok(found >= 1024, 'expected PCM on the third and fourth channels');
 	} finally {
 		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
 		else process.env.ALSA_CONFIG_PATH = previous;
-		await rm(root, { recursive: true, force: true });
+		try { await stopInput?.(); }
+		finally { await rm(root, { recursive: true, force: true }); }
 	}
 });
 

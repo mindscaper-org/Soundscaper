@@ -12,7 +12,7 @@ import { startTracktionUtilitySession } from '../../../desktop/tracktion-utility
 import type { TracktionPluginLibrary } from '../../../desktop/tracktion-plugin-library.ts';
 import { openTracktionWindow, registerTracktionScheme } from '../../../desktop/tracktion-window.ts';
 import type { TracktionProjectCommand, TracktionProjectReply } from '../../../src/soundscaper/tracktion-project-contract.ts';
-import { writeAlsaCaptureFixture } from './alsa_fixture.ts';
+import { startAlsaCaptureFixture } from './alsa_fixture.ts';
 import {
 	removePipeWireFixtureSink, removePipeWireFixtureSource, restorePipeWireFixtureSink, restorePipeWireFixtureSource,
 } from './pipewire_fixture.ts';
@@ -43,6 +43,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 
 	let exitCode = 0;
 	let editor: Awaited<ReturnType<typeof openTracktionWindow>> | undefined;
+	let stopInput: (() => Promise<void>) | undefined;
 	try {
 		await app.whenReady();
 		const projectDirectory = join(scratch, 'Project');
@@ -55,7 +56,7 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 		await writeFile(wave, wavFixture());
 		if (process.platform === 'linux') {
 			process.env.ALSA_CONFIG_PATH = join(scratch, 'alsa.conf');
-			await writeAlsaCaptureFixture(process.env.ALSA_CONFIG_PATH, join(scratch, 'input.raw'));
+			stopInput = await startAlsaCaptureFixture(process.env.ALSA_CONFIG_PATH, join(scratch, 'input.raw'));
 		}
 		editor = await openTracktionWindow({
 			bundleRoot, peer: binaryPath, scratchRoot: join(scratch, 'sessions'),
@@ -80,7 +81,8 @@ async function run(binaryPath: string, bundleRoot: string, scratch: string): Pro
 	} finally {
 		try {
 			editor?.window.destroy();
-			await editor?.dispose();
+			try { await editor?.dispose(); }
+			finally { await stopInput?.(); }
 		} catch (error) {
 			console.error(error);
 			exitCode = 1;

@@ -24,7 +24,7 @@ modules=(
 	juce_gui_extra/juce_gui_extra.cpp
 	juce_osc/juce_osc.cpp
 )
-flags=(-O0 -DNDEBUG -pthread -fexceptions -ffunction-sections -fdata-sections
+flags=(-O2 -DNDEBUG -pthread -fexceptions -ffunction-sections -fdata-sections
 	-DJUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 -DJUCE_STANDALONE_APPLICATION=1
 	-DJUCE_WEB_BROWSER=0 -DJUCE_USE_CURL=0 -DTRACKTION_LOG_ENABLED=0
 	-I/source/juce/modules -I/source/tracktion/modules -I/project)
@@ -36,19 +36,11 @@ sources=("${modules[@]/#/\/source\/juce\/modules\/}"
 	/project/session.cpp /project/session_automation.cpp /project/session_range.cpp /project/session_clipboard.cpp /project/session_transport.cpp /project/session_recording.cpp
 	/project/session_device.cpp /project/session_effects.cpp /project/project_archive.cpp)
 objects=()
-pids=()
 for source in "${sources[@]}"; do
 	object="${source##*/}.o"
 	objects+=("$object")
-	em++ -std=c++20 "${flags[@]}" -c "$source" -o "$object" &
-	pids+=("$!")
-	if ((${#pids[@]} == 2)); then
-		wait "${pids[0]}"
-		wait "${pids[1]}"
-		pids=()
-	fi
+	em++ -std=c++20 "${flags[@]}" -c "$source" -o "$object"
 done
-for pid in "${pids[@]}"; do wait "$pid"; done
 
 for source in /source/juce/modules/juce_core/juce_core_zlib.c \
 	/source/juce/modules/juce_audio_formats/juce_audio_formats_*.c \
@@ -61,7 +53,7 @@ done
 # Keep JUCE file reads and recording writes in Wasm across pthreads.
 # The JavaScript worker can continue serving editor and hosted audio requests.
 link() {
-	em++ -pthread -fexceptions "${objects[@]}" -sINITIAL_MEMORY=134217728 \
+	em++ -O2 -pthread -fexceptions "${objects[@]}" -sINITIAL_MEMORY=134217728 \
 		-sWASMFS=1 -sFORCE_FILESYSTEM=1 \
 		-sPTHREAD_POOL_SIZE=16 -sPTHREAD_POOL_SIZE_STRICT=2 -sPROXY_TO_PTHREAD=1 -sSTACK_SIZE=524288 "$@"
 }
@@ -78,8 +70,4 @@ if [[ "${1:-}" == --browser ]]; then
 	link command_main.o peer_commands.o -sENVIRONMENT=web,worker \
 		-sEXPORTED_FUNCTIONS=_main,_malloc,_free -sEXPORTED_RUNTIME_METHODS=FS,UTF8ToString \
 		-o /output/edit-core.js
-	# The unoptimized link exceeds the deployment asset limit. Keep the JS ABI
-	# from the same link while optimizing the executable module for distribution.
-	"$EMSDK/upstream/bin/wasm-opt" -O2 --all-features /output/edit-core.wasm -o /tmp/edit-core.wasm
-	mv /tmp/edit-core.wasm /output/edit-core.wasm
 fi
