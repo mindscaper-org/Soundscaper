@@ -310,6 +310,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 
 	std::uint64_t created = 0;
 	std::optional<IndexedClip> editedClip;
+	auto stoppedRecording = false;
 	if (kind == "startRecording")
 	{
 		requireFields(request, {"revision", "trackId", "frame"});
@@ -364,7 +365,10 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		requireFields(request, {"revision", "discard"});
 		const auto& discard = request.getProperty("discard");
 		if (!discard.isBool()) throw std::invalid_argument("The Tracktion discard flag must be a boolean");
+		const auto recordingTrack = session.recordingTrack();
 		created = session.finishRecording(revision, static_cast<bool>(discard)).value_or(0);
+		stoppedRecording = recordingTrack.has_value();
+		if (recordingTrack && created != 0) editedClip = session.indexedClip(*recordingTrack, created);
 	}
 	else if (kind == "addTrack")
 	{
@@ -529,9 +533,13 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 				{"track", trackReply(insertion->track)}, {"index", number(static_cast<std::int64_t>(insertion->index))},
 			}));
 	if (editedClip)
-		reply.getDynamicObject()->setProperty(kind == "trim" ? "trimmedClip" : "importedClip", record({
+	{
+		const auto field = kind == "trim" ? "trimmedClip" : kind == "finishRecording" ? "recordedClip" : "importedClip";
+		reply.getDynamicObject()->setProperty(field, record({
 			{"clip", clipReply(editedClip->clip)}, {"index", number(static_cast<std::int64_t>(editedClip->index))},
 		}));
+	}
+	if (stoppedRecording) reply.getDynamicObject()->setProperty("transport", transportObservation(session));
 	return reply;
 }
 }

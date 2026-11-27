@@ -165,6 +165,7 @@ public:
 	bool outputInterrupted() const;
 	bool isPlaying() const;
 	bool isRecording() const;
+	std::optional<TrackId> recordingTrack() const;
 	std::optional<InterruptedTake> interruptedTake() const;
 	void play(Frame start);
 	void seek(Frame);

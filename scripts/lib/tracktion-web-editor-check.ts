@@ -125,9 +125,11 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 		}, undefined, { timeout: 10_000 });
 	}
 	await beginRecording();
+	const stopStart = (await commandsSince()).length;
 	await transport.click();
 	await button('Stop').click();
 	await page.getByText('1 clip', { exact: true }).waitFor();
+	assert.deepEqual(await commandsSince(stopStart), ['finishRecording']);
 	assert.equal(await page.evaluate(() => (window as PlaybackWindow).tracktionTestMicrophone?.readyState), 'ended');
 	const take = await exportFile('Export mix (WAV)');
 	verifyRecordedSignal(await readFile(await take.path()));
@@ -138,9 +140,11 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Redo').click();
 	await page.getByText('1 clip', { exact: true }).waitFor();
 	await beginRecording();
+	const discardStart = (await commandsSince()).length;
 	await transport.click();
 	await button('Discard recording').click();
 	await page.getByRole('status').filter({ hasText: 'Recording discarded' }).waitFor();
+	assert.deepEqual(await commandsSince(discardStart), ['finishRecording']);
 	await page.getByText('1 clip', { exact: true }).waitFor();
 	assert.equal(await page.evaluate(() => (window as PlaybackWindow).tracktionTestMicrophone?.readyState), 'ended');
 	await beginRecording();

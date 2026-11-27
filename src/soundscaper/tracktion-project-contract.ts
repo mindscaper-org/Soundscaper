@@ -51,6 +51,11 @@ export interface TracktionEditResult {
 	readonly insertion?: Readonly<{ track: TracktionTrackView; index: number }>;
 	readonly trimmedClip?: TracktionIndexedClip;
 	readonly importedClip?: TracktionIndexedClip;
+	readonly recordedClip?: TracktionIndexedClip;
+}
+
+export interface TracktionRecordingResult extends TracktionEditResult {
+	readonly transport?: TracktionTransportObservation;
 }
 
 export interface TracktionAutomationPointResult extends TracktionEditResult {
@@ -158,7 +163,8 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 							: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
 								: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
 									: Command extends { kind: 'setAutomationPoint' } ? TracktionAutomationPointResult
-										: Command extends { kind: 'close' } ? null : TracktionEditResult;
+										: Command extends { kind: 'finishRecording' } ? TracktionRecordingResult
+											: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;

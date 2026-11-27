@@ -312,11 +312,15 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 			assert.equal(clips[0]?.id, take.itemId);
 			assert.equal(clips[0]?.start, 144);
 			assert.ok((clips[0]?.end ?? 0) >= 2048);
+			assert.deepEqual(take.recordedClip, { clip: clips[0], index: 0 });
+			assert.deepEqual(take.history, { canUndo: true, canRedo: false });
+			assert.deepEqual(take.transport, await peer.request({ kind: 'transportObservation' }));
 			await peer.request({ kind: 'undo', revision: 1 });
 			assert.equal((await peer.request({ kind: 'project', offset: 0 })).tracks[0]?.clipCount, 0);
 			await peer.request({ kind: 'redo', revision: 2 });
 			await peer.request({ ...start, revision: 3 });
-			assert.deepEqual(await peer.request({ kind: 'finishRecording', revision: 3, discard: true }), { revision: 3, itemId: null });
+			const discard = await peer.request({ kind: 'finishRecording', revision: 3, discard: true });
+			assert.deepEqual(discard, { revision: 3, itemId: null, transport: await peer.request({ kind: 'transportObservation' }) });
 			const media = await readdir(join(projectDirectory, 'media'));
 			assert.equal(media.length, 1);
 			assert.match(media[0] ?? '', /^[0-9a-f]{32}\.wav$/u);

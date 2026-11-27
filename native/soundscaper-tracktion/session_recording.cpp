@@ -82,6 +82,12 @@ void Session::State::requireNoRecording() const
 
 bool Session::isRecording() const { return state->recording.has_value(); }
 
+std::optional<TrackId> Session::recordingTrack() const
+{
+	const auto& recording = state->recording;
+	return recording ? std::optional{recording->track} : std::nullopt;
+}
+
 std::optional<InterruptedTake> Session::interruptedTake() const
 {
 	const auto& recovered = state->recoveredRecording;

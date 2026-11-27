@@ -41,10 +41,11 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
-	const { revision, importedClip, trimmedClip } = result;
-	const placement = importedClip ?? trimmedClip;
-	if (placement && source && source.id === trackId && (!importedClip || importedClip.clip.id === result.itemId)) {
-		const clips = placeEditedClip(workspace.clips, placement, importedClip !== undefined);
+	const { revision, importedClip, recordedClip, trimmedClip } = result;
+	const insertedClip = importedClip ?? recordedClip;
+	const placement = insertedClip ?? trimmedClip;
+	if (placement && source && source.id === trackId && (!insertedClip || insertedClip.clip.id === result.itemId)) {
+		const clips = placeEditedClip(workspace.clips, placement, insertedClip !== undefined);
 		if (clips) {
 			const selectedTrack = withClipCount(source, clips.length);
 			const changedTrack = selectedTrack === source ? undefined : selectedTrack;

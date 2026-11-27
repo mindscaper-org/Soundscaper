@@ -16,9 +16,10 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 async function mountEditor(context: TestContext, {
 	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
-	desktopAudioSetup = false, delayReadiness = false, trackCount = 33, openedTransport,
+	desktopAudioSetup = false, delayReadiness = false, trackCount = 33, openedTransport, recordingPlacement = false,
 }: { stopOnUndo?: boolean; undoChangesClips?: boolean; clipsPerTrack?: number; recoveredBeforeDiscard?: boolean;
-	desktopAudioSetup?: boolean; delayReadiness?: boolean; trackCount?: number; openedTransport?: TracktionTransportObservation } = {}) {
+	desktopAudioSetup?: boolean; delayReadiness?: boolean; trackCount?: number; openedTransport?: TracktionTransportObservation;
+	recordingPlacement?: boolean } = {}) {
 	const dom = installReactTestDom();
 	let pollTransport: (() => void) | undefined;
 	if (desktopAudioSetup) Object.assign(window, {
@@ -64,6 +65,7 @@ async function mountEditor(context: TestContext, {
 		const track = tracks[index];
 		assert.ok(track);
 		tracks[index] = { id: track.id, clipCount: track.clipCount + 1, get name() { return track.name; } };
+		return track.clipCount;
 	}
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
@@ -113,8 +115,12 @@ async function mountEditor(context: TestContext, {
 					revision += 2;
 					return { revision, itemId: null };
 				}
-				addRecordedClip();
-				return { revision: ++revision, itemId: 'take' };
+				const index = addRecordedClip();
+				const result = { revision: ++revision, itemId: 'take' };
+				return recordingPlacement ? {
+					...result, history: { canUndo: true, canRedo: false }, transport: { recording: false, playing: false, frame: 896 },
+					recordedClip: { index, clip: { id: 'take', name: 'Recorded input', start: 512, end: 896, sourceOffset: 0 } },
+				} : result;
 			}
 			case 'save': return { revision, itemId: null };
 			case 'undo': {
@@ -485,8 +491,8 @@ void test('a worker loss during recording lets the user reopen the saved project
 	assert.equal(dom.one('h1').textContent, 'Imported project');
 });
 
-void test('finishing a take refreshes only the recording track in a paginated project', async (context) => {
-	const { dom, requests, click } = await mountEditor(context, { trackCount: 129 });
+for (const recordingPlacement of [true, false]) void test(`finishing a take updates the recording track from its reply (${recordingPlacement})`, async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { trackCount: 129, recordingPlacement });
 	await click('Open projects');
 	await act(async () => {
 		reactProps(dom.one('select')).onChange({ currentTarget: { value: '129' } });
@@ -494,9 +500,11 @@ void test('finishing a take refreshes only the recording track in a paginated pr
 	await click('Record onto the active track');
 	const beforeStop = requests.length;
 	await click('Stop');
-	assert.deepEqual(requests.slice(beforeStop).map(({ kind }) => kind), ['finishRecording', 'transportStatus', 'project', 'clips']);
+	assert.deepEqual(requests.slice(beforeStop).map(({ kind }) => kind), recordingPlacement
+		? ['finishRecording'] : ['finishRecording', 'transportStatus', 'project', 'clips']);
 	assert.equal(dom.one('select').options.length, 129);
 	assert.equal(dom.one('ul').querySelectorAll('li').length, 2);
+	if (recordingPlacement) assert.equal(dom.one('ul').querySelectorAll('li').at(-1)?.textContent, 'Recorded input (512–896)');
 	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
 	await click('Save project');
 	assert.deepEqual(requests.at(-1), { kind: 'save', sessionId: 'session', revision: 8 });

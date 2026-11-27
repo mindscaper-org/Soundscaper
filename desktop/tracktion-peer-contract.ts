@@ -7,7 +7,7 @@ import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscape
 import {
 	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_TRACK_PAGE_SIZE, type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
 	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
-	type TracktionRecordingCommand, type TracktionRenderCommand, type TracktionTrackMix,
+	type TracktionRecordingCommand, type TracktionRecordingResult, type TracktionRenderCommand, type TracktionTrackMix,
 	type TracktionTransportCommand, type TracktionTransportObservation, type TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -55,7 +55,8 @@ export type TracktionReply<Command extends TracktionCommand> = Command extends {
 				: Command extends UseAudioProfile ? null
 					: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
 						: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
-							: Command extends { kind: 'setAutomationPoint' } ? TracktionAutomationPointResult : TracktionEditResult;
+							: Command extends { kind: 'setAutomationPoint' } ? TracktionAutomationPointResult
+								: Command extends { kind: 'finishRecording' } ? TracktionRecordingResult : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -100,16 +101,19 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const fields = command.kind === 'setAutomationPoint' ? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId'];
 	const permitsInsertion = command.kind === 'addTrack' || command.kind === 'duplicateTrack';
-	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip' : undefined;
+	const finishesRecording = command.kind === 'finishRecording';
+	const discarding = finishesRecording && command.discard;
+	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
+		: finishesRecording && !discarding ? 'recordedClip' : undefined;
 	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
 	const allowed = permitsHistory ? [...fields, 'history'] : fields;
 	if (permitsInsertion) allowed.push('insertion');
 	if (editedClipField) allowed.push(editedClipField);
+	if (finishesRecording) allowed.push('transport');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
 	const advanced = revision - command.revision;
-	const discarding = command.kind === 'finishRecording' && command.discard;
 	// A racing Discard can remove a take that PipeWire already recovered.
 	if (advanced < 0 || advanced > (discarding ? 2 : 1) || (discarding && advanced === 1)) {
 		throw new TypeError('A Tracktion edit returned an invalid revision.');
@@ -126,6 +130,9 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
 	}
 	const history = result.history === undefined ? {} : { history: readEditHistory(result.history) };
+	const transport = result.transport === undefined ? undefined : readTracktionTransport(result.transport, false);
+	if (transport?.recording) throw new TypeError('A finished Tracktion recording is still armed.');
+	const edit = { revision, itemId, ...history, ...(transport && { transport }) };
 	if (command.kind === 'setAutomationPoint') {
 		const pointIndex = nonnegativeInteger(result.pointIndex);
 		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');
@@ -137,10 +144,10 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		const expectedId = command.kind === 'trim' ? command.clipId : itemId;
 		if (!edited || updated.id !== expectedId) throw new TypeError('Tracktion returned an inconsistent edited clip.');
 		const placement = Object.freeze({ clip: updated, index: nonnegativeInteger(index) });
-		return Object.freeze({ revision, itemId, ...history, [editedClipField]: placement }) as TracktionReply<Command>;
+		return Object.freeze({ ...edit, [editedClipField]: placement }) as TracktionReply<Command>;
 	}
 	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
-	return Object.freeze({ revision, itemId, ...history, ...insertion }) as TracktionReply<Command>;
+	return Object.freeze({ ...edit, ...insertion }) as TracktionReply<Command>;
 }
 
 function readEditHistory(value: unknown) {

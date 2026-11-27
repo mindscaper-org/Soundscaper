@@ -428,7 +428,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request({
 				kind: 'finishRecording', sessionId: workspace.sessionId, revision: workspace.project.revision, discard,
 			});
-			setTransport(await readTransport(workspace.sessionId));
+			setTransport(result.transport ?? await readTransport(workspace.sessionId));
 			if (result.revision !== workspace.project.revision) {
 				setWorkspace(result.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result)
 					: await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
