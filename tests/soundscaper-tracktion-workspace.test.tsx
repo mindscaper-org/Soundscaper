@@ -5,7 +5,7 @@ import test, { type TestContext } from 'node:test';
 import React, { act } from 'react';
 
 import type {
-	TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
+	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
@@ -171,7 +171,8 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 	const bridge: TracktionProjectBridge = {
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			commands.push(command);
-			const reply = command.kind === 'project'
+			assert.ok(command.kind === 'project' || command.kind === 'clips');
+			const reply: TracktionProjectPage | TracktionClipPage = command.kind === 'project'
 				? command.offset === 0 ? { ...project, revision: 9 }
 					: { ...project, revision: 9, nextOffset: null, tracks: [{ id: '33', name: 'Recovered on track 33', clipCount: 2 }] }
 				: { revision: 9, nextOffset: null, clips: [{ ...clip, start: 16 }] };
