@@ -237,6 +237,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	function chooseClipEdit(kind: TracktionClipCommand['kind']): void {
 		closeMenus();
+		setFailure('');
 		setClipEdit(kind);
 	}
 
@@ -260,11 +261,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	}
 
 	function applyTimelineEdit(edit: TracktionClipCommand | TracktionRangeCommand | TracktionPasteCommand): void {
-		setClipEdit(null);
 		setPasteFrame(null);
 		if (!workspace) return;
 		run(async () => {
 			const result = await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
+			setClipEdit(null);
 			setRangeEdit(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
 			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
@@ -482,8 +483,9 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		{audioSetup && workspace && <TracktionAudioSetupDialog inventory={audioSetup} bridge={bridge} sessionId={workspace.sessionId}
 			sampleRate={workspace.project.sampleRate} onDismiss={() => setAudioSetup(null)} />}
 		{clipEdit && workspace?.selectedTrack && <TracktionClipEditDialog kind={clipEdit}
-			tracks={workspace.tracks} sourceTrackId={workspace.selectedTrack.id}
-			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyTimelineEdit} onDismiss={() => setClipEdit(null)} />}
+			tracks={workspace.tracks} sourceTrackId={workspace.selectedTrack.id} busy={busy} failure={failure}
+			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyTimelineEdit}
+			onDismiss={() => { setClipEdit(null); setFailure(''); }} />}
 		{rangeEdit && workspace?.selectedTrack && <TracktionRangeEditDialog kind={rangeEdit} trackId={workspace.selectedTrack.id}
 			busy={busy} failure={failure} onApply={applyTimelineEdit} onDismiss={() => { setRangeEdit(null); setFailure(''); }} />}
 		{pasteFrame !== null && workspace?.selectedTrack && <TracktionPasteDialog trackId={workspace.selectedTrack.id} position={pasteFrame}
@@ -498,7 +500,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{visibleStatus && <p role="status">{visibleStatus}</p>}
-			{failure && !automation && !rangeEdit && <p role="alert">{failure}</p>}
+			{failure && !automation && !rangeEdit && !clipEdit && <p role="alert">{failure}</p>}
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
 					onChange={(event) => selectTrack(event.currentTarget.value)}>

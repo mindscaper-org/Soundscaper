@@ -13,17 +13,19 @@ const titles: Record<TracktionClipCommand['kind'], string> = {
 	duplicateClip: copy.tracktionDuplicateClip, deleteClip: copy.liftDelete,
 };
 
-export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, onApply, onDismiss }: {
+export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, busy, failure, onApply, onDismiss }: {
 	readonly kind: TracktionClipCommand['kind'];
 	readonly clips: readonly TracktionClipView[];
 	readonly tracks: readonly TracktionTrackView[];
 	readonly sourceTrackId: string;
+	readonly busy: boolean;
+	readonly failure: string;
 	readonly onApply: (edit: TracktionClipCommand) => void;
 	readonly onDismiss: () => void;
 }) {
 	const dialog = useRef<HTMLDialogElement>(null);
 	const [id, setId] = useState(clips[0]?.id);
-	const [failure, setFailure] = useState('');
+	const [validation, setValidation] = useState('');
 	const clip = clips.find((candidate) => candidate.id === id) ?? clips[0];
 	const placing = kind === 'moveClip' || kind === 'duplicateClip';
 	const title = titles[kind];
@@ -32,7 +34,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, on
 
 	function submit(event: FormEvent<HTMLFormElement>): void {
 		event.preventDefault();
-		if (!clip) return;
+		if (busy || !clip) return;
 		const fields = new FormData(event.currentTarget);
 		if (kind === 'deleteClip') {
 			onApply({ kind, clipId: clip.id });
@@ -49,40 +51,43 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, on
 		}
 		const end = Number(fields.get('end'));
 		if (start >= end) {
-			setFailure(copy.tracktionClipFrameOrder);
+			setValidation(copy.tracktionClipFrameOrder);
 			return;
 		}
 		onApply({ kind, clipId: clip.id, start, end });
 	}
 
 	if (!clip) return null;
-	return <dialog ref={dialog} aria-label={title} onCancel={onDismiss}>
+	return <dialog ref={dialog} aria-label={title} onCancel={(event) => {
+		event.preventDefault();
+		if (!busy) onDismiss();
+	}}>
 		<h2>{title}</h2>
-		<form onSubmit={submit} onInput={() => setFailure('')}>
-			<p><label>{copy.tracktionClip} <select value={clip.id} onChange={(event) => { setId(event.currentTarget.value); }}>
+		<form onSubmit={submit} onInput={() => setValidation('')}>
+			<p><label>{copy.tracktionClip} <select value={clip.id} disabled={busy} onChange={(event) => { setId(event.currentTarget.value); }}>
 				{clips.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.start}–{item.end})</option>)}
 			</select></label></p>
 			<div key={clip.id}>
-				{kind === 'split' && <p><label>{copy.tracktionSplitFrame} <input type="number" name="frame" required step="1"
+				{kind === 'split' && <p><label>{copy.tracktionSplitFrame} <input type="number" name="frame" required step="1" disabled={busy}
 					min={clip.start + 1} max={clip.end - 1} defaultValue={clip.start + Math.floor((clip.end - clip.start) / 2)} />
 				</label></p>}
 				{kind === 'trim' && <>
-					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1"
+					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1" disabled={busy}
 						min={clip.start} max={clip.end - 1} defaultValue={clip.start} /></label></p>
-					<p><label>{copy.tracktionEndFrame} <input type="number" name="end" required step="1"
+					<p><label>{copy.tracktionEndFrame} <input type="number" name="end" required step="1" disabled={busy}
 						min={clip.start + 1} max={clip.end} defaultValue={clip.end} /></label></p>
 				</>}
 				{placing && <>
-					<p><label>{copy.tracktionDestinationTrack} <select name="track" defaultValue={sourceTrackId}>
+					<p><label>{copy.tracktionDestinationTrack} <select name="track" defaultValue={sourceTrackId} disabled={busy}>
 						{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
 					</select></label></p>
-					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1" min="0"
+					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1" min="0" disabled={busy}
 						defaultValue={kind === 'duplicateClip' ? clip.end : clip.start} /></label></p>
 				</>}
 			</div>
-			{failure && <p role="alert">{failure}</p>}
-			<button type="submit">{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
-			<button type="button" onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
+			{(validation || failure) && <p role="alert">{validation || failure}</p>}
+			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
+			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
 		</form>
 	</dialog>;
 }

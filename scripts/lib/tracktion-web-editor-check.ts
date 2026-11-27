@@ -326,8 +326,15 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Move clip').click();
 	const move = page.getByRole('dialog', { name: 'Move clip' });
 	await move.getByRole('combobox', { name: 'Clip', exact: true }).selectOption({ label: 'Tracktion web media (1200–1968)' });
-	await move.getByRole('combobox', { name: 'Destination track' }).selectOption({ label: 'Audio track 2' });
-	await move.getByRole('spinbutton', { name: 'Start frame' }).fill('1600');
+	const targetTrack = move.getByRole('combobox', { name: 'Destination track' });
+	const [targetId] = await targetTrack.selectOption({ label: 'Audio track 2' });
+	const moveFrame = move.getByRole('spinbutton', { name: 'Start frame' });
+	await moveFrame.fill('99999999999');
+	await move.getByRole('button', { name: 'Apply' }).click();
+	await move.getByRole('alert').filter({ hasText: 'Timeline frame is outside the Edit' }).waitFor();
+	assert.equal(await moveFrame.inputValue(), '99999999999');
+	assert.equal(await targetTrack.inputValue(), targetId);
+	await moveFrame.fill('1600');
 	await move.getByRole('button', { name: 'Apply' }).click();
 	const placed = list.getByText('Tracktion web media (1600–2368)', { exact: true });
 	await placed.waitFor();
