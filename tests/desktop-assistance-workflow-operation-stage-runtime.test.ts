@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import { validateAssistanceOutputClaim,
@@ -25,6 +26,11 @@ import { assistanceWorkflowFixture, WORKFLOW_JOB_ID } from './helpers/assistance
 
 const INPUT_ID = '11'.repeat(20);
 const OUTPUT_ID = '22'.repeat(20);
+
+test('the retired workflow primitive-stage adapter is absent from the source tree', async () => {
+	const adapter = new URL('../desktop/assistance-workflow-primitive-stage.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
+});
 
 test('primitive workflow stages execute through operation-v1 and record exact authenticated outputs', async () => {
 	const request = enhancementWorkflow();
@@ -61,8 +67,11 @@ test('primitive workflow stages execute through operation-v1 and record exact au
 	const result = await runtime(stageExecution(request, (completed, total) =>
 		progress.push([completed, total])));
 	assert.deepEqual(result, { outcome: 'completed' });
+	assert.doesNotMatch(JSON.stringify(operationRequest), /(?:\/models|staging|"path")/u);
 	const validated = validateAssistanceOperationRequest(operationRequest);
 	assert.equal(validated.operation, 'speech-enhancement');
+	assert.deepEqual(validated.inputs, [input]);
+	assert.deepEqual(validated.outputs, [reservation]);
 	assert.deepEqual(validated.selectionFence, {
 		projectId: 'project-a', schemaFamily: 'framescaper', schemaVersion: 1,
 		revision: 8, sequenceId: 'sequence-a',
@@ -74,8 +83,12 @@ test('primitive workflow stages execute through operation-v1 and record exact au
 	assert.deepEqual(progress, [[1, 1]]);
 });
 
-test('Whisper workflow projection carries the exact selected language into operation-v1', async () => {
-	for (const language of ['auto', 'en'] as const) {
+test('Whisper workflow projection preserves the selected language and unavailable provider outcomes', async () => {
+	for (const [language, reason, expected] of [
+		['auto', 'model-unavailable', 'model-unavailable'],
+		['en', 'adapter-unavailable', 'stage-unavailable'],
+		['en', 'runtime-unavailable', 'stage-unavailable'],
+	] as const) {
 		const request = whisperWorkflow(language);
 		let operationRequest: unknown = null;
 		const runtime = createAssistanceWorkflowOperationStageRuntime({
@@ -83,7 +96,7 @@ test('Whisper workflow projection carries the exact selected language into opera
 				operationRequest = value;
 				return { contractVersion: 1, jobId: WORKFLOW_JOB_ID,
 					operation: 'speech-recognition' as const, outcome: 'unavailable' as const,
-					reason: 'model-unavailable' as const };
+					reason };
 			} },
 			custody: {
 				operationInputClaim: async (claimValue) => {
@@ -108,7 +121,7 @@ test('Whisper workflow projection carries the exact selected language into opera
 			},
 		});
 		assert.deepEqual(await runtime(stageExecution(request, () => undefined, 'recognize-speech')),
-			{ outcome: 'unavailable', reason: 'model-unavailable' });
+			{ outcome: 'unavailable', reason: expected });
 		assert.deepEqual(validateAssistanceOperationRequest(operationRequest).settings,
 			{ settingsVersion: 1, language });
 	}
