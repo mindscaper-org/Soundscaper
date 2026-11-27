@@ -167,7 +167,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	}));
 	await Promise.all([upload, fileCommand('Import audio')]);
 	await page.getByText('Tracktion web media (0–96000)', { exact: true }).waitFor();
-	assert.deepEqual(await commandsSince(importStart), ['importFile', 'project', 'clips']);
+	assert.deepEqual(await commandsSince(importStart), ['importFile']);
 	await editing.click();
 	await button('Mixer').click();
 	const mixer = page.getByRole('dialog', { name: 'Mixer' });

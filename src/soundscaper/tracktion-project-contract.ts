@@ -21,6 +21,11 @@ export interface TracktionClipView {
 	readonly sourceOffset: number;
 }
 
+export interface TracktionIndexedClip {
+	readonly clip: TracktionClipView;
+	readonly index: number;
+}
+
 export interface TracktionEditHistory {
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
@@ -44,7 +49,8 @@ export interface TracktionEditResult {
 	readonly itemId: string | null;
 	readonly history?: TracktionEditHistory;
 	readonly insertion?: Readonly<{ track: TracktionTrackView; index: number }>;
-	readonly trimmedClip?: Readonly<{ clip: TracktionClipView; index: number }>;
+	readonly trimmedClip?: TracktionIndexedClip;
+	readonly importedClip?: TracktionIndexedClip;
 }
 
 export interface TracktionAutomationPointResult extends TracktionEditResult {

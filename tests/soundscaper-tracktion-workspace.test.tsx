@@ -211,6 +211,30 @@ void test('trimming applies the ordered clip returned by the edit across a clip 
 	assert.deepEqual(updated.project, { ...project, revision: 8, canRedo: false });
 });
 
+void test('importing applies the ordered clip and track count without rereading a dense workspace', async () => {
+	const tracks = Array.from({ length: 129 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 0 }));
+	const clips = Array.from({ length: 1499 }, (_, index) => ({
+		id: String(index + 200), name: `Clip ${index + 1}`, start: index * 32, end: index * 32 + 32, sourceOffset: 0,
+	}));
+	const selectedTrack = { id: '129', name: 'Track 129', clipCount: clips.length };
+	tracks[128] = selectedTrack;
+	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: 64, tracks: tracks.slice(0, 64) };
+	const previousSelection = { trackId: '1', clips: [] };
+	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks, selectedTrack, clips, previousSelection };
+	const noRead: TracktionProjectBridge = { async request() { return assert.fail('An acknowledged import requires no bridge requests'); } };
+	const clip = { id: '2000', name: 'Tracktion resolved name', start: 33, end: 62, sourceOffset: 0 };
+	const history = { canUndo: true, canRedo: false };
+	const updated = await readTracktionWorkspaceAfterClipEdit(noRead, workspace, {
+		revision: 8, itemId: clip.id, history, importedClip: { clip, index: 2 },
+	});
+	assert.deepEqual(updated.clips, [...clips.slice(0, 2), clip, ...clips.slice(2)]);
+	assert.deepEqual(updated.selectedTrack, { ...selectedTrack, clipCount: 1500 });
+	assert.equal(updated.tracks.at(-1), updated.selectedTrack);
+	assert.equal(updated.project.tracks, project.tracks);
+	assert.deepEqual(updated.project, { ...project, ...history, revision: 8 });
+	assert.equal(updated.previousSelection, previousSelection);
+});
+
 void test('a trim refresh reads all track metadata if the engine advances beyond its revision', async () => {
 	const tracks = Array.from({ length: 33 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 1 }));
 	const project = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32) };

@@ -309,7 +309,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		throw std::invalid_argument("The Tracktion Edit revision has changed");
 
 	std::uint64_t created = 0;
-	std::optional<TrimmedClip> trimmedClip;
+	std::optional<IndexedClip> editedClip;
 	if (kind == "startRecording")
 	{
 		requireFields(request, {"revision", "trackId", "frame"});
@@ -420,13 +420,15 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	{
 		requireFields(request, {"revision", "trackId", "asset", "name", "start"});
 		const auto input = exchangeFile(exchange, request, "input", ".wav");
-		created = session.insertAudio(revision, itemId(request, "trackId"), input,
+		const auto trackId = itemId(request, "trackId");
+		created = session.insertAudio(revision, trackId, input,
 		                              integer("start"), 0, std::nullopt, text(request, "name", 512).toStdString());
+		editedClip = session.indexedClip(trackId, created);
 	}
 	else if (kind == "trim")
 	{
 		requireFields(request, {"revision", "clipId", "start", "end"});
-		trimmedClip = session.trim(revision, itemId(request, "clipId"), integer("start"), integer("end"));
+		editedClip = session.trim(revision, itemId(request, "clipId"), integer("start"), integer("end"));
 	}
 	else if (kind == "split")
 	{
@@ -519,16 +521,16 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
 	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
-	if (insertedTrack || trimmedClip || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+	if (insertedTrack || editedClip || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
 	if (insertedTrack)
 		if (const auto insertion = session.trackInsertion(created))
 			reply.getDynamicObject()->setProperty("insertion", record({
 				{"track", trackReply(insertion->track)}, {"index", number(static_cast<std::int64_t>(insertion->index))},
 			}));
-	if (trimmedClip)
-		reply.getDynamicObject()->setProperty("trimmedClip", record({
-			{"clip", clipReply(trimmedClip->clip)}, {"index", number(static_cast<std::int64_t>(trimmedClip->index))},
+	if (editedClip)
+		reply.getDynamicObject()->setProperty(kind == "trim" ? "trimmedClip" : "importedClip", record({
+			{"clip", clipReply(editedClip->clip)}, {"index", number(static_cast<std::int64_t>(editedClip->index))},
 		}));
 	return reply;
 }

@@ -48,7 +48,7 @@ struct ClipView
 	Frame sourceOffset;
 };
 
-struct TrimmedClip
+struct IndexedClip
 {
 	ClipView clip;
 	std::size_t index;
@@ -123,6 +123,7 @@ public:
 	std::optional<TrackInsertion> trackInsertion(TrackId) const;
 	EditHistory editHistory() const;
 	ClipPage clipPage(TrackId, std::size_t offset, std::size_t limit) const;
+	std::optional<IndexedClip> indexedClip(TrackId, ClipId) const;
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);
 	TrackId duplicateTrack(Revision, TrackId);
@@ -137,7 +138,7 @@ public:
 	std::vector<OfflineEffectSlot> offlineEffects(Revision, TrackId) const;
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
 	                  std::optional<Frame> frameCount, const std::string& name = {});
-	std::optional<TrimmedClip> trim(Revision, ClipId, Frame start, Frame end);
+	std::optional<IndexedClip> trim(Revision, ClipId, Frame start, Frame end);
 	ClipId split(Revision, ClipId, Frame);
 	void moveClip(Revision, ClipId, TrackId destination, Frame start);
 	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);

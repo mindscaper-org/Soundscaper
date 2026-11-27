@@ -71,4 +71,14 @@ ClipPage Session::clipPage(TrackId id, std::size_t offset, std::size_t limit) co
 		page.clips.push_back(summarizeClip(*clips.getUnchecked(static_cast<int>(index)), s.sampleRate));
 	return page;
 }
+
+std::optional<IndexedClip> Session::indexedClip(TrackId track, ClipId id) const
+{
+	const auto& clips = state->track(track).getClips();
+	// File import normally appends after the last clip in the selected track.
+	for (auto index = clips.size() - 1; index >= 0; --index)
+		if (const auto* clip = clips.getUnchecked(index); clip->itemID.getRawID() == id)
+			return IndexedClip{summarizeClip(*clip, state->sampleRate), static_cast<std::size_t>(index)};
+	return std::nullopt;
+}
 }

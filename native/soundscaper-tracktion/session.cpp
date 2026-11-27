@@ -407,7 +407,7 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 	return clip->itemID.getRawID();
 }
 
-std::optional<TrimmedClip> Session::trim(Revision expected, ClipId id, Frame start, Frame end)
+std::optional<IndexedClip> Session::trim(Revision expected, ClipId id, Frame start, Frame end)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -424,7 +424,7 @@ std::optional<TrimmedClip> Session::trim(Revision expected, ClipId id, Frame sta
 	if (clip.isLinked()) return std::nullopt;
 	const auto index = track.getClips().indexOf(&clip);
 	if (index < 0) return std::nullopt;
-	return TrimmedClip{summarizeClip(clip, s.sampleRate), static_cast<std::size_t>(index)};
+	return IndexedClip{summarizeClip(clip, s.sampleRate), static_cast<std::size_t>(index)};
 }
 
 ClipId Session::split(Revision expected, ClipId id, Frame frame)

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import {
-	TRACKTION_TRACK_PAGE_SIZE, type TracktionClipPage, type TracktionClipView, type TracktionEditResult,
+	TRACKTION_TRACK_PAGE_SIZE, type TracktionClipPage, type TracktionClipView, type TracktionEditResult, type TracktionIndexedClip,
 	type TracktionProjectBridge, type TracktionOpenedProject, type TracktionProjectPage, type TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
@@ -41,11 +41,17 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
-	const { revision, trimmedClip } = result;
-	if (trimmedClip && source?.id === trackId) {
-		const project = projectWithEdit(workspace, result);
-		const clips = placeTrimmedClip(workspace.clips, trimmedClip);
-		if (project && clips) return { ...workspace, project, clips };
+	const { revision, importedClip, trimmedClip } = result;
+	const placement = importedClip ?? trimmedClip;
+	if (placement && source && source.id === trackId && (!importedClip || importedClip.clip.id === result.itemId)) {
+		const clips = placeEditedClip(workspace.clips, placement, importedClip !== undefined);
+		if (clips) {
+			const selectedTrack = withClipCount(source, clips.length);
+			const changedTrack = selectedTrack === source ? undefined : selectedTrack;
+			const project = projectWithEdit(workspace, result, changedTrack);
+			const tracks = changedTrack ? replaceTrack(workspace.tracks, changedTrack) : workspace.tracks;
+			if (project) return { ...workspace, project, tracks, selectedTrack, clips };
+		}
 	}
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
 	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
@@ -70,14 +76,14 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
 }
 
-function placeTrimmedClip(
-	clips: readonly TracktionClipView[], { clip, index }: NonNullable<TracktionEditResult['trimmedClip']>,
+function placeEditedClip(
+	clips: readonly TracktionClipView[], { clip, index }: TracktionIndexedClip, inserting: boolean,
 ): readonly TracktionClipView[] | undefined {
-	if (index < 0 || index >= clips.length) return undefined;
+	if (index < 0 || index > clips.length || (!inserting && index === clips.length)) return undefined;
 	const previousIndex = clips.findIndex(({ id }) => id === clip.id);
-	if (previousIndex === -1) return undefined;
+	if ((previousIndex === -1) !== inserting) return undefined;
 	const updated = clips.slice();
-	updated.splice(previousIndex, 1);
+	if (!inserting) updated.splice(previousIndex, 1);
 	updated.splice(index, 0, clip);
 	return updated;
 }
@@ -86,7 +92,15 @@ function projectWithEdit(workspace: TracktionWorkspace, { revision, history }: T
 	if (!history || revision !== workspace.project.revision + 1) return undefined;
 	const { tracks } = workspace.project;
 	return { ...workspace.project, ...history, revision,
-		tracks: updatedTrack ? tracks.map((track) => track.id === updatedTrack.id ? updatedTrack : track) : tracks };
+		tracks: updatedTrack ? replaceTrack(tracks, updatedTrack) : tracks };
+}
+
+function replaceTrack(tracks: readonly TracktionTrackView[], track: TracktionTrackView): readonly TracktionTrackView[] {
+	const index = tracks.findIndex(({ id }) => id === track.id);
+	if (index === -1) return tracks;
+	const updated = tracks.slice();
+	updated[index] = track;
+	return updated;
 }
 
 function withClipCount(track: TracktionTrackView, clipCount: number): TracktionTrackView {

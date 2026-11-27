@@ -88,7 +88,7 @@ async function readClipPages(peer: ReturnType<typeof launchTracktionPeer>, track
 	return clips;
 }
 
-test('Tracktion trim acknowledges the revised clip and its ordered position', async () => {
+test('Tracktion import and trim acknowledge the clip and its ordered position', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-trim-reply-'));
 	const exchangeDirectory = join(root, 'exchange');
 	try {
@@ -100,9 +100,12 @@ test('Tracktion trim acknowledges the revised clip and its ordered position', as
 			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
 			assert.ok(track);
 			const trackId = track.id;
-			const { itemId: clipId } = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Earlier', start: 0 });
+			await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Later', start: 16 });
+			const imported = await peer.request({ kind: 'importFile', revision: 1, trackId, asset, name: 'Earlier', start: 0 });
+			const clipId = imported.itemId;
 			assert.ok(clipId);
-			await peer.request({ kind: 'duplicateClip', revision: 1, trackId, clipId, start: 16 });
+			assert.deepEqual(imported, { revision: 2, itemId: clipId, history: { canUndo: true, canRedo: false },
+				importedClip: { clip: { id: clipId, name: 'Earlier', start: 0, end: 64, sourceOffset: 0 }, index: 0 } });
 			const before = await readClipPages(peer, trackId, 2);
 			const trim = { kind: 'trim', clipId, start: 32, end: 63 } as const;
 			const result = await peer.request({ ...trim, revision: 2 });
