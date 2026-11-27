@@ -9,6 +9,12 @@ import {
 	webVcrPopupAllowed,
 } from '../desktop/framescaper-web-vcr-security-policy.ts';
 
+test('Web VCR security policy omits the retired input schema', async () => {
+	const policy = await import('../desktop/framescaper-web-vcr-security-policy.ts');
+	assert.equal(Reflect.has(policy, 'validateFramescaperWebVcrInput'), false);
+	assert.equal(Reflect.has(policy, 'FRAMESCAPER_WEB_VCR_WHEEL_DELTA_LIMIT'), false);
+});
+
 test('navigation admits canonical HTTPS and the exact internal blank document only', () => {
 	assert.equal(admitFramescaperWebVcrUrl('https://example.com/watch').url, 'https://example.com/watch');
 	assert.equal(admitFramescaperWebVcrUrl('about:blank').url, 'about:blank');
