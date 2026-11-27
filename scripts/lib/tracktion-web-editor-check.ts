@@ -395,6 +395,18 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	assert.equal(pasted.length, 1540 * 4);
 	assert.equal(pasted.readInt16LE(1438 * 4), 0);
 	assert.equal(pasted.readInt16LE(1439 * 4), 4096);
+	await transport.click();
+	await button('Play').click();
+	await page.getByRole('status').filter({ hasText: /^Playing$/u }).waitFor();
+	await page.evaluate(() => new Promise<void>((resolve) => {
+		requestAnimationFrame(() => { requestAnimationFrame(() => resolve()); });
+	}));
+	await editing.click();
+	await button('Paste').click();
+	assert.ok(Number(await paste.getByRole('spinbutton', { name: 'Start frame' }).inputValue()) > 0);
+	await paste.getByRole('button', { name: 'Cancel' }).click();
+	await transport.click();
+	await button('Stop').click();
 	await fileCommand('Save project');
 	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();
 	await page.reload();

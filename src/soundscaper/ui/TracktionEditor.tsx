@@ -43,7 +43,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [failure, setFailure] = useState('');
 	const [clipEdit, setClipEdit] = useState<TracktionClipCommand['kind'] | null>(null);
 	const [rangeEdit, setRangeEdit] = useState<TracktionRangeCommand['kind'] | null>(null);
-	const [paste, setPaste] = useState(false);
+	const [pasteFrame, setPasteFrame] = useState<number | null>(null);
 	const [hasClipboard, setHasClipboard] = useState(false);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [automation, setAutomation] = useState<{ parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage } | null>(null);
@@ -78,7 +78,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setHasClipboard(false);
 		setClipEdit(null);
 		setRangeEdit(null);
-		setPaste(false);
+		setPasteFrame(null);
 		setMixer(null);
 		setAutomation(null);
 		setAudioSetup(null);
@@ -231,10 +231,23 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setRangeEdit(kind);
 	}
 
+	function showPaste(): void {
+		if (!workspace || !transport) return;
+		if (!playing) {
+			closeMenus();
+			setPasteFrame(transport.frame);
+			return;
+		}
+		run(async () => {
+			const current = await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId });
+			setPasteFrame(current.frame);
+		});
+	}
+
 	function applyTimelineEdit(edit: TracktionClipCommand | TracktionRangeCommand | TracktionPasteCommand): void {
 		setClipEdit(null);
 		setRangeEdit(null);
-		setPaste(false);
+		setPasteFrame(null);
 		if (!workspace) return;
 		run(async () => {
 			await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
@@ -416,10 +429,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => chooseRangeEdit('deleteRange')}>{editCopy.tracktionDeleteRange}</button>
 					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => chooseRangeEdit('copyRange')}>{editCopy.copy}</button>
 					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => chooseRangeEdit('cutRange')}>{editCopy.cut}</button>
-					<button type="button" disabled={busy || recording || !workspace?.selectedTrack || !hasClipboard} onClick={() => {
-						closeMenus();
-						setPaste(true);
-					}}>{editCopy.paste}</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack || !hasClipboard} onClick={showPaste}>{editCopy.paste}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={showMixer}>{trackCopy.mixer}</button>
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={() => showAutomation()}>{trackCopy.tracktionAutomation}</button>
 					<button type="button" disabled={busy || recording || playing || !workspace?.selectedTrack} onClick={showEffects}>{tracktionEffectsTitle}</button>
@@ -461,8 +471,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			clips={clipEdit === 'split' ? splittable : workspace.clips} onApply={applyTimelineEdit} onDismiss={() => setClipEdit(null)} />}
 		{rangeEdit && workspace?.selectedTrack && <TracktionRangeEditDialog kind={rangeEdit} trackId={workspace.selectedTrack.id}
 			onApply={applyTimelineEdit} onDismiss={() => setRangeEdit(null)} />}
-		{paste && workspace?.selectedTrack && <TracktionPasteDialog trackId={workspace.selectedTrack.id} position={transport?.frame ?? 0}
-			onApply={applyTimelineEdit} onDismiss={() => setPaste(false)} />}
+		{pasteFrame !== null && workspace?.selectedTrack && <TracktionPasteDialog trackId={workspace.selectedTrack.id} position={pasteFrame}
+			onApply={applyTimelineEdit} onDismiss={() => setPasteFrame(null)} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
 			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
 		{automation && workspace?.selectedTrack && <TracktionAutomationDialog track={workspace.selectedTrack.name} {...automation}
