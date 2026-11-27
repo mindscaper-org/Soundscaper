@@ -59,6 +59,7 @@ export interface TracktionOpenedProject {
 	readonly sessionId: string;
 	readonly name: string;
 	readonly project: TracktionProjectPage;
+	readonly transport?: TracktionTransportObservation;
 	readonly initiallyUnsaved?: boolean;
 }
 

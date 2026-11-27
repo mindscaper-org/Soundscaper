@@ -6,6 +6,7 @@ import React, { act } from 'react';
 
 import type {
 	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
+	TracktionTransportObservation,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readTracktionWorkspaceAfterClipEdit, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
@@ -13,8 +14,9 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 async function mountEditor(context: TestContext, {
 	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
-	desktopAudioSetup = false, delayReadiness = false, trackCount = 33,
-} = {}) {
+	desktopAudioSetup = false, delayReadiness = false, trackCount = 33, openedTransport,
+}: { stopOnUndo?: boolean; undoChangesClips?: boolean; clipsPerTrack?: number; recoveredBeforeDiscard?: boolean;
+	desktopAudioSetup?: boolean; delayReadiness?: boolean; trackCount?: number; openedTransport?: TracktionTransportObservation } = {}) {
 	const dom = installReactTestDom();
 	let pollTransport: (() => void) | undefined;
 	if (desktopAudioSetup) Object.assign(window, {
@@ -65,7 +67,7 @@ async function mountEditor(context: TestContext, {
 		switch (command.kind) {
 			case 'render': return { revision: firstPage.revision, itemId: null };
 			case 'create':
-			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
+			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage, transport: openedTransport };
 			case 'project': return { ...firstPage, revision, tracks: tracks.slice(command.offset, command.offset + 32),
 				nextOffset: command.offset + 32 < tracks.length ? command.offset + 32 : null };
 			case 'clips': {
@@ -166,6 +168,15 @@ void test('opening a paginated project reuses its first track page', async (cont
 		{ kind: 'clips', sessionId: 'session', revision: 7, trackId: '1', offset: 0 },
 		{ kind: 'transportStatus', sessionId: 'session' },
 	]);
+});
+
+void test('opening a project with its transport observation skips a separate engine request', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { openedTransport: { playing: false, recording: false, frame: 0 } });
+	await click('Open projects');
+	assert.equal(dom.one('h1').textContent, 'Imported project');
+	assert.equal(dom.one('select').options.length, 33);
+	assert.equal(dom.one('li').textContent, 'Clip 1 (0–512)');
+	assert.deepEqual(requests.map(({ kind }) => kind), ['open', 'project', 'clips']);
 });
 
 void test('creating an empty project skips the selected track clip request', async (context) => {

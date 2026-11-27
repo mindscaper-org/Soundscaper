@@ -5,13 +5,14 @@ import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../common/i18n/project-command-c
 import type { TracktionAudioBuffers } from './tracktion-audio-queue.ts';
 import type {
 	TracktionOpenedProject, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply,
-	TracktionTransportView,
+	TracktionTransportObservation, TracktionTransportView,
 } from './tracktion-project-contract.ts';
 import { TracktionWebAudio } from './tracktion-web-audio.ts';
 import type { TracktionLocalProject } from './tracktion-web-project-library.ts';
 import { requireTracktionWebUpload } from './tracktion-web-upload.ts';
 
-type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string; releaseEngine?: true }>;
+type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string;
+	releaseEngine?: true; transport?: TracktionTransportObservation }>;
 type WorkerMessage = WorkerReply | Readonly<{ fatal: string }>;
 type Reply = TracktionProjectReply<TracktionProjectCommand>;
 
@@ -90,8 +91,8 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 				: await chooseProject();
 			if (!selection?.name) return null;
 			const request = { ...command, project: selection.id };
-			const { value } = await send(command.kind === 'create' ? { ...request, name: selection.name } : request);
-			return await describeOpened(selection.name, value, command.kind === 'create');
+			const reply = await send(command.kind === 'create' ? { ...request, name: selection.name } : request);
+			return await describeOpened(selection.name, reply, command.kind === 'create');
 		}
 
 		const { sessionId, ...request } = command;
@@ -170,14 +171,14 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		return null;
 	}
 
-	async function describeOpened(name: string, value: unknown, initiallyUnsaved: boolean): Promise<TracktionOpenedProject> {
+	async function describeOpened(name: string, reply: WorkerReply, initiallyUnsaved: boolean): Promise<TracktionOpenedProject> {
 		const opened = worker;
 		await audio.close();
 		if (!opened || worker !== opened) throw new Error('The Tracktion browser worker stopped while opening the project');
-		const page = value as TracktionProjectPage;
+		const page = reply.value as TracktionProjectPage;
 		const sessionId = handle();
 		project = { sessionId, name, sampleRate: page.sampleRate };
-		return { sessionId, name, project: page, initiallyUnsaved };
+		return { sessionId, name, project: page, initiallyUnsaved, ...(reply.transport && { transport: reply.transport }) };
 	}
 
 	return {
@@ -197,8 +198,8 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			if (!archive) return null;
 			requireTracktionWebUpload(archive.size, 'ZIP');
 			const name = archive.name.replace(/\.zip$/iu, '').slice(0, 128).trim() || copy.untitledProject;
-			const { value } = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
-			return await describeOpened(name, value, true);
+			const reply = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
+			return await describeOpened(name, reply, true);
 		},
 	};
 }

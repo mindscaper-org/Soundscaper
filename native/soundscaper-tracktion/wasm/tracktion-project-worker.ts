@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type { TracktionAudioBuffers } from '../../../src/soundscaper/tracktion-audio-queue.ts';
+import type { TracktionTransportObservation } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { requireTracktionWebUpload } from '../../../src/soundscaper/tracktion-web-upload.ts';
 
 import { TracktionHostedAudio, type HostedAudioRuntime } from './tracktion-hosted-audio.ts';
@@ -26,7 +27,7 @@ interface WasmSettings {
 type ProjectCommand = Readonly<{ kind: string; asset?: string }> & Readonly<Record<string, unknown>>;
 type CommandMessage = Readonly<{ id: number; request: ProjectCommand; input?: ArrayBuffer; audio?: TracktionAudioBuffers }>;
 type NativeReply = Readonly<{ error?: string; detail?: string; value?: unknown }>;
-type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer; releaseEngine?: true }>;
+type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer; releaseEngine?: true; transport?: TracktionTransportObservation }>;
 
 const scope = globalThis as unknown as {
 	location: Location;
@@ -124,7 +125,7 @@ async function runTransport(runtime: WasmRuntime, message: CommandMessage): Prom
 	}
 }
 
-async function openProject(runtime: WasmRuntime, message: CommandMessage): Promise<NativeReply> {
+async function openProject(runtime: WasmRuntime, message: CommandMessage): Promise<WorkerReply> {
 	const { request } = message;
 	if (typeof request.project !== 'string' || !assetId.test(request.project)) {
 		throw new Error('The browser Tracktion project handle is invalid');
@@ -147,7 +148,8 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 			if (previous) discardWorkingProject(runtime.FS, previous);
 			// Warm the native graph while opening the project. The AudioContext
 			// remains owned by the renderer and still starts on the Play gesture.
-			await submit(runtime, { id: message.id, request: { kind: 'prepareOutput' } }).catch(() => undefined);
+			const prepared = await submit(runtime, { id: message.id, request: { kind: 'prepareOutput' } }).catch(() => undefined);
+			if (prepared && !prepared.error) return { ...reply, transport: prepared.value as TracktionTransportObservation };
 		}
 		return reply;
 	} finally {

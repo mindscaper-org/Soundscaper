@@ -170,7 +170,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readOpenedTracktionWorkspace(bridge, opened);
-			setTransport(await readTransport(opened.sessionId));
+			setTransport(opened.transport ?? await readTransport(opened.sessionId));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
 		});

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import { JSDOM } from 'jsdom';
 
-import type { TracktionProjectPage } from '../src/soundscaper/tracktion-project-contract.ts';
+import type { TracktionProjectPage, TracktionTransportObservation } from '../src/soundscaper/tracktion-project-contract.ts';
 import { createTracktionWebBridge } from '../src/soundscaper/tracktion-web-bridge.ts';
 import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
 import { deferred } from './helpers/async-test-control.ts';
@@ -24,6 +24,7 @@ class ProjectWorker extends EventTarget {
 	readonly refusals = new Map<string, string>();
 	terminated = false;
 	releaseOnClose = false;
+	openingTransport: TracktionTransportObservation | undefined;
 
 	postMessage({ id, request }: Request): void {
 		assert.equal(this.terminated, false);
@@ -45,11 +46,22 @@ class ProjectWorker extends EventTarget {
 		const transport = playing || request.kind === 'prepareOutput' || request.kind === 'stop';
 		const value = transport ? { ready: true, playing, recording, frame: 0 }
 			: request.kind === 'finishRecording' ? { revision: project.revision, itemId: null } : project;
-		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine } })));
+		const warmed = request.kind === 'create' ? this.openingTransport : undefined;
+		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine, transport: warmed } })));
 	}
 
 	terminate(): void { this.terminated = true; }
 }
+
+test('the browser bridge returns the transport already read by the project worker', async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	worker.openingTransport = { playing: false, recording: false, frame: 0 };
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.deepEqual(opened?.transport, worker.openingTransport);
+	assert.deepEqual(worker.requests, ['create']);
+});
 
 for (const suspensionFails of [false, true]) test(`Stop retains its transport reply and Play reuses audio when suspension fails ${suspensionFails}`, async (context) => {
 	browserFixture(context);
