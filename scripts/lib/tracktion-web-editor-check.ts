@@ -426,7 +426,16 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await editing.click();
 	await button('Paste').click();
 	const paste = page.getByRole('dialog', { name: 'Paste' });
-	await paste.getByRole('spinbutton', { name: 'Start frame' }).fill('40');
+	const pasteMode = paste.locator('select');
+	const pastePosition = paste.getByRole('spinbutton', { name: 'Start frame' });
+	await pasteMode.selectOption('insertTracks');
+	await pastePosition.fill('99999999999');
+	await paste.getByRole('button', { name: 'Apply' }).click();
+	await paste.getByRole('alert').filter({ hasText: 'Timeline frame is outside the Edit' }).waitFor();
+	assert.equal(await pasteMode.inputValue(), 'insertTracks');
+	assert.equal(await pastePosition.inputValue(), '99999999999');
+	await pasteMode.selectOption('overlap');
+	await pastePosition.fill('40');
 	await paste.getByRole('button', { name: 'Apply' }).click();
 	await list.getByText('Tracktion web media (40–172)', { exact: true }).waitFor();
 	await list.getByText('Tracktion web media (172–735)', { exact: true }).waitFor();

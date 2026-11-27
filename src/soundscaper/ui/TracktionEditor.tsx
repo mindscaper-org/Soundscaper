@@ -251,6 +251,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!workspace || !transport) return;
 		if (!playing) {
 			closeMenus();
+			setFailure('');
 			setPasteFrame(transport.frame);
 			return;
 		}
@@ -261,12 +262,12 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	}
 
 	function applyTimelineEdit(edit: TracktionClipCommand | TracktionRangeCommand | TracktionPasteCommand): void {
-		setPasteFrame(null);
 		if (!workspace) return;
 		run(async () => {
 			const result = await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
 			setClipEdit(null);
 			setRangeEdit(null);
+			setPasteFrame(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
 			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
 			if (edit.kind === 'trim') {
@@ -489,7 +490,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		{rangeEdit && workspace?.selectedTrack && <TracktionRangeEditDialog kind={rangeEdit} trackId={workspace.selectedTrack.id}
 			busy={busy} failure={failure} onApply={applyTimelineEdit} onDismiss={() => { setRangeEdit(null); setFailure(''); }} />}
 		{pasteFrame !== null && workspace?.selectedTrack && <TracktionPasteDialog trackId={workspace.selectedTrack.id} position={pasteFrame}
-			onApply={applyTimelineEdit} onDismiss={() => setPasteFrame(null)} />}
+			busy={busy} failure={failure} onApply={applyTimelineEdit} onDismiss={() => { setPasteFrame(null); setFailure(''); }} />}
 		{mixer && workspace?.selectedTrack && <TracktionMixerDialog track={workspace.selectedTrack.name}
 			mix={mixer} onApply={applyMixer} onDismiss={() => setMixer(null)} />}
 		{automation && workspace?.selectedTrack && <TracktionAutomationDialog track={workspace.selectedTrack.name} {...automation}
@@ -500,7 +501,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
 			{visibleStatus && <p role="status">{visibleStatus}</p>}
-			{failure && !automation && !rangeEdit && !clipEdit && <p role="alert">{failure}</p>}
+			{failure && !automation && !rangeEdit && !clipEdit && pasteFrame === null && <p role="alert">{failure}</p>}
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
 					onChange={(event) => selectTrack(event.currentTarget.value)}>

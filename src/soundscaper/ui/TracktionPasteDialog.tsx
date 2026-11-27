@@ -10,9 +10,11 @@ import type { TracktionPasteCommand } from '../tracktion-project-contract.ts';
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const modes = { overlap: copy.paste, insertTracks: copy.pasteInsert, insertAll: copy.pasteSync };
 
-export function TracktionPasteDialog({ trackId, position, onApply, onDismiss }: {
+export function TracktionPasteDialog({ trackId, position, busy, failure, onApply, onDismiss }: {
 	readonly trackId: string;
 	readonly position: number;
+	readonly busy: boolean;
+	readonly failure: string;
 	readonly onApply: (edit: TracktionPasteCommand) => void;
 	readonly onDismiss: () => void;
 }) {
@@ -21,19 +23,24 @@ export function TracktionPasteDialog({ trackId, position, onApply, onDismiss }: 
 
 	function submit(event: FormEvent<HTMLFormElement>): void {
 		event.preventDefault();
+		if (busy) return;
 		const fields = new FormData(event.currentTarget);
 		onApply({ kind: 'pasteRange', trackId, start: Number(fields.get('start')), mode: fields.get('mode') as TracktionPasteCommand['mode'] });
 	}
 
-	return <dialog ref={dialog} aria-label={copy.paste} onCancel={onDismiss}>
+	return <dialog ref={dialog} aria-label={copy.paste} onCancel={(event) => {
+		event.preventDefault();
+		if (!busy) onDismiss();
+	}}>
 		<h2>{copy.paste}</h2>
 		<form onSubmit={submit}>
-			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" defaultValue={position} required /></label></p>
-			<p><label>{copy.tracktionPasteMode} <select name="mode" defaultValue="overlap">
+			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" defaultValue={position} required disabled={busy} /></label></p>
+			<p><label>{copy.tracktionPasteMode} <select name="mode" defaultValue="overlap" disabled={busy}>
 				{Object.entries(modes).map(([mode, label]) => <option key={mode} value={mode}>{label}</option>)}
 			</select></label></p>
-			<button type="submit">{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
-			<button type="button" onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
+			{failure && <p role="alert">{failure}</p>}
+			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
+			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
 		</form>
 	</dialog>;
 }
