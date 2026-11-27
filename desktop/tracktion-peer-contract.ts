@@ -16,6 +16,7 @@ import type { TracktionOfflineEffectIdentity } from './tracktion-offline-effects
 
 export const TRACKTION_CONTROL_BYTES = 64 * 1024;
 const PAGE_SIZE = 32;
+const TRACK_PAGE_SIZE = 64;
 
 type Revision = Readonly<{ revision: number }>;
 type UseAudioProfile = Readonly<{ kind: 'useAudioProfile' }> & TracktionAudioSetup;
@@ -166,7 +167,7 @@ function readTracktionProjectPage(value: unknown, offset: number): TracktionProj
 	if (sampleRate < 8000 || sampleRate > 192_000 || typeof page.canUndo !== 'boolean' || typeof page.canRedo !== 'boolean') {
 		throw new TypeError('Invalid Tracktion project page.');
 	}
-	const tracks = readClosedDomainArray(page.tracks, 'Tracktion tracks', 0, PAGE_SIZE).map((entry) => {
+	const tracks = readClosedDomainArray(page.tracks, 'Tracktion tracks', 0, TRACK_PAGE_SIZE).map((entry) => {
 		const item = readClosedDomainRecord(entry, 'Tracktion track', ['id', 'name', 'clipCount']);
 		return Object.freeze({
 			id: readItemId(item.id), name: boundedText(item.name), clipCount: nonnegativeInteger(item.clipCount),
@@ -174,7 +175,7 @@ function readTracktionProjectPage(value: unknown, offset: number): TracktionProj
 	});
 	return Object.freeze({
 		revision: nonnegativeInteger(page.revision), sampleRate, canUndo: page.canUndo, canRedo: page.canRedo,
-		nextOffset: readNextOffset(page.nextOffset, offset, tracks.length), tracks: Object.freeze(tracks),
+		nextOffset: readNextOffset(page.nextOffset, offset, tracks.length, TRACK_PAGE_SIZE), tracks: Object.freeze(tracks),
 	});
 }
 
@@ -196,9 +197,9 @@ function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand
 	});
 }
 
-function readNextOffset(value: unknown, offset: number, length: number): number | null {
+function readNextOffset(value: unknown, offset: number, length: number, pageSize = PAGE_SIZE): number | null {
 	if (value === null) return null;
-	if (length !== PAGE_SIZE || value !== offset + PAGE_SIZE || !Number.isSafeInteger(value)) {
+	if (length !== pageSize || value !== offset + pageSize || !Number.isSafeInteger(value)) {
 		throw new TypeError('Invalid Tracktion page cursor.');
 	}
 	return value as number;

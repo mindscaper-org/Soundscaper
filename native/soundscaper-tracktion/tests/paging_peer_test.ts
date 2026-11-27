@@ -15,6 +15,34 @@ if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
 
+test('Tracktion fits 64 tracks with fully escaped names in one reply', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-pages-'));
+	try {
+		const exchangeDirectory = join(root, 'exchange');
+		await mkdir(exchangeDirectory);
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') });
+		try {
+			const tracks = [];
+			for (let revision = 0; revision < 65; revision += 1) {
+				const name = '\u0001'.repeat(61) + String(revision).padStart(3, '0');
+				const { itemId } = await peer.request({ kind: 'addTrack', revision, name });
+				assert.ok(itemId);
+				tracks.push({ id: itemId, name, clipCount: 0 });
+			}
+			const first = await peer.request({ kind: 'project', offset: 1 });
+			assert.equal(first.revision, 65);
+			assert.equal(first.tracks.length, 64);
+			assert.deepEqual(first.tracks, tracks.slice(0, 64));
+			assert.equal(first.nextOffset, 65);
+			const last = await peer.request({ kind: 'project', offset: 65 });
+			assert.equal(last.revision, first.revision);
+			assert.deepEqual(last.tracks, tracks.slice(64));
+			assert.equal(last.nextOffset, null);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('Tracktion returns stable clip pages and rejects offsets beyond their end', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-page-'));
 	const exchangeDirectory = join(root, 'exchange');

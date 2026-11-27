@@ -184,8 +184,8 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 				await reopened.request({ kind: 'addTrack', revision, name: `Track ${String(revision)}` });
 			}
 			const firstPage = await reopened.request({ kind: 'project', offset: 0 });
-			assert.equal(firstPage.tracks.length, 32);
-			assert.equal(firstPage.nextOffset, 32);
+			assert.equal(firstPage.tracks.length, 34);
+			assert.equal(firstPage.nextOffset, null);
 			const lastPage = await reopened.request({ kind: 'project', offset: 32 });
 			assert.equal(lastPage.revision, firstPage.revision);
 			assert.equal(lastPage.tracks.length, 2);
