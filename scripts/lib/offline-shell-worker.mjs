@@ -411,7 +411,7 @@ async function matchOfflineNavigationFallback(cache, pathname, configuration, de
 	return null;
 }
 
-async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl }) {
+async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl }) {
 	const cached = await cache.match(descriptor.url, { ignoreSearch: true });
 	if (cached) {
 		try {
@@ -420,7 +420,7 @@ async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImp
 			await cache.delete(descriptor.url, { ignoreSearch: true }).catch(() => false);
 		}
 	}
-	const response = await fetchImpl(descriptor.url, {
+	const response = await fetchImpl(networkUrl, {
 		cache: 'default',
 		credentials: 'same-origin',
 		redirect: 'error',
@@ -452,7 +452,13 @@ export async function handleApplicationShellFetch({
 	const cache = await cacheStorage.open(shellCacheName(configuration.productId, configuration.releaseId));
 	if (descriptor) {
 		try {
-			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl });
+			const retryWorklet = configuration.productId === 'soundscaper'
+				&& requestUrl.pathname === '/tracktion/tracktion-audio-worklet.js'
+				&& /^\?retry=[0-9a-f-]{36}$/u.test(requestUrl.search);
+			// Let the retry reach the network independently of a stalled request.
+			// Verification and Cache Storage still use the canonical descriptor.
+			const networkUrl = retryWorklet ? descriptor.url + requestUrl.search : descriptor.url;
+			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl });
 		} catch (error) {
 			if (request.mode === 'navigate') {
 				const fallback = await matchOfflineNavigationFallback(

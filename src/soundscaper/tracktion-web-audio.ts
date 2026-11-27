@@ -9,11 +9,15 @@ type Microphone = Readonly<{
 	queue: TracktionCaptureQueue;
 }>;
 
+const audioStartupTimeoutMs = 10_000;
+const workletPath = '/tracktion/tracktion-audio-worklet.js';
+
 export class TracktionWebAudio {
 	#context: AudioContext | undefined;
 	#preparing: Promise<readonly void[]> | undefined;
 	#node: AudioWorkletNode | undefined;
 	#microphone: Microphone | undefined;
+	#retryWorklet = false;
 
 	get playing(): boolean { return this.#node !== undefined; }
 
@@ -28,17 +32,28 @@ export class TracktionWebAudio {
 		}
 		const context = new AudioContext({ sampleRate });
 		this.#context = context;
+		const timeout = new Error('Browser audio startup timed out. Try again.');
+		let deadline: ReturnType<typeof setTimeout> | undefined;
 		try {
 			if (context.sampleRate !== sampleRate) throw new Error('The browser could not use the Tracktion project sample rate');
-			this.#preparing = Promise.all([
-				context.resume(),
-				context.audioWorklet.addModule('/tracktion/tracktion-audio-worklet.js'),
+			// Firefox can still coalesce new requests with a timed-out module after its context closes.
+			const module = this.#retryWorklet ? `${workletPath}?retry=${crypto.randomUUID()}` : workletPath;
+			this.#preparing = Promise.race([
+				Promise.all([context.resume(), context.audioWorklet.addModule(module)]),
+				new Promise<never>((_, reject) => {
+					deadline = setTimeout(() => reject(timeout), audioStartupTimeoutMs);
+				}),
 			]);
 			await this.#preparing;
 		} catch (error) {
-			if (this.#context === context) await this.close();
+			if (this.#context === context) {
+				if (error === timeout) this.#retryWorklet = true;
+				// A stalled context cannot hold up retry or hide the startup error.
+				void this.close().catch(() => undefined);
+			}
 			throw error;
 		} finally {
+			clearTimeout(deadline);
 			if (this.#context === context) this.#preparing = undefined;
 		}
 	}
