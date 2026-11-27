@@ -16,8 +16,6 @@
 		,
 		{ "path": "desktop/native-media-v14-runtime-contract.ts", "kind": "native-contract", "justification": "native-media-v14-runtime-contract.ts is a native-services carrier or execution-protocol revision independent of project schema." }
 		,
-		{ "path": "desktop/native-media-v15-foundation-projection.ts", "kind": "native-contract", "justification": "native-media-v15-foundation-projection.ts is a native-services carrier or execution-protocol revision independent of project schema." }
-		,
 		{ "path": "desktop/native-queue-capacity-provider-v3.ts", "kind": "native-contract", "justification": "native-queue-capacity-provider-v3.ts is a native-services carrier or execution-protocol revision independent of project schema." }
 		,
 		{ "path": "desktop/native-services-carrier-recovery-v3.ts", "kind": "native-contract", "justification": "native-services-carrier-recovery-v3.ts is a native-services carrier or execution-protocol revision independent of project schema." }
