@@ -57,15 +57,6 @@ const DEFAULT_DEPENDENCIES: SoundscaperVideoExportStrategyDependencies = Object.
 	encodeOfflineToSink: encodeVideoKeyframeOfflineVideoToSink as OfflineSinkEncoder,
 });
 
-/** Retained desktop-only factory for older controller compositions. */
-export function createSoundscaperDesktopVideoExportStrategy(
-	runtime: Pick<ControllerProjectRuntime, 'cloneProject' | 'projectForRuntimeConsumers'>,
-	fileService: unknown,
-): ProductVideoExportStrategy | undefined {
-	if (!ownDesktopFlag(fileService)) return undefined;
-	return createSoundscaperVideoExportStrategy(runtime);
-}
-
 /** Own the selected Soundscaper baseline keyed-RGBA browser or desktop delivery. */
 export function createSoundscaperVideoExportStrategy(
 	runtime: Pick<ControllerProjectRuntime, 'cloneProject' | 'projectForRuntimeConsumers'>,
@@ -197,12 +188,6 @@ function snapshotDependencies(value: unknown): SoundscaperVideoExportStrategyDep
 			return Promise.resolve(Reflect.apply(encodeOfflineToSink, value, [request, sink]) as never);
 		},
 	});
-}
-
-function ownDesktopFlag(value: unknown): boolean {
-	if (!value || typeof value !== 'object') return false;
-	const descriptor = Object.getOwnPropertyDescriptor(value, 'isDesktop');
-	return Boolean(descriptor?.enumerable && Object.hasOwn(descriptor, 'value') && descriptor.value === true);
 }
 
 function freezeExportProject(value: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {

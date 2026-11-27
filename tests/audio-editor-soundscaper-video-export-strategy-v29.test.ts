@@ -11,10 +11,7 @@ import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-projec
 import { createSoundscaperPlaybackProjectService } from '../src/soundscaper/editor-project-playback.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperProject, loadSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import {
-	createSoundscaperDesktopVideoExportStrategy,
-	createSoundscaperVideoExportStrategy,
-} from '../src/soundscaper/video-export-strategy.ts';
+import { createSoundscaperVideoExportStrategy } from '../src/soundscaper/video-export-strategy.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
 for (const format of ['mp4', 'mov'] as const) test(`Soundscaper V29 keyed strategy reaches buffered and sink encoders with one exact active pair (${format})`, async () => {
@@ -189,13 +186,9 @@ test('Soundscaper V29 keyed strategy detaches a trusted track-folder delivery pr
 	);
 });
 
-test('Soundscaper V29 controller strategy is desktop-only', () => {
-	const runtime = createSoundscaperProjectRuntimeSelection();
-	assert.equal(createSoundscaperDesktopVideoExportStrategy(runtime, { isDesktop: false }), undefined);
-	assert.equal(createSoundscaperDesktopVideoExportStrategy(runtime, {}), undefined);
-	assert.ok(createSoundscaperDesktopVideoExportStrategy(runtime, { isDesktop: true }));
-	const accessor = Object.defineProperty({}, 'isDesktop', { enumerable: true, get: () => true });
-	assert.equal(createSoundscaperDesktopVideoExportStrategy(runtime, accessor), undefined);
+test('the keyed strategy has no retired desktop-only factory', async () => {
+	const strategies = await import('../src/soundscaper/video-export-strategy.ts');
+	assert.equal(Reflect.has(strategies, 'createSoundscaperDesktopVideoExportStrategy'), false);
 });
 
 function fallbackFreeDelivery(project: Readonly<Record<string, unknown>>) {
