@@ -12,7 +12,7 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 async function mountEditor(context: TestContext, {
 	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
-	desktopAudioSetup = false, delayReadiness = false,
+	desktopAudioSetup = false, delayReadiness = false, trackCount = 33,
 } = {}) {
 	const dom = installReactTestDom();
 	let pollTransport: (() => void) | undefined;
@@ -40,8 +40,10 @@ async function mountEditor(context: TestContext, {
 		dom.restore();
 	});
 	const requests: TracktionProjectCommand[] = [];
-	const tracks = Array.from({ length: 33 }, (_, index) => ({
-		id: String(index + 1), name: `Track ${index + 1}`, clipCount: index === 31 ? 0 : clipsPerTrack,
+	let trackTitleReads = 0;
+	const tracks = Array.from({ length: trackCount }, (_, index) => ({
+		id: String(index + 1), clipCount: index === 31 ? 0 : clipsPerTrack,
+		get name() { trackTitleReads += 1; return `Track ${index + 1}`; },
 	}));
 	const firstPage: TracktionProjectPage = {
 		revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32),
@@ -56,7 +58,8 @@ async function mountEditor(context: TestContext, {
 			case 'render': return { revision: firstPage.revision, itemId: null };
 			case 'create':
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
-			case 'project': return command.offset === 0 ? { ...firstPage, revision } : { ...firstPage, revision, tracks: tracks.slice(32), nextOffset: null };
+			case 'project': return { ...firstPage, revision, tracks: tracks.slice(command.offset, command.offset + 32),
+				nextOffset: command.offset + 32 < tracks.length ? command.offset + 32 : null };
 			case 'clips': {
 				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
 				const next = Math.min(command.offset + 32, count);
@@ -129,7 +132,8 @@ async function mountEditor(context: TestContext, {
 		assert.ok(poll, 'the active desktop transport is being observed');
 		await act(async () => { poll(); });
 	}
-	return { dom, requests, click, loseProject, observeTransport, get clipTitleReads() { return clipTitleReads; } };
+	return { dom, requests, click, loseProject, observeTransport,
+		get clipTitleReads() { return clipTitleReads; }, get trackTitleReads() { return trackTitleReads; } };
 }
 
 void test('opening a paginated project reuses its first track page', async (context) => {
@@ -253,17 +257,20 @@ void test('desktop playback and recording timers observe transport without check
 	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
 });
 
-void test('playing and stopping a 128-clip track keep its rendered clip rows', async (context) => {
-	const editor = await mountEditor(context, { clipsPerTrack: 128 });
+void test('playing and stopping a large project reuse its rendered tracks and clips', async (context) => {
+	const editor = await mountEditor(context, { clipsPerTrack: 128, trackCount: 512 });
 	await editor.click('Open projects');
 	assert.equal(editor.dom.one('ul').querySelectorAll('li').length, 128);
-	const initialReads = editor.clipTitleReads;
-	assert.ok(initialReads >= 128);
+	assert.equal(editor.dom.one('select').options.length, 512);
+	const initialClipReads = editor.clipTitleReads;
+	const initialTrackReads = editor.trackTitleReads;
+	assert.ok(initialClipReads >= 128 && initialTrackReads >= 512);
 	await editor.click('Play');
 	assert.equal(editor.dom.one('[role="status"]').textContent, 'Playing');
 	await editor.click('Stop');
 	assert.equal(editor.dom.one('[role="status"]').textContent, 'Stopped');
-	assert.equal(editor.clipTitleReads - initialReads, 0, 'transport changes do not rebuild clip rows');
+	assert.equal(editor.clipTitleReads - initialClipReads, 0, 'transport changes do not rebuild clip rows');
+	assert.equal(editor.trackTitleReads - initialTrackReads, 0, 'transport changes do not rebuild track options');
 });
 
 void test('a worker loss during recording lets the user reopen the saved project', async (context) => {

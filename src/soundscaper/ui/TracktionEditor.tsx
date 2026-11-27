@@ -62,6 +62,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const playing = transport?.playing === true;
 	const visibleStatus = recording ? 'Recording' : status || (playing ? 'Playing' : '');
 	const menuBar = useRef<HTMLElement>(null);
+	const tracks = workspace?.tracks;
+	const trackOptions = useMemo(() => tracks?.map((track) => <option key={track.id} value={track.id}>{track.name}</option>), [tracks]);
 	const clips = workspace?.clips;
 	const { clipRows, splittable } = useMemo(() => ({
 		clipRows: clips?.map((clip) => <li key={clip.id}>{clip.name} ({clip.start}–{clip.end})</li>),
@@ -491,7 +493,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
 					onChange={(event) => selectTrack(event.currentTarget.value)}>
-					{workspace.tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+					{trackOptions}
 				</select></label>
 				<p>{workspace.clips.length} {workspace.clips.length === 1 ? 'clip' : 'clips'}</p>
 				<ul aria-label="Audio clips">{clipRows}</ul>
