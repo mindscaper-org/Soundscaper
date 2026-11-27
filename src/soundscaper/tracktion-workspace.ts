@@ -47,7 +47,7 @@ async function readWorkspaceFromPage(
 		offset = page.nextOffset;
 	}
 	const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0];
-	const clips = selectedTrack ? await readTracktionClips(bridge, sessionId, firstPage.revision, selectedTrack.id) : [];
+	const clips = selectedTrack?.clipCount ? await readTracktionClips(bridge, sessionId, firstPage.revision, selectedTrack.id) : [];
 	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips };
 }
 

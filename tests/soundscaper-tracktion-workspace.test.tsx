@@ -41,6 +41,7 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'render': return { revision: firstPage.revision, itemId: null };
+			case 'create':
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
 			case 'project': return command.offset === 0 ? { ...firstPage, revision } : { ...firstPage, revision, tracks: tracks.slice(32), nextOffset: null };
 			case 'clips': {
@@ -108,6 +109,14 @@ void test('opening a paginated project reuses its first track page', async (cont
 		{ kind: 'clips', sessionId: 'session', revision: 7, trackId: '1', offset: 0 },
 		{ kind: 'transportStatus', sessionId: 'session' },
 	]);
+});
+
+void test('creating an empty project skips the selected track clip request', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { clipsPerTrack: 0 });
+	await click('New project');
+	assert.equal(dom.one('select').options.length, 33);
+	assert.equal(dom.find('li'), null);
+	assert.deepEqual(requests.map(({ kind }) => kind), ['create', 'project', 'transportStatus']);
 });
 
 void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {
