@@ -13,7 +13,6 @@ import { initializeSoundscaperDesktopProjectLibraryDatabase } from '../desktop/s
 import { SoundscaperDesktopProjectLibraryCatalog } from '../desktop/soundscaper-project-library-catalog.ts';
 import { createSoundscaperDesktopProjectLibraryHandshake } from '../desktop/soundscaper-project-library-contract.ts';
 import { emptySoundscaperDesktopLibraryMetadata } from '../desktop/soundscaper-project-library-metadata.ts';
-import { initializeSoundscaperDeliveryDatabase } from '../desktop/soundscaper-delivery-database.ts';
 import { initializeFramescaperNativeServicesDatabaseV3 } from '../desktop/native-services-database-v3.ts';
 import { initializeFramescaperDesktopProjectLibraryLifecycleDatabase } from '../desktop/framescaper-project-library-database.ts';
 
@@ -62,7 +61,6 @@ test('restored legacy WAL cannot silently roll the validated catalog back', t =>
 for (const [name, initialize] of [
 	['Soundscaper library', initializeSoundscaperDesktopProjectLibraryDatabase],
 	['Framescaper library', initializeFramescaperDesktopProjectLibraryLifecycleDatabase],
-	['delivery queue', initializeSoundscaperDeliveryDatabase],
 	['native services', initializeFramescaperNativeServicesDatabaseV3],
 ] as const) {
 	test(`${name} commits without WAL sidecars and reopens its data`, t => {

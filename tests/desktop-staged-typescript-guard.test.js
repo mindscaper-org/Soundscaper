@@ -121,6 +121,8 @@ test('the staged desktop tree carries no TypeScript specifier and resolves every
 		productId: 'framescaper',
 	});
 	await assert.rejects(access(join(framescaperDesktopRoot, 'soundscaper-project-library-sandbox-preload.cjs')), { code: 'ENOENT' });
+	assert.deepEqual(framescaperRuntime.files.filter((file) => file.startsWith('desktop/soundscaper-delivery-')), []);
+	await assert.rejects(access(join(framescaperDesktopRoot, 'soundscaper-delivery-restart-smoke.mjs')), { code: 'ENOENT' });
 	assert.equal(framescaperRuntime.files.includes('desktop/soundscaper-project-library-main-ipc.js'), false);
 	assert.ok(framescaperRuntime.files.includes('desktop/framescaper-project-library-main-ipc.js'));
 	assert.ok(framescaperRuntime.files.includes('desktop/native-audio-session-service.js'));

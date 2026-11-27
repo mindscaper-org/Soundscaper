@@ -104,11 +104,6 @@
       "count": 1
     }
   },
-  "desktop/soundscaper-delivery-root.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "desktop/soundscaper-project-library-publication-host.ts": {
     "no-useless-assignment": {
       "count": 2
@@ -1097,11 +1092,6 @@
   },
   "tests/desktop-assistance-staging-registry.test.ts": {
     "require-yield": {
-      "count": 1
-    }
-  },
-  "tests/desktop-soundscaper-delivery-adversarial.test.ts": {
-    "no-useless-assignment": {
       "count": 1
     }
   },

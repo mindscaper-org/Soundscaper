@@ -4,7 +4,6 @@
 
 import { isAbsolute, resolve } from 'node:path';
 
-import { runSoundscaperDeliveryRestartPublicationSmoke } from './soundscaper-delivery-restart-smoke.mjs';
 import {
 	validateSoundscaperProfessionalNativeAudioCanaryEvidence,
 } from './soundscaper-professional-native-utility-audio-canary.js';
@@ -21,7 +20,6 @@ const UNSAFE_CONTROL_CHARACTER = new RegExp(
 );
 
 export async function runSoundscaperProfessionalNativeUtilitySmoke(options) {
-	if (await runSoundscaperDeliveryRestartPublicationSmoke(options)) return true;
 	const prefix = '--soundscaper-professional-native-utility-smoke=';
 	const matches = options.argv.filter((value) => value.startsWith(prefix));
 	if (matches.length === 0) return false;

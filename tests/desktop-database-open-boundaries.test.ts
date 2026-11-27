@@ -12,8 +12,6 @@ import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-pro
 import { FramescaperDesktopProjectLibraryMain } from '../desktop/framescaper-project-library-main.ts';
 import { createSoundscaperDesktopProjectLibraryHandshake, createSoundscaperDesktopProjectLibraryPaths } from '../desktop/soundscaper-project-library-contract.ts';
 import { createFramescaperDesktopProjectLibraryHandshake, createFramescaperDesktopProjectLibraryPaths } from '../desktop/framescaper-project-library-contract.ts';
-import { SoundscaperDeliveryService } from '../desktop/soundscaper-delivery-service.ts';
-import { createUnavailableSoundscaperDeliveryFilesystemAuthority } from '../desktop/soundscaper-delivery-filesystem-authority.ts';
 import { startFramescaperNativeServicesRuntimeV3 } from '../desktop/native-services-runtime-v3.ts';
 import { openLocalDesktopDatabase } from '../desktop/desktop-database.ts';
 
@@ -46,7 +44,7 @@ test('an unsupported network path is refused before inspecting its database dire
 	assert.equal(inspect.mock.callCount(), 0);
 });
 
-for (const name of ['soundscaper', 'framescaper', 'delivery', 'native-services'] as const) {
+for (const name of ['soundscaper', 'framescaper', 'native-services'] as const) {
 	test(`${name} startup refuses WAL evidence before database initialization or recovery`, async t => {
 		const root = await mkdtemp(join(tmpdir(), 'scape-open-guard-'));
 		t.after(() => rm(root, { recursive: true, force: true }));
@@ -65,9 +63,6 @@ for (const name of ['soundscaper', 'framescaper', 'delivery', 'native-services']
 				await FramescaperDesktopProjectLibraryMain.start({ appDataPath: root,
 					owner: { product: name, processId: process.pid, instanceId: 'startup-safety' },
 					handshake: createFramescaperDesktopProjectLibraryHandshake(), onLeaseLost: () => undefined, testControl: null });
-			} else if (name === 'delivery') {
-				await SoundscaperDeliveryService.start({ databasePath: path, readProjectIdentity: () => null,
-					filesystem: createUnavailableSoundscaperDeliveryFilesystemAuthority('Unavailable in the storage-safety test.') });
 			} else {
 				startFramescaperNativeServicesRuntimeV3({ databasePath: path, leaseId: 'startup-safety',
 					instanceId: 'startup-safety', processId: process.pid, runtimeAvailable: () => false, nativeMediaEnabled: () => false });

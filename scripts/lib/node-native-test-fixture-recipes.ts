@@ -53,6 +53,6 @@ export function selectedNativeTestFixtures(testFiles: readonly string[], environ
 	if (names.has('framescaper-media-host-source-manifest.test.js') || names.has('framescaper-media-host-legacy-plan-admission.test.js')) kinds.add('media-contract');
 	if (names.has('framescaper-media-host-unified-vfr-parity.test.js') || exactRetimeAvailable && names.has('framescaper-media-host-native-adapters.test.js')) kinds.add(mediaContractFixtureKind(environment));
 	if (exactRetimeAvailable && (names.has('framescaper-media-host-unified-vfr-parity.test.js') || names.has('framescaper-media-host-unified-validator-parity.test.js'))) kinds.add('media-validator');
-	if (process.platform === 'linux' && (names.has('soundscaper-delivery-fs-native.test.js') || names.has('desktop-soundscaper-delivery-filesystem-native-e2e.test.ts'))) kinds.add('delivery-filesystem');
+	if (process.platform === 'linux' && names.has('soundscaper-delivery-fs-native.test.js')) kinds.add('delivery-filesystem');
 	return [...kinds].sort();
 }

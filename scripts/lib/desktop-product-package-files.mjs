@@ -91,7 +91,6 @@ const SOUNDSCAPER_REPLACED_SOURCE_FILES = new Set([
 	'scape-reopen-smoke.js',
 	'helper-registration.mjs',
 	'soundscaper-delivery-registration.mjs',
-	'soundscaper-delivery-restart-smoke.mjs',
 	'soundscaper-professional-native-utility-smoke.mjs',
 	'soundscaper-project-library-sandbox-preload.cjs',
 ]);
