@@ -11,6 +11,7 @@ type Microphone = Readonly<{
 
 const audioStartupTimeoutMs = 10_000;
 const workletPath = '/tracktion/tracktion-audio-worklet.js';
+const microphoneDisconnected = 'The browser microphone disconnected while Tracktion was starting';
 
 export class TracktionWebAudio {
 	#context: AudioContext | undefined;
@@ -67,25 +68,38 @@ export class TracktionWebAudio {
 		const devices = navigator.mediaDevices;
 		if (!devices?.getUserMedia) throw new Error('Browser microphone recording is unavailable');
 		// Start output and ask for the input in the same user gesture.
-		const [prepared, captured] = await Promise.allSettled([
-			this.prepare(sampleRate),
-			devices.getUserMedia({
-				audio: { channelCount: { ideal: 1 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false },
-			}),
-		]);
-		if (captured.status === 'rejected') throw captured.reason;
-		const stream = captured.value;
+		const preparing = Promise.allSettled([this.prepare(sampleRate)]);
+		const context = this.#context;
+		const stream = await devices.getUserMedia({
+			audio: { channelCount: { ideal: 1 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false },
+		}).catch(async (error: unknown) => { await preparing; throw error; });
+		const disconnected = new Error(microphoneDisconnected);
+		const listeners = new AbortController();
 		try {
+			const tracks = stream.getAudioTracks();
+			const hasLiveTrack = () => tracks.some((track) => track.readyState === 'live');
+			if (!hasLiveTrack()) throw disconnected;
+			const ended = new Promise<never>((_, reject) => {
+				const interrupt = () => reject(disconnected);
+				for (const track of tracks) track.addEventListener('ended', interrupt, { signal: listeners.signal });
+			});
+			const [prepared] = await Promise.race([preparing, ended]);
 			if (prepared.status === 'rejected') throw prepared.reason;
-			const context = this.#context;
-			if (!context) throw new Error('Browser audio output is unavailable');
+			if (!hasLiveTrack()) throw disconnected;
+			if (!context || this.#context !== context) throw new Error('Browser audio output is unavailable');
 			const source = context.createMediaStreamSource(stream);
 			const queue = new TracktionCaptureQueue();
 			this.#microphone = { stream, source, queue };
 			return { output: this.outputBuffer(), capture: queue.shared };
 		} catch (error) {
+			if (error === disconnected && this.#context === context && this.#preparing) {
+				this.#retryWorklet = true;
+				void this.close().catch(() => undefined);
+			}
 			for (const track of stream.getTracks()) track.stop();
 			throw error;
+		} finally {
+			listeners.abort();
 		}
 	}
 
@@ -94,7 +108,7 @@ export class TracktionWebAudio {
 		if (!context) throw new Error('Prepare the browser audio output before playing');
 		const microphone = buffers.capture ? this.#microphone : undefined;
 		if (buffers.capture && !microphone?.stream.getAudioTracks().some((track) => track.readyState === 'live')) {
-			throw new Error('The browser microphone disconnected while Tracktion was starting');
+			throw new Error(microphoneDisconnected);
 		}
 		const node = new AudioWorkletNode(context, 'soundscaper-tracktion-output', {
 			numberOfInputs: microphone ? 1 : 0, numberOfOutputs: 1, outputChannelCount: [2],

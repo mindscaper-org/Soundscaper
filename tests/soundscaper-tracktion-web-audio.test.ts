@@ -1,10 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 
 import { TracktionWebAudio } from '../src/soundscaper/tracktion-web-audio.ts';
 import { deferred, remainsPending } from './helpers/async-test-control.ts';
+
+function replaceBrowserGlobal(context: TestContext, key: string, value: unknown): void {
+	const previous = Object.getOwnPropertyDescriptor(globalThis, key);
+	Object.defineProperty(globalThis, key, { configurable: true, value });
+	context.after(() => {
+		if (previous) Object.defineProperty(globalThis, key, previous);
+		else Reflect.deleteProperty(globalThis, key);
+	});
+}
 
 test('a stalled browser audio startup expires for all callers and can retry', async (context) => {
 	context.mock.timers.enable({ apis: ['setTimeout'] });
@@ -26,12 +35,7 @@ test('a stalled browser audio startup expires for all callers and can retry', as
 			return this.number === 1 ? firstClose.promise : Promise.resolve();
 		}
 	}
-	const previous = Object.getOwnPropertyDescriptor(globalThis, 'AudioContext');
-	Object.defineProperty(globalThis, 'AudioContext', { configurable: true, value: BrowserAudioContext });
-	context.after(() => {
-		if (previous) Object.defineProperty(globalThis, 'AudioContext', previous);
-		else Reflect.deleteProperty(globalThis, 'AudioContext');
-	});
+	replaceBrowserGlobal(context, 'AudioContext', BrowserAudioContext);
 	const audio = new TracktionWebAudio();
 	const initializing = Promise.all([
 		assert.rejects(audio.prepare(48_000), /audio.*timed out/iu),
@@ -53,4 +57,49 @@ test('a stalled browser audio startup expires for all callers and can retry', as
 	firstClose.reject(new Error('The old output context was already retired'));
 	await audio.close();
 	assert.deepEqual(closed, [1, 2]);
+});
+
+for (const initiallyLive of [true, false]) test(`recording releases browser startup when the microphone is lost (initially live: ${initiallyLive})`, async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const firstModule = deferred<void>();
+	const granted = deferred<void>();
+	const modules: string[] = [];
+	let closed = 0;
+	let microphoneStopped = 0;
+	const track = Object.assign(new EventTarget(), {
+		readyState: initiallyLive ? 'live' : 'ended',
+		stop() { this.readyState = 'ended'; microphoneStopped += 1; },
+	});
+	const stream = { getAudioTracks: () => [track], getTracks: () => [track] };
+	class BrowserAudioContext {
+		readonly sampleRate = 48_000;
+		readonly audioWorklet = { addModule: (url: string) => {
+			modules.push(url);
+			return modules.length === 1 ? firstModule.promise : Promise.resolve();
+		} };
+		resume(): Promise<void> { return Promise.resolve(); }
+		close(): Promise<void> { closed += 1; return Promise.resolve(); }
+	}
+	replaceBrowserGlobal(context, 'AudioContext', BrowserAudioContext);
+	replaceBrowserGlobal(context, 'navigator', { mediaDevices: { getUserMedia: async () => { granted.resolve(); return stream; } } });
+
+	const audio = new TracktionWebAudio();
+	const initializing = assert.rejects(audio.microphoneBuffers(48_000), /microphone disconnected/u);
+	await granted.promise;
+	if (initiallyLive) {
+		assert.equal(await remainsPending(initializing), true);
+		track.readyState = 'ended';
+		track.dispatchEvent(new Event('ended'));
+	}
+	assert.equal(await remainsPending(initializing), false);
+	await initializing;
+	assert.equal(microphoneStopped, 1);
+	assert.equal(closed, 1);
+
+	await audio.prepare(48_000);
+	assert.match(modules[1], /^\/tracktion\/tracktion-audio-worklet\.js\?retry=[a-f0-9-]{36}$/u);
+	firstModule.reject(new Error('The retired browser worklet eventually failed'));
+	assert.ok(audio.outputBuffer().byteLength > 0);
+	await audio.close();
+	assert.equal(closed, 2);
 });
