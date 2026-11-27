@@ -63,7 +63,9 @@ export function validateMilestone5PackagePayloadBinding(
 	}
 	assert(packageAudit.productId === 'framescaper',
 		'Milestone 5 package audit has an unsupported product.');
-	if (runtime.soundscaperProfessionalNative != null) {
+	if (runtime.soundscaperProfessionalNative != null || engineeringScope?.payloadProducts.includes('soundscaper-professional')) {
+		assert(runtime.soundscaperProfessionalNative != null,
+			'Milestone 5 Framescaper package is missing the professional native peer.');
 		bindFramescaperProfessionalPeer(runtime.soundscaperProfessionalNative, payloadAudit, inputPaths, targetId);
 	}
 	assert(runtime.framescaperNativeHosts?.target === targetId,

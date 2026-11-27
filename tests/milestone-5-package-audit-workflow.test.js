@@ -54,6 +54,8 @@ test('desktop packaging audits ten nightly product targets while tags select one
 	assert.match(aggregateJob, /Re-audit tagged packages[^\n]*\n\s+if: github\.ref_type == 'tag'/u);
 	assert.match(aggregateJob, /--input-directory[\s\S]*?--package-directory[\s\S]*?--require-pass/u);
 	assert.match(packageJob, /--package-root "release\/milestone-5-package"\s+--require-pass/u);
+	assert.match(packageJob, /--require-pass\s+\$\{\{ github\.ref_type != 'tag' && matrix\.product == 'framescaper' && '--nightly' \|\| '' \}\}/u);
+	assert.doesNotMatch(aggregateJob, /--nightly/u);
 	assert.match(packageJob, /path: release\/milestone-5-package\/\s+compression-level: 0/u);
 	assert.match(aggregateJob, /node scripts\/audit-milestone-5-packages\.mjs[\s\S]*?--package-directory[\s\S]*?--output[\s\S]*?needs\.quality\.outputs\.package-audit-arguments/u);
 	assert.match(aggregateJob, /SOUNDSCAPER_SOURCE_REVISION: \$\{\{ github\.sha \}\}/u);

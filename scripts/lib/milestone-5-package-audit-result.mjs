@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
+const FRAMESCAPER_NIGHTLY_OPTIONAL_PAYLOADS = new Set([
+	'soundscaper', 'framescaper-media', 'framescaper-openfx',
+]);
+
 /**
  * Audit only machine-verifiable Milestone 5 inputs. This is a package check,
  * not a human review or release decision.
@@ -26,6 +30,7 @@ export function assessMilestone5PackageAuditResult(value) {
 		}
 	}
 	for (const payload of payloads) {
+		if (isUnavailableNightlyPayload(value, packageChecks, payload)) continue;
 		if (payload.buildStatus !== 'built' || payload.payload === null) {
 			failures.push(failure(`payload:${payload.product}:${payload.targetId}`,
 				`Payload ${payload.identity} has no verified built file closure.`));
@@ -49,6 +54,13 @@ export function assessMilestone5PackageAuditResult(value) {
 		checks,
 		failures,
 	});
+}
+
+function isUnavailableNightlyPayload(value, packageChecks, payload) {
+	return value.nightly === true && value.packageAudited === true && value.payloadsAuthenticated === true
+		&& packageChecks?.productId === 'framescaper' && packageChecks.targetId === payload.targetId
+		&& FRAMESCAPER_NIGHTLY_OPTIONAL_PAYLOADS.has(payload.product)
+		&& payload.buildStatus === 'ci-generated' && payload.payload === null;
 }
 
 function inputFailures(value) {

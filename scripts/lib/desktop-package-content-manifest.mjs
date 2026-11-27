@@ -269,20 +269,21 @@ async function assertRuntimePayloadClosure(runtime, files, dependencies, resourc
 			throw new Error('The Framescaper runtime manifest has no native-host content authority.');
 		}
 		for (const [key, prefix] of [
-			['mediaHost', `runtime/native/framescaper-media-host/${native.target}/`],
-			['openFxHost', `runtime/native/framescaper-openfx-host/${native.target}/`],
+			['mediaHost', 'runtime/native/framescaper-media-host/'],
+			['openFxHost', 'runtime/native/framescaper-openfx-host/'],
 		]) {
 			const host = hosts[key];
 			if (!plainRecord(host) || !Array.isArray(host.payloads)) throw new Error(
 				`The Framescaper ${key} content authority is invalid.`);
+			expectedByPrefix.set(prefix, new Set());
 			if (host.status === 'built') {
 				for (const descriptor of host.payloads) {
-					requireFile(`${prefix}${descriptor.name}`, descriptor, `Framescaper ${key} payload`, prefix);
+					requireFile(`${prefix}${native.target}/${descriptor.name}`, descriptor, `Framescaper ${key} payload`, prefix);
 				}
 			} else if (host.status !== 'ci-generated' || host.payloads.length !== 0) throw new Error(
 				`Invalid Framescaper ${key} content state.`);
 		}
-		} else if (runtime.framescaperNativeHosts !== null
+	} else if (runtime.framescaperNativeHosts !== null
 		&& runtime.framescaperNativeHosts !== undefined) {
 		throw new Error('The Soundscaper runtime manifest carries Framescaper native-host authority.');
 	}

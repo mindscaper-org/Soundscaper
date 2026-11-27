@@ -785,6 +785,7 @@ jobs:
           --target "${{ matrix.target.platform }}-${{ matrix.target.arch }}"
           --package-root "release/milestone-5-package"
           --require-pass
+          ${{ github.ref_type != 'tag' && matrix.product == 'framescaper' && '--nightly' || '' }}
         env:
           SOUNDSCAPER_SOURCE_REVISION: ${{ github.sha }}
 

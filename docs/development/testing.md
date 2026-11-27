@@ -177,6 +177,11 @@ Native source jobs provision and authenticate the pinned archives before
 uploading them. Each receiving runner reconstructs and verifies the extracted
 trees locally. Framescaper package audits add the six media source archives to
 the shared professional-native sources.
+Untagged Framescaper nightlies require the authenticated professional audio
+plug-in peer. The legacy helper addon, media host, and OpenFX host may be absent
+when the source-bound manifests still declare them `ci-generated` and the
+installed package contains no corresponding payload. Tagged package audits
+require the full built payload closure.
 
 Pinned GitHub release downloads can recover from a failing public download URL
 through the official release-asset API. The fallback selects the exact tag,

@@ -334,6 +334,15 @@ test('Framescaper admits its authenticated media host but no unmanaged FFmpeg pa
 	const written = await writeFramescaperManifest(fixture);
 	assert.equal(written.status, 'installed-resource-closure-audited');
 
+	for (const target of ['linux-x64', 'win-arm64']) {
+		const unexpected = await framescaperPackageTree(context);
+		await makeMediaHostPending(unexpected);
+		const hostRoot = join(unexpected.resourcesRoot, 'runtime/native/framescaper-media-host', target);
+		await mkdir(hostRoot, { recursive: true });
+		await writeFile(join(hostRoot, 'media-host'), 'unattested media host');
+		await assert.rejects(writeFramescaperManifest(unexpected),
+			/unexpected files under runtime\/native\/framescaper-media-host/u);
+	}
 });
 
 async function makeMediaHostPending(fixture) {

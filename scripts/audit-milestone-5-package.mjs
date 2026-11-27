@@ -12,6 +12,7 @@ import {
 const repositoryRoot = resolve(import.meta.dirname, '..');
 let outputPath = null;
 let requirePass = false;
+let nightly = false;
 const packageArguments = { productId: null, targetId: null, packageRoot: null };
 for (let index = 2; index < process.argv.length; index += 1) {
 	const argument = process.argv[index];
@@ -20,6 +21,11 @@ for (let index = 2; index < process.argv.length; index += 1) {
 			throw new Error('--require-pass may be supplied only once.');
 		}
 		requirePass = true;
+		continue;
+	}
+	if (argument === '--nightly') {
+		if (nightly) throw new Error('--nightly may be supplied only once.');
+		nightly = true;
 		continue;
 	}
 	if (argument === '--output') {
@@ -54,6 +60,9 @@ const packageOptions = suppliedPackageArguments === 0 ? null : packageArguments;
 if (requirePass && packageOptions === null) {
 	throw new Error('--require-pass requires --product, --target, and --package-root.');
 }
+if (nightly && packageOptions?.productId !== 'framescaper') {
+	throw new Error('--nightly requires --product framescaper, --target, and --package-root.');
+}
 
 const audit = packageOptions === null
 	? await assembleMilestone5PackageAudit(repositoryRoot, process.env.SOUNDSCAPER_SOURCE_REVISION)
@@ -61,9 +70,12 @@ const audit = packageOptions === null
 		repositoryRoot,
 		sourceRevision: process.env.SOUNDSCAPER_SOURCE_REVISION,
 		productIds: [packageOptions.productId],
-		packageOptions,
+		packageOptions: nightly ? { ...packageOptions, nightly } : packageOptions,
 	});
 const bytes = `${JSON.stringify(audit, null, '\t')}\n`;
 if (outputPath) writeFileSync(resolve(outputPath), bytes, { flag: 'wx' });
 else process.stdout.write(bytes);
-if (requirePass && !audit.passed) process.exitCode = 1;
+if (requirePass && !audit.passed) {
+	for (const { reason } of audit.failures) process.stderr.write(`${reason}\n`);
+	process.exitCode = 1;
+}

@@ -61,6 +61,40 @@ test('source, payload, and package failures change checks and fail the package a
 	)));
 });
 
+test('Framescaper nightly audits retain explicitly unavailable optional payloads and require the professional peer', () => {
+	const value = fixture();
+	value.packageAudit.productId = 'framescaper';
+	value.payloadRows[0].product = 'soundscaper-professional';
+	value.payloadRows[0].identity = 'soundscaper-professional:linux-x64';
+	for (const product of ['soundscaper', 'framescaper-media', 'framescaper-openfx']) {
+		value.payloadRows.push({
+			identity: `${product}:linux-x64`, product, targetId: 'linux-x64',
+			buildStatus: 'ci-generated', payload: null,
+		});
+	}
+	const strict = assessMilestone5PackageAuditResult(value);
+	assert.equal(strict.passed, false);
+	assert.equal(strict.failures.length, 3);
+
+	value.nightly = true;
+	const nightly = assessMilestone5PackageAuditResult(value);
+	assert.equal(nightly.passed, true);
+	assert.deepEqual(nightly.checks, strict.checks);
+	for (const mutate of [
+		(changed) => { changed.packageAudit = null; },
+		(changed) => { changed.packageAudit.productId = 'soundscaper'; },
+		(changed) => { changed.packageAudit.packages[0].content = null; },
+		(changed) => { changed.payloadsAuthenticated = false; },
+		(changed) => { changed.payloadRows[0].payload = null; },
+		(changed) => { changed.payloadRows[1].buildStatus = 'built'; },
+		(changed) => { changed.payloadRows[2].payload = changed.payloadRows[0].payload; },
+	]) {
+		const changed = structuredClone(value);
+		mutate(changed);
+		assert.equal(assessMilestone5PackageAuditResult(changed).passed, false);
+	}
+});
+
 function fixture() {
 	return {
 		repositoryInputsVerified: true,

@@ -96,9 +96,12 @@ test('Framescaper package binding authenticates the peer, receipt and isolation 
 	};
 	const inputPaths = { soundscaperProfessionalPayload: INPUT, mediaHostPayload: 'media', openFxHostPayload: 'openfx' };
 	const validate = (audit: typeof packageAudit) => validateMilestone5PackagePayloadBinding(
-		audit, payloadAudit, inputPaths, { payloadProducts: ['framescaper'] },
+		audit, payloadAudit, inputPaths, { payloadProducts: ['soundscaper-professional'] },
 	);
 	assert.doesNotThrow(() => validate(packageAudit));
+	const missingPeer = structuredClone(packageAudit);
+	Reflect.set(missingPeer.runtimeManifest.value, 'soundscaperProfessionalNative', null);
+	assert.throws(() => validate(missingPeer), /missing.*professional native peer/u);
 	for (const field of ['pluginPeer', 'buildResult'] as const) {
 		const changed = structuredClone(packageAudit);
 		changed.runtimeManifest.value.soundscaperProfessionalNative[field].sha256 = 'b'.repeat(64);

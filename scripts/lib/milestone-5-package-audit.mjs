@@ -66,6 +66,7 @@ export function assessMilestone5PackageAudit(inputs, productIdsValue = MILESTONE
 		);
 	}
 	const result = assessMilestone5PackageAuditResult({
+		nightly: inputs.nightly,
 		repositoryInputsVerified,
 		sourceInputsAudited,
 		payloadsAuthenticated: payloadsVerified,
@@ -84,6 +85,7 @@ export function assessMilestone5PackageAudit(inputs, productIdsValue = MILESTONE
 			kind: 'package',
 			productId: inputs.packageAudit.productId,
 			targetId: inputs.packageAudit.targetId,
+			...(inputs.nightly === true ? { channel: 'nightly' } : {}),
 		} : { kind: 'engineering-inputs' },
 		repositoryInputsVerified,
 		sourceInputsVerified: sourceInputsAudited,
@@ -174,6 +176,7 @@ async function assembleMilestone5PackageAuditScope(options, dependencies) {
 	inputs.payloadAudit = await auditMilestone5Payloads(repositoryRoot, engineeringScope.products);
 	if (packageOptions !== null) {
 		validatePackageOptions(packageOptions);
+		inputs.nightly = packageOptions.nightly === true;
 		inputs.packageAudit = await auditMilestone5PackageContent({
 			repositoryRoot: resolve(repositoryRoot),
 			packageRoot: resolve(repositoryRoot, packageOptions.packageRoot),
@@ -353,13 +356,17 @@ function machinePayload(target, product) {
 
 function validatePackageOptions(options) {
 	assertRecord(options, 'Milestone 5 package audit options');
+	const fields = options.nightly === undefined
+		? ['packageRoot', 'productId', 'targetId'] : ['nightly', 'packageRoot', 'productId', 'targetId'];
 	assert(JSON.stringify(Object.keys(options).sort())
-		=== JSON.stringify(['packageRoot', 'productId', 'targetId']),
+		=== JSON.stringify(fields),
 	'Milestone 5 package audit options have an unexpected shape.');
 	for (const field of ['packageRoot', 'productId', 'targetId']) {
 		assert(typeof options[field] === 'string' && options[field].length > 0,
 			`Milestone 5 package audit ${field} is required.`);
 	}
+	assert(options.nightly === undefined || (options.nightly === true && options.productId === 'framescaper'),
+		'Milestone 5 nightly package audit mode requires a Framescaper package.');
 }
 
 function descriptor(value) {
