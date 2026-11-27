@@ -1,16 +1,99 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion clipboard test through CTest.');
+
+const longFrames = 524_288;
+const shortStart = 32;
+const longStart = 128;
+
+async function prepareSizeLimitedClipboard(root: string, peerPath: string) {
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const clipboardDirectory = join(root, 'clipboard');
+	const launch = { executable: peerPath, projectDirectory, exchangeDirectory, clipboardDirectory, stateDirectory: join(root, 'state') };
+	const limitedPeer = join(root, 'limited-peer');
+	await writeFileSizeLimitedPeer(limitedPeer);
+	await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+	const large = 'a'.repeat(32);
+	const small = 'b'.repeat(32);
+	await writeFile(join(exchangeDirectory, 'input', `${large}.wav`), wavFixture(longFrames));
+	await writeFile(join(exchangeDirectory, 'input', `${small}.wav`), wavFixture());
+	const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+	try {
+		const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+		assert.ok(track);
+		const trackId = track.id;
+		await peer.request({ kind: 'importFile', revision: 0, trackId, asset: large, name: 'Large', start: longStart });
+		await peer.request({ kind: 'importFile', revision: 1, trackId, asset: small, name: 'Small', start: shortStart });
+		await peer.request({ kind: 'save', revision: 2 });
+		return { launch, limitedPeer, trackId };
+	} finally { await peer.close(); }
+}
+
+test('Tracktion Cut keeps the source and prior clipboard if a media write fails', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-cut-limit-'));
+	try {
+		const { launch, limitedPeer, trackId } = await prepareSizeLimitedClipboard(root, executable);
+		const peer = launchTracktionPeer({ ...launch, executable: limitedPeer, mode: 'open' });
+		try {
+			const page = { kind: 'project', offset: 0 } as const;
+			const clips = { kind: 'clips', revision: 0, trackId, offset: 0 } as const;
+			const before = await peer.request(page);
+			const source = await peer.request(clips);
+			await peer.request({ kind: 'copyRange', revision: 0, trackId, mode: 'leaveGap', start: shortStart, end: shortStart + 64 });
+			const selection = join(launch.clipboardDirectory, 'selection.xml');
+			const previousClipboard = await readFile(selection);
+			const previousFiles = (await readdir(launch.clipboardDirectory)).sort();
+			await assert.rejects(peer.request({ kind: 'cutRange', revision: 0, trackId, mode: 'leaveGap', start: longStart, end: longStart + longFrames }),
+				/Cannot preserve Tracktion clipboard media/u);
+			assert.deepEqual(await peer.request(page), before);
+			assert.deepEqual(await peer.request(clips), source);
+			assert.deepEqual(await readFile(selection), previousClipboard);
+			assert.deepEqual((await readdir(launch.clipboardDirectory)).sort(), previousFiles);
+			await peer.request({ kind: 'pasteRange', revision: 0, trackId, mode: 'overlap', start: 600_000 });
+			const pasted = (await peer.request({ ...clips, revision: 1 })).clips.at(-1);
+			assert.ok(pasted);
+			assert.deepEqual([pasted.name, pasted.start, pasted.end], ['Small', 600_000, 600_064]);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion Paste rejects incomplete media without changing the destination', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-paste-limit-'));
+	try {
+		const { launch, limitedPeer, trackId } = await prepareSizeLimitedClipboard(root, executable);
+		const source = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			await source.request({ kind: 'copyRange', revision: 0, trackId, mode: 'leaveGap', start: shortStart, end: longStart + longFrames });
+		} finally { await source.close(); }
+		const selection = join(launch.clipboardDirectory, 'selection.xml');
+		const previousClipboard = await readFile(selection);
+		const projectDirectory = join(root, 'destination');
+		const peer = launchTracktionPeer({ ...launch, executable: limitedPeer, projectDirectory, mode: 'create', sampleRate: 48_000 });
+		try {
+			const page = { kind: 'project', offset: 0 } as const;
+			const before = await peer.request(page);
+			const [destination] = before.tracks;
+			assert.ok(destination);
+			await assert.rejects(peer.request({ kind: 'pasteRange', revision: 0, trackId: destination.id, mode: 'insertTracks', start: 9 }),
+				/Cannot adopt the clipboard media/u);
+			assert.deepEqual(await peer.request(page), before);
+			assert.deepEqual(await readdir(join(projectDirectory, 'media')), []);
+			assert.deepEqual(await readFile(selection), previousClipboard);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('Tracktion cut and insert paste preserve source material across projects', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-clipboard-'));

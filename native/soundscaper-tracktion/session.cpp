@@ -34,7 +34,7 @@ void ensureDirectory(const juce::File& directory)
 }
 
 #if JUCE_LINUX && ! JUCE_WASM
-bool copyImportedWave(const juce::File& source, const juce::File& destination)
+bool copyCompleteWave(const juce::File& source, const juce::File& destination)
 {
 	// JUCE's Linux copy counts input bytes even when a destination write fails.
 	const auto input = source.createInputStream();
@@ -131,6 +131,15 @@ private:
 	TrackMix original;
 	TrackMix updated;
 };
+}
+
+void copyOwnedWave(const juce::File& source, const juce::File& destination, const char* failure)
+{
+#if JUCE_LINUX && ! JUCE_WASM
+	if (!copyCompleteWave(source, destination)) throw std::invalid_argument(failure);
+#else
+	if (!source.copyFileTo(destination)) throw std::runtime_error(failure);
+#endif
 }
 
 Session::State::State(const juce::File& directory, const juce::File& stateDirectory, OpenMode mode, int requestedSampleRate)
@@ -374,13 +383,7 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 	if (!media.isDirectory() || media.isSymbolicLink())
 		throw std::runtime_error("The project media directory is unavailable");
 	const auto destination = media.getChildFile(juce::Uuid().toString() + ".wav");
-#if JUCE_LINUX && ! JUCE_WASM
-	if (!copyImportedWave(source, destination))
-		throw std::invalid_argument("Cannot copy the audio into the project");
-#else
-	if (!source.copyFileTo(destination))
-		throw std::runtime_error("Cannot copy the audio into the project");
-#endif
+	copyOwnedWave(source, destination, "Cannot copy the audio into the project");
 
 	s.begin("Import audio");
 	const auto offsetTime = tracktion::TimeDuration::fromSamples(offset, s.sampleRate);

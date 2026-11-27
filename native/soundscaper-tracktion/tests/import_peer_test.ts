@@ -8,6 +8,7 @@ import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
+import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
 test('desktop WAV import rejects incomplete media and can retry with its Edit history intact', {
@@ -32,9 +33,7 @@ test('desktop WAV import rejects incomplete media and can retry with its Edit hi
 		startPeer: async (options) => launchTracktionPeer({ ...options, executable: limitedPeer }),
 	});
 	try {
-		// Keep the desktop staging process unrestricted and limit only the peer's
-		// writes. Ignore SIGXFSZ so the media writer must handle a failed write.
-		await writeFile(limitedPeer, '#!/bin/bash\ntrap \'\' XFSZ\nulimit -f 1024\nexec "$SOUNDSCAPER_TRACKTION_TEST_PEER" "$@"\n', { mode: 0o700 });
+		await writeFileSizeLimitedPeer(limitedPeer);
 		await mkdir(project);
 		const oversized = wavFixture(524_288);
 		const valid = wavFixture();

@@ -96,8 +96,7 @@ void Session::copyRange(Revision expected, RangeDeleteMode mode, std::optional<T
 	const auto media = snapshot.directory.getChildFile(mediaDirectory);
 	if (!media.createDirectory().wasOk()) throw std::runtime_error("Cannot create Tracktion clipboard storage");
 	for (const auto& source : sources)
-		if (!source.copyFileTo(media.getChildFile(source.getFileName())))
-			throw std::runtime_error("Cannot preserve Tracktion clipboard media");
+		copyOwnedWave(source, media.getChildFile(source.getFileName()), "Cannot preserve Tracktion clipboard media");
 	const juce::TemporaryFile staged(clipboard.getChildFile(selectionName));
 	const auto xml = selection.createXml();
 	if (!xml || !xml->writeTo(staged.getFile()) || staged.getFile().getSize() > metadataLimit)
@@ -177,7 +176,7 @@ void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId
 				{
 					while (target.exists() || target.isSymbolicLink()) target = media.getChildFile(juce::Uuid().toString() + ".wav");
 					addedFiles.push_back(target);
-					if (!clip.source.copyFileTo(target)) throw std::runtime_error("Cannot adopt the clipboard media");
+					copyOwnedWave(clip.source, target, "Cannot adopt the clipboard media");
 				}
 				found = adopted.emplace(clip.source, target).first;
 			}

@@ -15,6 +15,7 @@ namespace te = tracktion::engine;
 
 inline constexpr auto mediaDirectory = "media";
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
+void copyOwnedWave(const juce::File& source, const juce::File& destination, const char* failure);
 
 void registerOfflineEffectPlugin(te::Engine&);
 bool hasEnabledOfflineEffect(const te::Edit&);
