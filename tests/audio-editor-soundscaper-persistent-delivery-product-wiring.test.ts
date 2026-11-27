@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createDeliveryReport, sealDeliveryReport } from '../src/common/editor/delivery-report.ts';
 
@@ -51,4 +51,9 @@ test('the common delivery seam has no product controller consumer', async () => 
 	assert.doesNotMatch(common, /cancelExport:\s*\(\)\s*=>\s*handleExportAction\('cancel'\)/u);
 	assert.doesNotMatch(soundscaper, /PersistentDelivery|persistentDelivery/u);
 	assert.doesNotMatch(framescaper, /PersistentDelivery|persistentDelivery/u);
+});
+
+test('the retired persistent-delivery composition is absent from the source tree', async () => {
+	const composition = new URL('../src/common/editor/controller/export/soundscaper-persistent-delivery-controller-composition.ts', import.meta.url);
+	await assert.rejects(access(composition), { code: 'ENOENT' });
 });

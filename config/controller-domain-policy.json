@@ -178,7 +178,6 @@
 		"export/interchange-export-action.ts",
 		"export/interchange-export-timing.ts",
 		"export/product-video-export-strategy.ts",
-		"export/soundscaper-persistent-delivery-controller-composition.ts",
 		"export/soundscaper-persistent-delivery-runtime-binding.ts",
 		"export/stem-archive.ts",
 		"export/temporary-export.ts",

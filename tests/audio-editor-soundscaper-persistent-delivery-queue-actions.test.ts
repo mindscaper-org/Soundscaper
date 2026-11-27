@@ -5,13 +5,10 @@ import test from 'node:test';
 
 import type { DeliveryBatch, DeliveryBatchMember } from '../src/common/editor/delivery-batch.ts';
 import {
-	createSoundscaperPersistentDeliveryControllerComposition,
-	type SoundscaperPersistentDeliveryControllerRuntime,
-} from '../src/common/editor/controller/export/soundscaper-persistent-delivery-controller-composition.ts';
-import type {
-	SoundscaperPersistentDeliveryEnqueueRequest,
-	SoundscaperPersistentDeliveryRendererBridge,
-	SoundscaperPersistentDeliverySummary,
+	createSoundscaperPersistentDeliveryUiService,
+	type SoundscaperPersistentDeliveryEnqueueRequest,
+	type SoundscaperPersistentDeliveryRendererBridge,
+	type SoundscaperPersistentDeliverySummary,
 } from '../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-ui-service.ts';
 
 const IDENTITY = Object.freeze({
@@ -21,15 +18,12 @@ const GRANT_ID = 'cd'.repeat(24);
 const SETTINGS = Object.freeze({ format: 'flac', mode: 'mix', range: 'project' });
 const EXPORT_PLAN = Object.freeze({ format: 'flac', outputFrames: 48_000, version: 1 });
 
-test('enqueue returns the admitted jobs and wakes the worker with the exact derived batch authority', async (t) => {
+test('enqueue returns the admitted jobs with the exact derived batch authority', async () => {
 	const fixture = queueFixture([]);
-	const composition = createSoundscaperPersistentDeliveryControllerComposition(fixture.runtime);
-	assert.ok(composition);
-	t.after(() => composition.dispose());
-	await composition.ready;
-	await composition.queue.selectDestination();
+	await fixture.queue.refresh();
+	await fixture.queue.selectDestination();
 
-	assert.deepEqual(await composition.queue.enqueueBatch(batch()), ['11'.repeat(24)]);
+	assert.deepEqual(await fixture.queue.enqueueBatch(batch()), ['11'.repeat(24)]);
 	assert.equal(fixture.enqueues.length, 1);
 	const admission = fixture.enqueues[0]!;
 	assert.deepEqual(admission.admission.projectIdentity, IDENTITY);
@@ -45,78 +39,55 @@ test('enqueue returns the admitted jobs and wakes the worker with the exact deri
 			target: { kind: 'project' }, mode: 'mix',
 		},
 	});
-	assert.deepEqual(composition.queue.list().entries.map(({ jobId }) => jobId), ['11'.repeat(24)]);
-	assert.deepEqual(fixture.claims, [{
-		jobId: '11'.repeat(24), currentAuthority: {
-			projectIdentity: IDENTITY,
-			planFingerprint: admission.items[0]!.description.planFingerprint,
-		},
-	}]);
+	assert.deepEqual(fixture.queue.list().entries.map(({ jobId }) => jobId), ['11'.repeat(24)]);
 });
 
-test('retry publishes the queued state and wakes the worker for the requested job', async (t) => {
+test('retry publishes the queued state for the requested job', async () => {
 	const failed = entry('22'.repeat(24), 'failed');
 	const fixture = queueFixture([failed]);
-	const composition = createSoundscaperPersistentDeliveryControllerComposition(fixture.runtime);
-	assert.ok(composition);
-	t.after(() => composition.dispose());
-	await composition.ready;
-	assert.equal(fixture.claims.length, 0);
+	await fixture.queue.refresh();
 
-	await composition.queue.retry(failed.jobId);
+	await fixture.queue.retry(failed.jobId);
 	assert.deepEqual(fixture.controls, [['retry', { jobId: failed.jobId }]]);
-	assert.equal(composition.queue.list().entries[0]!.state, 'queued');
-	assert.deepEqual(fixture.claims.map(({ jobId }) => jobId), [failed.jobId]);
+	assert.equal(fixture.queue.list().entries[0]!.state, 'queued');
 });
 
-test('batch retry returns and wakes only failed members of that batch', async (t) => {
+test('batch retry queues and returns only failed members of that batch', async () => {
 	const failed = entry('22'.repeat(24), 'failed');
 	const completed = entry('33'.repeat(24), 'completed');
 	const cancelled = entry('44'.repeat(24), 'cancelled');
 	const unrelated = { ...entry('55'.repeat(24), 'failed'), batchId: 'other-batch' };
 	const fixture = queueFixture([failed, completed, cancelled, unrelated]);
-	const composition = createSoundscaperPersistentDeliveryControllerComposition(fixture.runtime);
-	assert.ok(composition);
-	t.after(() => composition.dispose());
-	await composition.ready;
+	await fixture.queue.refresh();
 
-	assert.deepEqual(await composition.queue.retryBatchFailures('masters'), [failed.jobId]);
+	assert.deepEqual(await fixture.queue.retryBatchFailures('masters'), [failed.jobId]);
 	assert.deepEqual(fixture.controls, [['retry', { jobId: failed.jobId }]]);
-	assert.deepEqual(composition.queue.list().entries.map(({ state }) => state), [
+	assert.deepEqual(fixture.queue.list().entries.map(({ state }) => state), [
 		'queued', 'completed', 'cancelled', 'failed',
 	]);
-	assert.deepEqual(fixture.claims.map(({ jobId }) => jobId), [failed.jobId]);
 });
 
-test('reauthorizing a destination returns the grant and restarts its waiting jobs', async (t) => {
+test('reauthorizing a destination returns the grant and refreshes its waiting jobs', async () => {
 	const waiting = entry('66'.repeat(24), 'needs-authorization');
 	const fixture = queueFixture([waiting]);
-	const composition = createSoundscaperPersistentDeliveryControllerComposition(fixture.runtime);
-	assert.ok(composition);
-	t.after(() => composition.dispose());
-	await composition.ready;
+	await fixture.queue.refresh();
 
-	assert.deepEqual(await composition.queue.reauthorizeDestination(GRANT_ID), { grantId: GRANT_ID });
+	assert.deepEqual(await fixture.queue.reauthorizeDestination(GRANT_ID), { grantId: GRANT_ID });
 	assert.deepEqual(fixture.controls, [['reauthorizeDestination', { grantId: GRANT_ID }]]);
-	assert.equal(composition.queue.list().entries[0]!.state, 'queued');
-	assert.deepEqual(fixture.claims.map(({ jobId }) => jobId), [waiting.jobId]);
+	assert.equal(fixture.queue.list().entries[0]!.state, 'queued');
 });
 
-test('a rejected retry preserves its failure and does not wake the worker', async (t) => {
+test('a rejected retry preserves its failure and the queue mirror', async () => {
 	const failed = entry('22'.repeat(24), 'failed');
 	const fixture = queueFixture([failed]);
 	const failure = new Error('The queue could not persist the retry.');
-	fixture.runtime.bridge!.retry = async () => { throw failure; };
-	const composition = createSoundscaperPersistentDeliveryControllerComposition(fixture.runtime);
-	assert.ok(composition);
-	t.after(() => composition.dispose());
-	await composition.ready;
+	fixture.bridge.retry = async () => { throw failure; };
+	await fixture.queue.refresh();
 	const readsBefore = fixture.listReads();
 
-	await assert.rejects(composition.queue.retry(failed.jobId), (error) => error === failure);
+	await assert.rejects(fixture.queue.retry(failed.jobId), (error: unknown) => error === failure);
 	assert.equal(fixture.listReads(), readsBefore);
-	assert.equal(composition.queue.list().entries[0]!.state, 'failed');
-	assert.deepEqual(fixture.claims, []);
+	assert.equal(fixture.queue.list().entries[0]!.state, 'failed');
 });
 
 function queueFixture(initialEntries: readonly SoundscaperPersistentDeliverySummary[]) {
@@ -124,10 +95,7 @@ function queueFixture(initialEntries: readonly SoundscaperPersistentDeliverySumm
 	let reads = 0;
 	const controls: Array<readonly [string, unknown]> = [];
 	const enqueues: SoundscaperPersistentDeliveryEnqueueRequest[] = [];
-	const claims: Array<Readonly<{
-		jobId: string; currentAuthority: Readonly<{ projectIdentity: unknown; planFingerprint: string }>;
-	}>> = [];
-	const bridge: SoundscaperPersistentDeliveryRendererBridge & Record<string, unknown> = {
+	const bridge: SoundscaperPersistentDeliveryRendererBridge = {
 		selectDestination: async () => ({ grantId: GRANT_ID }),
 		reauthorizeDestination: async (request) => {
 			controls.push(['reauthorizeDestination', request]);
@@ -160,22 +128,15 @@ function queueFixture(initialEntries: readonly SoundscaperPersistentDeliverySumm
 			entries = entries.map((row) => row.jobId === request.jobId ? { ...row, state: 'queued' } : row);
 		},
 	};
-	const runtime: SoundscaperPersistentDeliveryControllerRuntime = {
-		productId: 'soundscaper', bridge,
+	const queue = createSoundscaperPersistentDeliveryUiService({
+		bridge,
 		getProject: () => ({ id: IDENTITY.projectId, revision: IDENTITY.projectRevision, title: 'Album' }),
 		getSaveState: () => 'saved',
 		captureProjectGeneration: () => ({ generation: 1, projectId: IDENTITY.projectId }),
 		assertProjectGeneration: () => undefined,
-		deliveryReport: () => null,
-		workerTransport: { claimNext: async (request) => { claims.push(request); return null; } },
-		exportService: {
-			persistentAudioDeliveryAvailable: () => true,
-			whenPersistentAudioDeliveryAvailable: async () => undefined,
-			derivePersistentAudioDeliveryPlan: async () => ({ settings: SETTINGS, exportPlan: EXPORT_PLAN }),
-			executePersistentAudioDeliveryPlan: async () => assert.fail('An unclaimed job must never render.'),
-		},
-	};
-	return { runtime, controls, enqueues, claims, listReads: () => reads };
+		describeMember: async () => ({ settings: SETTINGS, exportPlan: EXPORT_PLAN }),
+	});
+	return { queue, bridge, controls, enqueues, listReads: () => reads };
 }
 
 function batch(): DeliveryBatch {
