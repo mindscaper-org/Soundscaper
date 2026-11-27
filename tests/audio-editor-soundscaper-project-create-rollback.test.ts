@@ -11,6 +11,11 @@ import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
+test('the Soundscaper project store exposes no retired raw backend lookup', async () => {
+	const stores = await import('../src/soundscaper/editor-project-store.ts');
+	assert.equal(Reflect.has(stores, 'soundscaperProjectStoreAuthority'), false);
+});
+
 for (const backend of ['memory', 'indexeddb'] as const) {
 	test(`Soundscaper ${backend} Scape creation retains its exact rollback authority`, async (context) => {
 		const store = createSoundscaperProjectStore({
