@@ -394,9 +394,9 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 		te::TrackItem::Type::wave, {{from, s.position(start + count)}, offsetTime}, false, false);
 	if (clip == nullptr)
 	{
-		s.edit->getUndoManager().undoCurrentTransactionOnly();
+		s.rollback();
 		destination.deleteFile();
-		throw std::runtime_error("Tracktion refused the audio clip");
+		throw std::invalid_argument("Tracktion refused the audio clip");
 	}
 	s.commit();
 	return clip->itemID.getRawID();
