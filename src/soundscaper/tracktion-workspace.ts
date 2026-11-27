@@ -23,6 +23,15 @@ export function readOpenedTracktionWorkspace(bridge: TracktionProjectBridge, pro
 	return readWorkspaceFromPage(bridge, project, project.project);
 }
 
+export async function readTracktionWorkspaceAfterPropertyEdit(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
+): Promise<TracktionWorkspace> {
+	if (revision === workspace.project.revision) return workspace;
+	const project = await bridge.request({ kind: 'project', sessionId: workspace.sessionId, offset: 0 });
+	if (project.revision === revision) return { ...workspace, project };
+	return await readWorkspaceFromPage(bridge, workspace, project, workspace.selectedTrack?.id);
+}
+
 async function readWorkspaceFromPage(
 	bridge: TracktionProjectBridge,
 	project: Pick<TracktionOpenedProject, 'sessionId' | 'name'>,

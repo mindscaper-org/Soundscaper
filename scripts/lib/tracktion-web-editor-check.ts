@@ -12,12 +12,14 @@ type PlaybackWindow = Window & {
 	tracktionTestStarts?: number;
 	tracktionTestCapture?: Int32Array;
 	tracktionTestMicrophone?: MediaStreamTrack;
+	tracktionTestCommands?: string[];
 };
 
 export async function verifyTracktionWebEditor(page: Page, origin: string, path = '/editor'): Promise<void> {
 	const name = 'Tracktion browser project';
 	const fileMenu = page.getByText('File', { exact: true });
 	const button = (label: string) => page.getByRole('button', { name: label, exact: true });
+	const commandsSince = (offset = 0) => page.evaluate((start) => (window as PlaybackWindow).tracktionTestCommands?.slice(start) ?? [], offset);
 	async function fileCommand(label: string): Promise<void> {
 		if (await fileMenu.locator('..').getAttribute('open') === null) await fileMenu.click();
 		await button(label).click();
@@ -36,6 +38,16 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await page.goto(new URL(path, origin).href);
 	await page.evaluate(() => {
 		const observed = window as PlaybackWindow;
+		const commands: string[] = [];
+		observed.tracktionTestCommands = commands;
+		const post = Worker.prototype.postMessage;
+		Worker.prototype.postMessage = {
+			postMessage(this: Worker, message: unknown, options?: Transferable[] | StructuredSerializeOptions) {
+				const kind = (message as { request?: { kind?: unknown } } | null)?.request?.kind;
+				if (typeof kind === 'string') commands.push(kind);
+				Reflect.apply(post, this, options === undefined ? [message] : [message, options]);
+			},
+		}.postMessage;
 		const devicePrototype = Object.getPrototypeOf(navigator.mediaDevices) as object;
 		Object.defineProperty(devicePrototype, 'getUserMedia', {
 			value: async () => {
@@ -161,7 +173,10 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await mixer.getByRole('spinbutton', { name: 'Pan' }).fill('0.5');
 	await mixer.getByRole('checkbox', { name: 'Mute' }).check();
 	await mixer.getByRole('checkbox', { name: 'Solo' }).check();
+	const mixStart = (await commandsSince()).length;
 	await mixer.getByRole('button', { name: 'Apply' }).click();
+	await page.locator('main[aria-busy="false"]').waitFor();
+	assert.deepEqual(await commandsSince(mixStart), ['setTrackMix', 'project']);
 	await editing.click();
 	await button('Mixer').click();
 	assert.equal(await mixer.getByRole('spinbutton', { name: /Gain/u }).inputValue(), '-6');
@@ -201,8 +216,10 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	const valueField = automation.getByRole('spinbutton', { name: 'Value' });
 	const curveField = automation.getByRole('spinbutton', { name: /Curve to next point/u });
 	await curveField.fill('1');
+	const automationStart = (await commandsSince()).length;
 	await automation.getByRole('button', { name: 'Add point' }).click();
 	await point.getByRole('option', { name: '0 · 0.000', exact: true }).waitFor({ state: 'attached' });
+	assert.deepEqual(await commandsSince(automationStart), ['setAutomationPoint', 'project', 'trackAutomation']);
 	await frameField.fill('32768');
 	await valueField.fill('-6');
 	await automation.getByRole('button', { name: 'Add point' }).click();
