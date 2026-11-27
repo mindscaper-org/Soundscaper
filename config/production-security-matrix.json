@@ -1965,7 +1965,7 @@
 				},
 				{
 					"kind": "implementation",
-					"path": "src/soundscaper/desktop-project-library-store-adapter.ts"
+					"path": "src/framescaper/desktop-project-library-store-adapter.ts"
 				},
 				{
 					"kind": "implementation",
@@ -2172,7 +2172,6 @@
 				"desktop/soundscaper-project-library-publication-host.ts",
 				"desktop/soundscaper-project-library-main.ts",
 				"desktop/framescaper-project-library-main.ts",
-				"src/soundscaper/desktop-project-library-store-adapter.ts",
 				"src/framescaper/desktop-project-library-store-adapter.ts",
 				"desktop/soundscaper-project-library-media-binding.ts",
 				"desktop/soundscaper-project-library-publication-contract.ts",
@@ -5988,7 +5987,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-store-adapter.ts"
+							"path": "src/framescaper/desktop-project-library-store-adapter.ts"
 						},
 						{
 							"kind": "test",
@@ -9014,7 +9013,7 @@
 					"evidence": [
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-store-adapter.ts"
+							"path": "src/framescaper/desktop-project-library-store-adapter.ts"
 						},
 						{
 							"kind": "implementation",

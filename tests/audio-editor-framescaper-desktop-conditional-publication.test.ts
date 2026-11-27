@@ -88,6 +88,7 @@ test('Framescaper desktop conditional saves publish and compare against main aut
 		const stale = advance(concurrent, 3, 'Stale contender', '2026-08-30T11:03:00.000Z');
 
 		assert.deepEqual(await adapter.createProjectIfAbsent(base), base);
+		assert.equal(await adapter.createProjectIfAbsent(base), null);
 		const oldFence = await adapter.claimProjectWriteFence(PROJECT_ID);
 		const currentFence = await adapter.claimProjectWriteFence(PROJECT_ID);
 		assert.equal(await adapter.saveProjectIfCurrentWithWriteFence(base, first, oldFence), null);
@@ -103,6 +104,10 @@ test('Framescaper desktop conditional saves publish and compare against main aut
 		await publishDirectly(session, concurrent, '22'.repeat(24));
 		assert.equal(await adapter.saveProjectIfCurrent(first, stale), null);
 		assert.deepEqual(await authoritativeProject(session, PROJECT_ID), concurrent);
+		assert.deepEqual(await adapter.loadProject(PROJECT_ID, { revision: 0 }), base);
+		await assert.rejects(adapter.loadProject(PROJECT_ID, { revision: -1 }), /revision is invalid/u);
+		await assert.rejects(adapter.loadProject(PROJECT_ID, { signal: 'not a signal' }), /AbortSignal/u);
+		await assert.rejects(adapter.saveProject(concurrent, { unexpected: true }), /unsupported fields/u);
 		const shadowBeforeRefusedRestore = await store.loadProject(PROJECT_ID);
 		assert.equal(await adapter.restoreProjectSnapshotIfCurrent(PROJECT_ID, concurrent, {
 			current: first,

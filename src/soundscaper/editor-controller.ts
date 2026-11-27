@@ -76,10 +76,9 @@ export function createSoundscaperAudioEditorController(
 ): SoundscaperAudioEditorController {
 	const environment = assertSoundscaperEditorProjectEnvironment(environmentValue);
 	const presentation = snapshotPresentation(presentationValue);
-	environment.desktopProjectLibrary?.setFileSizeWarningConfirmation(presentation.confirmFileSizeWarning);
 	const scapeProjectRuntime = createSoundscaperScapeNativeRuntime();
 	const productVideoExportStrategy = createSoundscaperVideoExportStrategy(environment.runtime);
-	const nativePluginStateStore = environment.controllerStore as unknown as
+	const nativePluginStateStore = environment.store as unknown as
 		SoundscaperAup4NativePluginStateStore;
 	let productController: SoundscaperAudioEditorController | null = null;
 	let persistentDeliveryExportRuntime: SoundscaperPersistentDeliveryExportRuntime | null = null;
@@ -92,13 +91,13 @@ export function createSoundscaperAudioEditorController(
 	const delegate = createAudioEditorController(null, {
 		headless: true,
 		productId: 'soundscaper',
-		store: environment.controllerStore,
+		store: environment.store,
 		sessionController: environment.runtime.createSessionController(),
 		acquireProjectLock: environment.runtime.acquireProjectLock,
 		projectRuntime: environment.runtime,
 		playbackProjectService: environment.playback,
 		createProjectIfAbsent: (project, publicationOptions) => environment.createProjectIfAbsent(project, { ...publicationOptions, confirmFileSizeWarning: publicationOptions?.confirmFileSizeWarning ?? presentation.confirmFileSizeWarning }),
-		onProjectOpenFailure: (projectId, error) => hasSoundscaperProjectOpenRecovery(environment.controllerStore, projectId, error),
+		onProjectOpenFailure: (projectId, error) => hasSoundscaperProjectOpenRecovery(environment.store, projectId, error),
 		adaptAudacityProject: async (value: unknown, context?: DawprojectImportRoutingContext) => recoverSoundscaperNativePluginStatesFromAup4(
 			importSoundscaperAudacityProject(value, context),
 			nativePluginStateStore,
@@ -141,7 +140,7 @@ export function createSoundscaperAudioEditorController(
 	});
 	productController = createControllerFacade(
 		delegate, automation, freeze, createSoundscaperNativePluginActions(delegate), persistentDelivery,
-		bindSoundscaperProjectRecovery(environment.controllerStore, (project) => delegate.actions.project.open(project), delegate),
+		bindSoundscaperProjectRecovery(environment.store, (project) => delegate.actions.project.open(project), delegate),
 		presentation,
 	);
 	return productController;

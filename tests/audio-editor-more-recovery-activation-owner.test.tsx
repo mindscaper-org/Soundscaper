@@ -30,11 +30,11 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 	const controller = createSoundscaperAudioEditorController(environment);
 	await controller.ready;
 	const original = createSoundscaperProject({ id: 'recover-pending-original', title: 'Original work' });
-	await environment.controllerStore.saveProject(original);
+	await environment.store.saveProject(original);
 	let release = (): void => undefined, entered = (): void => undefined;
 	const gate = new Promise<void>(resolve => { release = resolve; });
 	const started = new Promise<void>(resolve => { entered = resolve; });
-	const repository = environment.controllerStore.analysisRepository;
+	const repository = environment.store.analysisRepository;
 	const get = repository.get.bind(repository);
 	const originKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(original.id)}`;
 	repository.get = async (key: string) => {
@@ -81,10 +81,10 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 		assert.equal(controller.project?.id, newer.id, 'old recovery must not activate over File New');
 		assert.ok(completion); await assert.rejects(completion, { code: 'PROJECT_CHANGED' });
 		assert.ok(receipt);
-		const beforeRetry = await environment.controllerStore.listProjects();
+		const beforeRetry = await environment.store.listProjects();
 		const retried = await recovery.recover(receipt, candidateIndex);
 		assert.equal(controller.project?.id, retried.project.id);
-		assert.equal((await environment.controllerStore.listProjects()).length, beforeRetry.length, 'retry reuses the published copy');
+		assert.equal((await environment.store.listProjects()).length, beforeRetry.length, 'retry reuses the published copy');
 	} finally {
 		release(); await completion?.catch(() => undefined);
 		await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = prior; dom.restore();

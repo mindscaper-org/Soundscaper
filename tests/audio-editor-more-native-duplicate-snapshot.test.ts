@@ -46,7 +46,7 @@ for (const changed of [false, true]) test(`MP60: File Duplicate completes after 
 			id: 'voice', type: 'audio', effects: [{ id: 'native-slot', type: 'native-plugin', enabled: true,
 				params: { instanceId: state.instanceId, latencyFrames: 0 }, context: { format: 'clap', stablePluginId: state.stablePluginId, binarySha256: state.binarySha256 } }],
 		}], nativePluginStates: [state] });
-		await environment.controllerStore.saveProject(original);
+		await environment.store.saveProject(original);
 		await controller.actions.project.openById(original.id);
 		assert.equal(controller.getSnapshot().readOnly, false, 'the hosted native project is editable');
 		await controller.actions.project.rename('Live native changed');

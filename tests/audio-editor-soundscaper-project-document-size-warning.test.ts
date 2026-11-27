@@ -6,7 +6,6 @@ import {
 	admitSoundscaperDesktopPublication,
 	rendererPublicationRequest,
 } from '../src/soundscaper/desktop-project-library-publication-warning.ts';
-import { admitSoundscaperDesktopStorePublication } from '../src/soundscaper/desktop-project-library-store-publication.ts';
 import { validateSoundscaperDesktopBundle } from '../src/soundscaper/desktop-project-library-renderer-contract.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { SOUNDSCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/soundscaper/editor-project-runtime-profile.ts';
@@ -48,33 +47,6 @@ test('desktop publication requests keep warning options closed and snapshot call
 	assert.throws(() => rendererPublicationRequest(PROFILE, { project, approved: true }), /unsupported/);
 	assert.throws(() => rendererPublicationRequest(PROFILE, { project, confirmFileSizeWarning: true }), /function/);
 	assert.throws(() => rendererPublicationRequest(PROFILE, { project, assertCurrent: true }), /function/);
-});
-
-test('store publication approval is scoped to the exact measured project and retains cancellation', async () => {
-	const store = { backend: 'memory', maximumProjectDocumentBytes: 1,
-		ready: async () => undefined, estimateStorage: async () => ({}) };
-	let prompts = 0;
-	const options = await admitSoundscaperDesktopStorePublication(store, PROFILE, project,
-		{ confirmFileSizeWarning: async () => { prompts += 1; return true; } });
-	const request = rendererPublicationRequest(PROFILE, { project, ...options });
-	assert.equal(await options.confirmFileSizeWarning?.({ label: 'Project document',
-		byteLength: request.documentByteLength, thresholdBytes: threshold }), true);
-	assert.equal(await options.confirmFileSizeWarning?.({ label: 'Project document',
-		byteLength: request.documentByteLength + 1, thresholdBytes: threshold }), false);
-	assert.equal(await options.confirmFileSizeWarning?.({ label: 'Another file',
-		byteLength: request.documentByteLength, thresholdBytes: threshold }), false);
-	assert.equal(prompts, 1);
-	assert.throws(() => rendererPublicationRequest(PROFILE, { project: { ...project, title: 'Projecx' }, ...options }),
-		/exact store publication approval/, 'an equal-length changed document cannot reuse this operation approval');
-	const automatic = await admitSoundscaperDesktopStorePublication(store, PROFILE, project);
-	assert.equal(await automatic.confirmFileSizeWarning?.({ label: 'Project document',
-		byteLength: request.documentByteLength, thresholdBytes: threshold }), true);
-	await assert.rejects(admitSoundscaperDesktopStorePublication(store, PROFILE,
-		{ ...project, title: 'A larger document' }), /confirmation is required/);
-	const abort = new AbortController();
-	const canceled = await admitSoundscaperDesktopStorePublication(store, PROFILE, project, { signal: abort.signal });
-	abort.abort();
-	await assert.rejects(admitSoundscaperDesktopPublication({ ...request, ...canceled, signal: canceled.signal ?? undefined }), { name: 'AbortError' });
 });
 
 test('approved large desktop document metadata still requires exact bytes and digest', () => {

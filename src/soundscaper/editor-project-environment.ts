@@ -4,10 +4,6 @@ import type { FileSizeWarningOptions } from '../common/editor/controller/shared/
 import type { AudioEditorProjectStoreOptions } from '../common/editor/storage/project-store-options.ts';
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
 import { AudioEditorProjectStore } from '../common/editor/storage.js';
-import type {
-	SoundscaperDesktopProjectLibraryRenderer,
-	SoundscaperDesktopProjectLibraryShadowStore,
-} from './desktop-project-library-renderer.ts';
 import {
 	createSoundscaperAudioTrackFreezePlaybackService,
 	type SoundscaperAudioTrackFreezePlaybackService,
@@ -28,8 +24,6 @@ export interface SoundscaperEditorProjectEnvironmentOptions {
 export interface SoundscaperEditorProjectEnvironment {
 	readonly runtime: Readonly<SoundscaperProjectRuntimeSelection>;
 	readonly store: AudioEditorProjectStore;
-	readonly controllerStore: AudioEditorProjectStore;
-	readonly desktopProjectLibrary: SoundscaperDesktopProjectLibraryRenderer | null;
 	readonly playback: SoundscaperAudioTrackFreezePlaybackService;
 	readonly createProjectIfAbsent: (project: ProjectDocument, options?: FileSizeWarningOptions) => Promise<ProjectDocument | null>;
 	readonly close: () => Promise<void>;
@@ -47,20 +41,6 @@ export async function createSoundscaperEditorProjectEnvironment(
 		if (!store.getStatus?.()?.persistent) {
 			throw new Error('Durable storage is required; memory baseline project storage is unsupported.');
 		}
-		const desktopProjectLibrary = Object.getOwnPropertyDescriptor(
-			globalThis, 'soundscaperProjectLibraryDesktop',
-		) ? await import('./desktop-project-library-renderer.ts').then(({ connectSoundscaperDesktopProjectLibraryRenderer }) => (
-			connectSoundscaperDesktopProjectLibraryRenderer(
-				runtime.runtimeProfile,
-				{ store: store as unknown as SoundscaperDesktopProjectLibraryShadowStore },
-			)
-		)) : null;
-		const controllerStore = desktopProjectLibrary
-			? (await import('./desktop-project-library-store-adapter.ts')).createSoundscaperDesktopProjectStoreAdapter(
-				runtime.runtimeProfile,
-				{ localStore: store, desktopProjectLibrary },
-			)
-			: store;
 		const playback = createSoundscaperAudioTrackFreezePlaybackService(
 			createSoundscaperPlaybackProjectService(),
 			store,
@@ -68,10 +48,10 @@ export async function createSoundscaperEditorProjectEnvironment(
 		const environment = Object.freeze({
 			runtime,
 			store,
-			controllerStore,
-			desktopProjectLibrary,
 			playback,
-			createProjectIfAbsent: (project: ProjectDocument, publicationOptions: FileSizeWarningOptions = {}) => controllerStore.createProjectIfAbsent(project, publicationOptions),
+			createProjectIfAbsent: (project: ProjectDocument, publicationOptions: FileSizeWarningOptions = {}) => (
+				store.createProjectIfAbsent(project, publicationOptions)
+			),
 			close: async () => {
 				playback.dispose();
 				await store.close();

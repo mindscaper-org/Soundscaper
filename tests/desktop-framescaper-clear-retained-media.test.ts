@@ -5,24 +5,21 @@ import { openAsBlob } from 'node:fs';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
-import { createSoundscaperDesktopProjectLibraryHandshake, createSoundscaperDesktopProjectLibraryPaths } from '../desktop/soundscaper-project-library-contract.ts';
-import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts';
 import { AUDIO_ANALYSIS_REPORT_CACHE_PREFIX, peakCacheKey } from '../src/common/editor/source-analysis-cache.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
+import { recordingRoutingSettingKey } from '../src/common/editor/recording-routing.js';
 import { RECORDING_RECOVERY_KEY_PREFIX } from '../src/common/editor/storage/recording-recovery-journal-repository.ts';
-import { SUBPROJECT_LIBRARY_SETTING } from '../src/common/editor/subproject-library-setting.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
-import { createSoundscaperAudioEditorController } from '../src/soundscaper/editor-controller.ts';
-import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
-import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
+import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/editor-project-environment.ts';
+import { validateFramescaperProject } from '../src/framescaper/editor-project.ts';
+import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE as PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { startFramescaperDesktopProjectSession } from './helpers/framescaper-desktop-project-session.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
-import { soundscaperLibrarySessionBridge } from './helpers/soundscaper-library-session-bridge.ts';
 
-test('Soundscaper desktop Clear retains saved history and playable timeline media after restart', async context => {
-	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-clear-retained-media-'));
+test('Framescaper desktop Clear retains saved history and playable timeline media after restart', async context => {
+	const directory = await mkdtemp(join(tmpdir(), 'framescaper-clear-retained-media-'));
 	context.after(() => rm(directory, { recursive: true, force: true }));
 	const previousAudioContext = globalThis.AudioContext;
 	globalThis.AudioContext = MockAudioContext as unknown as typeof AudioContext;
@@ -35,53 +32,81 @@ test('Soundscaper desktop Clear retains saved history and playable timeline medi
 	const path = join(directory, name);
 	await writeFile(path, bytes);
 	const file = new File([await openAsBlob(path, { type: 'audio/wav' })], name, { type: 'audio/wav' });
-	const saved = await withDesktopController(directory, indexedDB, async (controller, environment) => {
+	const open = () => startFramescaperDesktopProjectSession(directory, {
+		openEnvironment: () => createFramescaperEditorProjectEnvironment({
+			storeOptions: { indexedDB, preferOpfs: false,
+				storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }) } },
+		}),
+	});
+	const initial = await open();
+	const saved = await (async () => {
+		const { controller, environment, session } = initial;
 		await controller.actions.project.create({ title: 'Field recording' });
 		await controller.actions.project.importFiles([file], { destination: 'timeline' });
 		await controller.actions.project.save();
 		const project = controller.project;
-		assert.ok(validateSoundscaperProject(project));
+		assert.ok(validateFramescaperProject(PROFILE, project));
 		assert.equal(project.title, 'Field recording');
 		const [source] = project.sources;
 		assert.ok(source?.kind === 'audio' && typeof source.storageKey === 'string');
 		assert.deepEqual((await environment.store.readSourceChunk(source.storageKey, 0)).channels[0], samples);
-		const revisions = readSavedRevisions(directory, project.id);
+		const bundle = await readSavedBundle(session, project.id);
+		const revisions = await environment.store.listProjectRevisions(project.id);
 		assert.ok(revisions.length >= 2);
-		const shadowRevisions = await environment.store.listProjectRevisions(project.id);
 		const waveform = peakCacheKey(source.id);
 		const report = `${AUDIO_ANALYSIS_REPORT_CACHE_PREFIX}${project.id}`;
 		const recovery = `${RECORDING_RECOVERY_KEY_PREFIX}disconnected-recording`;
 		const recoveryRoot = { sourceId: source.storageKey };
+		const track = project.tracks.find(({ type }) => type === 'audio');
+		assert.ok(track);
+		const routingKey = recordingRoutingSettingKey(project.id);
+		const routing = { routes: { [track.id]: {
+			kind: 'device', deviceId: 'interface', deviceLabel: 'Studio interface', channelStart: 0, channelCount: 1,
+		} }, offsets: {} };
 		await environment.store.saveAnalysis(waveform, { cached: true });
 		await environment.store.saveAnalysis(report, { cached: true });
 		await environment.store.saveAnalysis(recovery, recoveryRoot);
 		await environment.store.saveSetting('audio-editor-preferences-v1', { processingBackend: 'browser' });
-		await environment.store.saveSetting(SUBPROJECT_LIBRARY_SETTING, 'library-reset-test');
+		await environment.store.saveSetting(routingKey, routing);
 
 		await controller.actions.project.clear();
 
 		assert.notEqual(controller.project?.id, project.id);
 		const projects = await environment.controllerStore.listProjects();
 		assert.ok(projects.some(row => row.id === project.id));
-		assert.deepEqual(readSavedRevisions(directory, project.id), revisions);
+		assert.deepEqual(await readSavedBundle(session, project.id), bundle);
 		assert.equal(await environment.store.loadSetting('audio-editor-preferences-v1'), null);
-		assert.equal(await environment.store.loadSetting(SUBPROJECT_LIBRARY_SETTING), 'library-reset-test');
+		assert.deepEqual(await environment.store.loadSetting(routingKey), routing);
 		assert.equal(await environment.store.loadAnalysis(waveform), null);
 		assert.equal(await environment.store.loadAnalysis(report), null);
 		assert.deepEqual(await environment.store.loadAnalysis(recovery), recoveryRoot);
 		assert.ok(await environment.store.getSourceMetadata(source.storageKey), 'Clear must retain the only stored PCM');
-		assert.deepEqual(await environment.store.listProjectRevisions(project.id), shadowRevisions);
-		return { project, storageKey: source.storageKey, revisions };
-	});
-	await withDesktopController(directory, indexedDB, async (controller, environment) => {
+		assert.deepEqual(await environment.store.listProjectRevisions(project.id), revisions);
+		return { project, storageKey: source.storageKey, revisions, bundle, routingKey, routing };
+	})().finally(() => initial.close());
+	const restarted = await open();
+	try {
+		const { controller, environment, session } = restarted;
 		await controller.actions.project.openById(saved.project.id);
 		assert.equal(controller.project?.id, saved.project.id);
 		assert.deepEqual(controller.project?.clips, saved.project.clips);
-		assert.equal(controller.getSnapshot().projectRecovery, null);
 		assert.deepEqual((await environment.store.readSourceChunk(saved.storageKey, 0)).channels[0], samples);
-		assert.deepEqual(readSavedRevisions(directory, saved.project.id), saved.revisions);
-	});
+		assert.deepEqual(await readSavedBundle(session, saved.project.id), saved.bundle);
+		assert.deepEqual(await environment.store.listProjectRevisions(saved.project.id), saved.revisions);
+		assert.deepEqual(await environment.store.loadSetting(saved.routingKey), saved.routing);
+	} finally { await restarted.close(); }
 });
+
+async function readSavedBundle(
+	session: Awaited<ReturnType<typeof startFramescaperDesktopProjectSession>>['session'],
+	projectId: string,
+): Promise<object> {
+	const bundle = await session.readProjectBundle(projectId);
+	assert.ok(bundle && typeof bundle === 'object' && 'metadataRevision' in bundle);
+	// Clear can create another project and advance the library-wide catalog.
+	const { metadataRevision: _catalogRevision, ...savedProject } = bundle;
+	return savedProject;
+}
 
 test('a desktop Clear interrupted before storage mutation releases its writer admission', async context => {
 	const store = createProjectStore({ indexedDB: createInstrumentedIndexedDB(), preferOpfs: false });
@@ -97,49 +122,3 @@ test('a desktop Clear interrupted before storage mutation releases its writer ad
 	await store.clear({ preserveProjectData: true });
 	assert.deepEqual((await store.readSourceChunk('recording-after-reset', 0)).channels[0], Float32Array.of(0.25));
 });
-
-function readSavedRevisions(directory: string, projectId: string) {
-	const path = createSoundscaperDesktopProjectLibraryPaths(directory).databasePath;
-	const database = new DatabaseSync(path, { readOnly: true });
-	try { return database.prepare('SELECT * FROM project_revisions WHERE project_id = ? ORDER BY project_revision').all(projectId); }
-	finally { database.close(); }
-}
-
-async function withDesktopController<Value>(
-	directory: string,
-	indexedDB: ReturnType<typeof createInstrumentedIndexedDB>,
-	run: (controller: ReturnType<typeof createSoundscaperAudioEditorController>,
-		environment: Awaited<ReturnType<typeof createSoundscaperEditorProjectEnvironment>>) => Promise<Value>,
-): Promise<Value> {
-	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
-	const main = await SoundscaperDesktopProjectLibraryMain.start({
-		appDataPath: directory, handshake,
-		owner: { product: 'soundscaper', processId: process.pid, instanceId: crypto.randomUUID() },
-		onLeaseLost: () => undefined, testControl: null,
-	});
-	const session = main.openSession(handshake);
-	const bridge = soundscaperLibrarySessionBridge(main, session);
-	const libraryGlobal = 'soundscaperProjectLibraryDesktop';
-	const recoveryGlobal = 'soundscaperProjectRecoveryDesktop';
-	Object.defineProperty(globalThis, libraryGlobal, { configurable: true, enumerable: true, value: Object.freeze({ v1: bridge }) });
-	Object.defineProperty(globalThis, recoveryGlobal, { configurable: true, enumerable: true, value: Object.freeze({
-		listProjectRecoverySummaries: async () => main.listProjectRecoverySummaries(),
-		readProjectRecoveryCandidates: async (id: string) => main.readProjectRecoveryCandidates(id),
-	}) });
-	try {
-		const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
-			indexedDB, preferOpfs: false, storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }) },
-		} });
-		try {
-			const controller = createSoundscaperAudioEditorController(environment);
-			try {
-				await controller.ready;
-				return await run(controller, environment);
-			} finally { await controller.dispose(); }
-		} finally { await environment.close(); }
-	} finally {
-		Reflect.deleteProperty(globalThis, libraryGlobal);
-		Reflect.deleteProperty(globalThis, recoveryGlobal);
-		try { await session.close(); } finally { await main.close(); }
-	}
-}

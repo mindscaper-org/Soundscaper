@@ -11,7 +11,6 @@ import { acquireSoundscaperDesktopFreezeBodies, type SoundscaperDesktopFreezeSto
 import { SoundscaperDesktopFreezeSizeAdmission } from '../src/soundscaper/desktop-project-library-freeze-size-warning.ts';
 import { snapshotSoundscaperDesktopProject, soundscaperDesktopBodiesForProject, type SoundscaperDesktopBundleSnapshot, type SoundscaperDesktopRendererBridge } from '../src/soundscaper/desktop-project-library-renderer-contract.ts';
 import { connectSoundscaperDesktopProjectLibraryRenderer, type SoundscaperDesktopProjectLibraryShadowStore } from '../src/soundscaper/desktop-project-library-renderer.ts';
-import { createSoundscaperDesktopDocumentApproval, soundscaperDesktopMediaWarningOptions } from '../src/soundscaper/desktop-project-library-publication-warning.ts';
 import { SOUNDSCAPER_PROJECT_RUNTIME_PROFILE } from '../src/soundscaper/editor-project-runtime-profile.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
@@ -79,14 +78,6 @@ test('freeze admission reuses only accepted owner/project bounds for automatic o
 	assert.equal(prompts, 2);
 	admission.forget('project');
 	await assert.rejects(admission.options('project', {}).confirmFileSizeWarning!(warning), FileSizeWarningRequiredError);
-});
-
-test('scoped document approval preserves the original explicit media warning options', () => {
-	const callback = async () => true;
-	const options = { confirmFileSizeWarning: callback, assertCurrent: () => undefined };
-	const approved = createSoundscaperDesktopDocumentApproval(SOUNDSCAPER_PROJECT_RUNTIME_PROFILE,
-		{ byteLength: 12, sha256: 'a'.repeat(64) }, options);
-	assert.deepEqual(soundscaperDesktopMediaWarningOptions(approved), options);
 });
 
 test('desktop renderer confirms large media before native publication or recipient shadow acquisition', async () => {

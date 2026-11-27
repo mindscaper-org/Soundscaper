@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { confirmFileSizeWarning, type FileSizeWarningConfirmation, type FileSizeWarningOptions } from '../common/editor/controller/shared/file-size-warning.ts'
-import { admitSoundscaperDesktopPublication, rendererPublicationRequest, soundscaperDesktopMediaWarningOptions, soundscaperDesktopPublicationWarningOptions, type SoundscaperDesktopRendererPublication as RendererPublication } from './desktop-project-library-publication-warning.ts'
+import { admitSoundscaperDesktopPublication, rendererPublicationRequest, soundscaperDesktopPublicationWarningOptions, type SoundscaperDesktopRendererPublication as RendererPublication } from './desktop-project-library-publication-warning.ts'
 import { SoundscaperDesktopFreezeSizeAdmission, assertSoundscaperDesktopMediaPublicationCurrent } from './desktop-project-library-freeze-size-warning.ts'
 import { SCAPE_ARCHIVE_LIMITS } from '../common/scape/archive-limits.ts';
 import { throwIfScapeAborted } from '../common/scape/abort.ts'
@@ -371,7 +371,7 @@ class Renderer implements SoundscaperDesktopProjectLibraryRenderer {
 		const planned = soundscaperDesktopBodiesForProject(
 			this.#profile, request.project, request.documentSha256,
 		)
-		const mediaOptions = this.#mediaAdmission.options(projectId, soundscaperDesktopMediaWarningOptions(request))
+		const mediaOptions = this.#mediaAdmission.options(projectId, request)
 		await confirmFileSizeWarning(soundscaperDesktopFreezeBodyBytes(request.project, planned.bodies),
 			SCAPE_ARCHIVE_LIMITS.maximumExpandedBytes, 'Desktop project media', mediaOptions)
 		const currentValue = await this.#store.loadProject(projectId, request.signal ? { signal: request.signal } : {})
