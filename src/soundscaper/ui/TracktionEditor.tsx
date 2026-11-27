@@ -303,21 +303,9 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	function exportProject(format: 'archive' | 'render'): void {
 		if (!workspace) return;
+		const { sessionId, project: { revision } } = workspace;
 		run(async () => {
-			const { sessionId } = workspace;
-			const { revision } = workspace.project;
-			if (format === 'archive') {
-				await bridge.request({ kind: format, sessionId, revision });
-				return;
-			}
-			let end = 0;
-			for (const track of workspace.tracks) {
-				if (track.clipCount === 0) continue;
-				const clips = track.id === workspace.selectedTrack?.id ? workspace.clips
-					: await readTracktionClips(bridge, sessionId, revision, track.id);
-				for (const clip of clips) end = Math.max(end, clip.end);
-			}
-			if (end > 0) await bridge.request({ kind: format, sessionId, revision, start: 0, end });
+			await bridge.request({ kind: format, sessionId, revision });
 		});
 	}
 

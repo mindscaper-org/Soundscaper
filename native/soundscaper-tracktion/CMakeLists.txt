@@ -58,6 +58,7 @@ if(BUILD_TESTING)
 			"${SOUNDSCAPER_TRACKTION_NODE}" --import tsx --test --test-concurrency=1
 			native/soundscaper-tracktion/tests/peer_test.ts native/soundscaper-tracktion/tests/clipboard_peer_test.ts
 			native/soundscaper-tracktion/tests/automation_peer_test.ts
+			native/soundscaper-tracktion/tests/render_peer_test.ts
 			native/soundscaper-tracktion/tests/pipewire_output_test.ts
 			native/soundscaper-tracktion/tests/offline_effect_peer_test.ts native/soundscaper-tracktion/tests/plugin_library_test.ts)
 	add_test(NAME soundscaper_tracktion_audio_queue

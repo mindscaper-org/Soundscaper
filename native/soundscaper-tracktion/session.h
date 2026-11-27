@@ -155,6 +155,7 @@ public:
 	void startRecording(Revision, TrackId, Frame);
 	std::optional<ClipId> finishRecording(Revision, bool discard);
 
+	Frame mixEnd() const;
 	void render(Revision, const juce::File& output, Frame start, Frame end,
 	            const std::atomic_bool* cancelled = nullptr, OfflineEffectHost* effects = nullptr);
 

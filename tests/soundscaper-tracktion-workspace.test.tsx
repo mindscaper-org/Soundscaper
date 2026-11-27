@@ -39,6 +39,7 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 	let clipTitleReads = 0;
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
+			case 'render': return { revision: firstPage.revision, itemId: null };
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
 			case 'project': return command.offset === 0 ? firstPage : { ...firstPage, tracks: tracks.slice(32), nextOffset: null };
 			case 'clips': {
@@ -118,6 +119,14 @@ void test('changing tracks keeps the loaded track inventory and reads the select
 	});
 	assert.equal(dom.find('li'), null);
 	assert.equal(requests.length, before + 1);
+});
+
+void test('whole mix export sends one request even when other tracks have more clip pages', async (context) => {
+	const { requests, click } = await mountEditor(context, { clipsPerTrack: 65 });
+	await click('Open projects');
+	const before = requests.length;
+	await click('Export mix (WAV)');
+	assert.deepEqual(requests.slice(before), [{ kind: 'render', sessionId: 'session', revision: 7 }]);
 });
 
 void test('Undo that stops the native graph also stops browser output and updates the controls', async (context) => {

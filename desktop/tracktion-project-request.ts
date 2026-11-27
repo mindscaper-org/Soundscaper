@@ -9,6 +9,7 @@ import { readTracktionAudioDeviceId, readTracktionAudioSetup, tracktionAudioSetu
 const SESSION_ID = /^[a-f0-9]{32}$/u;
 const ITEM_ID = /^[1-9][0-9]{0,19}$/u;
 const rangeFields = ['kind', 'sessionId', 'revision', 'mode', 'trackId', 'start', 'end'] as const;
+const renderRangeFields = ['kind', 'sessionId', 'revision', 'start', 'end'] as const;
 const automationFields = ['kind', 'sessionId', 'revision', 'trackId', 'parameter'] as const;
 const fields = {
 	create: ['kind', 'sampleRate'],
@@ -41,7 +42,7 @@ const fields = {
 	undo: ['kind', 'sessionId', 'revision'],
 	redo: ['kind', 'sessionId', 'revision'],
 	save: ['kind', 'sessionId', 'revision'],
-	render: ['kind', 'sessionId', 'revision', 'start', 'end'],
+	render: ['kind', 'sessionId', 'revision'],
 	archive: ['kind', 'sessionId', 'revision'],
 	audioHosts: ['kind', 'sessionId'],
 	audioDevices: ['kind', 'sessionId', 'hostId'],
@@ -63,7 +64,8 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (typeof kind !== 'string' || !Object.hasOwn(fields, kind)) {
 		throw new TypeError('The Tracktion project command is unsupported.');
 	}
-	const request = readClosedDomainRecord(value, 'Tracktion request', fields[kind as keyof typeof fields]);
+	const rangedRender = kind === 'render' && (Object.hasOwn(value, 'start') || Object.hasOwn(value, 'end'));
+	const request = readClosedDomainRecord(value, 'Tracktion request', rangedRender ? renderRangeFields : fields[kind as keyof typeof fields]);
 
 	if ('sessionId' in request && (typeof request.sessionId !== 'string' || !SESSION_ID.test(request.sessionId))) {
 		throw new TypeError('Invalid Tracktion session handle.');
@@ -125,7 +127,7 @@ export function readTracktionProjectRequest(value: unknown): TracktionProjectCom
 	if (kind === 'create' && (Number(request.sampleRate) < 8_000 || Number(request.sampleRate) > 192_000)) {
 		throw new TypeError('Invalid Tracktion sample rate.');
 	}
-	if ((range || kind === 'render' || kind === 'trim' || kind === 'setLoop') && Number(request.start) >= Number(request.end)) {
+	if ((range || rangedRender || kind === 'trim' || kind === 'setLoop') && Number(request.start) >= Number(request.end)) {
 		throw new RangeError('The Tracktion range is empty.');
 	}
 	return request as TracktionProjectCommand;

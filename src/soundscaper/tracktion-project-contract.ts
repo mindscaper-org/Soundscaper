@@ -90,6 +90,11 @@ export type TracktionPasteCommand = Readonly<{
 	kind: 'pasteRange'; mode: 'overlap' | 'insertTracks' | 'insertAll'; trackId: string; start: number;
 }>;
 
+export type TracktionRenderCommand = Readonly<{ kind: 'render' }> & (
+	| Readonly<{ start: number; end: number }>
+	| Readonly<{ start?: never; end?: never }>
+);
+
 type Session = Readonly<{ sessionId: string }>;
 type Edit = Session & Readonly<{ revision: number }>;
 
@@ -107,7 +112,7 @@ export type TracktionProjectCommand =
 	| (Edit & TracktionRangeCommand)
 	| (Edit & TracktionPasteCommand)
 	| (Edit & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
-	| (Edit & Readonly<{ kind: 'render'; start: number; end: number }>)
+	| (Edit & TracktionRenderCommand)
 	| (Edit & Readonly<{ kind: 'archive' }>)
 	| (Session & TracktionAudioDeviceCommand)
 	| (Session & TracktionEffectCommand)

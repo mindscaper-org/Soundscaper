@@ -449,8 +449,12 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	}
 	else if (kind == "render")
 	{
-		requireFields(request, {"revision", "start", "end", "asset"});
-		session.render(revision, exchangeFile(exchange, request, "output", ".wav"), integer("start"), integer("end"), nullptr, effects);
+		const auto ranged = request.hasProperty("start") || request.hasProperty("end");
+		if (ranged) requireFields(request, {"revision", "start", "end", "asset"});
+		else requireFields(request, {"revision", "asset"});
+		const auto start = ranged ? integer("start") : Frame{};
+		const auto end = ranged ? integer("end") : session.mixEnd();
+		session.render(revision, exchangeFile(exchange, request, "output", ".wav"), start, end, nullptr, effects);
 	}
 #if ! JUCE_WASM
 	else if (kind == "insertOfflineEffect")

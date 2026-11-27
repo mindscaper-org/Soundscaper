@@ -203,6 +203,16 @@ void Session::removeOfflineEffect(Revision expected, TrackId track, std::uint64_
 	throw std::invalid_argument("The selected Tracktion effect slot is unavailable");
 }
 
+Frame Session::mixEnd() const
+{
+	const auto& s = *state;
+	tracktion::TimePosition end;
+	for (auto* track : te::getAudioTracks(*s.edit))
+		for (auto* clip : track->getClips())
+			end = std::max(end, clip->getPosition().getEnd());
+	return tracktion::toSamples(end, s.sampleRate);
+}
+
 void Session::render(Revision expected, const juce::File& output, Frame start, Frame end,
                      const std::atomic_bool* cancelled, OfflineEffectHost* effects)
 {

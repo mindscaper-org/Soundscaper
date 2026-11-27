@@ -6,7 +6,7 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
 	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
-	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionTrackMix,
+	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionRenderCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
@@ -37,7 +37,7 @@ export type TracktionCommand =
 	| (Revision & TracktionRangeCommand)
 	| (Revision & TracktionPasteCommand)
 	| (Revision & Readonly<{ kind: 'undo' | 'redo' | 'save' }>)
-	| (Revision & Readonly<{ kind: 'render'; asset: string; start: number; end: number }>)
+	| (Revision & TracktionRenderCommand & Readonly<{ asset: string }>)
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
 	| TracktionAudioDeviceCommand
 	| UseAudioProfile
