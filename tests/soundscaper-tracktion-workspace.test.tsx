@@ -121,6 +121,18 @@ void test('Undo that stops the native graph also stops browser output and update
 	assert.equal(playback?.disabled, false);
 });
 
+void test('switching tracks during playback keeps the playing indicator', async (context) => {
+	const { dom, click } = await mountEditor(context);
+	await click('Open projects');
+	await click('Play');
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+	await act(async () => {
+		reactProps(dom.one('select')).onChange({ currentTarget: { value: '33' } });
+	});
+	assert.equal(dom.one('li').textContent, 'Clip 33 (0–512)');
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+});
+
 void test('a worker loss during recording lets the user reopen the saved project', async (context) => {
 	const { dom, click, loseProject } = await mountEditor(context);
 	await click('Open projects');

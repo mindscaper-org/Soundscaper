@@ -54,6 +54,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const dirty = workspace !== null && workspace.project.revision !== savedRevision;
 	const recording = transport?.recording === true;
 	const playing = transport?.playing === true;
+	const visibleStatus = recording ? 'Recording' : status || (playing ? 'Playing' : '');
 	const menuBar = useRef<HTMLElement>(null);
 	const splittable = workspace?.clips.filter((clip) => clip.end - clip.start > 1) ?? [];
 
@@ -316,7 +317,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const next = kind === 'play' ? await startTracktionPlayback(bridge, sessionId)
 				: await bridge.request(kind === 'seek' ? { kind, sessionId, frame: 0 } : { kind, sessionId });
 			setTransport(next);
-			setStatus(next.playing ? 'Playing' : 'Stopped');
+			if (!next.playing) setStatus('Stopped');
 		});
 	}
 
@@ -471,7 +472,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			onAdd={(installationId) => editEffect({ installationId })} onRemove={(slotId) => editEffect({ slotId })} onDismiss={() => setEffects(null)} />}
 		<main aria-busy={busy}>
 			<h1>{workspace?.name ?? 'Soundscaper Tracktion'}</h1>
-			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
+			{visibleStatus && <p role="status">{visibleStatus}</p>}
 			{failure && !automation && <p role="alert">{failure}</p>}
 			{workspace && <>
 				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
