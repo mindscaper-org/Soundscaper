@@ -34,10 +34,6 @@ import {
 import { SoundscaperDesktopProjectLibraryCatalog } from '../desktop/soundscaper-project-library-catalog.ts'
 import { validateSoundscaperDesktopCurrentProject } from '../desktop/soundscaper-project-library-current-project.ts'
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts'
-import {
-	validateSoundscaperDesktopCatalogSnapshot,
-} from '../src/soundscaper/desktop-project-library-renderer-contract.ts'
-import { validateSoundscaperDesktopAdmission } from '../src/soundscaper/desktop-project-library-renderer-validation.ts'
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts'
 import { waitFor } from './helpers/async-test-control.ts'
 
@@ -106,7 +102,6 @@ test('Soundscaper desktop baseline catalog rows carry the exact schema tuple', (
 		revision: 0,
 		updatedAt: '2026-08-28T00:00:00.000Z',
 	})
-	assert.deepEqual(validateSoundscaperDesktopCatalogSnapshot(mainSnapshot), mainSnapshot)
 	assert.throws(() => validateSoundscaperDesktopProjectLibraryCatalogSnapshot({
 		metadataRevision: 0,
 		projects: [{
@@ -340,11 +335,9 @@ test('publication admission requires sorted, dense missing-body indexes in the r
 	}
 	assert.deepEqual(validateSoundscaperDesktopProjectLibraryPublicationAdmission(admission, 2)
 		.requiredBodyIndexes, [0, 1])
-	assert.deepEqual(validateSoundscaperDesktopAdmission(admission, 2).requiredBodyIndexes, [0, 1])
 	for (const requiredBodyIndexes of [[1, 0], [0, 0], [2], new Array(1)]) {
 		assert.throws(() => validateSoundscaperDesktopProjectLibraryPublicationAdmission(
 			{ ...admission, requiredBodyIndexes }, 2))
-		assert.throws(() => validateSoundscaperDesktopAdmission({ ...admission, requiredBodyIndexes }, 2))
 	}
 })
 

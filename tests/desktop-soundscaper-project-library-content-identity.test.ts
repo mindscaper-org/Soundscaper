@@ -26,13 +26,8 @@ import {
 	createAudioSource,
 	createAudioTrack,
 } from '../src/common/editor/project-media-factory.ts';
-import {
-	soundscaperDesktopBodiesForProject,
-	validateSoundscaperDesktopBundle,
-} from '../src/soundscaper/desktop-project-library-renderer-contract.ts';
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { SOUNDSCAPER_PROJECT_RUNTIME_PROFILE } from '../src/soundscaper/editor-project-runtime-profile.ts';
 
 test('unchanged freeze PCM keeps one content identity across project saves', () => {
 	const first = frozenProject();
@@ -46,16 +41,6 @@ test('unchanged freeze PCM keeps one content identity across project saves', () 
 	const secondMain = createSoundscaperDesktopProjectLibraryTransferBodies(second, secondSha256);
 	assert.equal(firstMain[0]?.bindingId, secondMain[0]?.bindingId);
 	assert.equal(firstMain[0]?.sha256, secondMain[0]?.sha256);
-
-	const firstRenderer = soundscaperDesktopBodiesForProject(
-		SOUNDSCAPER_PROJECT_RUNTIME_PROFILE, first, firstSha256,
-	).bodies;
-	const secondRenderer = soundscaperDesktopBodiesForProject(
-		SOUNDSCAPER_PROJECT_RUNTIME_PROFILE, second, secondSha256,
-	).bodies;
-	assert.equal(firstRenderer[0]?.bindingId, secondRenderer[0]?.bindingId);
-	assert.deepEqual(firstRenderer, firstMain);
-	assert.deepEqual(secondRenderer, secondMain);
 });
 
 test('startup retires only uncommitted freeze stages after an interrupted renderer upload', {
@@ -125,7 +110,7 @@ test('startup retires only uncommitted freeze stages after an interrupted render
 	} finally { await restarted.close(); }
 });
 
-test('content-addressed readers retain legacy freeze bodies with one authenticated project clone', context => {
+test('the retained host authenticates old and current freeze bindings against their exact catalog row', () => {
 	const project = frozenProject();
 	const document = JSON.stringify(project);
 	const projectSha256 = documentDigest(project);
@@ -164,16 +149,24 @@ test('content-addressed readers retain legacy freeze bodies with one authenticat
 		}],
 	} as const;
 
-	assert.equal(validateSoundscaperDesktopProjectLibraryHostBundle({
-		metadata, document, bodies: [legacyBody],
-	}, String(project.id)).bodies[0]?.bindingId, legacyBinding.id);
-	const cloning = context.mock.method(globalThis, 'structuredClone', structuredClone);
-	assert.equal(validateSoundscaperDesktopBundle(SOUNDSCAPER_PROJECT_RUNTIME_PROFILE, {
-		metadataRevision: 1, project: projectRow, document, bodies: [legacyBody],
-	}, String(project.id)).bundle.bodies[0]?.bindingId, legacyBinding.id);
-	assert.equal(cloning.mock.calls.filter(({ arguments: [value] }) => (
-		typeof value === 'object' && value !== null && 'id' in value && value.id === project.id
-	)).length, 1, 'the validated bundle provides the project for both descriptor versions');
+	const bundle = { metadata, document, bodies: [legacyBody] };
+	const validated = validateSoundscaperDesktopProjectLibraryHostBundle(bundle, String(project.id));
+	assert.equal(validated.document, document);
+	assert.deepEqual(validated.bodies, [legacyBody]);
+	assert.throws(() => validateSoundscaperDesktopProjectLibraryHostBundle({
+		...bundle, bodies: [currentBody],
+	}, String(project.id)), /absent from exact metadata inventory/u);
+	const currentMedia = [{
+		...metadata.media[0],
+		id: currentBody.bindingId,
+		relativeFile: freezeRelativeFileForSoundscaperDesktopLibraryBinding(currentBody.bindingId),
+	}];
+	assert.deepEqual(validateSoundscaperDesktopProjectLibraryHostBundle({
+		metadata: { ...metadata, media: currentMedia }, document, bodies: [currentBody],
+	}, String(project.id)).bodies, [currentBody]);
+	assert.throws(() => validateSoundscaperDesktopProjectLibraryHostBundle({
+		...bundle, document: document.replace(project.title, 'Different title'),
+	}, String(project.id)), /byte length or digest changed/u);
 });
 
 test('a metadata save negotiates existing frozen PCM without upload or a temporary copy', async (context) => {

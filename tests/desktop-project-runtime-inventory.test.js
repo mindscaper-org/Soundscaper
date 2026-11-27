@@ -59,9 +59,9 @@ test('desktop project recovery declares its application closure independently of
 		'desktop/soundscaper-project-recovery-reader.js',
 		'src/common/i18n/editor-project-recovery-copy.js',
 		'src/common/i18n/editor-recording-recovery-copy.js',
-		'src/soundscaper/desktop-project-recovery-bridge.js',
 	];
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(shared), shared);
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/soundscaper/desktop-project-recovery-bridge.js'), false);
 	for (const member of soundscaper) assert.ok(DESKTOP_SOUNDSCAPER_RUNTIME_FILES.includes(member), member);
 	for (const member of [shared, ...soundscaper]) {
 		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), member);

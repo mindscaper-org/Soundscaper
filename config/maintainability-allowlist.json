@@ -103,7 +103,6 @@
 		"src/framescaper/editor-project-unified-render-core.ts": 561,
 		"src/framescaper/editor-selected-timeline-image-image-preview.ts": 553,
 		"src/framescaper/selected-finishing-exact-frame-execution.ts": 559,
-		"src/soundscaper/desktop-project-library-renderer.ts": 582,
 		"src/soundscaper/editor-automation-session.ts": 556,
 		"tests/audio-editor-app-helpers.test.ts": 571,
 		"tests/audio-editor-assistance-workflow-contract.test.ts": 556,

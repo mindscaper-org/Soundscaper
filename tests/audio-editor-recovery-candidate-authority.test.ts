@@ -9,7 +9,6 @@ import { createSoundscaperEphemeralProjectStore } from '../src/soundscaper/edito
 import { createSoundscaperProjectRecoveryCopy, inspectSoundscaperProjectRecovery } from '../src/soundscaper/editor-project-recovery-service.ts';
 import { readSoundscaperRecoveryAvailableMediaSources } from '../src/soundscaper/editor-project-recovery-media.ts';
 import { repairSoundscaperProject } from '../src/soundscaper/editor-project-recovery-repair.ts';
-import { SoundscaperDesktopProjectLibraryCommittedError } from '../src/soundscaper/desktop-project-library-renderer-catalog.ts';
 
 async function audioProject(context: TestContext) {
 	const store = createSoundscaperEphemeralProjectStore();
@@ -38,34 +37,6 @@ test('a recovery copy cannot silently remove media that disappeared after the us
 	assert.equal(reviewedAgain.candidates[0]?.status, 'repairable');
 	const repaired = await createSoundscaperProjectRecoveryCopy(store, reviewedAgain, 0);
 	assert.equal(repaired.project.clips.length, 0);
-});
-
-test('retrying an indeterminate publication requires the live copy, even when an exact retained revision exists', async context => {
-	const { project, store } = await audioProject(context);
-	const accepted = await inspectSoundscaperProjectRecovery(store, project.id);
-	const create = store.createProjectIfAbsent.bind(store);
-	const read = store.readProjectRecoveryCandidates.bind(store);
-	let copyId = '';
-	let verifying = false;
-	store.readProjectRecoveryCandidates = async id => {
-		if (id !== project.id && !verifying) throw new Error('Temporary catalog outage');
-		return read(id);
-	};
-	store.createProjectIfAbsent = async copy => {
-		copyId = copy.id;
-		assert.ok(await create(copy));
-		throw new SoundscaperDesktopProjectLibraryCommittedError('publication', copy.id, new Error('Temporary catalog outage'));
-	};
-	await assert.rejects(createSoundscaperProjectRecoveryCopy(store, accepted, 0), /indeterminate/iu);
-	assert.ok(copyId);
-	const current = store.memory.projects.get(copyId);
-	assert.ok(current);
-	store.memory.projects.delete(copyId);
-	verifying = true;
-	assert.ok((await read(copyId)).some(({ kind }) => kind === 'revision'));
-	await assert.rejects(createSoundscaperProjectRecoveryCopy(store, accepted, 0), /cannot yet be verified/iu);
-	store.memory.projects.set(copyId, current);
-	assert.equal((await createSoundscaperProjectRecoveryCopy(store, accepted, 0)).project.id, copyId);
 });
 
 test('video recovery checks distinct project bindings for aliases sharing a storage key', async () => {

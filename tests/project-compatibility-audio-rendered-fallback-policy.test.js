@@ -29,7 +29,7 @@ test('compatibility policy qualifies role-defined audio whole-mix fallback playb
 		'src/common/editor/retention.js',
 		'src/framescaper/desktop-project-library-body-transfer.ts',
 		'desktop/soundscaper-project-library-transfer-service.ts',
-		'src/soundscaper/desktop-project-library-renderer.ts',
+		'src/framescaper/desktop-project-library-renderer.ts',
 		'tests/audio-editor-project-feature-audio-rendered-fallback.test.ts',
 		'tests/audio-editor-playback-project-service.test.ts',
 		'tests/audio-editor-audio-rendered-fallback-delivery-projection.test.ts',

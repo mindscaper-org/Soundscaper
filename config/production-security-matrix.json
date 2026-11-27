@@ -1935,7 +1935,6 @@
 				"desktop/desktop-video-codec-main-ipc.ts",
 				"desktop/soundscaper-project-library-contract.ts",
 				"desktop/soundscaper-project-library-main.ts",
-				"src/soundscaper/desktop-project-library-renderer.ts",
 				"desktop/framescaper-project-library-contract.ts",
 				"desktop/framescaper-project-library-main.ts",
 				"src/framescaper/desktop-project-library-renderer.ts",
@@ -2018,10 +2017,6 @@
 				{
 					"kind": "implementation",
 					"path": "desktop/soundscaper-project-library-main.ts"
-				},
-				{
-					"kind": "implementation",
-					"path": "src/soundscaper/desktop-project-library-renderer.ts"
 				},
 				{
 					"kind": "implementation",
@@ -2182,7 +2177,6 @@
 				"desktop/project-library-exact-generation-storage.ts",
 				"desktop/soundscaper-project-library-transfer-service.ts",
 				"src/framescaper/desktop-project-library-body-transfer.ts",
-				"src/soundscaper/desktop-project-library-renderer.ts",
 				"src/framescaper/desktop-project-library-renderer.ts",
 				"src/framescaper/desktop-project-library-core-body-transfer.ts"
 			],
@@ -2222,10 +2216,6 @@
 				{
 					"kind": "implementation",
 					"path": "desktop/framescaper-project-library-main.ts"
-				},
-				{
-					"kind": "implementation",
-					"path": "src/soundscaper/desktop-project-library-renderer.ts"
 				},
 				{
 					"kind": "implementation",
@@ -6047,10 +6037,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -6100,18 +6086,6 @@
 						{
 							"kind": "test",
 							"path": "tests/framescaper-desktop-media-size-warning.test.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-media.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-size-warning.ts"
-						},
-						{
-							"kind": "test",
-							"path": "tests/audio-editor-soundscaper-desktop-freeze-size-warning.test.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active"
@@ -6562,10 +6536,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-main.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -8613,7 +8583,7 @@
 				},
 				{
 					"id": "fenced-current-schema-project-catalog-publication",
-					"summary": "The direct unversioned Soundscaper and Framescaper desktop libraries authenticate their exact family-v1 handshakes before use, persist library schema 1 and SQLite user_version 1 beneath distinct Soundscaper/project-library/v1 and Framescaper/project-library/v1 roots in XDG_DATA_HOME on Linux and platform appData elsewhere, preserve SSCP and FSCP application IDs, repeat schemaFamily and schemaVersion in catalog rows, and expose disjoint product:v1:project-library:* channels. Main-owned publication, immutable-body custody, bounded pathless DTOs, recovery, duplicate, delete, lease fencing, and shutdown draining remain product-scoped. Startup relocates current family-v1 production libraries from their former kw.media folders without changing their schemas. Seeded pre-release roots and databases remain byte-for-byte untouched and invisible; there is no pre-release migration or copy-forward marker. Maintained managed-media publication accepts safe-integer body lengths and asks for explicit user confirmation above 64 GiB of aggregate body inventory before any source body read or bridge request. Exact body size and digest, four-MiB chunks, owner and write-fence checks, and actual storage-space admission remain enforced. Manual media-inventory approval is scoped to one renderer and project. Unchanged or smaller automatic reads and saves may reuse the admitted bound; growth beyond it requires a fresh manual decision.",
+					"summary": "The direct unversioned Soundscaper and Framescaper desktop libraries authenticate their exact family-v1 handshakes before use, persist library schema 1 and SQLite user_version 1 beneath distinct Soundscaper/project-library/v1 and Framescaper/project-library/v1 roots in XDG_DATA_HOME on Linux and platform appData elsewhere, preserve SSCP and FSCP application IDs, repeat schemaFamily and schemaVersion in catalog rows, and keep separate catalogs. Framescaper exposes its live project-library IPC. The Soundscaper desktop editor uses its Tracktion project bridge. Main-owned publication, immutable-body custody, bounded pathless DTOs, recovery, duplicate, delete, lease fencing, and shutdown draining remain product-scoped. Startup relocates current family-v1 production libraries from their former kw.media folders without changing their schemas. Seeded pre-release roots and databases remain byte-for-byte untouched and invisible; there is no pre-release migration or copy-forward marker. Maintained managed-media publication accepts safe-integer body lengths and asks for explicit user confirmation above 64 GiB of aggregate body inventory before any source body read or bridge request. Exact body size and digest, four-MiB chunks, owner and write-fence checks, and actual storage-space admission remain enforced. Manual media-inventory approval is scoped to one renderer and project. Unchanged or smaller automatic reads and saves may reuse the admitted bound; growth beyond it requires a fresh manual decision.",
 					"evidence": [
 						{
 							"kind": "implementation",
@@ -8665,15 +8635,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-media.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-size-warning.ts"
+							"path": "desktop/soundscaper-project-library-transfer-contract.ts"
 						},
 						{
 							"kind": "test",
-							"path": "tests/audio-editor-soundscaper-desktop-freeze-size-warning.test.ts"
+							"path": "tests/desktop-soundscaper-project-library-content-identity.test.ts"
 						}
 					],
 					"policyAuthority": "family-v1-active",
@@ -8706,10 +8672,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-main.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -8837,10 +8799,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -8934,10 +8892,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-main.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9150,10 +9104,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-contract.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9468,10 +9418,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -9568,10 +9514,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-contract.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9750,10 +9692,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -9798,15 +9736,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-media.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-freeze-size-warning.ts"
+							"path": "src/framescaper/desktop-project-library-media-size-warning.ts"
 						},
 						{
 							"kind": "test",
-							"path": "tests/audio-editor-soundscaper-desktop-freeze-size-warning.test.ts"
+							"path": "tests/framescaper-desktop-media-size-warning.test.ts"
 						},
 						{
 							"kind": "implementation",
@@ -10122,10 +10056,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -10381,10 +10311,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -10502,10 +10428,6 @@
 						{
 							"kind": "implementation",
 							"path": "desktop/soundscaper-project-library-main.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",
@@ -10872,10 +10794,6 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
-						},
-						{
-							"kind": "implementation",
 							"path": "desktop/framescaper-project-library-contract.ts"
 						},
 						{
@@ -10976,10 +10894,6 @@
 						{
 							"kind": "test",
 							"path": "tests/audio-editor-framescaper-baseline.test.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/soundscaper/desktop-project-library-renderer.ts"
 						},
 						{
 							"kind": "implementation",

@@ -20,7 +20,7 @@ test('the security matrix qualifies maintained save- and activation-triggered li
 		'src/common/editor/controller/document/internal/project/project-retention-service.ts',
 		'src/common/editor/controller/document/project-save-service.ts',
 		'src/common/editor/controller/document/project-switch-service.ts',
-		'src/soundscaper/desktop-project-library-renderer.ts',
+		'src/framescaper/desktop-project-library-renderer.ts',
 		'src/common/editor/storage/linked-original-lifecycle-coordinator.ts',
 		'src/common/editor/storage/linked-original-pair-writer.ts',
 		'src/common/editor/storage/linked-original-project-binding-prune.ts',

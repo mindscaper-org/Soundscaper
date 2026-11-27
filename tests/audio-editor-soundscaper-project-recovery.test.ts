@@ -10,7 +10,6 @@ import { createAudioClip, createAudioSource, createAudioTrack } from '../src/com
 import { inspectSoundscaperProjectRecovery, createSoundscaperProjectRecoveryCopy } from '../src/soundscaper/editor-project-recovery-service.ts';
 import { repairSoundscaperProject } from '../src/soundscaper/editor-project-recovery-repair.ts';
 import { ProjectCommittedMaintenanceError } from '../src/common/editor/storage/project-committed-maintenance-error.ts';
-import { SoundscaperDesktopProjectLibraryCommittedError } from '../src/soundscaper/desktop-project-library-renderer-catalog.ts';
 import { createAssistanceTtsScriptBodyPublicationV1 } from '../src/common/editor/assistance/tts-script-body-publication-v1.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import { readSoundscaperRecoveryAvailableMediaSources } from '../src/soundscaper/editor-project-recovery-media.ts';
@@ -179,54 +178,24 @@ test('healthy project listing survives a damaged sibling while raw summaries sti
 	assert.ok((await store.listProjectRecoverySummaries()).some(({ id }) => id === 'recovery-broken'));
 });
 
-test('recovery retains one committed copy when browser or native maintenance fails after publication', async (context) => {
-	for (const native of [false, true]) {
-		const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
-		context.after(async () => { await store.close(); });
-		const original = createSoundscaperProject({ id: `recovery-committed-${String(native)}`, now: NOW });
-		await store.saveProject(original);
-		const inspection = await inspectSoundscaperProjectRecovery(store, original.id);
-		const create = store.createProjectIfAbsent.bind(store);
-		let publications = 0;
-		store.createProjectIfAbsent = async (copy) => {
-			publications += 1;
-			const committed = await create(copy);
-			assert.ok(committed);
-			if (native) throw new SoundscaperDesktopProjectLibraryCommittedError('publication', copy.id, new Error('Shadow unavailable'));
-			throw new ProjectCommittedMaintenanceError(committed, new Error('Revision maintenance unavailable'));
-		};
-		const result = await createSoundscaperProjectRecoveryCopy(store, inspection, 0);
-		assert.equal(publications, 1);
-		assert.notEqual(result.project.id, original.id);
-		assert.deepEqual(await store.loadProject(result.project.id), result.project);
-		assert.deepEqual(await store.loadProject(original.id), original);
-	}
-});
-
-test('an indeterminate native publication retry resolves the same copy without publishing again', async (context) => {
+test('recovery retains one committed copy when local maintenance fails after publication', async (context) => {
 	const store = createSoundscaperProjectStore({ indexedDB: null, preferOpfs: false });
 	context.after(async () => { await store.close(); });
-	const original = createSoundscaperProject({ id: 'recovery-indeterminate', now: NOW });
+	const original = createSoundscaperProject({ id: 'recovery-committed', now: NOW });
 	await store.saveProject(original);
 	const inspection = await inspectSoundscaperProjectRecovery(store, original.id);
 	const create = store.createProjectIfAbsent.bind(store);
-	const read = store.readProjectRecoveryCandidates.bind(store);
-	let verificationUnavailable = true;
 	let publications = 0;
-	store.readProjectRecoveryCandidates = async (id) => {
-		if (id !== original.id && verificationUnavailable) throw new Error('Catalog temporarily unavailable');
-		return read(id);
-	};
 	store.createProjectIfAbsent = async (copy) => {
 		publications += 1;
-		await create(copy);
-		throw new SoundscaperDesktopProjectLibraryCommittedError('publication', copy.id, new Error('Shadow unavailable'));
+		const committed = await create(copy);
+		assert.ok(committed);
+		throw new ProjectCommittedMaintenanceError(committed, new Error('Revision maintenance unavailable'));
 	};
-	await assert.rejects(createSoundscaperProjectRecoveryCopy(store, inspection, 0), /indeterminate/iu);
-	verificationUnavailable = false;
 	const result = await createSoundscaperProjectRecoveryCopy(store, inspection, 0);
 	assert.equal(publications, 1);
-	assert.ok(await store.loadProject(result.project.id));
+	assert.notEqual(result.project.id, original.id);
+	assert.deepEqual(await store.loadProject(result.project.id), result.project);
 	assert.deepEqual(await store.loadProject(original.id), original);
 });
 
