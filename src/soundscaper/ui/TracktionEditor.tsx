@@ -157,6 +157,17 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		});
 	}
 
+	function selectTrack(trackId: string): void {
+		if (!workspace || workspace.selectedTrack?.id === trackId) return;
+		const selectedTrack = workspace.tracks.find((track) => track.id === trackId);
+		if (!selectedTrack) return;
+		run(async () => {
+			const clips = selectedTrack.clipCount === 0 ? []
+				: await readTracktionClips(bridge, workspace.sessionId, workspace.project.revision, trackId);
+			setWorkspace({ ...workspace, selectedTrack, clips });
+		});
+	}
+
 	function importWave(): void {
 		if (!workspace?.selectedTrack) return;
 		const trackId = workspace.selectedTrack.id;
@@ -437,10 +448,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			{(recording || status) && <p role="status">{recording ? 'Recording' : status}</p>}
 			{failure && !automation && <p role="alert">{failure}</p>}
 			{workspace && <>
-				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording} onChange={(event) => {
-					const trackId = event.currentTarget.value;
-					run(async () => setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId)));
-				}}>
+				<label>{trackCopy.track} <select value={workspace.selectedTrack?.id ?? ''} disabled={busy || recording}
+					onChange={(event) => selectTrack(event.currentTarget.value)}>
 					{workspace.tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
 				</select></label>
 				<p>{workspace.clips.length} {workspace.clips.length === 1 ? 'clip' : 'clips'}</p>

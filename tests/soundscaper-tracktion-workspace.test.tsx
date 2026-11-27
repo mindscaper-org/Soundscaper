@@ -28,7 +28,9 @@ async function mountEditor(context: TestContext) {
 		dom.restore();
 	});
 	const requests: TracktionProjectCommand[] = [];
-	const tracks = Array.from({ length: 33 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 1 }));
+	const tracks = Array.from({ length: 33 }, (_, index) => ({
+		id: String(index + 1), name: `Track ${index + 1}`, clipCount: index === 31 ? 0 : 1,
+	}));
 	const firstPage: TracktionProjectPage = {
 		revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32),
 	};
@@ -69,4 +71,23 @@ void test('opening a paginated project reuses its first track page', async (cont
 		{ kind: 'clips', sessionId: 'session', revision: 7, trackId: '1', offset: 0 },
 		{ kind: 'transportStatus', sessionId: 'session' },
 	]);
+});
+
+void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {
+	const { dom, requests, click } = await mountEditor(context);
+	await click('Open projects');
+	const before = requests.length;
+	await act(async () => {
+		reactProps(dom.one('select')).onChange({ currentTarget: { value: '33' } });
+	});
+	assert.equal(dom.one('select').options.length, 33);
+	assert.equal(dom.one('li').textContent, 'Clip 33 (0–512)');
+	assert.deepEqual(requests.slice(before), [
+		{ kind: 'clips', sessionId: 'session', revision: 7, trackId: '33', offset: 0 },
+	]);
+	await act(async () => {
+		reactProps(dom.one('select')).onChange({ currentTarget: { value: '32' } });
+	});
+	assert.equal(dom.find('li'), null);
+	assert.equal(requests.length, before + 1);
 });
