@@ -186,7 +186,6 @@
 		"tests/local-model-mirror.test.js": 553,
 		"tests/offline-ffmpeg-runtime-cache.test.ts": 553,
 		"tests/offline-file-handler-launch.test.ts": 570,
-		"tests/offline-service-worker.test.js": 554,
 		"tests/project-transfer-bundle.test.ts": 598,
 		"tests/project-transfer-conversion-report-custody.test.ts": 598,
 		"tests/project-transfer-handshake.test.ts": 600,
