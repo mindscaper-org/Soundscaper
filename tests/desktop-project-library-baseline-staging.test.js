@@ -37,7 +37,6 @@ test('desktop staging contains only unversioned v1 project-library authorities',
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/project-library-immediate-transaction.js'));
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes('desktop/project-library-path-layout.js'));
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/local-model-file-io.js'));
-	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/soundscaper-delivery-worker-port.js'));
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
 		'src/framescaper/editor-project-feature-manifest-context.js',
 	));
@@ -47,6 +46,11 @@ test('desktop staging contains only unversioned v1 project-library authorities',
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
 		'src/framescaper/desktop-project-library-publication-identity.js',
 	));
+});
+
+test('desktop staging omits the retired Soundscaper delivery IPC and worker port', () => {
+	const retired = /^desktop\/soundscaper-delivery-(?:main-channels|main-ipc|worker-port)\.js$/u;
+	assert.deepEqual(DESKTOP_EXPECTED_RUNTIME_FILES.filter((file) => retired.test(file)), []);
 });
 
 test('desktop staging includes the shared Framescaper durable asset authority', () => {

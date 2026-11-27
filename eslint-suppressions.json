@@ -104,17 +104,7 @@
       "count": 1
     }
   },
-  "desktop/soundscaper-delivery-main-ipc.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "desktop/soundscaper-delivery-root.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
-  "desktop/soundscaper-delivery-worker-port.ts": {
     "no-control-regex": {
       "count": 1
     }
