@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -17,6 +17,47 @@ const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
+
+test('a Tracktion Save refused by the filesystem preserves the Edit and can be retried', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-retry-save-'));
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const edit = join(projectDirectory, 'project.tracktionedit');
+	const backup = join(root, 'previous.tracktionedit');
+	const launch = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'state') };
+	const status = { kind: 'project', offset: 0 } as const;
+	try {
+		await mkdir(exchangeDirectory);
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		try {
+			await peer.request({ kind: 'save', revision: 0 });
+			const previous = await readFile(edit);
+			const track = await peer.request({ kind: 'addTrack', revision: 0, name: 'Unsaved track' });
+			const before = await peer.request(status);
+			assert.equal(before.canUndo, true);
+			await rename(edit, backup);
+			await mkdir(edit);
+			try {
+				await assert.rejects(peer.request({ kind: 'save', revision: track.revision }), /Tracktion (?:Edit|session)/u);
+			} finally {
+				await rmdir(edit);
+				await rename(backup, edit);
+			}
+			assert.deepEqual(await readFile(edit), previous);
+			assert.deepEqual(await peer.request(status), before);
+			const undone = await peer.request({ kind: 'undo', revision: before.revision });
+			assert.equal((await peer.request(status)).tracks.length, 1);
+			const redone = await peer.request({ kind: 'redo', revision: undone.revision });
+			await peer.request({ kind: 'save', revision: redone.revision });
+		} finally { await peer.close(); }
+
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			const { tracks } = await reopened.request(status);
+			assert.equal(tracks[1]?.name, 'Unsaved track');
+		} finally { await reopened.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('Tracktion publishes the installed Windows ASIO drivers as coupled audio devices', {
 	skip: process.platform !== 'win32' || process.env.SOUNDSCAPER_TRACKTION_TEST_ASIO !== '1',

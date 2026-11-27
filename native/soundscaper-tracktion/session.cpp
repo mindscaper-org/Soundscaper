@@ -511,7 +511,7 @@ void Session::save(Revision expected)
 	state->checkRevision(expected);
 	te::EditFileOperations files(*state->edit);
 	if (!files.writeToFile(state->editFile, false))
-		throw std::runtime_error("Cannot save the Tracktion Edit");
+		throw std::invalid_argument("Cannot save the Tracktion Edit");
 }
 
 }
