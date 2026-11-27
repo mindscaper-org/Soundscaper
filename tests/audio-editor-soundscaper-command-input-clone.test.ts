@@ -6,6 +6,11 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { applySoundscaperProjectFoundationCommand } from '../src/soundscaper/editor-project-command-foundation.ts';
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
 
+test('the command foundation omits the unused projection entry point', async () => {
+	const foundation = await import('../src/soundscaper/editor-project-command-foundation.ts');
+	assert.equal(Reflect.has(foundation, 'soundscaperProjectForFoundationCommandConsumers'), false);
+});
+
 test('inherited commands clone their mutation draft without cloning the untouched input authority', () => {
 	for (const command of [
 		{ type: 'project/rename', title: 'Renamed' },

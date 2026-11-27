@@ -160,16 +160,6 @@ function applyInheritedCommand(project: SoundscaperProject, command: AudioEditor
 	return result;
 }
 
-/** Exact V21 authority with only inherited resolved-coordinate transients. */
-export function soundscaperProjectForFoundationCommandConsumers(
-	projectValue: SoundscaperProject | unknown,
-): Record<string, unknown> {
-	validateSoundscaperProject(projectValue);
-	return projectForCommandConsumers(
-		projectValue as SoundscaperProject & Record<string, unknown>,
-	) as Record<string, unknown>;
-}
-
 function elevateInheritedCommandResult(
 	previous: SoundscaperProject,
 	commanded: Record<string, unknown>,
