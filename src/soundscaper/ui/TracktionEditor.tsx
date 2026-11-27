@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { AUDIO_DEVICE_COPY_BY_LOCALE } from '../../common/i18n/audio-device-copy.js';
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
@@ -56,7 +56,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const playing = transport?.playing === true;
 	const visibleStatus = recording ? 'Recording' : status || (playing ? 'Playing' : '');
 	const menuBar = useRef<HTMLElement>(null);
-	const splittable = workspace?.clips.filter((clip) => clip.end - clip.start > 1) ?? [];
+	const clips = workspace?.clips;
+	const { clipRows, splittable } = useMemo(() => ({
+		clipRows: clips?.map((clip) => <li key={clip.id}>{clip.name} ({clip.start}–{clip.end})</li>),
+		splittable: clips?.filter((clip) => clip.end - clip.start > 1) ?? [],
+	}), [clips]);
 
 	useEffect(() => {
 		if (!dirty && !recording) return;
@@ -490,9 +494,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					{workspace.tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
 				</select></label>
 				<p>{workspace.clips.length} {workspace.clips.length === 1 ? 'clip' : 'clips'}</p>
-				<ul aria-label="Audio clips">
-					{workspace.clips.map((clip) => <li key={clip.id}>{clip.name} ({clip.start}–{clip.end})</li>)}
-				</ul>
+				<ul aria-label="Audio clips">{clipRows}</ul>
 			</>}
 		</main>
 	</div>;

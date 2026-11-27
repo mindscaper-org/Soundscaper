@@ -10,7 +10,7 @@ import type {
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-async function mountEditor(context: TestContext, stopOnUndo = false) {
+async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerTrack = 1 } = {}) {
 	const dom = installReactTestDom();
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -29,19 +29,30 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 	});
 	const requests: TracktionProjectCommand[] = [];
 	const tracks = Array.from({ length: 33 }, (_, index) => ({
-		id: String(index + 1), name: `Track ${index + 1}`, clipCount: index === 31 ? 0 : 1,
+		id: String(index + 1), name: `Track ${index + 1}`, clipCount: index === 31 ? 0 : clipsPerTrack,
 	}));
 	const firstPage: TracktionProjectPage = {
 		revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32),
 	};
 	let transport: TracktionTransportView = { ready: false, playing: false, recording: false, frame: 0 };
 	let projectLost: ((sessionId: string, message: string) => void) | undefined;
+	let clipTitleReads = 0;
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
 			case 'project': return command.offset === 0 ? firstPage : { ...firstPage, tracks: tracks.slice(32), nextOffset: null };
-			case 'clips': return { revision: 7, nextOffset: null,
-				clips: [{ id: command.trackId, name: `Clip ${command.trackId}`, start: 0, end: 512, sourceOffset: 0 }] };
+			case 'clips': {
+				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
+				const next = Math.min(command.offset + 32, count);
+				const clips = Array.from({ length: next - command.offset }, (_, index) => ({
+					id: `${command.trackId}/${command.offset + index}`,
+					get name() { clipTitleReads += 1; return `Clip ${command.trackId}`; },
+					start: (command.offset + index) * 512,
+					end: (command.offset + index + 1) * 512,
+					sourceOffset: 0,
+				}));
+				return { revision: 7, nextOffset: next < count ? next : null, clips };
+			}
 			case 'transportStatus': return transport;
 			case 'prepareOutput': return transport = { ...transport, ready: true };
 			case 'play': return transport = { ...transport, playing: true };
@@ -73,7 +84,7 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 	async function loseProject(sessionId: string): Promise<void> {
 		await act(async () => { projectLost?.(sessionId, 'The audio engine stopped responding'); });
 	}
-	return { dom, requests, click, loseProject };
+	return { dom, requests, click, loseProject, get clipTitleReads() { return clipTitleReads; } };
 }
 
 void test('opening a paginated project reuses its first track page', async (context) => {
@@ -110,7 +121,7 @@ void test('changing tracks keeps the loaded track inventory and reads the select
 });
 
 void test('Undo that stops the native graph also stops browser output and updates the controls', async (context) => {
-	const { dom, requests, click } = await mountEditor(context, true);
+	const { dom, requests, click } = await mountEditor(context, { stopOnUndo: true });
 	await click('Open projects');
 	await click('Play');
 	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
@@ -131,6 +142,19 @@ void test('switching tracks during playback keeps the playing indicator', async 
 	});
 	assert.equal(dom.one('li').textContent, 'Clip 33 (0–512)');
 	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+});
+
+void test('playing and stopping a 128-clip track keep its rendered clip rows', async (context) => {
+	const editor = await mountEditor(context, { clipsPerTrack: 128 });
+	await editor.click('Open projects');
+	assert.equal(editor.dom.one('ul').querySelectorAll('li').length, 128);
+	const initialReads = editor.clipTitleReads;
+	assert.ok(initialReads >= 128);
+	await editor.click('Play');
+	assert.equal(editor.dom.one('[role="status"]').textContent, 'Playing');
+	await editor.click('Stop');
+	assert.equal(editor.dom.one('[role="status"]').textContent, 'Stopped');
+	assert.equal(editor.clipTitleReads - initialReads, 0, 'transport changes do not rebuild clip rows');
 });
 
 void test('a worker loss during recording lets the user reopen the saved project', async (context) => {
