@@ -109,7 +109,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const lostOutput = next.outputInterrupted && (next.recording || !next.playing) && !transport?.outputInterrupted;
 			const stopped = transport?.playing && !next.playing && !next.recording;
 			if ((!take && !lostOutput && !stopped) || !isCurrent() || pending.current) return;
-			const updated = take?.itemId ? await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id) : workspace;
+			const updated = take?.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, take.revision) : workspace;
 			if (!isCurrent() || pending.current) return;
 			setWorkspace(updated);
 			setTransport(next);
@@ -429,7 +429,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			});
 			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }));
 			if (result.revision !== workspace.project.revision) {
-				setWorkspace(await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
+				setWorkspace(result.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision)
+					: await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
 			}
 			setStatus(result.itemId ? 'Recording added to the track' : discard ? 'Recording discarded' : 'No audio was recorded');
 		});

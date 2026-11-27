@@ -54,6 +54,13 @@ async function mountEditor(context: TestContext, {
 	let clipTitleReads = 0;
 	let revision = firstPage.revision;
 	let waitingForReady = false;
+	let recordingTrackId: string | undefined;
+	function addRecordedClip() {
+		const index = tracks.findIndex(({ id }) => id === recordingTrackId);
+		const track = tracks[index];
+		assert.ok(track);
+		tracks[index] = { id: track.id, clipCount: track.clipCount + 1, get name() { return track.name; } };
+	}
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'render': return { revision: firstPage.revision, itemId: null };
@@ -91,12 +98,19 @@ async function mountEditor(context: TestContext, {
 			}
 			case 'play': return transport = { ...transport, playing: true };
 			case 'stop': return transport = { ...transport, playing: false };
-			case 'startRecording': return transport = { ...transport, recording: true };
+			case 'startRecording': {
+				recordingTrackId = command.trackId;
+				return transport = { ...transport, recording: true };
+			}
 			case 'finishRecording': {
-				assert.ok(command.discard && recoveredBeforeDiscard);
-				revision += 2;
 				transport = { ...transport, recording: false };
-				return { revision, itemId: null };
+				if (command.discard) {
+					assert.ok(recoveredBeforeDiscard);
+					revision += 2;
+					return { revision, itemId: null };
+				}
+				addRecordedClip();
+				return { revision: ++revision, itemId: 'take' };
 			}
 			case 'save': return { revision, itemId: null };
 			case 'undo': {
@@ -128,7 +142,10 @@ async function mountEditor(context: TestContext, {
 	}
 	async function observeTransport(next: TracktionTransportView): Promise<void> {
 		transport = next;
-		if (next.interruptedTake) revision = next.interruptedTake.revision;
+		if (next.interruptedTake) {
+			if (next.interruptedTake.itemId && next.interruptedTake.revision !== revision) addRecordedClip();
+			revision = next.interruptedTake.revision;
+		}
 		const poll = pollTransport;
 		assert.ok(poll, 'the active desktop transport is being observed');
 		await act(async () => { poll(); });
@@ -286,7 +303,8 @@ void test('desktop playback and recording timers observe transport without check
 	const beforeRecovery = requests.length;
 	await observeTransport({ ready: false, playing: false, recording: false, frame: 8192,
 		interruptedTake: { revision: 8, itemId: '10' } });
-	assert.equal(requests[beforeRecovery]?.kind, 'transportObservation');
+	assert.deepEqual(requests.slice(beforeRecovery).map(({ kind }) => kind), ['transportObservation', 'project', 'clips']);
+	assert.equal(dom.one('ul').querySelectorAll('li').length, 2);
 	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
 });
 
@@ -319,6 +337,23 @@ void test('a worker loss during recording lets the user reopen the saved project
 	assert.match(dom.one('[role="alert"]').textContent, /audio engine stopped/u);
 	await click('Open projects');
 	assert.equal(dom.one('h1').textContent, 'Imported project');
+});
+
+void test('finishing a take refreshes only the recording track in a paginated project', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { trackCount: 129 });
+	await click('Open projects');
+	await act(async () => {
+		reactProps(dom.one('select')).onChange({ currentTarget: { value: '129' } });
+	});
+	await click('Record onto the active track');
+	const beforeStop = requests.length;
+	await click('Stop');
+	assert.deepEqual(requests.slice(beforeStop).map(({ kind }) => kind), ['finishRecording', 'transportStatus', 'project', 'clips']);
+	assert.equal(dom.one('select').options.length, 129);
+	assert.equal(dom.one('ul').querySelectorAll('li').length, 2);
+	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
+	await click('Save project');
+	assert.deepEqual(requests.at(-1), { kind: 'save', sessionId: 'session', revision: 8 });
 });
 
 void test('discarding an automatically recovered recording updates the editor revision', async (context) => {
