@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 export const TRACKTION_AUTOMATION_RANGES = { gainDb: [-100, 6], pan: [-1, 1] } as const;
+export const TRACKTION_AUTOMATION_PAGE_SIZE = 32;
 
 export type TracktionAutomationParameter = keyof typeof TRACKTION_AUTOMATION_RANGES;
 

@@ -4,16 +4,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
-import { isTracktionAutomationParameter, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationEdit,
+import { isTracktionAutomationParameter, TRACKTION_AUTOMATION_PAGE_SIZE, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationEdit,
 	type TracktionAutomationPage, type TracktionAutomationParameter } from '../tracktion-automation-contract.ts';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
-const pageSize = 32;
 
 interface AutomationDialogProps {
 	readonly parameter: TracktionAutomationParameter;
 	readonly page: TracktionAutomationPage;
 	readonly offset: number;
+	readonly selectedFrame: number | null;
 	readonly busy: boolean;
 	readonly onPage: (parameter: TracktionAutomationParameter, offset: number) => void;
 	readonly onEdit: (edit: TracktionAutomationEdit) => void;
@@ -47,8 +47,11 @@ export function TracktionAutomationDialog({ track, onDismiss, failure, ...editor
 	</dialog>;
 }
 
-function AutomationPointEditor({ parameter, page, offset, onPage, onEdit }: AutomationDialogProps) {
-	const [selection, setSelection] = useState('new');
+function AutomationPointEditor({ parameter, page, offset, selectedFrame, onPage, onEdit }: AutomationDialogProps) {
+	const [selection, setSelection] = useState(() => {
+		const selected = page.points.findIndex(({ frame }) => frame === selectedFrame);
+		return selected < 0 ? 'new' : String(selected);
+	});
 	const point = page.points[Number(selection)];
 	const index = point ? offset + Number(selection) : null;
 	const [min, max] = TRACKTION_AUTOMATION_RANGES[parameter];
@@ -67,7 +70,7 @@ function AutomationPointEditor({ parameter, page, offset, onPage, onEdit }: Auto
 			{page.points.map((entry, index) => <option key={index} value={index}>{entry.frame} · {entry.value.toFixed(3)}</option>)}
 		</select></label></p>
 		{(offset > 0 || nextOffset !== null) && <p>
-			<button type="button" disabled={offset === 0} onClick={() => onPage(parameter, Math.max(0, offset - pageSize))}>{copy.tracktionPreviousAutomationPage}</button>{' '}
+			<button type="button" disabled={offset === 0} onClick={() => onPage(parameter, Math.max(0, offset - TRACKTION_AUTOMATION_PAGE_SIZE))}>{copy.tracktionPreviousAutomationPage}</button>{' '}
 			<button type="button" disabled={nextOffset === null} onClick={() => { if (nextOffset !== null) onPage(parameter, nextOffset); }}>{copy.tracktionNextAutomationPage}</button>
 		</p>}
 		<form key={selection} onSubmit={submit}>

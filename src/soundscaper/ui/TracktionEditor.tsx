@@ -9,7 +9,9 @@ import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-comman
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { TRANSPORT_COPY_BY_LOCALE } from '../../common/i18n/transport-copy.js';
 import type { TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
-import type { TracktionAutomationEdit, TracktionAutomationPage, TracktionAutomationParameter } from '../tracktion-automation-contract.ts';
+import {
+	TRACKTION_AUTOMATION_PAGE_SIZE, type TracktionAutomationEdit, type TracktionAutomationPage, type TracktionAutomationParameter,
+} from '../tracktion-automation-contract.ts';
 import type { TracktionEffectInstallation, TracktionEffectPage, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
 import type {
 	TracktionClipCommand, TracktionPasteCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportView,
@@ -48,7 +50,9 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [pasteFrame, setPasteFrame] = useState<number | null>(null);
 	const [hasClipboard, setHasClipboard] = useState(false);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
-	const [automation, setAutomation] = useState<{ parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage } | null>(null);
+	const [automation, setAutomation] = useState<{
+		parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage; selectedFrame: number | null;
+	} | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const [effects, setEffects] = useState<{ slots: TracktionEffectSlot[]; catalog: readonly TracktionEffectInstallation[] | null } | null>(null);
 	const pending = useRef(false);
@@ -287,20 +291,24 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
 		run(async () => {
 			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision, trackId, parameter, offset });
-			setAutomation({ parameter, offset, page });
+			setAutomation({ parameter, offset, page, selectedFrame: null });
 		});
 	}
 
 	function applyAutomation(edit: TracktionAutomationEdit): void {
-		if (!workspace?.selectedTrack) return;
+		if (!workspace?.selectedTrack || !automation) return;
 		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
 		run(async () => {
 			const result = await bridge.request({ ...edit, sessionId, revision, trackId });
 			const updated = await readTracktionWorkspaceAfterPropertyEdit(bridge, workspace, result.revision);
 			setWorkspace(updated);
 			const { parameter } = edit;
-			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision: updated.project.revision, trackId, parameter, offset: 0 });
-			setAutomation({ parameter, offset: 0, page });
+			const removesLastPoint = edit.kind === 'removeAutomationPoint' && automation.page.nextOffset === null && automation.page.points.length === 1;
+			const currentOffset = removesLastPoint ? Math.max(0, automation.offset - TRACKTION_AUTOMATION_PAGE_SIZE) : automation.offset;
+			const offset = edit.kind === 'clearAutomation' || updated.project.revision !== result.revision ? 0 : currentOffset;
+			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision: updated.project.revision, trackId, parameter, offset });
+			const selectedFrame = edit.kind === 'setAutomationPoint' && edit.index !== null ? edit.frame : null;
+			setAutomation({ parameter, offset, page, selectedFrame });
 		});
 	}
 
