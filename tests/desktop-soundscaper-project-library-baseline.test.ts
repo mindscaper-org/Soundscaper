@@ -21,26 +21,17 @@ import {
 	initializeSoundscaperDesktopProjectLibraryDatabase,
 } from '../desktop/soundscaper-project-library-database.ts'
 import {
-	SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS,
-} from '../desktop/soundscaper-project-library-main-channels.ts'
-import {
-	SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_CHANNELS,
-	registerSoundscaperDesktopProjectLibraryIpc,
-} from '../desktop/soundscaper-project-library-ipc.ts'
-import {
 	validateSoundscaperDesktopProjectLibraryCatalogSnapshot,
 } from '../desktop/soundscaper-project-library-lifecycle-contract.ts'
 import {
 	MAXIMUM_SOUNDSCAPER_TRANSFER_CHUNK_BYTES,
+	validateSoundscaperDesktopProjectLibraryBodyReadRequest,
 } from '../desktop/soundscaper-project-library-transfer-contract.ts'
 import { validateSoundscaperDesktopProjectLibraryPublicationAdmission } from '../desktop/soundscaper-project-library-publication-transport.ts'
 import {
 	acquireSoundscaperDesktopProjectLibraryLeaseWithWait,
 } from '../desktop/soundscaper-project-library-lease-wait.ts'
 import { SoundscaperDesktopProjectLibraryCatalog } from '../desktop/soundscaper-project-library-catalog.ts'
-import {
-	createSoundscaperDesktopProjectLibraryMainPreloadBridge,
-} from '../desktop/soundscaper-project-library-main-preload.ts'
 import { validateSoundscaperDesktopCurrentProject } from '../desktop/soundscaper-project-library-current-project.ts'
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts'
 import {
@@ -319,49 +310,30 @@ test('Soundscaper baseline never opens or changes either pre-release desktop lib
 	}
 })
 
-test('Soundscaper baseline IPC is closed under its v1 project-library namespace', async () => {
-	for (const channel of Object.values(SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS)) {
-		assert.match(channel, /^soundscaper:v1:project-library:/u)
-	}
-	const bridge = createSoundscaperDesktopProjectLibraryMainPreloadBridge({
-		invoke: async (channel: string, value?: unknown) => {
-			assert.equal(channel, SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS.handshake)
-			return value
-		},
+test('a refused direct publication can retry the same publication ID', async (context) => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-library-publication-retry-'))
+	context.after(() => rm(root, { recursive: true, force: true }))
+	const handshake = createSoundscaperDesktopProjectLibraryHandshake()
+	const main = await SoundscaperDesktopProjectLibraryMain.start({
+		appDataPath: root, handshake,
+		owner: { product: 'soundscaper', processId: 934, instanceId: 'publication-retry' },
+		onLeaseLost: () => undefined,
+		testControl: null,
 	})
-	await assert.rejects(() => bridge.listProjects(), /handshake/iu)
-	assert.deepEqual(await bridge.connect(), createSoundscaperDesktopProjectLibraryHandshake())
+	try {
+		const session = main.openSession(handshake)
+		const project = createSoundscaperProject({ id: 'retry-publication', title: 'Retry publication' })
+		const publicationId = 'ab'.repeat(24)
+		const request = {
+			publicationId, expectedMetadataRevision: 0, expectedProject: null, project, bodies: [],
+		}
+		await assert.rejects(() => session.beginPublication({ ...request, expectedMetadataRevision: 1 }), /revision/iu)
+		assert.equal((await session.beginPublication(request)).publicationId, publicationId)
+		assert.equal((await session.finishPublication({ publicationId })).document, JSON.stringify(project))
+	} finally { await main.close() }
 })
 
-test('a refused preload publication ID can be retried after IPC or admission failure', async () => {
-	const project = createSoundscaperProject({ id: 'retry-publication', title: 'Retry publication' })
-	const publicationId = 'ab'.repeat(24)
-	const request = {
-		publicationId, expectedMetadataRevision: 0, expectedProject: null, project, bodies: [],
-	}
-	for (const failure of ['ipc', 'admission'] as const) {
-		let attempts = 0
-		const bridge = createSoundscaperDesktopProjectLibraryMainPreloadBridge({
-			invoke: async (channel: string, value?: unknown) => {
-				if (channel === SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS.handshake) return value
-				attempts += 1
-				if (attempts === 1 && failure === 'ipc') throw new Error('publication refused')
-				if (attempts === 1) return { publicationId, maximumChunkBytes: 1, bodyCount: 0, requiredBodyIndexes: [] }
-				return {
-					publicationId,
-					maximumChunkBytes: MAXIMUM_SOUNDSCAPER_TRANSFER_CHUNK_BYTES,
-					bodyCount: 0,
-					requiredBodyIndexes: [],
-				}
-			},
-		})
-		await bridge.connect()
-		await assert.rejects(() => bridge.beginPublication(request))
-		assert.equal((await bridge.beginPublication(request)).publicationId, publicationId, failure)
-	}
-})
-
-test('publication admission requires sorted, dense missing-body indexes at both bridge boundaries', () => {
+test('publication admission requires sorted, dense missing-body indexes in the retained request contracts', () => {
 	const admission = {
 		publicationId: 'a'.repeat(48), maximumChunkBytes: MAXIMUM_SOUNDSCAPER_TRANSFER_CHUNK_BYTES,
 		bodyCount: 2, requiredBodyIndexes: [0, 1],
@@ -376,40 +348,11 @@ test('publication admission requires sorted, dense missing-body indexes at both 
 	}
 })
 
-test('Soundscaper baseline IPC preserves prototype-named data fields for closed-record validation', async () => {
-	const handlers = new Map<string, (event: unknown, value?: unknown) => unknown>()
-	const owner = {}
-	let bodyRead: unknown
-	const registration = registerSoundscaperDesktopProjectLibraryIpc({
-		handle: (channel: string, handler: (event: unknown, value?: unknown) => unknown) => {
-			handlers.set(channel, handler)
-		},
-		ownerFor: () => owner,
-		service: {
-			localHandshake: Object.freeze({ accepted: true }),
-			openSession: () => ({
-				readProjectBundle: () => null,
-				readBodyChunk: (value: unknown) => {
-					bodyRead = value
-					return new Uint8Array()
-				},
-			}),
-		},
-	})
-	const event = {}
-	handlers.get(SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_CHANNELS.handshake)?.(event, {})
-	const request = Object.defineProperty({}, '__proto__', {
-		value: null,
-		enumerable: true,
-		writable: true,
-		configurable: true,
-	})
-	await handlers.get(SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_CHANNELS.readBodyChunk)?.(event, request)
-
-	assert.equal(Object.hasOwn(bodyRead as object, '__proto__'), true)
-	assert.equal(Object.getOwnPropertyDescriptor(bodyRead as object, '__proto__')?.value, null)
-	assert.ok((bodyRead as { signal?: unknown }).signal instanceof AbortSignal)
-	await registration.dispose()
+test('the retained body read validator refuses prototype-named data fields', () => {
+	const request = Object.defineProperty({}, '__proto__', { value: null, enumerable: true })
+	assert.throws(() => validateSoundscaperDesktopProjectLibraryBodyReadRequest(request), /unsupported fields/u)
+	assert.equal(Object.hasOwn(request, '__proto__'), true)
+	assert.equal(Object.getPrototypeOf(request), Object.prototype)
 })
 
 test('Soundscaper baseline lease retry recognizes only current contention', async () => {

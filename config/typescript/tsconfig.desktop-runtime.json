@@ -341,7 +341,7 @@
 		"../../desktop/native-services-watch-coordinator.ts",
 		"../../desktop/native-services-watch-repository.ts",
 		"../../desktop/framescaper-project-library-main-ipc.ts",
-		"../../desktop/soundscaper-project-library-main-ipc.ts",
+		"../../desktop/soundscaper-project-library-main.ts",
 		"../../src/common/editor/soundscaper-persistent-delivery-plan-v1.ts",
 		"../../desktop/process-tree-termination.ts",
 		"../../src/common/editor/ffmpeg-video-source-characteristics.ts",

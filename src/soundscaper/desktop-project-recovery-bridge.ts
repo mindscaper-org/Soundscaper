@@ -2,9 +2,6 @@
 
 import type { ProjectRecoveryCandidate, ProjectRecoverySummary } from '../common/editor/storage/project-recovery-repository.ts';
 
-export const SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS = Object.freeze({
-	list: 'soundscaper:v1:project-recovery:list', read: 'soundscaper:v1:project-recovery:read',
-});
 export interface SoundscaperDesktopProjectRecoveryBridge {
 	listProjectRecoverySummaries(): Promise<readonly ProjectRecoverySummary[]>;
 	readProjectRecoveryCandidates(projectId: string): Promise<readonly ProjectRecoveryCandidate[]>;

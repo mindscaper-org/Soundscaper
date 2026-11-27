@@ -32,6 +32,9 @@ test('desktop staging contains only unversioned v1 project-library authorities',
 		'desktop/framescaper-project-library-writer.js',
 	]);
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/soundscaper-project-library-main.js'));
+	assert.deepEqual(DESKTOP_EXPECTED_RUNTIME_FILES.filter((file) => (
+		/^desktop\/soundscaper-project-library-(?:ipc|main-(?:ipc|channels|preload))\.js$/u.test(file)
+	)), []);
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/project-library-immediate-transaction.js'));
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes('desktop/project-library-path-layout.js'));
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/local-model-file-io.js'));

@@ -8,20 +8,18 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { createSoundscaperDesktopProjectLibraryHandshake, createSoundscaperDesktopProjectLibraryPaths } from '../desktop/soundscaper-project-library-contract.ts';
-import { registerSoundscaperDesktopProjectLibraryMainIpc } from '../desktop/soundscaper-project-library-main-ipc.ts';
-import { createSoundscaperDesktopProjectLibraryMainPreloadBridge } from '../desktop/soundscaper-project-library-main-preload.ts';
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts';
 import { AUDIO_ANALYSIS_REPORT_CACHE_PREFIX, peakCacheKey } from '../src/common/editor/source-analysis-cache.ts';
 import { createProjectStore } from '../src/common/editor/storage.js';
 import { RECORDING_RECOVERY_KEY_PREFIX } from '../src/common/editor/storage/recording-recovery-journal-repository.ts';
 import { SUBPROJECT_LIBRARY_SETTING } from '../src/common/editor/subproject-library-setting.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
-import { SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS } from '../src/soundscaper/desktop-project-recovery-bridge.ts';
 import { createSoundscaperAudioEditorController } from '../src/soundscaper/editor-controller.ts';
 import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { MockAudioContext } from './helpers/mock-audio-context.js';
+import { soundscaperLibrarySessionBridge } from './helpers/soundscaper-library-session-bridge.ts';
 
 test('Soundscaper desktop Clear retains saved history and playable timeline media after restart', async context => {
 	const directory = await mkdtemp(join(tmpdir(), 'soundscaper-clear-retained-media-'));
@@ -119,27 +117,14 @@ async function withDesktopController<Value>(
 		owner: { product: 'soundscaper', processId: process.pid, instanceId: crypto.randomUUID() },
 		onLeaseLost: () => undefined, testControl: null,
 	});
-	const owner = {};
-	const handlers = new Map<string, (event: unknown, request?: unknown) => unknown>();
-	const registration = registerSoundscaperDesktopProjectLibraryMainIpc({
-		main, ownerFor: () => owner,
-		handle(channel: string, implementation: (event: unknown, request?: unknown) => unknown) {
-			handlers.set(channel, implementation);
-		},
-		removeHandler(channel: string) { handlers.delete(channel); },
-	});
-	const invoke = async (channel: string, request?: unknown) => {
-		const handler = handlers.get(channel);
-		assert.ok(handler);
-		return handler({}, request);
-	};
-	const bridge = createSoundscaperDesktopProjectLibraryMainPreloadBridge({ invoke });
+	const session = main.openSession(handshake);
+	const bridge = soundscaperLibrarySessionBridge(main, session);
 	const libraryGlobal = 'soundscaperProjectLibraryDesktop';
 	const recoveryGlobal = 'soundscaperProjectRecoveryDesktop';
 	Object.defineProperty(globalThis, libraryGlobal, { configurable: true, enumerable: true, value: Object.freeze({ v1: bridge }) });
 	Object.defineProperty(globalThis, recoveryGlobal, { configurable: true, enumerable: true, value: Object.freeze({
-		listProjectRecoverySummaries: () => invoke(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.list),
-		readProjectRecoveryCandidates: (id: string) => invoke(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.read, id),
+		listProjectRecoverySummaries: async () => main.listProjectRecoverySummaries(),
+		readProjectRecoveryCandidates: async (id: string) => main.readProjectRecoveryCandidates(id),
 	}) });
 	try {
 		const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
@@ -155,6 +140,6 @@ async function withDesktopController<Value>(
 	} finally {
 		Reflect.deleteProperty(globalThis, libraryGlobal);
 		Reflect.deleteProperty(globalThis, recoveryGlobal);
-		try { await registration.dispose(); } finally { await main.close(); }
+		try { await session.close(); } finally { await main.close(); }
 	}
 }

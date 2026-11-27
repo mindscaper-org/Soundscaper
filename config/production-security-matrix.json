@@ -1931,7 +1931,7 @@
 				"desktop/preload.mjs",
 				"desktop/main.mjs",
 				"desktop/linked-video-locator-ipc.js",
-				"desktop/soundscaper-project-library-main-ipc.ts",
+				"desktop/tracktion-project-ipc.ts",
 				"desktop/desktop-video-codec-main-ipc.ts",
 				"desktop/soundscaper-project-library-contract.ts",
 				"desktop/soundscaper-project-library-main.ts",
@@ -1961,7 +1961,7 @@
 				},
 				{
 					"kind": "implementation",
-					"path": "desktop/soundscaper-project-library-main-ipc.ts"
+					"path": "desktop/tracktion-project-ipc.ts"
 				},
 				{
 					"kind": "implementation",
@@ -5984,7 +5984,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/soundscaper-project-library-main-ipc.ts"
+							"path": "desktop/tracktion-project-ipc.ts"
 						},
 						{
 							"kind": "implementation",
@@ -6498,7 +6498,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/soundscaper-project-library-main-ipc.ts"
+							"path": "desktop/tracktion-project-ipc.ts"
 						},
 						{
 							"kind": "test",
@@ -8786,7 +8786,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/soundscaper-project-library-main-ipc.ts"
+							"path": "desktop/soundscaper-project-library-main-session.ts"
 						},
 						{
 							"kind": "implementation",
@@ -9058,7 +9058,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/soundscaper-project-library-main-ipc.ts"
+							"path": "desktop/soundscaper-project-library-main-session.ts"
 						},
 						{
 							"kind": "implementation",

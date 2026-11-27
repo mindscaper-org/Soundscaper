@@ -26,6 +26,7 @@ import {
 	type SoundscaperProject,
 } from '../src/soundscaper/editor-project-validation.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { soundscaperLibrarySessionBridge } from './helpers/soundscaper-library-session-bridge.ts';
 
 const PROJECT_ID = 'desktop-conditional-publication';
 
@@ -50,7 +51,7 @@ test('Soundscaper desktop conditional saves publish and compare against main aut
 	Object.defineProperty(globalThis, 'soundscaperProjectLibraryDesktop', {
 		configurable: true,
 		enumerable: true,
-		value: Object.freeze({ v1: soundscaperBridge(main, session, handshake) }),
+		value: Object.freeze({ v1: soundscaperLibrarySessionBridge(main, session) }),
 	});
 	try {
 		const renderer = await connectSoundscaperDesktopProjectLibraryRenderer(
@@ -164,30 +165,6 @@ test('Soundscaper desktop conditional saves publish and compare against main aut
 });
 
 type SoundscaperSession = ReturnType<SoundscaperDesktopProjectLibraryMain['openSession']>;
-
-function soundscaperBridge(
-	main: SoundscaperDesktopProjectLibraryMain,
-	session: SoundscaperSession,
-	handshake: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> {
-	return Object.freeze({
-		connect: async () => handshake,
-		handshakeState: () => 'admitted',
-		listProjects: () => session.listProjects(),
-		claimProjectWriteFence: (projectId: string) => session.claimProjectWriteFence(projectId),
-		checkProjectWriteFence: (request: unknown) => session.checkProjectWriteFence(request),
-		readProjectBundle: (projectId: string) => session.readProjectBundle(projectId),
-		readBodyChunk: (request: unknown) => session.readBodyChunk(request),
-		beginPublication: (request: unknown) => session.beginPublication(request),
-		writePublicationChunk: (request: unknown) => session.writePublicationChunk(request),
-		finishPublication: (request: unknown) => session.finishPublication(request),
-		abortPublication: (request: unknown) => session.abortPublication(request),
-		deleteProject: (request: unknown) => session.deleteProject(request),
-		duplicateProject: (request: unknown) => session.duplicateProject(request),
-		persistNativePluginState: async (bytes: Uint8Array) => main.persistNativePluginState(bytes),
-		readNativePluginState: async (bodyId: string) => main.readNativePluginState(bodyId),
-	});
-}
 
 async function publishDirectly(
 	session: SoundscaperSession,
