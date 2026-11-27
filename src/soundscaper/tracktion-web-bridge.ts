@@ -107,7 +107,10 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		}
 		if (request.kind === 'play' || (request.kind === 'seek' && audio.playing)) {
 			const buffers = { output: audio.outputBuffer() };
-			const { value } = await sendToProject(request, undefined, buffers);
+			const { value } = await sendToProject(request, undefined, buffers).catch(async (error: unknown) => {
+				if (request.kind === 'play' && project === current && !audio.playing) await audio.stop().catch(() => undefined);
+				throw error;
+			});
 			try {
 				if ((value as TracktionTransportView).playing) audio.connect(buffers);
 				else await audio.stop();

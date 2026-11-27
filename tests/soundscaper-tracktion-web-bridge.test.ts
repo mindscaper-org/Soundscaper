@@ -21,12 +21,18 @@ const savedId = '4'.repeat(32);
 class ProjectWorker extends EventTarget {
 	readonly requests: string[] = [];
 	readonly importedNames: string[] = [];
+	readonly refusals = new Map<string, string>();
 	terminated = false;
 	releaseOnClose = false;
 
 	postMessage({ id, request }: Request): void {
 		assert.equal(this.terminated, false);
 		this.requests.push(request.kind);
+		const refusal = this.refusals.get(request.kind);
+		if (refusal) {
+			queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, error: 'request', detail: refusal } })));
+			return;
+		}
 		if (request.kind === 'save') return;
 		if (request.kind === 'open') assert.equal(request.project, savedId);
 		if (request.kind === 'importFile') {
@@ -34,8 +40,11 @@ class ProjectWorker extends EventTarget {
 			this.importedNames.push(request.name);
 		}
 		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
-		const transport = ['prepareOutput', 'play', 'stop'].includes(request.kind);
-		const value = transport ? { ready: true, playing: request.kind === 'play', recording: false, frame: 0 } : project;
+		const recording = request.kind === 'startRecording';
+		const playing = request.kind === 'play' || request.kind === 'seek' || recording;
+		const transport = playing || request.kind === 'prepareOutput' || request.kind === 'stop';
+		const value = transport ? { ready: true, playing, recording, frame: 0 }
+			: request.kind === 'finishRecording' ? { revision: project.revision, itemId: null } : project;
 		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine } })));
 	}
 
@@ -90,6 +99,76 @@ for (const suspensionFails of [false, true]) test(`Stop retains its transport re
 	assert.equal(contexts.length, 1);
 	assert.equal(loaded, 1);
 	assert.equal(connected, 2);
+});
+
+test('a refused Play suspends idle browser audio and leaves active playback and capture alone', async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const contexts: PlaybackContext[] = [];
+	let suspended = 0;
+	let disconnected = 0;
+	let stoppedTracks = 0;
+	const microphone = Object.assign(new EventTarget(), { readyState: 'live', stop() { stoppedTracks += 1; } });
+	class PlaybackContext {
+		readonly sampleRate = 48_000;
+		readonly destination = {};
+		readonly audioWorklet = { addModule: () => Promise.resolve() };
+		state: AudioContextState = 'suspended';
+		constructor() { contexts.push(this); }
+		resume(): Promise<void> { this.state = 'running'; return Promise.resolve(); }
+		suspend(): Promise<void> {
+			suspended += 1;
+			this.state = 'suspended';
+			return Promise.resolve();
+		}
+		createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+	}
+	class PlaybackNode extends EventTarget {
+		readonly port = { close() {} };
+		connect(): void {}
+		disconnect(): void { disconnected += 1; }
+	}
+	installGlobals(context, {
+		AudioContext: PlaybackContext, AudioWorkletNode: PlaybackNode,
+		navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [microphone], getAudioTracks: () => [microphone] }) } },
+	});
+	const { sessionId } = opened;
+	const play = { kind: 'play', sessionId, frame: 0 } as const;
+	const prepare = { kind: 'prepareOutput', sessionId } as const;
+	const reason = 'This Tracktion Edit has an effect that requires offline rendering';
+	await bridge.request(prepare);
+	const [audioContext] = contexts;
+	assert.ok(audioContext);
+	assert.equal(audioContext.state, 'running');
+	worker.refusals.set('play', reason);
+	await assert.rejects(bridge.request(play), { message: reason });
+	assert.equal(audioContext.state, 'suspended');
+	assert.equal(suspended, 1);
+	assert.deepEqual(worker.requests, ['create', 'prepareOutput', 'play']);
+
+	worker.refusals.delete('play');
+	await bridge.request(prepare);
+	assert.equal((await bridge.request(play)).playing, true);
+	assert.equal(contexts.length, 1);
+	worker.refusals.set('seek', 'Cannot seek while the edit is changing');
+	await assert.rejects(bridge.request({ kind: 'seek', sessionId, frame: 512 }), { message: 'Cannot seek while the edit is changing' });
+	assert.equal(audioContext.state, 'running');
+	assert.equal(suspended, 1);
+	assert.equal(disconnected, 0);
+
+	await bridge.request({ kind: 'stop', sessionId });
+	await bridge.request({ kind: 'startRecording', sessionId, revision: project.revision, trackId: '3', frame: 0 });
+	worker.refusals.set('play', 'Finish or discard the Tracktion recording first');
+	await assert.rejects(bridge.request(play), { message: 'Finish or discard the Tracktion recording first' });
+	assert.equal(audioContext.state, 'running');
+	assert.equal(suspended, 2);
+	assert.equal(disconnected, 1);
+	assert.equal(stoppedTracks, 0);
+	await bridge.request({ kind: 'finishRecording', sessionId, revision: project.revision, discard: true });
+	assert.equal(stoppedTracks, 1);
 });
 
 test('WAV imports preserve nonempty native names within the UTF-8 byte limit', async (context) => {
