@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import type { TracktionAudioDevices, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
+import type { TracktionAppliedAudioSetup, TracktionAudioDevices, TracktionAudioSetup } from '../src/soundscaper/tracktion-audio-device-contract.ts';
 import type { TracktionProjectBridge, TracktionProjectCommand, TracktionProjectReply } from '../src/soundscaper/tracktion-project-contract.ts';
 import { TracktionAudioSetupDialog } from '../src/soundscaper/ui/TracktionAudioSetupDialog.tsx';
 
@@ -36,14 +36,16 @@ test('refreshing Tracktion audio devices preserves unapplied settings and named 
 	const microphone = { id: 'studio-mic', name: 'Studio microphone' };
 	const speakers = { id: 'interface', name: 'Audio interface' };
 	const headphones = { id: 'headphones', name: 'Headphones' };
+	const setup: TracktionAudioSetup = { hostId: 'mock', inputId: microphone.id, outputId: speakers.id,
+		inputChannel: 1, outputChannel: 2, sampleRate: 96_000, blockSize: 512 };
+	const applied: TracktionAppliedAudioSetup = { setup, actualSampleRate: 96_000, actualBlockSize: 512 };
 	let devices: TracktionAudioDevices = { inputs: [microphone], outputs: [speakers], separateDevices: true };
 	const requests: TracktionProjectCommand[] = [];
 	const bridge: TracktionProjectBridge = {
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			requests.push(command);
-			if (command.kind === 'audioDevices') return devices as TracktionProjectReply<Command>;
-			assert.equal(command.kind, 'setAudioSetup');
-			return { setup: command, actualSampleRate: 96_000, actualBlockSize: 512 } as TracktionProjectReply<Command>;
+			assert.ok(command.kind === 'audioDevices' || command.kind === 'setAudioSetup');
+			return (command.kind === 'audioDevices' ? devices : applied) as TracktionProjectReply<Command>;
 		},
 	};
 	await act(async () => root.render(<TracktionAudioSetupDialog inventory={{ hosts: [{ id: 'mock', name: 'Mock audio host' }], selected: null }}
@@ -74,7 +76,5 @@ test('refreshing Tracktion audio devices preserves unapplied settings and named 
 	devices = { ...devices, outputs: [speakers, headphones] };
 	await click('Refresh devices');
 	await click('Apply');
-	const setup: TracktionAudioSetup = { hostId: 'mock', inputId: microphone.id, outputId: speakers.id,
-		inputChannel: 1, outputChannel: 2, sampleRate: 96_000, blockSize: 512 };
 	assert.deepEqual(requests.at(-1), { kind: 'setAudioSetup', sessionId: 'session', ...setup });
 });
