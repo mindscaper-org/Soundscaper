@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -359,6 +359,8 @@ test('optional export execution has an isolated lazy owner', () => {
 });
 
 test('stateful local assistance implementations share one dedicated lazy owner', () => {
+	const retiredAdapter = new URL('../src/common/editor/assistance/shot-detection.ts', import.meta.url);
+	assert.equal(existsSync(retiredAdapter), false, 'the unused shot-detection adapter is absent');
 	for (const path of [
 		'src/common/editor/controller/assistance/internal/local-assistance-runtime.ts',
 		'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-preparation.ts',
@@ -400,7 +402,6 @@ test('stateful local assistance implementations share one dedicated lazy owner',
 		'src/common/editor/assistance/reframe-planner-v1.ts',
 		'src/common/editor/assistance/scene-scores.ts',
 		'src/common/editor/assistance/semantic-search-index-v1.ts',
-		'src/common/editor/assistance/shot-detection.ts',
 		'src/common/editor/assistance/shot-detection-mode.ts',
 		'src/common/editor/assistance/speaker-attribution.ts',
 		'src/common/editor/assistance/subject-tracker-v1.ts',
