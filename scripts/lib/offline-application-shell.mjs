@@ -182,6 +182,8 @@ function productInstallUrls({ assets, buildManifest, productId, worker }) {
 			.map((name) => `/${INSTALL_SCREENSHOT_DIRECTORY}/${name}.png`),
 	]);
 	if (worker.root) urls.add('/');
+	// A saved Tracktion project can be played offline before its first Play gesture.
+	if (productId === 'soundscaper') urls.add('/tracktion/tracktion-audio-worklet.js');
 	for (const logo of PRODUCT_INSTALL_ARTIFACTS[productId].logos) urls.add(logo);
 	for (const key of [entryKey, ...PRODUCT_INSTALL_ENTRIES[productId]]) {
 		for (const url of staticManifestClosure(buildManifest, key)) urls.add(url);

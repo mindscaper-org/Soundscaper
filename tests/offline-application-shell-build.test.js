@@ -86,6 +86,8 @@ test('offline shell generation inventories exact route URLs and emits installabl
 		'/assets/soundscaper-core.js',
 		'/embed/en/',
 		'/en/',
+		'/tracktion/tracktion-audio-worklet.js',
+		'/tracktion/tracktion-project-worker.js',
 	]);
 	assert.equal(urls.includes('/_headers'), false);
 	assert.equal(urls.includes('/assets/application-abc.js.map'), false);
@@ -100,7 +102,10 @@ test('offline shell generation inventories exact route URLs and emits installabl
 	assert.deepEqual(soundWorker.fallbacks, { standard: '/en/', embedded: '/embed/en/' });
 	assert.deepEqual(
 		soundWorker.installUrls.filter((url) => url.endsWith('.js')),
-		['/assets/application-abc.js', '/assets/project-library-storage.js', '/assets/project-library.js', '/assets/shared.js', '/assets/soundscaper-core.js'],
+		[
+			'/assets/application-abc.js', '/assets/project-library-storage.js', '/assets/project-library.js',
+			'/assets/shared.js', '/assets/soundscaper-core.js', '/tracktion/tracktion-audio-worklet.js',
+		],
 	);
 	assert.equal(soundWorker.installUrls.includes('/logo/framescaper.svg'), true);
 	assert.equal(soundWorker.installUrls.includes('/assets/optional-dialog.js'), false);
@@ -109,6 +114,8 @@ test('offline shell generation inventories exact route URLs and emits installabl
 		'/assets/output-worklet.js',
 		'/assets/plugin.ny',
 		'/assets/runtime-codec.wasm',
+		'/tracktion/edit-core.wasm',
+		'/tracktion/tracktion-project-worker.js',
 	]) assert.equal(urls.includes(optionalAsset), true, optionalAsset);
 	for (const worker of [soundWorker]) {
 		assert.equal(worker.installUrls.includes('/assets/core-icon.png'), true);
@@ -117,6 +124,8 @@ test('offline shell generation inventories exact route URLs and emits installabl
 			'/assets/output-worklet.js',
 			'/assets/plugin.ny',
 			'/assets/runtime-codec.wasm',
+			'/tracktion/edit-core.wasm',
+			'/tracktion/tracktion-project-worker.js',
 		]) assert.equal(worker.installUrls.includes(optionalAsset), false, optionalAsset);
 	}
 	assert.ok(soundWorker.installAssetCount < audit.assets.length);
@@ -177,6 +186,7 @@ test('a Framescaper build installs one root-scoped worker and manifest for its o
 	assert.equal(worker.installUrls.includes('/assets/soundscaper-core.js'), false);
 	assert.equal(worker.installUrls.includes('/assets/project-library.js'), false);
 	assert.equal(worker.installUrls.includes('/assets/project-library-storage.js'), false);
+	assert.equal(worker.installUrls.includes('/tracktion/tracktion-audio-worklet.js'), false);
 	assert.equal(worker.installUrls.includes('/manifest-framescaper.webmanifest'), true);
 	assert.equal(await readFile(join(outputRoot, 'framescaper/service-worker.js'), 'utf8').catch(() => null), null);
 	assert.equal(await readFile(join(outputRoot, 'manifest-soundscaper.webmanifest'), 'utf8').catch(() => null), null);
@@ -460,6 +470,9 @@ async function shellFixture(context, routes = ['en', 'embed/en']) {
 		fixtureFile(outputRoot, 'assets/project-library.js', 'export const projects = [];'),
 		fixtureFile(outputRoot, 'assets/project-library-storage.js', 'export const indexed = 1;'),
 		fixtureFile(outputRoot, 'assets/optional-dialog.js', 'export const optional = 1;'),
+		fixtureFile(outputRoot, 'tracktion/edit-core.wasm', 'Tracktion core'),
+		fixtureFile(outputRoot, 'tracktion/tracktion-audio-worklet.js', 'const TracktionOutputProcessor = 1;'),
+		fixtureFile(outputRoot, 'tracktion/tracktion-project-worker.js', 'const TracktionProjectWorker = 1;'),
 		fixtureFile(outputRoot, 'assets/application-abc.js.map', '{}'),
 		...['soundscaper', 'framescaper'].flatMap((productId) => ['wide', 'narrow'].map((formFactor) => (
 			fixtureFile(outputRoot, `install-screenshots/${productId}-${formFactor}.png`, `${productId} ${formFactor}`)

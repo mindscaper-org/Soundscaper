@@ -157,6 +157,7 @@ async function productShell(context, productId) {
 		'assets/soundscaper-core.js': 'export const soundscaper = 1;',
 		'assets/framescaper-core.js': 'export const framescaper = 1;',
 		'assets/project-library.js': 'export const projects = [];',
+		'tracktion/tracktion-audio-worklet.js': 'const TracktionOutputProcessor = 1;',
 		'logo/framescaper.svg': '<svg viewBox="0 0 1 1" />',
 		'logo/soundscaper.svg': '<svg viewBox="0 0 1 1" />',
 		'logo/mindscaper.svg': '<svg viewBox="0 0 1 1" />',

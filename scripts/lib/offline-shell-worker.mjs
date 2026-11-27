@@ -218,7 +218,7 @@ async function verifiedShellResponse(response, descriptor, cryptoImpl) {
 	return new Response(bytes, { status: 200, statusText: response.statusText, headers });
 }
 
-async function installVerifiedAsset({ cacheStorage, candidate, descriptor, fetchImpl, cryptoImpl, reuseNames }) {
+async function installVerifiedAsset({ cacheStorage, candidate, descriptor, fetchImpl, cryptoImpl, reuseNames, productId }) {
 	for (const cacheName of reuseNames) {
 		const response = await (await cacheStorage.open(cacheName)).match(descriptor.url);
 		if (!response) continue;
@@ -229,8 +229,9 @@ async function installVerifiedAsset({ cacheStorage, candidate, descriptor, fetch
 			// A corrupt reusable entry is ignored; the immutable network response is still verified below.
 		}
 	}
+	const reloadWorklet = productId === 'soundscaper' && descriptor.url === '/tracktion/tracktion-audio-worklet.js';
 	const response = await fetchImpl(descriptor.url, {
-		cache: 'default',
+		cache: reloadWorklet ? 'reload' : 'default',
 		credentials: 'same-origin',
 		redirect: 'error',
 	});
@@ -286,6 +287,7 @@ export async function installOfflineShell({
 			fetchImpl,
 			cryptoImpl,
 			reuseNames,
+			productId: configuration.productId,
 		}, configuration.installUrls.map((url) => byUrl.get(url)));
 		const completion = JSON.stringify({
 			schemaVersion: 2,
