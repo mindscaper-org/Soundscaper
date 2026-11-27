@@ -208,6 +208,31 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 	]);
 });
 
+void test('deleting a clip reuses the remaining clips outside the first track page', async () => {
+	const tracks = Array.from({ length: 65 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 0 }));
+	const selectedTrack = { id: '65', name: 'Track 65', clipCount: 2 };
+	tracks[64] = selectedTrack;
+	const project = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: 64, tracks: tracks.slice(0, 64) };
+	const retained = { id: 'retained', name: 'Kept', start: 20, end: 40, sourceOffset: 8 };
+	const workspace: TracktionWorkspace = {
+		sessionId: 'session', name: 'Project', project, tracks, selectedTrack, previousSelection: undefined,
+		clips: [{ ...retained, id: 'removed', name: 'Deleted', start: 0, end: 20 }, retained],
+	};
+	const refreshedPage: TracktionProjectPage = { ...project, revision: 8, canUndo: true, canRedo: false };
+	const bridge: TracktionProjectBridge = {
+		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
+			assert.deepEqual(command, { kind: 'project', sessionId: 'session', offset: 0 });
+			return refreshedPage as TracktionProjectReply<Command>;
+		},
+	};
+	const updated = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, 8, { removedFromSource: 'removed' });
+	assert.deepEqual(updated.clips, [retained]);
+	assert.equal(updated.clips[0], retained);
+	assert.equal(updated.selectedTrack?.clipCount, 1);
+	assert.equal(updated.tracks.at(-1), updated.selectedTrack);
+	assert.equal(updated.project, refreshedPage);
+});
+
 void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {
 	const { dom, requests, click } = await mountEditor(context);
 	await click('Open projects');

@@ -36,19 +36,20 @@ export async function readTracktionWorkspaceWithCachedTracks(
 
 export async function readTracktionWorkspaceAfterClipEdit(
 	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
-	{ trackId = workspace.selectedTrack?.id, movedClipId }: Readonly<{ trackId?: string; movedClipId?: string }> = {},
+	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
 	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
 	if (project.revision !== revision || !target) return await readWorkspaceFromPage(bridge, workspace, project, trackId);
 	const current = project.tracks.find((track) => track.id === target.id);
-	const clips = current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id);
+	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
+	const clips = removedFromSource && target === source ? sourceClips
+		: current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id);
 	const selectedTrack = withClipCount(target, clips.length);
 	let previousSelection = workspace.previousSelection;
 	let previousTrack = source;
 	if (source && source.id !== target.id) {
-		const sourceClips = movedClipId ? workspace.clips.filter((clip) => clip.id !== movedClipId) : workspace.clips;
 		previousSelection = { trackId: source.id, clips: sourceClips };
 		previousTrack = withClipCount(source, sourceClips.length);
 	}

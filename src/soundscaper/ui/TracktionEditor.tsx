@@ -288,7 +288,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
 			if ('clipId' in edit) {
 				const target = 'trackId' in edit ? { trackId: edit.trackId } : undefined;
-				const changed = edit.kind === 'moveClip' ? { ...target, movedClipId: edit.clipId } : target;
+				const leavesSource = edit.kind === 'deleteClip' || (edit.kind === 'moveClip' && edit.trackId !== workspace.selectedTrack?.id);
+				const changed = leavesSource ? { ...target, removedFromSource: edit.clipId } : target;
 				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, changed));
 				return;
 			}
