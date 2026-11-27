@@ -153,47 +153,33 @@ juce::var pageCursor(size_t end, size_t total)
 	return end < total ? number(static_cast<std::int64_t>(end)) : juce::var();
 }
 
-juce::var projectPage(const ProjectView& project, size_t start)
+juce::var projectPageReply(const ProjectPage& project, size_t offset)
 {
-	if (start > project.tracks.size())
-		throw std::invalid_argument("The Tracktion track page offset is outside the project");
-	const auto end = std::min(project.tracks.size(), start + pageSize);
 	juce::Array<juce::var> tracks;
-	for (auto index = start; index < end; ++index)
-	{
-		const auto& track = project.tracks[index];
+	for (const auto& track : project.tracks)
 		tracks.add(record({
 			{"id", juce::String(std::to_string(track.id))},
 			{"name", juce::String(track.name).substring(0, 128)},
-			{"clipCount", number(static_cast<std::int64_t>(track.clips.size()))},
+			{"clipCount", number(static_cast<std::int64_t>(track.clipCount))},
 		}));
-	}
 	return record({
 		{"revision", number(project.revision)}, {"sampleRate", project.sampleRate},
 		{"canUndo", project.canUndo}, {"canRedo", project.canRedo},
-		{"tracks", juce::var(tracks)}, {"nextOffset", pageCursor(end, project.tracks.size())},
+		{"tracks", juce::var(tracks)}, {"nextOffset", pageCursor(offset + project.tracks.size(), project.total)},
 	});
 }
 
-juce::var clipPage(const ProjectView& project, TrackId id, size_t start)
+juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
 {
-	const auto track = std::find_if(project.tracks.begin(), project.tracks.end(),
-	                              [id](const TrackView& view) { return view.id == id; });
-	if (track == project.tracks.end() || start > track->clips.size())
-		throw std::invalid_argument("The Tracktion clip page does not belong to this project");
-	const auto end = std::min(track->clips.size(), start + pageSize);
 	juce::Array<juce::var> clips;
-	for (auto index = start; index < end; ++index)
-	{
-		const auto& clip = track->clips[index];
+	for (const auto& clip : page.clips)
 		clips.add(record({
 			{"id", juce::String(std::to_string(clip.id))},
 			{"name", juce::String(clip.name).substring(0, 128)},
 			{"start", number(clip.start)}, {"end", number(clip.end)}, {"sourceOffset", number(clip.sourceOffset)},
 		}));
-	}
 	return record({
-		{"revision", number(project.revision)}, {"clips", juce::var(clips)}, {"nextOffset", pageCursor(end, track->clips.size())},
+		{"revision", number(revision)}, {"clips", juce::var(clips)}, {"nextOffset", pageCursor(offset + page.clips.size(), page.total)},
 	});
 }
 }
@@ -255,7 +241,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (kind == "project")
 	{
 		requireFields(request, {"offset"});
-		return projectPage(session.snapshot(), arrayIndex(request, "offset"));
+		const auto offset = arrayIndex(request, "offset");
+		return projectPageReply(session.projectPage(offset, pageSize), offset);
 	}
 	if (kind == "transportStatus" || kind == "prepareOutput" || kind == "play" || kind == "stop" || kind == "seek" || kind == "setLoop")
 	{
@@ -299,7 +286,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (kind == "clips")
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
-		return clipPage(session.snapshot(), itemId(request, "trackId"), arrayIndex(request, "offset"));
+		const auto offset = arrayIndex(request, "offset");
+		return clipPageReply(session.clipPage(itemId(request, "trackId"), offset, pageSize), revision, offset);
 	}
 	if (kind == "trackMix")
 	{

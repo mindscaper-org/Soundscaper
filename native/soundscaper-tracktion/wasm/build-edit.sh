@@ -33,7 +33,8 @@ sources=("${modules[@]/#/\/source\/juce\/modules\/}"
 	/source/tracktion/modules/tracktion_engine/tracktion_engine_*.cpp
 	/source/tracktion/modules/tracktion_core/tracktion_core.cpp
 	/source/tracktion/modules/tracktion_graph/tracktion_graph.cpp
-	/project/session.cpp /project/session_automation.cpp /project/session_range.cpp /project/session_clipboard.cpp /project/session_transport.cpp /project/session_recording.cpp
+	/project/session.cpp /project/session_paging.cpp /project/session_automation.cpp /project/session_range.cpp
+	/project/session_clipboard.cpp /project/session_transport.cpp /project/session_recording.cpp
 	/project/session_device.cpp /project/session_effects.cpp /project/project_archive.cpp)
 objects=()
 for source in "${sources[@]}"; do

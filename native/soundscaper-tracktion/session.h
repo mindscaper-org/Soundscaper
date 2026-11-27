@@ -6,6 +6,7 @@
 #include "offline_effect.h"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -46,20 +47,27 @@ struct ClipView
 	Frame sourceOffset;
 };
 
-struct TrackView
+struct TrackSummary
 {
 	TrackId id;
 	std::string name;
-	std::vector<ClipView> clips;
+	std::size_t clipCount;
 };
 
-struct ProjectView
+struct ProjectPage
 {
 	Revision revision;
 	int sampleRate;
 	bool canUndo;
 	bool canRedo;
-	std::vector<TrackView> tracks;
+	std::size_t total;
+	std::vector<TrackSummary> tracks;
+};
+
+struct ClipPage
+{
+	std::size_t total;
+	std::vector<ClipView> clips;
 };
 
 struct TrackMix
@@ -92,7 +100,8 @@ public:
 	Session(const juce::File& directory, const juce::File& stateDirectory, OpenMode, int sampleRate);
 	~Session();
 
-	ProjectView snapshot() const;
+	ProjectPage projectPage(std::size_t offset, std::size_t limit) const;
+	ClipPage clipPage(TrackId, std::size_t offset, std::size_t limit) const;
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);
 	TrackId duplicateTrack(Revision, TrackId);

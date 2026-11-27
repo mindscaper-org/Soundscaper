@@ -243,29 +243,6 @@ Revision Session::revision() const noexcept
 	return state->revision;
 }
 
-ProjectView Session::snapshot() const
-{
-	const auto& s = *state;
-	auto& history = s.edit->getUndoManager();
-	ProjectView view{s.revision, s.sampleRate, history.canUndo(), history.canRedo(), {}};
-	for (auto* track : te::getAudioTracks(*s.edit))
-	{
-		TrackView trackView{track->itemID.getRawID(), track->getName().toStdString(), {}};
-		for (auto* clip : track->getClips())
-		{
-			const auto position = clip->getPosition();
-			trackView.clips.push_back({
-				clip->itemID.getRawID(), clip->getName().toStdString(),
-				tracktion::toSamples(position.getStart(), s.sampleRate),
-				tracktion::toSamples(position.getEnd(), s.sampleRate),
-				tracktion::toSamples(position.getOffset(), s.sampleRate),
-			});
-		}
-		view.tracks.push_back(std::move(trackView));
-	}
-	return view;
-}
-
 TrackId Session::addTrack(Revision expected, const std::string& name)
 {
 	auto& s = *state;

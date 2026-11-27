@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "project_archive.h"
+#include "session_test_support.h"
 #include "session.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -21,39 +22,18 @@ static_assert(JUCE_ASIO && JUCE_ASIO_USE_EXTERNAL_SDK, "Use the authenticated ex
 #include <utility>
 
 using namespace soundscaper::tracktion_backend;
+using soundscaper::tracktion_backend::test::readProjectSnapshot;
+using soundscaper::tracktion_backend::test::require;
+using soundscaper::tracktion_backend::test::writeFixture;
 
 namespace
 {
-void require(bool condition, const char* message)
-{
-	if (!condition)
-		throw std::runtime_error(message);
-}
-
-void writeFixture(const juce::File& file, int frames = 1200)
-{
-	juce::WavAudioFormat format;
-	std::unique_ptr<juce::OutputStream> stream = file.createOutputStream();
-	const auto options = juce::AudioFormatWriterOptions{}.withSampleRate(48000)
-		.withNumChannels(2).withBitsPerSample(16);
-	auto writer = format.createWriterFor(stream, options);
-	require(writer != nullptr, "create fixture");
-	juce::AudioBuffer<float> pcm(2, frames);
-	for (int frame = 0; frame < pcm.getNumSamples(); ++frame)
-	{
-		const auto value = frame < 311 ? 0.125f : 0.375f;
-		pcm.setSample(0, frame, value);
-		pcm.setSample(1, frame, -value / 2);
-	}
-	require(writer->writeFromAudioSampleBuffer(pcm, 0, pcm.getNumSamples()), "write fixture");
-}
-
 void verifyHostedAutomation(const juce::File& root)
 {
 	const auto source = root.getChildFile("hosted-automation.wav");
 	writeFixture(source, 24'576);
 	Session session(root.getChildFile("hosted-automation-project"), root.getChildFile("hosted-automation-state"), OpenMode::create, 48000);
-	const auto track = session.snapshot().tracks.front().id;
+	const auto track = readProjectSnapshot(session).tracks.front().id;
 	session.insertAudio(0, track, source, 0, 0, std::nullopt);
 	session.preparePlayback(128);
 	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -77,9 +57,9 @@ void verifyHostedAutomation(const juce::File& root)
 	session.stop();
 	const auto copy = session.duplicateTrack(3, track);
 	session.render(4, root.getChildFile("automation-before-undo.wav"), 0, 24'576);
-	require(session.undo(4) && session.snapshot().tracks.size() == 1, "export leaves duplicate track as the last undo action");
+	require(session.undo(4) && readProjectSnapshot(session).tracks.size() == 1, "export leaves duplicate track as the last undo action");
 	session.render(5, root.getChildFile("automation-before-redo.wav"), 0, 24'576);
-	require(session.redo(5) && session.snapshot().tracks.at(1).id == copy, "export preserves the redo of the duplicate track");
+	require(session.redo(5) && readProjectSnapshot(session).tracks.at(1).id == copy, "export preserves the redo of the duplicate track");
 }
 
 void verifyRender(const juce::File& file)
@@ -113,32 +93,32 @@ void verifyClipPlacement(const juce::File& root)
 	ClipId copy;
 	{
 		Session session(project, settings, OpenMode::create, 48000);
-		const auto first = session.snapshot().tracks.front().id;
+		const auto first = readProjectSnapshot(session).tracks.front().id;
 		const auto original = session.insertAudio(0, first, source, 41, 123, 128);
 		const auto second = session.addTrack(1, "Destination");
 		session.moveClip(2, original, first, 41);
 		require(session.revision() == 2, "an unchanged clip placement leaves history alone");
 		session.moveClip(2, original, second, 258);
 		require(session.undo(3), "undo the cross-track move");
-		const auto before = session.snapshot();
+		const auto before = readProjectSnapshot(session);
 		require(before.tracks[1].clips.empty() && before.tracks[0].clips.at(0).id == original
 			&& before.tracks[0].clips.at(0).start == 41, "undo restores original owner and timeline position");
 		require(session.redo(4), "redo the cross-track move");
-		const auto after = session.snapshot();
+		const auto after = readProjectSnapshot(session);
 		const auto& moved = after.tracks[1].clips.at(0);
 		require(after.tracks[0].clips.empty() && moved.id == original && moved.start == 258
 			&& moved.end == 386 && moved.sourceOffset == 123, "move preserves clip identity and source interval");
 		copy = session.duplicateClip(5, original, second, 451);
 		session.deleteClip(6, original);
-		const auto erased = session.snapshot();
+		const auto erased = readProjectSnapshot(session);
 		require(erased.tracks[1].clips.size() == 1 && erased.tracks[1].clips[0].start == 451,
 			"delete leaves the following clip in place");
-		require(session.undo(7) && session.snapshot().tracks[1].clips.size() == 2, "undo restores the deleted clip");
+		require(session.undo(7) && readProjectSnapshot(session).tracks[1].clips.size() == 2, "undo restores the deleted clip");
 		require(session.redo(8), "redo the clip deletion");
 		session.save(9);
 	}
 	Session reopened(project, settings, OpenMode::open, 0);
-	const auto snapshot = reopened.snapshot();
+	const auto snapshot = readProjectSnapshot(reopened);
 	const auto& saved = snapshot.tracks.at(1).clips.at(0);
 	require(saved.id == copy && saved.start == 451 && saved.end == 579 && saved.sourceOffset == 123,
 		"the copied interval survives reopening");
@@ -163,7 +143,7 @@ void verifyRangeDelete(const juce::File& root)
 	TrackId first;
 	{
 		Session session(directory, settings, OpenMode::create, 48000);
-		first = session.snapshot().tracks.front().id;
+		first = readProjectSnapshot(session).tracks.front().id;
 		const auto original = session.insertAudio(0, first, source, 300, 50, 300);
 		session.insertAudio(1, first, source, 420, 0, 60);
 		const auto later = session.insertAudio(2, first, source, 700, 0, 50);
@@ -173,7 +153,7 @@ void verifyRangeDelete(const juce::File& root)
 		{
 			const auto revision = session.revision();
 			session.deleteRange(revision, mode, mode == RangeDeleteMode::allTracks ? std::nullopt : std::optional{first}, 400, 500);
-			const auto view = session.snapshot();
+			const auto view = readProjectSnapshot(session);
 			const auto& main = view.tracks.at(0).clips;
 			const auto& auxiliary = view.tracks.at(1).clips.at(0);
 			require(view.revision == revision + 1 && main.size() == 3, "range delete is one edit");
@@ -185,7 +165,7 @@ void verifyRangeDelete(const juce::File& root)
 				require(auxiliary.start == 400 && auxiliary.end == 450 && auxiliary.sourceOffset == 70,
 					"all-track ripple keeps the second track's surviving source interval");
 			else require(auxiliary.start == 450 && auxiliary.end == 550, "track-local ranges leave other tracks alone");
-			require(session.undo(view.revision) && session.snapshot().tracks.at(0).clips.at(0).end == 600,
+			require(session.undo(view.revision) && readProjectSnapshot(session).tracks.at(0).clips.at(0).end == 600,
 				"one undo restores the original clip");
 		};
 		check(RangeDeleteMode::leaveGap, 500, 700);
@@ -193,7 +173,7 @@ void verifyRangeDelete(const juce::File& root)
 		check(RangeDeleteMode::track, 400, 600);
 		check(RangeDeleteMode::allTracks, 400, 600);
 		session.deleteRange(session.revision(), RangeDeleteMode::track, first, 301, 302);
-		const auto sampleEdit = session.snapshot();
+		const auto sampleEdit = readProjectSnapshot(session);
 		const auto& clips = sampleEdit.tracks.at(0).clips;
 		require(clips.at(0).start == 300 && clips.at(0).end == 301 && clips.at(1).start == 301
 			&& clips.at(1).end == 599 && clips.at(1).sourceOffset == 52, "one-frame ripple keeps a one-frame fragment");
@@ -213,9 +193,9 @@ void verifyRangeDelete(const juce::File& root)
 	bool rejected = false;
 	try { grouped.deleteRange(2, RangeDeleteMode::track, first, 400, 500); }
 	catch (const std::invalid_argument&) { rejected = true; }
-	const auto unchanged = grouped.snapshot();
+	const auto unchanged = readProjectSnapshot(grouped);
 	require(rejected && unchanged.revision == 2 && unchanged.tracks.at(0).clips.size() == 3
-		&& grouped.redo(2) && grouped.snapshot().tracks.size() == 3, "failed range split restores clips and prior redo history");
+		&& grouped.redo(2) && readProjectSnapshot(grouped).tracks.size() == 3, "failed range split restores clips and prior redo history");
 }
 
 void rejectArchive(const juce::File& archive, const juce::File& target, std::int64_t limit)
@@ -237,10 +217,10 @@ void runSessionTest(const juce::File& root)
 	ClipId right = 0;
 	{
 		Session session(workspace, state, OpenMode::create, 48000);
-		const auto empty = session.snapshot();
+		const auto empty = readProjectSnapshot(session);
 		require(empty.revision == 0 && empty.tracks.front().clips.empty() && !empty.canUndo, "empty Edit");
 		original = session.insertAudio(empty.revision, empty.tracks.front().id, source, 257, 131, 744);
-		const auto imported = session.snapshot();
+		const auto imported = readProjectSnapshot(session);
 		require(imported.revision == 1 && imported.tracks.front().clips.size() == 1 && imported.canUndo, "import undo transaction");
 		require(imported.tracks.front().clips.front().id == original && imported.tracks.front().clips.front().sourceOffset == 131,
 			"import sample geometry");
@@ -248,23 +228,23 @@ void runSessionTest(const juce::File& root)
 		bool rejected = false;
 		try { session.split(empty.revision, original, 513); }
 		catch (const std::invalid_argument&) { rejected = true; }
-		require(rejected && session.snapshot().revision == 1, "stale mutation must leave the Edit intact");
+		require(rejected && readProjectSnapshot(session).revision == 1, "stale mutation must leave the Edit intact");
 
 		session.trim(1, original, 371, 1001);
-		const auto trimmed = session.snapshot();
+		const auto trimmed = readProjectSnapshot(session);
 		require(trimmed.tracks.front().clips.front().start == 371 && trimmed.tracks.front().clips.front().sourceOffset == 245, "trim preserves source sync");
 		require(session.undo(2), "undo trim");
 		right = session.split(3, original, 513);
-		const auto split = session.snapshot();
+		const auto split = readProjectSnapshot(session);
 		require(split.revision == 4 && split.tracks.front().clips.size() == 2 && split.tracks.front().clips[0].end == 513
 			&& split.tracks.front().clips[1].start == 513 && split.tracks.front().clips[1].sourceOffset == 387
 			&& split.tracks.front().clips[1].id == right, "split preserves sample geometry");
-		require(session.undo(4) && session.snapshot().tracks.front().clips.size() == 1, "undo split");
-		require(session.redo(5) && session.snapshot().tracks.front().clips.size() == 2, "redo split");
+		require(session.undo(4) && readProjectSnapshot(session).tracks.front().clips.size() == 1, "undo split");
+		require(session.redo(5) && readProjectSnapshot(session).tracks.front().clips.size() == 2, "redo split");
 		const auto auxiliary = session.addTrack(6, "Auxiliary");
-		require(session.snapshot().tracks[1].id == auxiliary, "new audio track");
-		require(session.undo(7) && session.snapshot().tracks.size() == 1, "track undo");
-		require(session.redo(8) && session.snapshot().tracks.size() == 2, "track redo");
+		require(readProjectSnapshot(session).tracks[1].id == auxiliary, "new audio track");
+		require(session.undo(7) && readProjectSnapshot(session).tracks.size() == 1, "track undo");
+		require(session.redo(8) && readProjectSnapshot(session).tracks.size() == 2, "track redo");
 		session.save(9);
 		require(workspace.getChildFile("project.tracktionedit").existsAsFile(), "native Edit file");
 	}
@@ -276,7 +256,7 @@ void runSessionTest(const juce::File& root)
 	require(source.deleteFile(), "remove original source");
 	{
 		Session reopened(moved, state, OpenMode::open, 0);
-		const auto saved = reopened.snapshot();
+		const auto saved = readProjectSnapshot(reopened);
 		require(saved.sampleRate == 48000 && saved.tracks.front().clips.size() == 2 && saved.tracks.front().clips[0].id == original
 			&& saved.tracks.front().clips[1].id == right && !saved.canUndo, "reopen the native Edit");
 		const auto destination = root.getChildFile("render.wav");
@@ -344,7 +324,7 @@ void runSessionTest(const juce::File& root)
 	}
 	{
 		Session fromArchive(unarchivedProject, state, OpenMode::open, 0);
-		const auto view = fromArchive.snapshot();
+		const auto view = readProjectSnapshot(fromArchive);
 		require(view.tracks.size() == 2 && view.tracks.front().clips.size() == 2,
 			"archived project reopens with its edits");
 		const auto destination = root.getChildFile("archive-render.wav");
@@ -361,7 +341,7 @@ void verifyHostedRecording(const juce::File& root)
 	constexpr Frame start = 257;
 	const auto project = root.getChildFile("hosted-recording");
 	Session session(project, root.getChildFile("recording-runtime"), OpenMode::create, 48000);
-	const auto track = session.snapshot().tracks.front().id;
+	const auto track = readProjectSnapshot(session).tracks.front().id;
 	session.preparePlayback(blockFrames, true);
 	session.startRecording(0, track, start);
 	require(session.isRecording(), "hosted input records to the selected track");
@@ -379,7 +359,7 @@ void verifyHostedRecording(const juce::File& root)
 	for (int i = 0; i < finalFrames; ++i) input[i] = capturedSample(fullBlocks * blockFrames + i);
 	require(session.processPlaybackBlock(block, midi, input), "hosted input accepts a short final block");
 	const auto take = session.finishRecording(0, false);
-	const auto view = session.snapshot();
+	const auto view = readProjectSnapshot(session);
 	require(take.has_value() && view.revision == 1 && view.tracks.front().clips.size() == 1, "hosted take is one Edit mutation");
 	const auto clip = view.tracks.front().clips.front();
 	if (clip.start != start || clip.end != start + blockFrames * fullBlocks + finalFrames)
@@ -393,9 +373,9 @@ void verifyHostedRecording(const juce::File& root)
 	require(reader->read(&pcm, 0, pcm.getNumSamples(), 0, true, false), "read hosted take WAV samples");
 	for (int i = 0; i < pcm.getNumSamples(); ++i)
 		require(std::abs(pcm.getSample(0, i) - capturedSample(i)) < 1.0f / 32768, "hosted file preserves input samples");
-	require(session.undo(1) && session.snapshot().tracks.front().clips.empty(), "undo hosted input take");
+	require(session.undo(1) && readProjectSnapshot(session).tracks.front().clips.empty(), "undo hosted input take");
 	require(session.redo(2), "redo hosted input take");
-	const auto redone = session.snapshot().tracks.front().clips;
+	const auto redone = readProjectSnapshot(session).tracks.front().clips;
 	require(redone.size() == 1 && redone.front().id == *take, "redo restores the same hosted take");
 	session.save(3);
 	const auto saved = project.getChildFile("project.tracktionedit").loadFileAsString();
@@ -456,7 +436,7 @@ void verifyOfflineEffect(const juce::File& root)
 	std::uint64_t slot;
 	{
 		Session session(project, runtime, OpenMode::create, 48000);
-		track = session.snapshot().tracks.front().id;
+		track = readProjectSnapshot(session).tracks.front().id;
 		session.insertAudio(0, track, source, 0, 0, 1024);
 		slot = session.insertOfflineEffect(1, track, effect);
 		const auto added = session.offlineEffects(2, track);
