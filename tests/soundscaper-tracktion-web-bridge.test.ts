@@ -10,7 +10,7 @@ import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/sou
 import { deferred } from './helpers/async-test-control.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
-type Request = Readonly<{ id: number; request: Readonly<{ kind: string; project?: string }> }>;
+type Request = Readonly<{ id: number; request: Readonly<{ kind: string; project?: string; name?: string }> }>;
 
 const project = {
 	revision: 3, sampleRate: 48_000, canUndo: false, canRedo: false, nextOffset: null,
@@ -20,6 +20,7 @@ const savedId = '4'.repeat(32);
 
 class ProjectWorker extends EventTarget {
 	readonly requests: string[] = [];
+	readonly importedNames: string[] = [];
 	terminated = false;
 	releaseOnClose = false;
 
@@ -28,12 +29,36 @@ class ProjectWorker extends EventTarget {
 		this.requests.push(request.kind);
 		if (request.kind === 'save') return;
 		if (request.kind === 'open') assert.equal(request.project, savedId);
+		if (request.kind === 'importFile') {
+			assert.ok(request.name !== undefined);
+			this.importedNames.push(request.name);
+		}
 		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
 		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value: project, releaseEngine } })));
 	}
 
 	terminate(): void { this.terminated = true; }
 }
+
+test('WAV imports preserve nonempty native names within the UTF-8 byte limit', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	let file: File;
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const unicodePrefix = '界'.repeat(170);
+	const existingName = `${'a'.repeat(200)}🔊`;
+	for (const name of ['.wav', `${unicodePrefix}🔊 and take.wav`, `${existingName}.WAV`]) {
+		file = new File([Uint8Array.of(1, 2, 3)], name, { type: 'audio/wav' });
+		await bridge.request({ kind: 'import', sessionId: opened.sessionId, revision: project.revision, trackId: '3', start: 0 });
+	}
+	assert.deepEqual(worker.importedNames, ['.wav', unicodePrefix, existingName]);
+});
 
 for (const releaseEngine of [true, false]) test(`closing a Tracktion project follows its worker retirement decision ${releaseEngine}`, async (context) => {
 	browserFixture(context);

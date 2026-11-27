@@ -17,6 +17,7 @@ type Reply = TracktionProjectReply<TracktionProjectCommand>;
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const handle = () => crypto.randomUUID().replaceAll('-', '');
+const nativeClipNameByteLimit = 512;
 
 export function createTracktionWebBridge(createWorker: () => Worker): TracktionProjectBridge {
 	const pending = new Map<number, Readonly<{ resolve(reply: WorkerReply): void; reject(error: Error): void }>>();
@@ -146,7 +147,9 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			const wave = await chooseFile('.wav,audio/wav');
 			if (!wave) return null;
 			requireTracktionWebUpload(wave.size, 'WAV');
-			return (await sendToProject({ ...request, kind: 'importFile', asset: handle(), name: wave.name.replace(/\.wav$/iu, '') }, await wave.arrayBuffer())).value;
+			const stem = wave.name.replace(/\.wav$/iu, '') || wave.name;
+			const { read } = new TextEncoder().encodeInto(stem, new Uint8Array(nativeClipNameByteLimit));
+			return (await sendToProject({ ...request, kind: 'importFile', asset: handle(), name: stem.slice(0, read) }, await wave.arrayBuffer())).value;
 		}
 		if (request.kind === 'render' || request.kind === 'archive') {
 			const reply = await sendToProject({ ...request, asset: handle() });
