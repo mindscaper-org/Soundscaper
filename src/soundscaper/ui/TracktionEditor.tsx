@@ -19,7 +19,8 @@ import type {
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
 	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceAfterAddingTrack,
-	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
+	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackDuplication, readTracktionWorkspaceWithCachedTracks,
+	type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
@@ -227,6 +228,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			if (edit.kind === 'addTrack' && result.itemId) {
 				const track = { id: result.itemId, name: edit.name, clipCount: 0 };
 				setWorkspace(await readTracktionWorkspaceAfterAddingTrack(bridge, workspace, result.revision, track));
+				return;
+			}
+			if (edit.kind === 'duplicateTrack' && result.itemId) {
+				setWorkspace(await readTracktionWorkspaceAfterTrackDuplication(bridge, workspace, result.revision, edit.trackId, result.itemId));
 				return;
 			}
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));

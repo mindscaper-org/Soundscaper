@@ -77,6 +77,27 @@ export async function readTracktionWorkspaceAfterAddingTrack(
 	return { ...workspace, project, tracks, selectedTrack, clips: [], previousSelection };
 }
 
+export async function readTracktionWorkspaceAfterTrackDuplication(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number, sourceId: string, duplicateId: string,
+): Promise<TracktionWorkspace> {
+	const { sessionId, selectedTrack: previous } = workspace;
+	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	// Tracktion duplicates an audio track immediately after its source.
+	const index = workspace.tracks.findIndex((track) => track.id === sourceId) + 1;
+	if (project.revision !== revision || index === 0) return await readWorkspaceFromPage(bridge, workspace, project, duplicateId);
+	let selectedTrack = project.tracks[index];
+	if (!selectedTrack && project.nextOffset !== null) {
+		const page = await bridge.request({ kind: 'project', sessionId, offset: index });
+		if (page.revision !== revision) return await readTracktionWorkspace(bridge, workspace, duplicateId);
+		selectedTrack = page.tracks[0];
+	}
+	if (selectedTrack?.id !== duplicateId) return await readWorkspaceFromPage(bridge, workspace, project, duplicateId);
+	const tracks = project.nextOffset === null ? project.tracks : workspace.tracks.toSpliced(index, 0, selectedTrack);
+	const clips = selectedTrack.clipCount ? await readTracktionClips(bridge, sessionId, revision, duplicateId) : [];
+	const previousSelection = previous && { trackId: previous.id, clips: workspace.clips };
+	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
+}
+
 async function readWorkspaceFromPage(
 	bridge: TracktionProjectBridge,
 	project: Pick<TracktionOpenedProject, 'sessionId' | 'name'>,

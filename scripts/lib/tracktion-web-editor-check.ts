@@ -260,11 +260,13 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Stop').click();
 	await page.getByRole('status').filter({ hasText: 'Stopped' }).waitFor();
 	await editing.click();
+	const duplicateTrackStart = (await commandsSince()).length;
 	await button('Duplicate track').click();
 	const track = page.getByRole('combobox', { name: 'Track', exact: true });
 	const copiedTrack = track.getByRole('option', { name: / copy$/u });
 	await copiedTrack.waitFor({ state: 'attached' });
 	assert.equal(await track.inputValue(), await copiedTrack.getAttribute('value'));
+	assert.deepEqual(await commandsSince(duplicateTrackStart), ['duplicateTrack', 'project', 'clips']);
 	const duplicatePcm = waveData(await readFile(await (await exportFile('Export mix (WAV)')).path()));
 	assert.equal(duplicatePcm.readInt16LE(4 * 4_096), 8192);
 	assert.ok(Math.abs(duplicatePcm.readInt16LE(4 * 48_000) - 2058) <= 4);
