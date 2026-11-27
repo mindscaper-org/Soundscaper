@@ -1,18 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import {
-	createUnreportedNativeMediaProfessionalCharacteristics,
-	nativeMediaProfessionalCharacteristicsAreReported,
-	NATIVE_MEDIA_BIT_DEPTHS,
-	NativeMediaCharacteristicsError,
-	normalizeNativeMediaProfessionalCharacteristics,
-	resolveNativeMediaHdrClaim,
-	type NativeMediaProfessionalCharacteristicsV1,
-} from '../src/common/editor/native-media-professional-characteristics.ts';
 import {
 	evaluateNativeMediaProfileAdmission,
 	nativeMediaProfile,
@@ -20,41 +11,56 @@ import {
 	NATIVE_MEDIA_PROFESSIONAL_PROFILES,
 	NATIVE_MEDIA_PROFILE_POLICY_ROW_IDS,
 } from '../src/common/editor/native-media-professional-profiles.ts';
+import {
+	createUnreportedVideoSourceCharacteristicsV25,
+	normalizeVideoSourceCharacteristicsV25,
+	resolveVideoSourceHdrClaimV25,
+	VIDEO_SOURCE_V25_BIT_DEPTHS,
+	videoSourceCharacteristicsV25AreReported,
+	VideoSourceProfessionalCharacteristicsV25Error,
+} from '../src/common/editor/video-source-professional-characteristics-v25.ts';
 
 const ALL_ROWS = NATIVE_MEDIA_PROFILE_POLICY_ROW_IDS;
 
-test('unreported professional characteristics report nothing at all', () => {
-	const unreported = createUnreportedNativeMediaProfessionalCharacteristics();
+test('the unused flat native-media characteristics adapter is absent from the source tree', async () => {
+	const adapter = new URL('../src/common/editor/native-media-professional-characteristics.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
+});
 
-	assert.deepEqual(unreported, normalizeNativeMediaProfessionalCharacteristics(null));
+test('unreported professional characteristics report nothing at all', () => {
+	const unreported = createUnreportedVideoSourceCharacteristicsV25();
+
+	assert.deepEqual(unreported, normalizeVideoSourceCharacteristicsV25(null));
 	assert.equal(Object.hasOwn(unreported, 'professionalCharacteristics'), false);
-	assert.deepEqual(resolveNativeMediaHdrClaim(unreported), {
+	assert.deepEqual(resolveVideoSourceHdrClaimV25(unreported), {
 		transfer: 'unreported', hdr10Metadata: false, wideGamut: false,
 	});
 });
 
 test('an unrecognized transfer stays unreported rather than falling back to SDR', () => {
-	assert.equal(claim({ colourTransfer: 'bt709' }).transfer, 'sdr');
-	assert.equal(claim({ colourTransfer: 'smpte2084' }).transfer, 'pq');
-	assert.equal(claim({ colourTransfer: 'arib-std-b67' }).transfer, 'hlg');
-	assert.equal(claim({ colourTransfer: 'some-future-tag' }).transfer, 'unreported');
+	assert.equal(claim({ colour: { transfer: 'bt709' } }).transfer, 'sdr');
+	assert.equal(claim({ colour: { transfer: 'smpte2084' } }).transfer, 'pq');
+	assert.equal(claim({ colour: { transfer: 'arib-std-b67' } }).transfer, 'hlg');
+	assert.equal(claim({ colour: { transfer: 'some-future-tag' } }).transfer, 'unreported');
 	assert.equal(claim({}).transfer, 'unreported');
 });
 
 test('a PQ transfer without ST 2086 and CTA-861.3 metadata is not HDR10', () => {
-	const pqOnly = claim({ colourTransfer: 'smpte2084', colourPrimaries: 'bt2020' });
+	const pqOnly = claim({ colour: { transfer: 'smpte2084', primaries: 'bt2020' } });
 	assert.deepEqual(pqOnly, { transfer: 'pq', hdr10Metadata: false, wideGamut: true });
 
 	const full = claim({
-		colourTransfer: 'smpte2084',
-		colourPrimaries: 'bt2020',
-		masteringDisplay: masteringDisplay(),
-		contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		colour: {
+			transfer: 'smpte2084',
+			primaries: 'bt2020',
+			masteringDisplay: masteringDisplay(),
+			contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		},
 	});
 	assert.deepEqual(full, { transfer: 'pq', hdr10Metadata: true, wideGamut: true });
 
 	// PQ with Rec.709 primaries is PQ, but it is not a wide-gamut claim.
-	assert.equal(claim({ colourTransfer: 'smpte2084', colourPrimaries: 'bt709' }).wideGamut, false);
+	assert.equal(claim({ colour: { transfer: 'smpte2084', primaries: 'bt709' } }).wideGamut, false);
 });
 
 test('mastering-display metadata is reported whole or not at all', () => {
@@ -62,33 +68,41 @@ test('mastering-display metadata is reported whole or not at all', () => {
 	delete partial.whitePoint;
 
 	assert.throws(
-		() => normalizeNativeMediaProfessionalCharacteristics({ masteringDisplay: partial }),
+		() => normalizeVideoSourceCharacteristicsV25({ colour: { masteringDisplay: partial } }),
 		/whole or not at all/u,
 	);
-	assert.throws(() => normalizeNativeMediaProfessionalCharacteristics({
-		masteringDisplay: { ...masteringDisplay(), minimumLuminance: { num: 20_000, den: 10_000 }, maximumLuminance: { num: 1, den: 10_000 } },
+	assert.throws(() => normalizeVideoSourceCharacteristicsV25({
+		colour: {
+			masteringDisplay: {
+				...masteringDisplay(),
+				minimumLuminance: { num: 20_000, den: 10_000 },
+				maximumLuminance: { num: 1, den: 10_000 },
+			},
+		},
 	}), /minimum luminance exceeds its maximum/u);
-	assert.throws(() => normalizeNativeMediaProfessionalCharacteristics({
-		contentLight: { maximumContentLightLevel: 100, maximumFrameAverageLightLevel: 200 },
+	assert.throws(() => normalizeVideoSourceCharacteristicsV25({
+		colour: { contentLight: { maximumContentLightLevel: 100, maximumFrameAverageLightLevel: 200 } },
 	}), /cannot exceed the maximum content light level/u);
 });
 
-test('equal luminance remains valid through the compatibility adapter', () => {
+test('equal rational luminance remains valid in the source characteristics', () => {
 	const minimumLuminance = { num: 999_999_997, den: 999_999_999 };
-	const equal = normalizeNativeMediaProfessionalCharacteristics({
-		masteringDisplay: {
-			...masteringDisplay(), minimumLuminance, maximumLuminance: { ...minimumLuminance },
+	const equal = normalizeVideoSourceCharacteristicsV25({
+		colour: {
+			masteringDisplay: {
+				...masteringDisplay(), minimumLuminance, maximumLuminance: { ...minimumLuminance },
+			},
 		},
 	});
 	assert.deepEqual(equal.colour.masteringDisplay?.maximumLuminance, minimumLuminance);
 });
 
 test('probed colour and alpha facts are validated rather than coerced', () => {
-	const characteristics = normalizeNativeMediaProfessionalCharacteristics({
+	const characteristics = normalizeVideoSourceCharacteristicsV25({
 		bitDepth: 10,
 		pixelFormat: 'yuv422p10le',
 		chromaFormat: '4:2:2',
-		colourRange: 'limited',
+		colour: { range: 'limited' },
 		hasAlpha: true,
 		alphaMode: 'premultiplied',
 		alphaInterpretation: 'transparency',
@@ -96,13 +110,13 @@ test('probed colour and alpha facts are validated rather than coerced', () => {
 
 	assert.equal(characteristics.bitDepth, 10);
 	assert.equal(characteristics.pixelFormat, 'yuv422p10le');
-	assert.equal(nativeMediaProfessionalCharacteristicsAreReported(characteristics), true);
-	assert.deepEqual([...NATIVE_MEDIA_BIT_DEPTHS], [8, 10, 12, 16, 32]);
+	assert.equal(videoSourceCharacteristicsV25AreReported(characteristics), true);
+	assert.deepEqual([...VIDEO_SOURCE_V25_BIT_DEPTHS], [8, 10, 12, 16, 32]);
 
 	for (const [value, pattern] of [
 		[{ bitDepth: 9 }, /bitDepth is unsupported/u],
 		[{ chromaFormat: '4:1:1' }, /chromaFormat is unsupported/u],
-		[{ colourRange: 'video' }, /range is unsupported/u],
+		[{ colour: { range: 'video' } }, /range is unsupported/u],
 		[{ alphaMode: 'associated' }, /alphaMode is unsupported/u],
 		[{ hasAlpha: 'yes' }, /hasAlpha must be a boolean/u],
 		[{ pixelFormat: 'yuv 422' }, /pixelFormat must be a bounded probe tag/u],
@@ -110,13 +124,13 @@ test('probed colour and alpha facts are validated rather than coerced', () => {
 		[{ hasAlpha: false, alphaMode: 'straight' }, /without alpha cannot carry an alpha mode/u],
 	] as const) {
 		assert.throws(
-			() => normalizeNativeMediaProfessionalCharacteristics(value),
+			() => normalizeVideoSourceCharacteristicsV25(value),
 			pattern,
 		);
 	}
 	assert.throws(
-		() => normalizeNativeMediaProfessionalCharacteristics({ masteringDisplay: 7 }),
-		NativeMediaCharacteristicsError,
+		() => normalizeVideoSourceCharacteristicsV25({ colour: { masteringDisplay: 7 } }),
+		VideoSourceProfessionalCharacteristicsV25Error,
 	);
 });
 
@@ -153,7 +167,7 @@ test('image-sequence profiles disclose the selected RGBA8 SDR preservation ceili
 			`${id} must report the selected decode/export alpha boundary`,
 		);
 	}
-	for (const [profileId, bitDepth, colourTransfer, refusals] of [
+	for (const [profileId, bitDepth, transfer, refusals] of [
 		['decode-png-sequence', 16, 'bt709', ['bit-depth-not-preserved']],
 		['decode-tiff-sequence', 16, 'bt709', ['bit-depth-not-preserved']],
 		['decode-openexr-sequence', 32, 'smpte2084', [
@@ -162,9 +176,9 @@ test('image-sequence profiles disclose the selected RGBA8 SDR preservation ceili
 	] as const) {
 		const verdict = evaluateNativeMediaProfileAdmission({
 			profileId,
-			source: source({
+			source: normalizeVideoSourceCharacteristicsV25({
 				bitDepth, chromaFormat: '4:4:4', hasAlpha: true,
-				colourTransfer, colourPrimaries: colourTransfer === 'smpte2084' ? 'bt2020' : 'bt709',
+				colour: { transfer, primaries: transfer === 'smpte2084' ? 'bt2020' : 'bt709' },
 			}),
 			recordedLicensingRowIds: ALL_ROWS,
 			requirements: { preserveBitDepth: true, preserveHdrMetadata: true },
@@ -174,9 +188,9 @@ test('image-sequence profiles disclose the selected RGBA8 SDR preservation ceili
 	}
 	const alpha = evaluateNativeMediaProfileAdmission({
 		profileId: 'decode-png-sequence',
-		source: source({
+		source: normalizeVideoSourceCharacteristicsV25({
 			bitDepth: 8, chromaFormat: '4:4:4', hasAlpha: true,
-			colourPrimaries: 'bt709', colourTransfer: 'iec61966-2-1',
+			colour: { primaries: 'bt709', transfer: 'iec61966-2-1' },
 		}),
 		recordedLicensingRowIds: ALL_ROWS,
 		requirements: { preserveAlpha: true },
@@ -201,7 +215,9 @@ test('every profile policy row retains a named distribution disposition', async 
 test('unresolved licensing rows are metadata, not execution refusals', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mov-prores-4444',
-		source: source({ bitDepth: 12, chromaFormat: '4:4:4', hasAlpha: true, colourTransfer: 'bt709' }),
+		source: normalizeVideoSourceCharacteristicsV25({
+			bitDepth: 12, chromaFormat: '4:4:4', hasAlpha: true, colour: { transfer: 'bt709' },
+		}),
 	});
 
 	assert.equal(verdict.admitted, true);
@@ -214,7 +230,7 @@ test('unresolved licensing rows are metadata, not execution refusals', () => {
 test('an unknown profile is refused rather than treated as permissive', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mov-prores-8888',
-		source: source({}),
+		source: createUnreportedVideoSourceCharacteristicsV25(),
 		recordedLicensingRowIds: ALL_ROWS,
 	});
 
@@ -223,14 +239,16 @@ test('an unknown profile is refused rather than treated as permissive', () => {
 });
 
 test('a required bit depth, chroma, HDR, or alpha a profile cannot hold is refused up front', () => {
-	const hdrAlpha = source({
+	const hdrAlpha = normalizeVideoSourceCharacteristicsV25({
 		bitDepth: 12,
 		chromaFormat: '4:4:4',
 		hasAlpha: true,
-		colourTransfer: 'smpte2084',
-		colourPrimaries: 'bt2020',
-		masteringDisplay: masteringDisplay(),
-		contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		colour: {
+			transfer: 'smpte2084',
+			primaries: 'bt2020',
+			masteringDisplay: masteringDisplay(),
+			contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		},
 	});
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mp4-h264',
@@ -255,14 +273,16 @@ test('a required bit depth, chroma, HDR, or alpha a profile cannot hold is refus
 test('a profile that can hold every requirement is admitted', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mov-prores-4444',
-		source: source({
+		source: normalizeVideoSourceCharacteristicsV25({
 			bitDepth: 12,
 			chromaFormat: '4:4:4',
 			hasAlpha: true,
-			colourTransfer: 'smpte2084',
-			colourPrimaries: 'bt2020',
-			masteringDisplay: masteringDisplay(),
-			contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+			colour: {
+				transfer: 'smpte2084',
+				primaries: 'bt2020',
+				masteringDisplay: masteringDisplay(),
+				contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+			},
 		}),
 		recordedLicensingRowIds: ALL_ROWS,
 		requirements: {
@@ -283,12 +303,11 @@ test('a profile that can hold every requirement is admitted', () => {
 test('a loss the caller did not require is admitted but never silent', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mp4-h264',
-		source: source({
+		source: normalizeVideoSourceCharacteristicsV25({
 			bitDepth: 12,
 			chromaFormat: '4:4:4',
 			hasAlpha: true,
-			colourTransfer: 'smpte2084',
-			colourPrimaries: 'bt2020',
+			colour: { transfer: 'smpte2084', primaries: 'bt2020' },
 		}),
 		recordedLicensingRowIds: ALL_ROWS,
 	});
@@ -302,7 +321,7 @@ test('a loss the caller did not require is admitted but never silent', () => {
 test('an unreported fact is disclosed, so alpha is never lost without saying so', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-mp4-h264',
-		source: createUnreportedNativeMediaProfessionalCharacteristics(),
+		source: createUnreportedVideoSourceCharacteristicsV25(),
 		recordedLicensingRowIds: ALL_ROWS,
 	});
 
@@ -315,7 +334,7 @@ test('an unreported fact is disclosed, so alpha is never lost without saying so'
 test('a requirement that probing cannot establish is refused, not assumed satisfied', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-matroska-ffv1',
-		source: createUnreportedNativeMediaProfessionalCharacteristics(),
+		source: createUnreportedVideoSourceCharacteristicsV25(),
 		recordedLicensingRowIds: ALL_ROWS,
 		requirements: { preserveBitDepth: true, preserveAlpha: true },
 	});
@@ -329,14 +348,16 @@ test('HDR10 metadata probing established is disclosed even when the transfer tag
 		bitDepth: 8,
 		chromaFormat: '4:2:0',
 		hasAlpha: false,
-		colourPrimaries: 'bt2020',
-		masteringDisplay: masteringDisplay(),
-		contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		colour: {
+			primaries: 'bt2020',
+			masteringDisplay: masteringDisplay(),
+			contentLight: { maximumContentLightLevel: 1_000, maximumFrameAverageLightLevel: 400 },
+		},
 	};
 
-	for (const colourTransfer of ['vendor-log-3', null]) {
-		const carrier = source({ ...hdr10, colourTransfer });
-		assert.deepEqual(resolveNativeMediaHdrClaim(carrier), {
+	for (const transfer of ['vendor-log-3', null]) {
+		const carrier = normalizeVideoSourceCharacteristicsV25({ ...hdr10, colour: { ...hdr10.colour, transfer } });
+		assert.deepEqual(resolveVideoSourceHdrClaimV25(carrier), {
 			transfer: 'unreported', hdr10Metadata: true, wideGamut: false,
 		});
 
@@ -369,7 +390,9 @@ test('HDR10 metadata probing established is disclosed even when the transfer tag
 test('an SDR source loses nothing to a profile that carries no HDR metadata', () => {
 	const verdict = evaluateNativeMediaProfileAdmission({
 		profileId: 'encode-webm-vp9',
-		source: source({ bitDepth: 8, chromaFormat: '4:2:0', hasAlpha: false, colourTransfer: 'bt709' }),
+		source: normalizeVideoSourceCharacteristicsV25({
+			bitDepth: 8, chromaFormat: '4:2:0', hasAlpha: false, colour: { transfer: 'bt709' },
+		}),
 		recordedLicensingRowIds: ALL_ROWS,
 		requirements: { preserveBitDepth: true, preserveChroma: true, preserveAlpha: true },
 	});
@@ -379,11 +402,7 @@ test('an SDR source loses nothing to a profile that carries no HDR metadata', ()
 });
 
 function claim(overrides: Record<string, unknown>) {
-	return resolveNativeMediaHdrClaim(source(overrides));
-}
-
-function source(overrides: Record<string, unknown>): NativeMediaProfessionalCharacteristicsV1 {
-	return normalizeNativeMediaProfessionalCharacteristics(overrides);
+	return resolveVideoSourceHdrClaimV25(normalizeVideoSourceCharacteristicsV25(overrides));
 }
 
 function masteringDisplay() {
