@@ -183,15 +183,19 @@ juce::var editHistoryReply(const Session& session)
 	return record({{"canUndo", history.canUndo}, {"canRedo", history.canRedo}});
 }
 
+juce::var clipReply(const ClipView& clip)
+{
+	return record({
+		{"id", juce::String(std::to_string(clip.id))}, {"name", juce::String(clip.name).substring(0, 128)},
+		{"start", number(clip.start)}, {"end", number(clip.end)}, {"sourceOffset", number(clip.sourceOffset)},
+	});
+}
+
 juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
 {
 	juce::Array<juce::var> clips;
 	for (const auto& clip : page.clips)
-		clips.add(record({
-			{"id", juce::String(std::to_string(clip.id))},
-			{"name", juce::String(clip.name).substring(0, 128)},
-			{"start", number(clip.start)}, {"end", number(clip.end)}, {"sourceOffset", number(clip.sourceOffset)},
-		}));
+		clips.add(clipReply(clip));
 	return record({
 		{"revision", number(revision)}, {"clips", juce::var(clips)}, {"nextOffset", pageCursor(offset + page.clips.size(), page.total)},
 	});
@@ -304,6 +308,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		throw std::invalid_argument("The Tracktion Edit revision has changed");
 
 	std::uint64_t created = 0;
+	std::optional<TrimmedClip> trimmedClip;
 	if (kind == "startRecording")
 	{
 		requireFields(request, {"revision", "trackId", "frame"});
@@ -420,7 +425,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	else if (kind == "trim")
 	{
 		requireFields(request, {"revision", "clipId", "start", "end"});
-		session.trim(revision, itemId(request, "clipId"), integer("start"), integer("end"));
+		trimmedClip = session.trim(revision, itemId(request, "clipId"), integer("start"), integer("end"));
 	}
 	else if (kind == "split")
 	{
@@ -513,13 +518,17 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
 	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
-	if (insertedTrack || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+	if (insertedTrack || trimmedClip || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
 	if (insertedTrack)
 		if (const auto insertion = session.trackInsertion(created))
 			reply.getDynamicObject()->setProperty("insertion", record({
 				{"track", trackReply(insertion->track)}, {"index", number(static_cast<std::int64_t>(insertion->index))},
 			}));
+	if (trimmedClip)
+		reply.getDynamicObject()->setProperty("trimmedClip", record({
+			{"clip", clipReply(trimmedClip->clip)}, {"index", number(static_cast<std::int64_t>(trimmedClip->index))},
+		}));
 	return reply;
 }
 }

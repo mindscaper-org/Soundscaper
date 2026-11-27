@@ -41,7 +41,12 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
-	const { revision } = result;
+	const { revision, trimmedClip } = result;
+	if (trimmedClip && source?.id === trackId) {
+		const project = projectWithEdit(workspace, result);
+		const clips = placeTrimmedClip(workspace.clips, trimmedClip);
+		if (project && clips) return { ...workspace, project, clips };
+	}
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
 	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
 	const localRemoval = removedFromSource && target && target === source ? withClipCount(target, sourceClips.length) : undefined;
@@ -63,6 +68,18 @@ export async function readTracktionWorkspaceAfterClipEdit(
 		return track.id === previousTrack?.id ? previousTrack : track;
 	});
 	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
+}
+
+function placeTrimmedClip(
+	clips: readonly TracktionClipView[], { clip, index }: NonNullable<TracktionEditResult['trimmedClip']>,
+): readonly TracktionClipView[] | undefined {
+	if (index < 0 || index >= clips.length) return undefined;
+	const previousIndex = clips.findIndex(({ id }) => id === clip.id);
+	if (previousIndex === -1) return undefined;
+	const updated = clips.slice();
+	updated.splice(previousIndex, 1);
+	updated.splice(index, 0, clip);
+	return updated;
 }
 
 function projectWithEdit(workspace: TracktionWorkspace, { revision, history }: TracktionEditResult, updatedTrack?: TracktionTrackView) {

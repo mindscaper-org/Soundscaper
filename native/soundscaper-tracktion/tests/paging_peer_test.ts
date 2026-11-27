@@ -88,6 +88,36 @@ async function readClipPages(peer: ReturnType<typeof launchTracktionPeer>, track
 	return clips;
 }
 
+test('Tracktion trim acknowledges the revised clip and its ordered position', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-trim-reply-'));
+	const exchangeDirectory = join(root, 'exchange');
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture());
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') });
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const trackId = track.id;
+			const { itemId: clipId } = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Earlier', start: 0 });
+			assert.ok(clipId);
+			await peer.request({ kind: 'duplicateClip', revision: 1, trackId, clipId, start: 16 });
+			const before = await readClipPages(peer, trackId, 2);
+			const trim = { kind: 'trim', clipId, start: 32, end: 63 } as const;
+			const result = await peer.request({ ...trim, revision: 2 });
+			const clip = { id: clipId, name: 'Earlier', start: 32, end: 63, sourceOffset: 32 };
+			assert.deepEqual(result, { revision: 3, itemId: null, history: { canUndo: true, canRedo: false }, trimmedClip: { clip, index: 1 } });
+			assert.deepEqual(await readClipPages(peer, trackId, 3), [before[1], clip]);
+			assert.deepEqual(await peer.request({ ...trim, revision: 3 }), { revision: 3, itemId: null });
+			await peer.request({ kind: 'undo', revision: 3 });
+			assert.deepEqual(await readClipPages(peer, trackId, 4), before);
+			await peer.request({ kind: 'redo', revision: 4 });
+			assert.deepEqual(await readClipPages(peer, trackId, 5), [before[1], clip]);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('a full Tracktion Edit survives a refused Add Track with its audio and history', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-limit-'));
 	const exchangeDirectory = join(root, 'exchange');

@@ -43,6 +43,7 @@ export interface TracktionEditResult {
 	readonly itemId: string | null;
 	readonly history?: TracktionEditHistory;
 	readonly insertion?: Readonly<{ track: TracktionTrackView; index: number }>;
+	readonly trimmedClip?: Readonly<{ clip: TracktionClipView; index: number }>;
 }
 
 export interface TracktionAutomationPointResult extends TracktionEditResult {

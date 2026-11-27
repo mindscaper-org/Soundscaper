@@ -15,6 +15,15 @@ TrackSummary summarizeTrack(te::AudioTrack& track)
 }
 }
 
+ClipView summarizeClip(const te::Clip& clip, int sampleRate)
+{
+	const auto position = clip.getPosition();
+	return {clip.itemID.getRawID(), clip.getName().toStdString(),
+	        tracktion::toSamples(position.getStart(), sampleRate),
+	        tracktion::toSamples(position.getEnd(), sampleRate),
+	        tracktion::toSamples(position.getOffset(), sampleRate)};
+}
+
 EditHistory Session::editHistory() const
 {
 	const auto& history = state->edit->getUndoManager();
@@ -59,14 +68,7 @@ ClipPage Session::clipPage(TrackId id, std::size_t offset, std::size_t limit) co
 	ClipPage page{total, {}};
 	page.clips.reserve(count);
 	for (auto index = offset; index < offset + count; ++index)
-	{
-		auto* clip = clips.getUnchecked(static_cast<int>(index));
-		const auto position = clip->getPosition();
-		page.clips.push_back({clip->itemID.getRawID(), clip->getName().toStdString(),
-		                      tracktion::toSamples(position.getStart(), s.sampleRate),
-		                      tracktion::toSamples(position.getEnd(), s.sampleRate),
-		                      tracktion::toSamples(position.getOffset(), s.sampleRate)});
-	}
+		page.clips.push_back(summarizeClip(*clips.getUnchecked(static_cast<int>(index)), s.sampleRate));
 	return page;
 }
 }

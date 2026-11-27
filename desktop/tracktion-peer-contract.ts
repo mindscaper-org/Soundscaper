@@ -100,9 +100,12 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const fields = command.kind === 'setAutomationPoint' ? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId'];
 	const permitsInsertion = command.kind === 'addTrack' || command.kind === 'duplicateTrack';
-	const permitsHistory = command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
+	const permitsTrim = command.kind === 'trim';
+	const permitsHistory = permitsInsertion || permitsTrim || command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
-	const allowed = permitsInsertion ? [...fields, 'history', 'insertion'] : permitsHistory ? [...fields, 'history'] : fields;
+	const allowed = permitsHistory ? [...fields, 'history'] : fields;
+	if (permitsInsertion) allowed.push('insertion');
+	if (permitsTrim) allowed.push('trimmedClip');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
 	const advanced = revision - command.revision;
@@ -127,6 +130,13 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		const pointIndex = nonnegativeInteger(result.pointIndex);
 		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');
 		return Object.freeze({ revision, itemId: null, pointIndex, ...history }) as TracktionReply<Command>;
+	}
+	if (permitsTrim && result.trimmedClip !== undefined) {
+		const { clip, index } = readClosedDomainRecord(result.trimmedClip, 'Tracktion trimmed clip', ['clip', 'index']);
+		const updated = readClip(clip);
+		if (!edited || updated.id !== command.clipId) throw new TypeError('Tracktion returned an inconsistent trimmed clip.');
+		const trimmedClip = Object.freeze({ clip: updated, index: nonnegativeInteger(index) });
+		return Object.freeze({ revision, itemId: null, ...history, trimmedClip }) as TracktionReply<Command>;
 	}
 	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
 	return Object.freeze({ revision, itemId, ...history, ...insertion }) as TracktionReply<Command>;
@@ -198,18 +208,20 @@ function readTrack(value: unknown) {
 	return Object.freeze({ id: readItemId(id), name: boundedText(name), clipCount: nonnegativeInteger(clipCount) });
 }
 
+function readClip(value: unknown) {
+	const { id, name, start: first, end: last, sourceOffset } = readClosedDomainRecord(
+		value, 'Tracktion clip', ['id', 'name', 'start', 'end', 'sourceOffset'],
+	);
+	const start = nonnegativeInteger(first);
+	const end = nonnegativeInteger(last);
+	if (end <= start) throw new TypeError('A Tracktion clip has an invalid range.');
+	return Object.freeze({ id: readItemId(id), name: boundedText(name), start, end, sourceOffset: nonnegativeInteger(sourceOffset) });
+}
+
 function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): TracktionClipPage {
 	const page = readClosedDomainRecord(value, 'Tracktion clip page', ['revision', 'clips', 'nextOffset']);
 	if (page.revision !== command.revision) throw new TypeError('A Tracktion clip page has changed revision.');
-	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, PAGE_SIZE).map((entry) => {
-		const item = readClosedDomainRecord(entry, 'Tracktion clip', ['id', 'name', 'start', 'end', 'sourceOffset']);
-		const start = nonnegativeInteger(item.start);
-		const end = nonnegativeInteger(item.end);
-		if (end <= start) throw new TypeError('A Tracktion clip has an invalid range.');
-		return Object.freeze({
-			id: readItemId(item.id), name: boundedText(item.name), start, end, sourceOffset: nonnegativeInteger(item.sourceOffset),
-		});
-	});
+	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, PAGE_SIZE).map(readClip);
 	return Object.freeze({
 		revision: command.revision, nextOffset: readNextOffset(page.nextOffset, command.offset, clips.length),
 		clips: Object.freeze(clips),

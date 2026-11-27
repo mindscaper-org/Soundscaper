@@ -402,7 +402,7 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 	return clip->itemID.getRawID();
 }
 
-void Session::trim(Revision expected, ClipId id, Frame start, Frame end)
+std::optional<TrimmedClip> Session::trim(Revision expected, ClipId id, Frame start, Frame end)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -412,10 +412,14 @@ void Session::trim(Revision expected, ClipId id, Frame start, Frame end)
 	if (start >= end || range.getStart() < current.getStart() || range.getEnd() > current.getEnd())
 		throw std::invalid_argument("Trim must keep a nonempty portion of the clip");
 	if (range == current.time)
-		return;
+		return std::nullopt;
 	s.begin("Trim clip");
 	clip.setPosition({range, current.offset + (range.getStart() - current.getStart())});
 	s.commit();
+	if (clip.isLinked()) return std::nullopt;
+	const auto index = track.getClips().indexOf(&clip);
+	if (index < 0) return std::nullopt;
+	return TrimmedClip{summarizeClip(clip, s.sampleRate), static_cast<std::size_t>(index)};
 }
 
 ClipId Session::split(Revision expected, ClipId id, Frame frame)

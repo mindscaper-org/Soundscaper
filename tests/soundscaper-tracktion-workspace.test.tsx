@@ -189,6 +189,28 @@ void test('creating an empty project skips the selected track clip request', asy
 	assert.deepEqual(requests.map(({ kind }) => kind), ['create', 'project', 'transportStatus']);
 });
 
+void test('trimming applies the ordered clip returned by the edit across a clip page boundary', async () => {
+	const clips = Array.from({ length: 65 }, (_, index) => ({
+		id: String(index + 1), name: `Clip ${index + 1}`, start: index * 16, end: index * 16 + 64, sourceOffset: 5,
+	}));
+	const track = { id: '150', name: 'Audio track', clipCount: clips.length };
+	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: true, nextOffset: null, tracks: [track] };
+	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks: [track],
+		selectedTrack: track, previousSelection: undefined, clips };
+	const original = clips.at(31);
+	assert.ok(original);
+	const clip = { ...original, start: original.start + 24, end: original.end - 8, sourceOffset: 29 };
+	const noRead: TracktionProjectBridge = { async request() { return assert.fail('An acknowledged trim requires no bridge requests'); } };
+	const updated = await readTracktionWorkspaceAfterClipEdit(noRead, workspace, {
+		revision: 8, itemId: null, history: { canUndo: true, canRedo: false }, trimmedClip: { clip, index: 32 },
+	});
+	assert.deepEqual(updated.clips, [...clips.slice(0, 31), clips[32], clip, ...clips.slice(33)]);
+	assert.equal(updated.clips[32], clip);
+	assert.equal(updated.selectedTrack, track);
+	assert.equal(updated.tracks, workspace.tracks);
+	assert.deepEqual(updated.project, { ...project, revision: 8, canRedo: false });
+});
+
 void test('a trim refresh reads all track metadata if the engine advances beyond its revision', async () => {
 	const tracks = Array.from({ length: 33 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 1 }));
 	const project = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32) };
