@@ -12,8 +12,18 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 async function mountEditor(context: TestContext, {
 	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
+	desktopAudioSetup = false, delayReadiness = false,
 } = {}) {
 	const dom = installReactTestDom();
+	let pollTransport: (() => void) | undefined;
+	if (desktopAudioSetup) Object.assign(window, {
+		setInterval(poll: () => void, milliseconds: number) {
+			assert.equal(milliseconds, 250);
+			pollTransport = poll;
+			return 1;
+		},
+		clearInterval() { pollTransport = undefined; },
+	});
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, IS_REACT_ACT_ENVIRONMENT: true })) {
 		previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -40,6 +50,7 @@ async function mountEditor(context: TestContext, {
 	let projectLost: ((sessionId: string, message: string) => void) | undefined;
 	let clipTitleReads = 0;
 	let revision = firstPage.revision;
+	let waitingForReady = false;
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'render': return { revision: firstPage.revision, itemId: null };
@@ -59,8 +70,21 @@ async function mountEditor(context: TestContext, {
 				}));
 				return { revision, nextOffset: next < count ? next : null, clips };
 			}
-			case 'transportStatus': return transport;
-			case 'prepareOutput': return transport = { ...transport, ready: true };
+			case 'transportStatus': {
+				if (waitingForReady) {
+					waitingForReady = false;
+					transport = { ...transport, ready: true };
+				}
+				return transport;
+			}
+			case 'transportObservation': {
+				const { ready: _ready, ...observation } = transport;
+				return observation;
+			}
+			case 'prepareOutput': {
+				waitingForReady = delayReadiness;
+				return transport = { ...transport, ready: !waitingForReady };
+			}
 			case 'play': return transport = { ...transport, playing: true };
 			case 'stop': return transport = { ...transport, playing: false };
 			case 'startRecording': return transport = { ...transport, recording: true };
@@ -89,7 +113,7 @@ async function mountEditor(context: TestContext, {
 			return () => { projectLost = undefined; };
 		},
 	};
-	await act(async () => root.render(<TracktionEditor bridge={bridge} />));
+	await act(async () => root.render(<TracktionEditor bridge={bridge} desktopAudioSetup={desktopAudioSetup} />));
 	async function click(label: string): Promise<void> {
 		const button = dom.container.querySelectorAll('button').find((element) => element.textContent === label);
 		assert.ok(button, label);
@@ -98,7 +122,14 @@ async function mountEditor(context: TestContext, {
 	async function loseProject(sessionId: string): Promise<void> {
 		await act(async () => { projectLost?.(sessionId, 'The audio engine stopped responding'); });
 	}
-	return { dom, requests, click, loseProject, get clipTitleReads() { return clipTitleReads; } };
+	async function observeTransport(next: TracktionTransportView): Promise<void> {
+		transport = next;
+		if (next.interruptedTake) revision = next.interruptedTake.revision;
+		const poll = pollTransport;
+		assert.ok(poll, 'the active desktop transport is being observed');
+		await act(async () => { poll(); });
+	}
+	return { dom, requests, click, loseProject, observeTransport, get clipTitleReads() { return clipTitleReads; } };
 }
 
 void test('opening a paginated project reuses its first track page', async (context) => {
@@ -194,6 +225,32 @@ void test('switching tracks during playback keeps the playing indicator', async 
 	});
 	assert.equal(dom.one('li').textContent, 'Clip 33 (0–512)');
 	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+});
+
+void test('desktop playback and recording timers observe transport without checking readiness', async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const { dom, requests, click, observeTransport } = await mountEditor(context, { desktopAudioSetup: true, delayReadiness: true });
+	await click('Open projects');
+	const beforePlay = requests.length;
+	await click('Play');
+	await act(async () => { context.mock.timers.tick(25); });
+	assert.deepEqual(requests.slice(beforePlay).map(({ kind }) => kind), ['prepareOutput', 'transportStatus', 'play']);
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+	await observeTransport({ ready: true, playing: true, recording: false, frame: 512 });
+	assert.equal(requests.at(-1)?.kind, 'transportObservation');
+	await observeTransport({ ready: false, playing: false, recording: false, frame: 768, outputInterrupted: true });
+	assert.equal(requests.at(-1)?.kind, 'transportObservation');
+	assert.equal(dom.one('[role="status"]').textContent, 'Stopped');
+	assert.ok(dom.one('[role="alert"]').textContent);
+
+	await click('Record onto the active track');
+	await observeTransport({ ready: true, playing: true, recording: true, frame: 4096 });
+	assert.equal(requests.at(-1)?.kind, 'transportObservation');
+	const beforeRecovery = requests.length;
+	await observeTransport({ ready: false, playing: false, recording: false, frame: 8192,
+		interruptedTake: { revision: 8, itemId: '10' } });
+	assert.equal(requests[beforeRecovery]?.kind, 'transportObservation');
+	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
 });
 
 void test('playing and stopping a 128-clip track keep its rendered clip rows', async (context) => {

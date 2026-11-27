@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import type { TracktionTransportObservation } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { removePipeWireFixtureSource } from './pipewire_fixture.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
@@ -189,21 +190,22 @@ test('Tracktion discards the recovered take when Discard races PipeWire input lo
 			assert.ok(track);
 			await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, start: 0, name: 'Earlier clip' });
 			const original = await peer.request({ kind: 'clips', revision: 1, trackId: track.id, offset: 0 });
-			let discarded = await peer.request({ kind: 'startRecording', revision: 1, trackId: track.id, frame: 0 });
+			let discarded: TracktionTransportObservation = await peer.request({ kind: 'startRecording', revision: 1, trackId: track.id, frame: 0 });
 			const discardCaptureDeadline = performance.now() + 3000;
 			while (discarded.recording && discarded.frame < 8192 && performance.now() < discardCaptureDeadline) {
 				await sleep(20);
-				discarded = await peer.request({ kind: 'transportStatus' });
+				discarded = await peer.request({ kind: 'transportObservation' });
 			}
 			assert.ok(discarded.recording && discarded.frame >= 8192, JSON.stringify(discarded));
 			removePipeWireFixtureSource();
 			const discardRecoveryDeadline = performance.now() + 3000;
 			while (discarded.recording && performance.now() < discardRecoveryDeadline) {
 				await sleep(20);
-				discarded = await peer.request({ kind: 'transportStatus' });
+				discarded = await peer.request({ kind: 'transportObservation' });
 			}
 			assert.ok(discarded.interruptedTake?.itemId, 'the last take was auto-recovered before Discard arrived');
 			assert.equal(discarded.interruptedTake.revision, 2);
+			assert.equal(Object.hasOwn(discarded, 'ready'), false);
 			await assert.rejects(peer.request({ kind: 'finishRecording', revision: 0, discard: true }), /revision/u);
 			assert.deepEqual(await peer.request({ kind: 'finishRecording', revision: 1, discard: true }), { revision: 3, itemId: null });
 			assert.deepEqual(await peer.request({ kind: 'clips', revision: 3, trackId: track.id, offset: 0 }), { ...original, revision: 3 });

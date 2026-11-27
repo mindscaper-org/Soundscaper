@@ -182,12 +182,11 @@ juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
 		{"revision", number(revision)}, {"clips", juce::var(clips)}, {"nextOffset", pageCursor(offset + page.clips.size(), page.total)},
 	});
 }
-}
 
-juce::var transportView(Session& session)
+juce::var transportObservation(Session& session)
 {
 	auto view = record({
-		{"ready", session.playbackReady()}, {"playing", session.isPlaying()}, {"recording", session.isRecording()},
+		{"playing", session.isPlaying()}, {"recording", session.isRecording()},
 		{"frame", number(std::max(Frame{}, session.playbackPosition()))},
 	});
 	if (session.outputInterrupted()) view.getDynamicObject()->setProperty("outputInterrupted", true);
@@ -197,6 +196,15 @@ juce::var transportView(Session& session)
 			{"itemId", take->item ? juce::var(juce::String(std::to_string(*take->item))) : juce::var{}},
 		}));
 	return view;
+}
+
+juce::var transportView(Session& session)
+{
+	const auto ready = session.playbackReady();
+	auto view = transportObservation(session);
+	view.getDynamicObject()->setProperty("ready", ready);
+	return view;
+}
 }
 
 juce::var dispatch(Session& session, const juce::File& exchange, const juce::File& clipboard, const juce::var& value,
@@ -209,6 +217,11 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	const auto kind = text(request, "kind", 24);
 	const auto integer = [&request](const char* field) { return boundedInteger(request, field); };
 #if ! JUCE_WASM
+	if (kind == "transportObservation")
+	{
+		requireFields(request, {});
+		return transportObservation(session);
+	}
 	if (kind == "audioHosts")
 	{
 		requireFields(request, {});

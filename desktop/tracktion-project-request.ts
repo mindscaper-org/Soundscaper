@@ -48,6 +48,7 @@ const fields = {
 	audioDevices: ['kind', 'sessionId', 'hostId'],
 	setAudioSetup: ['kind', 'sessionId', ...tracktionAudioSetupFields],
 	transportStatus: ['kind', 'sessionId'],
+	transportObservation: ['kind', 'sessionId'],
 	prepareOutput: ['kind', 'sessionId'],
 	play: ['kind', 'sessionId', 'frame'],
 	stop: ['kind', 'sessionId'],

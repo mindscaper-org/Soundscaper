@@ -94,6 +94,8 @@ async function verifyProjectMediaReadiness(peer: ReturnType<typeof launchTrackti
 	const status = () => peer.request({ kind: 'transportStatus' });
 	await rename(file, moved);
 	assert.equal((await status()).ready, false, 'readiness notices a missing cached source');
+	const { ready: _ready, ...stopped } = await status();
+	assert.deepEqual(await peer.request({ kind: 'transportObservation' }), stopped);
 	await symlink(moved, file);
 	assert.equal((await status()).ready, false, 'readiness refuses a symlink in place of the cached source');
 	assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, false);
@@ -164,6 +166,8 @@ test('Tracktion keeps capture and playback independent when the named PipeWire s
 			removePipeWireFixtureSink();
 			const stopped = await waitForTransport(status, (snapshot) => snapshot.outputInterrupted === true && !snapshot.playing);
 			assert.equal(stopped.ready, false);
+			const { ready: _ready, ...observation } = stopped;
+			assert.deepEqual(await peer.request({ kind: 'transportObservation' }), observation);
 			assert.ok(stopped.frame >= heard.frame, `playback stopped at ${stopped.frame} after frame ${heard.frame}`);
 			await sleep(100);
 			assert.deepEqual(await status(), stopped, 'the playhead stays put while output is unavailable');

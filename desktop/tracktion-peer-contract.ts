@@ -7,7 +7,7 @@ import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscape
 import type {
 	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
 	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionRenderCommand, TracktionTrackMix,
-	TracktionTransportCommand, TracktionTransportView,
+	TracktionTransportCommand, TracktionTransportObservation, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 
@@ -41,6 +41,7 @@ export type TracktionCommand =
 	| (Revision & Readonly<{ kind: 'archive'; asset: string }>)
 	| TracktionAudioDeviceCommand
 	| UseAudioProfile
+	| Readonly<{ kind: 'transportObservation' }>
 	| TracktionTransportCommand
 	| TracktionRecordingCommand;
 
@@ -51,7 +52,8 @@ export type TracktionReply<Command extends TracktionCommand> = Command extends {
 		: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
 				: Command extends UseAudioProfile ? null
-					: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
+					: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
+						: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -90,7 +92,9 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		if (value !== null) throw new TypeError('Invalid Tracktion audio profile acknowledgement.');
 		return value as TracktionReply<Command>;
 	}
-	if (transportKinds.has(command.kind)) return readTracktionTransportView(value) as TracktionReply<Command>;
+	if (command.kind === 'transportObservation' || transportKinds.has(command.kind)) {
+		return readTracktionTransport(value, command.kind !== 'transportObservation') as TracktionReply<Command>;
+	}
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
 	const revision = nonnegativeInteger(result.revision);
@@ -122,17 +126,22 @@ function readTracktionTrackMix(value: unknown): TracktionTrackMix {
 	return Object.freeze({ gainDb, pan, muted, solo });
 }
 
-function readTracktionTransportView(value: unknown): TracktionTransportView {
+const observationRequiredFields = ['playing', 'recording', 'frame'] as const;
+const observationFields = [...observationRequiredFields, 'interruptedTake', 'outputInterrupted'] as const;
+const transportRequiredFields = ['ready', ...observationRequiredFields] as const;
+const transportFields = ['ready', ...observationFields] as const;
+
+function readTracktionTransport(value: unknown, includeReadiness: boolean): TracktionTransportObservation {
 	const { ready, playing, recording, frame, interruptedTake, outputInterrupted } = readClosedDomainRecord(
-		value, 'Tracktion transport', ['ready', 'playing', 'recording', 'frame', 'interruptedTake', 'outputInterrupted'],
-		['ready', 'playing', 'recording', 'frame'],
+		value, 'Tracktion transport', includeReadiness ? transportFields : observationFields,
+		includeReadiness ? transportRequiredFields : observationRequiredFields,
 	);
-	if (typeof ready !== 'boolean' || typeof playing !== 'boolean' || typeof recording !== 'boolean') {
+	if ((includeReadiness && typeof ready !== 'boolean') || typeof playing !== 'boolean' || typeof recording !== 'boolean') {
 		throw new TypeError('Invalid Tracktion transport state.');
 	}
 	if (outputInterrupted !== undefined && outputInterrupted !== true) throw new TypeError('Invalid Tracktion output state.');
-	const transport: TracktionTransportView = { ready, playing, recording, frame: nonnegativeInteger(frame),
-		...(outputInterrupted ? { outputInterrupted } : {}) };
+	const transport = { playing, recording, frame: nonnegativeInteger(frame), ...(typeof ready === 'boolean' ? { ready } : {}),
+		...(outputInterrupted ? { outputInterrupted: true as const } : {}) };
 	if (interruptedTake === undefined) return Object.freeze(transport);
 	if (recording) throw new TypeError('An interrupted Tracktion recording is still armed.');
 	const { revision, itemId } = readClosedDomainRecord(interruptedTake, 'Interrupted Tracktion take', ['revision', 'itemId']);

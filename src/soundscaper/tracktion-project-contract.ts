@@ -57,13 +57,16 @@ export interface TracktionOpenedProject {
 	readonly initiallyUnsaved?: boolean;
 }
 
-export interface TracktionTransportView {
-	readonly ready: boolean;
+export interface TracktionTransportObservation {
 	readonly playing: boolean;
 	readonly recording: boolean;
 	readonly frame: number;
 	readonly outputInterrupted?: true;
 	readonly interruptedTake?: TracktionEditResult;
+}
+
+export interface TracktionTransportView extends TracktionTransportObservation {
+	readonly ready: boolean;
 }
 
 export type TracktionTransportCommand =
@@ -116,6 +119,7 @@ export type TracktionProjectCommand =
 	| (Edit & Readonly<{ kind: 'archive' }>)
 	| (Session & TracktionAudioDeviceCommand)
 	| (Session & TracktionEffectCommand)
+	| (Session & Readonly<{ kind: 'transportObservation' }>)
 	| (Session & TracktionTransportCommand)
 	| (Session & TracktionRecordingCommand)
 	| (Session & Readonly<{ kind: 'close' }>);
@@ -130,8 +134,9 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 				: Command extends { kind: 'trackMix' } ? TracktionTrackMix
 					: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
 						: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
-							: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
-								: Command extends { kind: 'close' } ? null : TracktionEditResult;
+							: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
+								: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
+									: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;

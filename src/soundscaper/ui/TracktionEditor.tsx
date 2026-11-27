@@ -14,7 +14,7 @@ import {
 } from '../tracktion-automation-contract.ts';
 import type { TracktionEffectInstallation, TracktionEffectPage, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
 import type {
-	TracktionClipCommand, TracktionPasteCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportView,
+	TracktionClipCommand, TracktionPasteCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportObservation,
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
@@ -41,7 +41,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 }) {
 	const [workspace, setWorkspace] = useState<TracktionWorkspace | null>(null);
 	const [savedRevision, setSavedRevision] = useState<number | null>(null);
-	const [transport, setTransport] = useState<TracktionTransportView | null>(null);
+	const [transport, setTransport] = useState<TracktionTransportObservation | null>(null);
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
@@ -100,7 +100,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	const observeNativeTransport = useEffectEvent((isCurrent: () => boolean) => {
 		if (!workspace || pending.current || transportProbe.current) return;
-		const probe = bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }).then(async (next) => {
+		const probe = bridge.request({ kind: 'transportObservation', sessionId: workspace.sessionId }).then(async (next) => {
 			const take = next.interruptedTake;
 			const lostOutput = next.outputInterrupted && (next.recording || !next.playing) && !transport?.outputInterrupted;
 			const stopped = transport?.playing && !next.playing && !next.recording;
