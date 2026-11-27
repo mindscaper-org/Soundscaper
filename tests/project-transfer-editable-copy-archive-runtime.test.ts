@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test, { type TestContext } from 'node:test';
 
 import { createCrossProductHandoffLaunchIntent } from
@@ -29,6 +30,11 @@ import { loadTransferRuntime } from '../src/common/transfer/transfer-archive-run
 import { framescaperBaselineOptions } from './helpers/framescaper-baseline-model-fixture.ts';
 
 const NOW = '2026-08-29T12:00:00.000Z';
+
+test('the unused Framescaper sequence interchange adapter is absent from the source tree', async () => {
+	const adapter = new URL('../src/framescaper/editor-project-sequence-interchange.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
+});
 
 test('the real archive runtime carries Soundscaper PCM into a writable Framescaper copy', async (context) => {
 	const samples = [0.25, -0.5, 0.75, 0] as const;
