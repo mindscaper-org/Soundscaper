@@ -103,3 +103,35 @@ for (const initiallyLive of [true, false]) test(`recording releases browser star
 	await audio.close();
 	assert.equal(closed, 2);
 });
+
+test('recording reports a denied microphone while its new output context is still starting', async (context) => {
+	context.mock.timers.enable({ apis: ['setTimeout'] });
+	const firstModule = deferred<void>();
+	const modules: string[] = [];
+	const denied = new DOMException('Permission denied', 'NotAllowedError');
+	let closed = 0;
+	class BrowserAudioContext {
+		readonly sampleRate = 48_000;
+		readonly audioWorklet = { addModule: (url: string) => {
+			modules.push(url);
+			return modules.length === 1 ? firstModule.promise : Promise.resolve();
+		} };
+		resume(): Promise<void> { return Promise.resolve(); }
+		close(): Promise<void> { closed += 1; return Promise.resolve(); }
+	}
+	replaceBrowserGlobal(context, 'AudioContext', BrowserAudioContext);
+	replaceBrowserGlobal(context, 'navigator', { mediaDevices: { getUserMedia: () => Promise.reject(denied) } });
+
+	const audio = new TracktionWebAudio();
+	const initializing = assert.rejects(audio.microphoneBuffers(48_000), (error) => error === denied);
+	assert.equal(await remainsPending(initializing), false);
+	await initializing;
+	assert.equal(closed, 1);
+
+	await audio.prepare(48_000);
+	assert.match(modules[1], /^\/tracktion\/tracktion-audio-worklet\.js\?retry=[a-f0-9-]{36}$/u);
+	firstModule.reject(new Error('The denied recording’s old worklet eventually failed'));
+	assert.ok(audio.outputBuffer().byteLength > 0);
+	await audio.close();
+	assert.equal(closed, 2);
+});

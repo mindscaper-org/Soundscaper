@@ -72,7 +72,11 @@ export class TracktionWebAudio {
 		const context = this.#context;
 		const stream = await devices.getUserMedia({
 			audio: { channelCount: { ideal: 1 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false },
-		}).catch(async (error: unknown) => { await preparing; throw error; });
+		}).catch(async (error: unknown) => {
+			// A reused audio context can still be resuming before the bridge suspends it again.
+			if (!this.#closeStartingOutput(context)) await preparing;
+			throw error;
+		});
 		const disconnected = new Error(microphoneDisconnected);
 		const listeners = new AbortController();
 		try {
@@ -92,15 +96,19 @@ export class TracktionWebAudio {
 			this.#microphone = { stream, source, queue };
 			return { output: this.outputBuffer(), capture: queue.shared };
 		} catch (error) {
-			if (error === disconnected && this.#context === context && this.#preparing) {
-				this.#retryWorklet = true;
-				void this.close().catch(() => undefined);
-			}
+			if (error === disconnected) this.#closeStartingOutput(context);
 			for (const track of stream.getTracks()) track.stop();
 			throw error;
 		} finally {
 			listeners.abort();
 		}
+	}
+
+	#closeStartingOutput(context: AudioContext | undefined): boolean {
+		if (this.#context !== context || !this.#preparing) return false;
+		this.#retryWorklet = true;
+		void this.close().catch(() => undefined);
+		return true;
 	}
 
 	connect(buffers: TracktionAudioBuffers, onInterrupted?: () => void): void {
