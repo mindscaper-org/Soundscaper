@@ -276,11 +276,13 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			setPasteFrame(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
 			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
-			if (edit.kind === 'trim') {
-				setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision, 'clipGeometry'));
+			if ('clipId' in edit) {
+				const target = 'trackId' in edit ? { trackId: edit.trackId } : undefined;
+				const changed = edit.kind === 'moveClip' ? { ...target, movedClipId: edit.clipId } : target;
+				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, changed));
 				return;
 			}
-			const selectedTrack = ('trackId' in edit ? edit.trackId : null) ?? workspace.selectedTrack?.id;
+			const selectedTrack = edit.trackId ?? workspace.selectedTrack?.id;
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, selectedTrack));
 		});
 	}

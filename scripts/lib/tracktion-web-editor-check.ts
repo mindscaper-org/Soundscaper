@@ -339,9 +339,18 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	assert.equal(await moveFrame.inputValue(), '99999999999');
 	assert.equal(await targetTrack.inputValue(), targetId);
 	await moveFrame.fill('1600');
+	const movedClip = (await commandsSince()).length;
 	await move.getByRole('button', { name: 'Apply' }).click();
 	const placed = list.getByText('Tracktion web media (1600–2368)', { exact: true });
 	await placed.waitFor();
+	assert.deepEqual(await commandsSince(movedClip), ['moveClip', 'project', 'clips']);
+	const moveTrackRoundTrip = (await commandsSince()).length;
+	await track.selectOption({ index: 0 });
+	await clip.waitFor();
+	assert.equal(await list.getByRole('listitem').count(), 1);
+	await track.selectOption({ label: 'Audio track 2' });
+	await placed.waitFor();
+	assert.deepEqual(await commandsSince(moveTrackRoundTrip), []);
 	await editing.click();
 	await button('Delete and leave gap').click();
 	await page.getByRole('dialog', { name: 'Delete and leave gap' }).getByRole('button', { name: 'Apply' }).click();

@@ -7,7 +7,7 @@ import React, { act } from 'react';
 import type {
 	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
-import { readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
+import { readTracktionWorkspaceAfterClipEdit, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -179,7 +179,7 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 			return reply as TracktionProjectReply<Command>;
 		},
 	};
-	const refreshed = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, 8, 'clipGeometry');
+	const refreshed = await readTracktionWorkspaceAfterClipEdit(bridge, workspace, 8);
 	assert.equal(refreshed.project.revision, 9);
 	assert.equal(refreshed.tracks.at(-1)?.clipCount, 2);
 	assert.equal(refreshed.clips[0]?.start, 16);
