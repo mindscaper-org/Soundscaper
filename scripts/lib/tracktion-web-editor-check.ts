@@ -296,6 +296,13 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await editing.click();
 	await button('Trim clip').click();
 	const trim = page.getByRole('dialog', { name: 'Trim clip' });
+	const unchangedTrim = (await commandsSince()).length;
+	await trim.getByRole('button', { name: 'Apply' }).click();
+	await trim.waitFor({ state: 'detached' });
+	await page.locator('main[aria-busy="false"]').waitFor();
+	assert.deepEqual(await commandsSince(unchangedTrim), ['trim']);
+	await editing.click();
+	await button('Trim clip').click();
 	await trim.getByRole('spinbutton', { name: 'Start frame' }).fill('128');
 	await trim.getByRole('spinbutton', { name: 'End frame' }).fill('896');
 	await trim.getByRole('button', { name: 'Apply' }).click();

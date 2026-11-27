@@ -264,10 +264,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setPasteFrame(null);
 		if (!workspace) return;
 		run(async () => {
-			await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
+			const result = await bridge.request({ ...edit, sessionId: workspace.sessionId, revision: workspace.project.revision });
 			setRangeEdit(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
-			if (edit.kind === 'copyRange') return;
+			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
 			const selectedTrack = ('trackId' in edit ? edit.trackId : null) ?? workspace.selectedTrack?.id;
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, selectedTrack));
 		});
