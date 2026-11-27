@@ -349,20 +349,6 @@ function assertPublication(value: unknown): LocalModelPublication {
 	});
 }
 
-/**
- * The object key and public URL a mirrored artifact takes. Keys carry the
- * model version so a new revision publishes beside the old one rather than
- * replacing bytes an installed manifest still names.
- */
-export function plannedMirrorLocation(
-	catalog: LocalModelCatalog,
-	entry: LocalModelCatalogEntry,
-	fileName: string,
-): { readonly key: string; readonly url: string } {
-	const key = `${catalog.publication.prefix}/${entry.modelId}/${entry.version}/${fileName}`;
-	return Object.freeze({ key, url: `${catalog.publication.publicBaseUrl}${entry.modelId}/${entry.version}/${fileName}` });
-}
-
 /** Validates a catalog against the licensing register it must agree with. */
 export function validateLocalModelCatalog(
 	value: unknown,
