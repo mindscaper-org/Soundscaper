@@ -92,7 +92,12 @@ export async function readTracktionWorkspaceAfterTrackDuplication(
 		selectedTrack = page.tracks[0];
 	}
 	if (selectedTrack?.id !== duplicateId) return await readWorkspaceFromPage(bridge, workspace, project, duplicateId);
-	const tracks = project.nextOffset === null ? project.tracks : workspace.tracks.toSpliced(index, 0, selectedTrack);
+	let tracks = project.tracks;
+	if (project.nextOffset !== null) {
+		const updatedTracks = workspace.tracks.slice();
+		updatedTracks.splice(index, 0, selectedTrack);
+		tracks = updatedTracks;
+	}
 	const clips = selectedTrack.clipCount ? await readTracktionClips(bridge, sessionId, revision, duplicateId) : [];
 	const previousSelection = previous && { trackId: previous.id, clips: workspace.clips };
 	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
