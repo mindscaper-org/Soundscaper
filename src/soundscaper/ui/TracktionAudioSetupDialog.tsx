@@ -20,6 +20,7 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 	const selected = inventory.selected?.setup ?? inventory.preferred ?? undefined;
 	const [hostId, setHostId] = useState(() => selected?.hostId ?? inventory.hosts[0]?.id ?? '');
 	const [devices, setDevices] = useState<TracktionAudioDevices | null>(null);
+	const [draft, setDraft] = useState<FormData | null>(null);
 	const [refresh, setRefresh] = useState(0);
 	const [pending, setPending] = useState(false);
 	const [failure, setFailure] = useState('');
@@ -56,7 +57,9 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 		}
 	}
 
-	function reload(nextHost: string): void {
+	function reload(nextHost: string, form?: HTMLFormElement | null): void {
+		if (nextHost !== hostId) setDraft(null);
+		else if (devices && form) setDraft(new FormData(form));
 		setDevices(null);
 		setFailure('');
 		setHostId(nextHost);
@@ -69,6 +72,9 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 	}
 
 	const previous = selected?.hostId === hostId ? selected : undefined;
+	const value = (field: string, fallback: string | number) => String(draft?.get(field) ?? fallback);
+	const outputId = value('outputId', previous?.outputId ?? '');
+	const inputId = value('inputId', previous?.inputId ?? '');
 	const loading = Boolean(hostId && !devices && !failure);
 	return <dialog ref={dialog} aria-label={copy.audioDevices} onCancel={(event) => {
 		event.preventDefault();
@@ -81,31 +87,31 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 				{hostId && !inventory.hosts.some((host) => host.id === hostId) && <option value={hostId}>{copy.audioDevicePreferredUnavailable}</option>}
 				{inventory.hosts.map((host) => <option key={host.id} value={host.id}>{host.name}</option>)}
 			</select></label>{' '}
-			<button type="button" onClick={() => reload(hostId)} disabled={pending || !hostId || loading}>
+			<button type="button" onClick={(event) => reload(hostId, event.currentTarget.form)} disabled={pending || !hostId || loading}>
 				{copy.audioDeviceRefresh}
 			</button></p>
 			{!inventory.hosts.length && <p role="status">{copy.audioHostInventoryUnavailable}</p>}
 			{devices && <fieldset key={hostId + ':' + String(refresh)} disabled={pending}>
-				<p><label>{copy.audioOutputDevice} <select name="outputId" defaultValue={previous?.outputId ?? ''}>
+				<p><label>{copy.audioOutputDevice} <select name="outputId" defaultValue={outputId}>
 					<option value="">{copy.audioDeviceSystemDefault}</option>
-					{previous?.outputId && !devices.outputs.some((output) => output.id === previous.outputId)
-						&& <option value={previous.outputId}>{copy.audioDevicePreferredUnavailable}</option>}
+					{outputId && !devices.outputs.some((output) => output.id === outputId)
+						&& <option value={outputId}>{copy.audioDevicePreferredUnavailable}</option>}
 					{devices.outputs.map((output) => <option key={output.id} value={output.id}>{output.name}</option>)}
 				</select></label></p>
-				{devices.separateDevices && <p><label>{copy.audioInputDevice} <select name="inputId" defaultValue={previous?.inputId ?? ''}>
+				{devices.separateDevices && <p><label>{copy.audioInputDevice} <select name="inputId" defaultValue={inputId}>
 					<option value="">{copy.audioDeviceSystemDefault}</option>
-					{previous?.inputId && !devices.inputs.some((input) => input.id === previous.inputId)
-						&& <option value={previous.inputId}>{copy.audioDevicePreferredUnavailable}</option>}
+					{inputId && !devices.inputs.some((input) => input.id === inputId)
+						&& <option value={inputId}>{copy.audioDevicePreferredUnavailable}</option>}
 					{devices.inputs.map((input) => <option key={input.id} value={input.id}>{input.name}</option>)}
 				</select></label></p>}
 				<p><label>{copy.tracktionCaptureChannel} <input name="inputChannel" type="number" required min="1" max="64"
-					defaultValue={(previous?.inputChannel ?? 0) + 1} /></label></p>
+					defaultValue={value('inputChannel', (previous?.inputChannel ?? 0) + 1)} /></label></p>
 				<p><label>{copy.tracktionStereoPairStart} <input name="outputChannel" type="number" required min="1" max="63"
-					defaultValue={(previous?.outputChannel ?? 0) + 1} /></label></p>
+					defaultValue={value('outputChannel', (previous?.outputChannel ?? 0) + 1)} /></label></p>
 				<p><label>{copy.tracktionDeviceSampleRate} <input name="sampleRate" type="number" min="22050" max="192000"
-					placeholder={copy.audioDeviceSystemDefault} defaultValue={(previous?.sampleRate ?? (sampleRate >= 22_050 ? sampleRate : 0)) || ''} /></label></p>
+					placeholder={copy.audioDeviceSystemDefault} defaultValue={value('sampleRate', (previous?.sampleRate ?? (sampleRate >= 22_050 ? sampleRate : 0)) || '')} /></label></p>
 				<p><label>{copy.tracktionDeviceBufferSize} <input name="blockSize" type="number" min="1" max="8192"
-					placeholder={copy.audioDeviceSystemDefault} defaultValue={previous?.blockSize || ''} /></label></p>
+					placeholder={copy.audioDeviceSystemDefault} defaultValue={value('blockSize', previous?.blockSize || '')} /></label></p>
 			</fieldset>}
 			{failure && <p role="alert">{failure}</p>}
 			<button type="submit" disabled={pending || !devices?.outputs.length}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
