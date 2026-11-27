@@ -22,14 +22,35 @@ endfunction()
 
 function(soundscaper_prepare_tracktion_source source destination)
 	file(COPY "${source}/" DESTINATION "${destination}"
+		PATTERN "tracktion_AutomatableEditItem.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
+		PATTERN "tracktion_TrackUtils.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
 		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
 		PATTERN "tracktion_WaveDeviceDescription.cpp" EXCLUDE)
+
+	# Serializing explicit parameter values must preserve undo and redo history.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/automation/tracktion_AutomatableEditItem.cpp"
+		"3f39f3ac76fe9b43eb65d608035c589a6347d5bea540ee6fcbd2e1899913b161"
+		[=[
+    auto um = &edit.getUndoManager();
+
+    if (stream.getDataSize() > 0)
+        elementState.setProperty (IDs::parameters, stream.getMemoryBlock(), um);
+    else
+        elementState.removeProperty (IDs::parameters, um);
+]=] [=[
+
+    if (stream.getDataSize() > 0)
+        elementState.setProperty (IDs::parameters, stream.getMemoryBlock(), nullptr);
+    else
+        elementState.removeProperty (IDs::parameters, nullptr);
+]=])
 
 	# Keep the original split margin for other clip types. Audio clips can
 	# split at any valid project sample.
@@ -55,6 +76,14 @@ function(soundscaper_prepare_tracktion_source source destination)
 		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"
 		code "${code}")
 	file(CONFIGURE OUTPUT "${destination}/${clip_owner}" CONTENT "${code}" @ONLY)
+
+	# An asynchronous track sort uses the Edit's UndoManager. Expose the
+	# pending update so the host can finish it in the track edit transaction.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/tracks/tracktion_TrackUtils.h"
+		"fcad3688f77edb794f819be0e8a070d249a1396bc32278b979a4095a68a541e3"
+		"    static void sortTracksByType (juce::ValueTree& editState, juce::UndoManager*);"
+		"    static void sortTracksByType (juce::ValueTree& editState, juce::UndoManager*);\n    void dispatchPendingOrdering() { handleUpdateNowIfNeeded(); }")
 
 	# Use the Edit's directory even before the first save. JUCE would treat the
 	# nonexistent Edit file as a directory, putting the wrong path in clip undo.

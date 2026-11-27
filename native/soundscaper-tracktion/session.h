@@ -95,6 +95,7 @@ public:
 	ProjectView snapshot() const;
 	Revision revision() const noexcept;
 	TrackId addTrack(Revision, const std::string& name);
+	TrackId duplicateTrack(Revision, TrackId);
 	TrackMix trackMix(Revision, TrackId) const;
 	void setTrackMix(Revision, TrackId, TrackMix);
 	AutomationPage trackAutomation(Revision, TrackId, TrackParameter, std::size_t offset, std::size_t limit) const;

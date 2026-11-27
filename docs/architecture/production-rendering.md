@@ -42,6 +42,13 @@ Track ripple and insert paste use Tracktion's automation gap operations in the
 same undo transaction as the clip edit. The same Edit representation runs in
 the desktop peer and browser WASM core.
 
+Whole-track duplication uses Tracktion's track clipboard within the Edit. It
+remaps track, clip and effect identities, carries the mixer and automation
+state, and references the same project media. Insertion, naming, and deferred
+track ordering share one undo transaction. Tracktion serializes the explicit
+parameter values alongside live automation without adding a history entry
+during export or save.
+
 The shared editor uses the automation model below.
 
 Each lane declares one timebase: `absolute-samples` stores nonnegative project

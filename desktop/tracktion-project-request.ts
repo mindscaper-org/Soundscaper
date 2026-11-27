@@ -16,6 +16,7 @@ const fields = {
 	project: ['kind', 'sessionId', 'offset'],
 	clips: ['kind', 'sessionId', 'revision', 'trackId', 'offset'],
 	addTrack: ['kind', 'sessionId', 'revision', 'name'],
+	duplicateTrack: ['kind', 'sessionId', 'revision', 'trackId'],
 	trackMix: ['kind', 'sessionId', 'revision', 'trackId'],
 	trackAutomation: [...automationFields, 'offset'],
 	setAutomationPoint: [...automationFields, 'index', 'frame', 'value', 'curve'],

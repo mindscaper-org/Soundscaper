@@ -75,6 +75,11 @@ void verifyHostedAutomation(const juce::File& root)
 		if (index == 96) require(std::abs(block.getSample(0, 0) - 0.0942f) < 0.001f, "hosted playback follows the edited gain curve");
 	}
 	session.stop();
+	const auto copy = session.duplicateTrack(3, track);
+	session.render(4, root.getChildFile("automation-before-undo.wav"), 0, 24'576);
+	require(session.undo(4) && session.snapshot().tracks.size() == 1, "export leaves duplicate track as the last undo action");
+	session.render(5, root.getChildFile("automation-before-redo.wav"), 0, 24'576);
+	require(session.redo(5) && session.snapshot().tracks.at(1).id == copy, "export preserves the redo of the duplicate track");
 }
 
 void verifyRender(const juce::File& file)

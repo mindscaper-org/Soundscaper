@@ -350,6 +350,11 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		requireFields(request, {"revision", "name"});
 		created = session.addTrack(revision, text(request, "name", 128).toStdString());
 	}
+	else if (kind == "duplicateTrack")
+	{
+		requireFields(request, {"revision", "trackId"});
+		created = session.duplicateTrack(revision, itemId(request, "trackId"));
+	}
 	else if (kind == "setTrackMix")
 	{
 		requireFields(request, {"revision", "trackId", "gainDb", "pan", "muted", "solo"});

@@ -168,14 +168,17 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		});
 	}
 
-	function editProject(kind: 'addTrack' | 'undo' | 'redo'): void {
+	function editProject(kind: 'addTrack' | 'duplicateTrack' | 'undo' | 'redo'): void {
 		if (!workspace) return;
+		const trackId = workspace.selectedTrack?.id;
+		const command = { sessionId: workspace.sessionId, revision: workspace.project.revision };
+		const edit = kind === 'duplicateTrack' ? trackId && { ...command, kind, trackId }
+			: kind === 'addTrack' ? { ...command, kind, name: `${trackCopy.audioTrack} ${workspace.tracks.length + 1}` }
+				: { ...command, kind };
+		if (!edit) return;
 		run(async () => {
-			const command = { sessionId: workspace.sessionId, revision: workspace.project.revision };
-			const result = await bridge.request(kind === 'addTrack'
-				? { ...command, kind, name: `${trackCopy.audioTrack} ${workspace.tracks.length + 1}` }
-				: { ...command, kind });
-			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? workspace.selectedTrack?.id));
+			const result = await bridge.request(edit);
+			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));
 		});
 	}
 
@@ -365,6 +368,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				<summary>{editCopy.editControls}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => editProject('addTrack')}>{trackCopy.addTrack}</button>
+					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={() => editProject('duplicateTrack')}>{trackCopy.duplicateTrack}</button>
 					<button type="button" disabled={busy || recording || splittable.length === 0} onClick={() => chooseClipEdit('split')}>{editCopy.tracktionSplitClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('trim')}>{editCopy.tracktionTrimClip}</button>
 					<button type="button" disabled={busy || recording || !workspace?.clips.length} onClick={() => chooseClipEdit('moveClip')}>{editCopy.tracktionMoveClip}</button>

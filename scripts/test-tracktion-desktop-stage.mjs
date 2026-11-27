@@ -82,6 +82,20 @@ try {
 	await automation.getByRole('button', { name: 'Add point' }).click();
 	await automation.getByRole('option', { name: '8192 · -12.000', exact: true }).waitFor({ state: 'attached' });
 	await automation.getByRole('button', { name: 'Close' }).click();
+	await editing.click();
+	await window.getByRole('button', { name: 'Duplicate track', exact: true }).click();
+	const copiedTrack = track.getByRole('option', { name: 'Audio track 2 copy', exact: true });
+	await copiedTrack.waitFor({ state: 'attached' });
+	assert.equal(await track.inputValue(), await copiedTrack.getAttribute('value'));
+	await fileCommand('Export mix (WAV)');
+	await window.locator('main[aria-busy="false"]').waitFor();
+	const duplicateMix = waveData(await readFile(output));
+	assert.equal(duplicateMix.readInt16LE(4 * 4_096), 8192);
+	assert.ok(Math.abs(duplicateMix.readInt16LE(4 * 12_288) - 2058) <= 4);
+	await editing.click();
+	await window.getByRole('button', { name: 'Undo', exact: true }).click();
+	await copiedTrack.waitFor({ state: 'detached' });
+	await track.selectOption({ label: 'Audio track 2' });
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
 	assert.match(await readFile(join(projectDirectory, 'project.tracktionedit'), 'utf8'), /<EDIT\b/u);
@@ -116,7 +130,7 @@ try {
 	assert.equal(pasted.readInt16LE(20 * 4), 4096);
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
-	console.log('The prepared Soundscaper entry saved Tracktion Edits and verified automation and cross-project clipboard PCM.');
+	console.log('The prepared Soundscaper entry saved Tracktion Edits and verified duplication, automation and cross-project clipboard PCM.');
 } finally {
 	try { await application?.close(); }
 	finally { await rm(scratch, { recursive: true, force: true }); }

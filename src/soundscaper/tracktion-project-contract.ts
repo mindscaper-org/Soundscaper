@@ -99,6 +99,7 @@ export type TracktionProjectCommand =
 	| (Session & Readonly<{ kind: 'project'; offset: number }>)
 	| (Edit & Readonly<{ kind: 'clips'; trackId: string; offset: number }>)
 	| (Edit & Readonly<{ kind: 'addTrack'; name: string }>)
+	| (Edit & Readonly<{ kind: 'duplicateTrack'; trackId: string }>)
 	| (Session & TracktionMixCommand)
 	| (Session & TracktionAutomationCommand)
 	| (Edit & Readonly<{ kind: 'import'; trackId: string; start: number }>)

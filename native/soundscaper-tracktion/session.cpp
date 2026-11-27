@@ -55,6 +55,7 @@ bool admitsSampleRate(int sampleRate)
 
 void dispatchEditChanges(te::Edit& edit)
 {
+	edit.getTrackList().dispatchPendingOrdering();
 	for (auto* track : te::getAudioTracks(edit))
 	{
 		track->dispatchPendingClipOrdering();
@@ -112,6 +113,9 @@ Session::State::State(const juce::File& directory, const juce::File& stateDirect
 {
 	registerOfflineEffectPlugin(engine);
 	auto tree = mode == OpenMode::create ? newProject(requestedSampleRate) : openProject();
+	// Include the scene container when Tracktion sorts the Edit's children on
+	// load. Otherwise the first track edit may move it in an undo transaction.
+	tree.getOrCreateChildWithName(te::IDs::SCENES, nullptr);
 	sampleRate = static_cast<int>(tree[projectSampleRate]);
 	if (!admitsSampleRate(sampleRate))
 		throw std::invalid_argument("The project sample rate is invalid");
@@ -278,6 +282,33 @@ TrackId Session::addTrack(Revision expected, const std::string& name)
 	track->setName(juce::String::fromUTF8(name.data(), static_cast<int>(name.size())));
 	s.commit();
 	return track->itemID.getRawID();
+}
+
+TrackId Session::duplicateTrack(Revision expected, TrackId id)
+{
+	auto& s = *state;
+	s.checkRevision(expected);
+	auto& source = s.track(id);
+	s.edit->flushState();
+	te::Clipboard::Tracks clipboard;
+	clipboard.tracks.push_back(source.state);
+	te::EditInsertPoint insertion(*s.edit);
+	te::Clipboard::ContentType::EditPastingOptions options(*s.edit, insertion);
+	options.startTrack = &source;
+	const auto previousNext = source.state.getSibling(1);
+	s.begin("Duplicate audio track");
+	try
+	{
+		if (!clipboard.pasteIntoEdit(options)) throw std::invalid_argument("Tracktion refused the track duplicate");
+		const auto next = source.state.getSibling(1);
+		auto* duplicate = next != previousNext ? te::findTrackForState(*s.edit, next) : nullptr;
+		if (!duplicate) throw std::invalid_argument("Tracktion refused the track duplicate");
+		const juce::String suffix = " copy";
+		duplicate->setName(source.getName().substring(0, 64 - suffix.length()) + suffix);
+		s.commit();
+		return duplicate->itemID.getRawID();
+	}
+	catch (...) { s.rollback(); throw; }
 }
 
 TrackMix Session::trackMix(Revision expected, TrackId id) const

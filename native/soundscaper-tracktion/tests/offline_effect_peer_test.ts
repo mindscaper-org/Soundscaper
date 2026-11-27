@@ -113,3 +113,60 @@ test('the Tracktion peer renders an admitted effect through a separate process a
 		await rm(root, { recursive: true, force: true });
 	}
 });
+
+test('Tracktion duplicates the complete track with fresh IDs and shared media', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-copy-'));
+	const projectDirectory = join(root, 'edit');
+	const exchangeDirectory = join(root, 'exchange');
+	const options = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'state') };
+	const asset = '2'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(512));
+		const peer = launchTracktionPeer({ ...options, mode: 'create', sampleRate: 48_000 });
+		let copyTrackId: string;
+		let copySlotId: string;
+		try {
+			const [source] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(source);
+			const trackId = source.id;
+			const after = await peer.request({ kind: 'addTrack', revision: 0, name: 'Other track' });
+			await peer.request({ kind: 'import', revision: 1, trackId, asset, name: 'Trimmed source', start: 64, sourceOffset: 11, frames: 256 });
+			await peer.request({ kind: 'setTrackMix', revision: 2, trackId, gainDb: -6, pan: 0.5, muted: false, solo: false });
+			await peer.request({ kind: 'setAutomationPoint', revision: 3, trackId, parameter: 'gainDb', index: null, frame: 96, value: -12, curve: 0 });
+			const slot = await peer.request({ kind: 'insertOfflineEffect', revision: 4, trackId, ...effect });
+			const copy = await peer.request({ kind: 'duplicateTrack', revision: 5, trackId });
+			assert.ok(copy.itemId && copy.itemId !== trackId);
+			copyTrackId = copy.itemId;
+			const project = await peer.request({ kind: 'project', offset: 0 });
+			assert.deepEqual(project.tracks.map(({ id }) => id), [trackId, copyTrackId, after.itemId]);
+			assert.equal(project.tracks[1]?.name, `${source.name} copy`);
+			const clip = async (trackId: string) => (await peer.request({ kind: 'clips', revision: 6, trackId, offset: 0 })).clips[0];
+			const original = await clip(trackId);
+			const duplicated = await clip(copyTrackId);
+			assert.ok(original && duplicated && original.id !== duplicated.id);
+			assert.deepEqual({ ...duplicated, id: original.id }, original);
+			const mix = (trackId: string) => peer.request({ kind: 'trackMix', revision: 6, trackId });
+			assert.deepEqual(await mix(copyTrackId), await mix(trackId));
+			const automation = (trackId: string) => peer.request({ kind: 'trackAutomation', revision: 6, trackId, parameter: 'gainDb', offset: 0 });
+			assert.deepEqual(await automation(copyTrackId), await automation(trackId));
+			const [copySlot] = (await peer.request({ kind: 'offlineEffects', revision: 6, trackId: copyTrackId, offset: 0 })).slots;
+			assert.ok(copySlot && copySlot.id !== slot.itemId);
+			copySlotId = copySlot.id;
+			assert.equal(copySlot.name, effect.stableId);
+			await peer.request({ kind: 'undo', revision: 6 });
+			assert.deepEqual((await peer.request({ kind: 'project', offset: 0 })).tracks.map(({ id }) => id), [trackId, after.itemId]);
+			await peer.request({ kind: 'redo', revision: 7 });
+			assert.deepEqual((await peer.request({ kind: 'project', offset: 0 })).tracks, project.tracks);
+			await peer.request({ kind: 'save', revision: 8 });
+			assert.equal((await readdir(join(projectDirectory, 'media'))).length, 1);
+		} finally { await peer.close(); }
+		const reopened = launchTracktionPeer({ ...options, mode: 'open' });
+		try {
+			const [slot] = (await reopened.request({ kind: 'offlineEffects', revision: 0, trackId: copyTrackId, offset: 0 })).slots;
+			assert.equal(slot?.id, copySlotId);
+			const [clip] = (await reopened.request({ kind: 'clips', revision: 0, trackId: copyTrackId, offset: 0 })).clips;
+			assert.equal(clip?.sourceOffset, 11);
+		} finally { await reopened.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});

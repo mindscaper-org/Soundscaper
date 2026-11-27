@@ -16,7 +16,6 @@ export const SOUNDSCAPER_BASELINE_ENTRY_MODULES = Object.freeze([
 	'editor-project-store.ts',
 	'editor-scape-assets.ts',
 	'editor-scape-native.ts',
-	'editor-session-clipboard.ts',
 	'video-export-strategy.ts',
 	'ui/SoundscaperAudioEditorBootstrap.tsx',
 ] as const);

@@ -24,6 +24,7 @@ export type TracktionCommand =
 	| Readonly<{ kind: 'project'; offset: number }>
 	| (Revision & Readonly<{ kind: 'clips'; trackId: string; offset: number }>)
 	| (Revision & Readonly<{ kind: 'addTrack'; name: string }>)
+	| (Revision & Readonly<{ kind: 'duplicateTrack'; trackId: string }>)
 	| (Revision & Readonly<{ kind: 'insertOfflineEffect'; trackId: string }> & TracktionOfflineEffectIdentity)
 	| TracktionMixCommand
 	| TracktionAutomationCommand
@@ -100,7 +101,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if ((command.kind === 'copyRange' && edited) || ((command.kind === 'cutRange' || command.kind === 'pasteRange') && !edited)) {
 		throw new TypeError('A Tracktion clipboard command returned an invalid revision.');
 	}
-	const createsItem = command.kind === 'addTrack' || command.kind === 'import' || command.kind === 'importFile'
+	const createsItem = command.kind === 'addTrack' || command.kind === 'duplicateTrack' || command.kind === 'import' || command.kind === 'importFile'
 		|| command.kind === 'split' || command.kind === 'duplicateClip' || command.kind === 'insertOfflineEffect'
 		|| (command.kind === 'finishRecording' && edited && !command.discard);
 	if (command.kind === 'finishRecording' && command.discard && edited) {
