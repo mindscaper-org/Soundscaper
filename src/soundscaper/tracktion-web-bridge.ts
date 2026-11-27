@@ -230,9 +230,33 @@ async function chooseProject(): Promise<TracktionLocalProject | null> {
 	dialog.setAttribute('aria-label', copy.projectsTitle);
 	const form = document.createElement('form');
 	form.method = 'dialog';
+	const usedLabels = new Set<string>([copy.cancel]);
+	const repeatedNames = new Set<string>();
+	for (const { name } of projects) {
+		if (usedLabels.has(name)) repeatedNames.add(name);
+		usedLabels.add(name);
+	}
+	const suffixes = new Map<string, number>();
+	let dates: Intl.DateTimeFormat | undefined;
 	for (const project of projects) {
 		const button = document.createElement('button');
-		button.textContent = project.name;
+		let label = project.name;
+		if (repeatedNames.has(project.name)) {
+			const updated = new Date(project.updated);
+			if (project.updated > 0 && Number.isFinite(updated.getTime())) {
+				dates ??= new Intl.DateTimeFormat(document.documentElement.lang || undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+				label = `${label} (${dates.format(updated)})`;
+			}
+			const base = label;
+			let suffix = suffixes.get(base) ?? 0;
+			while (usedLabels.has(label)) {
+				suffix += 1;
+				label = `${base} (${suffix})`;
+			}
+			suffixes.set(base, suffix);
+			usedLabels.add(label);
+		}
+		button.textContent = label;
 		button.value = project.id;
 		form.append(button);
 	}

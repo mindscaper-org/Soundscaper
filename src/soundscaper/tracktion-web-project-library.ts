@@ -2,7 +2,7 @@
 
 import { request, transact } from '../common/media/indexeddb.ts';
 
-export type TracktionLocalProject = Readonly<{ id: string; name: string }>;
+export type TracktionLocalProject = Readonly<{ id: string; name: string; updated: number }>;
 
 export interface TracktionProjectMetadata {
 	readonly generation: number;
@@ -43,7 +43,7 @@ export async function listTracktionProjects(): Promise<readonly TracktionLocalPr
 				return typeof id === 'string' && metadata ? [{ id, name: metadata.name, updated: metadata.updated }] : [];
 			});
 		});
-		return entries.sort((a, b) => b.updated - a.updated).map(({ id, name }) => ({ id, name }));
+		return entries.sort((a, b) => b.updated - a.updated);
 	} finally {
 		database.close();
 	}

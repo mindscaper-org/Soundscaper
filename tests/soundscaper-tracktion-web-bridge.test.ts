@@ -248,11 +248,13 @@ function installGlobals(context: TestContext, values: Readonly<Record<string, un
 	}
 }
 
-async function seedSavedProject(context: TestContext): Promise<void> {
+async function seedSavedProject(context: TestContext, entries: Readonly<Record<string, unknown>> = {
+	[savedId]: { name: 'Saved project', generation: 2, updated: 321 },
+}): Promise<void> {
 	const storage = createInstrumentedIndexedDB();
 	installGlobals(context, { indexedDB: storage });
 	const db = await openTracktionProjectDatabase();
-	storage.seedRecord(db.name, tracktionProjectStores[1], { name: 'Saved project', generation: 2, updated: 321 }, savedId);
+	for (const [id, metadata] of Object.entries(entries)) storage.seedRecord(db.name, tracktionProjectStores[1], metadata, id);
 	db.close();
 }
 
@@ -280,6 +282,40 @@ for (const selected of [false, true]) test(`the project chooser starts the Track
 	assert.equal(opened?.name, 'Saved project');
 	assert.deepEqual(opened?.project, project);
 	assert.deepEqual(workers[0]?.requests, ['open']);
+});
+
+test('same-name saved Edits have distinguishable chooser labels and keep their own identity', async (context) => {
+	const { chooser, window } = browserFixture(context);
+	window.document.documentElement.lang = 'en-GB';
+	const date = Date.UTC(2026, 10, 27, 12);
+	const record = (name: string, updated: number) => ({ name, generation: 2, updated });
+	await seedSavedProject(context, {
+		[savedId]: record('Same name', date),
+		['5'.repeat(32)]: record('Same name', date - 24 * 60 * 60 * 1000),
+		['6'.repeat(32)]: record('Same name', date),
+		['7'.repeat(32)]: 2,
+		['8'.repeat(32)]: 3,
+		['9'.repeat(32)]: record('Unique name', date),
+		['a'.repeat(32)]: record('Cancel', date),
+	});
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'open' });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The saved project chooser never opened'))]);
+	const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')];
+	assert.equal(new Set(buttons.map((button) => button.textContent)).size, buttons.length);
+	const latest = buttons.find((button) => button.value === savedId);
+	const formatted = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'medium' }).format(date);
+	assert.ok(latest);
+	assert.ok(latest.textContent?.includes(formatted));
+	assert.equal(buttons.find((button) => button.value === '9'.repeat(32))?.textContent, 'Unique name');
+	assert.equal(buttons.at(-1)?.textContent, 'Cancel');
+	assert.deepEqual(worker.requests, []);
+
+	dialog.returnValue = latest.value;
+	dialog.dispatchEvent(new window.Event('close'));
+	assert.equal((await opening)?.name, 'Same name');
+	assert.deepEqual(worker.requests, ['open']);
 });
 
 for (const cause of ['error', 'timeout', 'abort'] as const) test(`the browser can reopen a saved Tracktion project after worker ${cause}`, async (context) => {
