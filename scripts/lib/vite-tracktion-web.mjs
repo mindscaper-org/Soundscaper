@@ -2,11 +2,13 @@
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 
-import { loadAsset, tracktionEngineFiles } from './tracktion-web-static.mjs';
+import { buildTracktionAudioWorklet, buildTracktionProjectWorker } from './tracktion-editor-build.mjs';
+import { loadAsset, tracktionCoreFiles, tracktionEngineFiles, tracktionWorkerFiles } from './tracktion-web-static.mjs';
 import { tracktionNotices } from './tracktion-licenses.mjs';
 
 const run = promisify(execFile);
@@ -14,10 +16,9 @@ const prefix = '/tracktion/';
 
 /** @param {string} root @returns {import('vite').Plugin} */
 export function tracktionWebEngine(root) {
-	const directory = resolve(root, '.native-build/tracktion-wasm-core');
 	/** @type {ReturnType<typeof prepare> | undefined} */
 	let assets;
-	const getAssets = () => assets ??= prepare(root, directory);
+	const getAssets = () => assets ??= prepare(root);
 	let build = false;
 	return {
 		name: 'soundscaper-tracktion-web-engine',
@@ -49,33 +50,60 @@ export function tracktionWebEngine(root) {
 	};
 }
 
-async function prepare(root, directory) {
-	const stamp = resolve(directory, 'release.sha256');
-	const source = await tracktionEngineInputDigest(root);
+async function prepare(root) {
+	const core = await prepareTracktionWasmCore(root);
+	const directory = await mkdtemp(resolve(tmpdir(), 'tracktion-web-workers-'));
 	try {
-		if ((await readFile(stamp, 'utf8')) === source) return await engineFiles(directory);
-	} catch (error) {
-		if (error?.code !== 'ENOENT') throw error;
+		await buildTracktionProjectWorker(directory);
+		await buildTracktionAudioWorklet(directory);
+		const workers = await readAssets(directory, tracktionWorkerFiles);
+		return new Map([...core, ...workers]);
+	} finally {
+		await rm(directory, { recursive: true, force: true });
 	}
-	const build = await run(process.execPath, ['scripts/probe-tracktion-wasm.mjs', '--build-browser'], { cwd: root })
-		.catch((error) => { throw new Error('Could not build the Soundscaper WASM engine. ' + (error.stderr || error.message), { cause: error }); });
-	process.stdout.write(build.stdout);
-	const result = await engineFiles(directory);
-	if (source !== await tracktionEngineInputDigest(root)) throw new Error('Tracktion sources changed during the WASM build.');
-	await writeFile(stamp, source);
-	return result;
 }
 
-async function engineFiles(directory) {
-	return new Map(await Promise.all(tracktionEngineFiles.map(async (name) => [name, await loadAsset(directory, name)])));
+export async function prepareTracktionWasmCore(root) {
+	const source = await tracktionEngineInputDigest(root);
+	const cache = resolve(root, '.native-build/tracktion-wasm-core');
+	const directory = resolve(cache, source);
+	try {
+		return await readAssets(directory, tracktionCoreFiles);
+	} catch (error) {
+		if (error?.code !== 'ENOENT') throw error;
+		await rm(directory, { recursive: true, force: true });
+	}
+	await mkdir(cache, { recursive: true });
+	const staging = await mkdtemp(resolve(cache, '.build-'));
+	try {
+		const build = await run(process.execPath, ['scripts/probe-tracktion-wasm.mjs', '--build-browser-core', staging], { cwd: root })
+			.catch((error) => { throw new Error('Could not build the Soundscaper WASM engine. ' + (error.stderr || error.message), { cause: error }); });
+		process.stdout.write(build.stdout);
+		if (source !== await tracktionEngineInputDigest(root)) throw new Error('Tracktion native sources changed during the WASM build.');
+		const core = await readAssets(staging, tracktionCoreFiles);
+		try {
+			await rename(staging, directory);
+			return core;
+		} catch (error) {
+			// Another process may have published a complete core for these inputs.
+			return await readAssets(directory, tracktionCoreFiles).catch(() => { throw error; });
+		}
+	} finally {
+		await rm(staging, { recursive: true, force: true });
+	}
+}
+
+async function readAssets(directory, names) {
+	return new Map(await Promise.all(names.map(async (name) => [name, await loadAsset(directory, name)])));
 }
 
 export async function tracktionEngineInputDigest(root) {
 	const files = [
 		'config/soundscaper-tracktion-sources.json', 'scripts/probe-tracktion-wasm.mjs',
-		'scripts/lib/tracktion-sources.mjs', 'scripts/lib/tracktion-editor-build.mjs', 'scripts/lib/tracktion-wasm-platform.mjs',
-		...await sourceFiles(root, 'native/soundscaper-tracktion', /\.(?:cmake|cpp|h|props|sh|ts|txt)$/u),
-		...await sourceFiles(root, 'src/soundscaper', /\/tracktion-[^/]+\.ts$/u),
+		'scripts/lib/tracktion-sources.mjs', 'scripts/lib/tracktion-wasm-platform.mjs', 'scripts/lib/tracktion-web-static.mjs',
+		'scripts/lib/milestone-5-source-archive-extraction.mjs', 'scripts/lib/exclusive-rename.mjs',
+		'native/framescaper-media-host/build/source-authentication.mjs',
+		...await sourceFiles(root, 'native/soundscaper-tracktion', /\.(?:c|cmake|cpp|h|inc|sh|txt)$/u),
 	];
 	const digest = createHash('sha256');
 	for (const file of files.sort()) {

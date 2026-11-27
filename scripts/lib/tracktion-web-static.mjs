@@ -7,12 +7,10 @@ import { extname, join } from 'node:path';
 const contentTypes = {
 	'.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
 };
-const editorFiles = [
-	'index.html', 'editor.js', 'editor.css', 'edit-core.js', 'edit-core.worker.js', 'edit-core.wasm',
-	'tracktion-project-worker.js', 'tracktion-audio-worklet.js',
-];
-
-export const tracktionEngineFiles = Object.freeze(editorFiles.filter((name) => !['index.html', 'editor.js', 'editor.css'].includes(name)));
+export const tracktionCoreFiles = Object.freeze(['edit-core.js', 'edit-core.worker.js', 'edit-core.wasm']);
+export const tracktionWorkerFiles = Object.freeze(['tracktion-project-worker.js', 'tracktion-audio-worklet.js']);
+export const tracktionEngineFiles = Object.freeze([...tracktionCoreFiles, ...tracktionWorkerFiles]);
+const editorFiles = ['index.html', 'editor.js', 'editor.css', ...tracktionEngineFiles];
 
 export async function loadTracktionWebAssets(directory) {
 	const assets = new Map(await Promise.all(editorFiles.map(async (name) => [`/${name}`, await loadAsset(directory, name)])));
