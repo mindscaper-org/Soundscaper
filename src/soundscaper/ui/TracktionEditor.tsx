@@ -19,7 +19,7 @@ import type {
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
 	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceAfterAddingTrack,
-	readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
+	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
@@ -210,7 +210,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request({
 				kind: 'import', sessionId: workspace.sessionId, revision: workspace.project.revision, trackId, start,
 			});
-			if (result) setWorkspace(await readTracktionWorkspace(bridge, workspace, trackId));
+			if (result) setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision));
 		});
 	}
 

@@ -36,6 +36,22 @@ export async function readTracktionWorkspaceWithCachedTracks(
 	return { ...workspace, project, clips };
 }
 
+export async function readTracktionWorkspaceAfterClipEdit(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
+): Promise<TracktionWorkspace> {
+	const { sessionId, selectedTrack: previousTrack } = workspace;
+	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	if (project.revision !== revision || !previousTrack) {
+		return await readWorkspaceFromPage(bridge, workspace, project, previousTrack?.id);
+	}
+	const current = project.tracks.find((track) => track.id === previousTrack.id);
+	const clips = current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, previousTrack.id);
+	const selectedTrack = previousTrack.clipCount === clips.length ? previousTrack : { ...previousTrack, clipCount: clips.length };
+	const tracks = selectedTrack === previousTrack ? workspace.tracks
+		: workspace.tracks.map((track) => track.id === selectedTrack.id ? selectedTrack : track);
+	return { ...workspace, project, tracks, selectedTrack, clips };
+}
+
 export async function readTracktionWorkspaceAfterAddingTrack(
 	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number, added: TracktionTrackView,
 ): Promise<TracktionWorkspace> {
