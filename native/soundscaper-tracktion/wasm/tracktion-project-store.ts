@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import { request, transact } from '../../../src/common/media/indexeddb.ts';
+import {
+	decodeTracktionProjectMetadata, openTracktionProjectDatabase, tracktionProjectStores, type TracktionProjectMetadata,
+} from '../../../src/soundscaper/tracktion-web-project-library.ts';
 
 export interface TracktionVirtualFilesystem {
 	findObject(path: string): { isFolder: boolean } | null;
@@ -24,69 +27,25 @@ export interface WorkingProject {
 	readonly name: string;
 }
 
-interface ProjectMetadata {
-	readonly generation: number;
-	readonly name: string;
-	readonly updated: number;
-}
-
-const projectStore = 'projects';
-const generationStore = 'generations';
-const storeNames = [projectStore, generationStore] as const;
+const [projectStore, generationStore] = tracktionProjectStores;
 const mediaName = /^[0-9a-f]{32}\.wav$/;
 const editName = 'project.tracktionedit';
-
-async function projectDatabase(): Promise<IDBDatabase> {
-	const open = indexedDB.open('soundscaper-tracktion-wasm', 1);
-	open.onupgradeneeded = () => {
-		for (const store of storeNames) open.result.createObjectStore(store);
-	};
-	return await request(open);
-}
-
-function decodeMetadata(record: unknown): ProjectMetadata | undefined {
-	if (typeof record === 'number' && Number.isSafeInteger(record) && record > 0) {
-		return { generation: record, name: 'Untitled project', updated: 0 };
-	}
-	if (!record || typeof record !== 'object') return undefined;
-	const { generation, name, updated } = record as Partial<ProjectMetadata>;
-	if (typeof generation !== 'number' || !Number.isSafeInteger(generation) || generation <= 0) return undefined;
-	if (typeof name !== 'string' || typeof updated !== 'number' || !Number.isFinite(updated)) return undefined;
-	return { generation, name, updated };
-}
-
-export async function listTracktionProjects(): Promise<readonly Readonly<{ id: string; name: string }>[]> {
-	const database = await projectDatabase();
-	try {
-		const entries = await transact(database, generationStore, 'readonly', async (stores) => {
-			const versions = stores[generationStore];
-			const [ids, values] = await Promise.all([request(versions.getAllKeys()), request(versions.getAll())]);
-			return ids.flatMap((id, index) => {
-				const metadata = decodeMetadata(values[index]);
-				return typeof id === 'string' && metadata ? [{ id, name: metadata.name, updated: metadata.updated }] : [];
-			});
-		});
-		return entries.sort((a, b) => b.updated - a.updated).map(({ id, name }) => ({ id, name }));
-	} finally {
-		database.close();
-	}
-}
 
 export async function restoreTracktionProject(
 	fs: TracktionVirtualFilesystem, project: WorkingProject,
 ): Promise<WorkingProject> {
-	const database = await projectDatabase();
+	const database = await openTracktionProjectDatabase();
 	let saved: SavedProject | undefined;
 	let metadata: unknown;
 	try {
-		[saved, metadata] = await transact(database, storeNames, 'readonly', async (stores) => await Promise.all([
+		[saved, metadata] = await transact(database, tracktionProjectStores, 'readonly', async (stores) => await Promise.all([
 			request(stores[projectStore].get(project.id)) as Promise<SavedProject | undefined>,
 			request(stores[generationStore].get(project.id)) as Promise<unknown>,
 		]));
 	} finally {
 		database.close();
 	}
-	const description = decodeMetadata(metadata);
+	const description = decodeTracktionProjectMetadata(metadata);
 	if (!saved || !description) throw new Error('The browser Tracktion project has no saved version');
 	const path = `/projects/${project.directory}`;
 	fs.mkdirTree(`${path}/media`);
@@ -109,17 +68,17 @@ export async function publishTracktionProject(
 		})),
 	};
 	const generation = project.generation + 1;
-	const database = await projectDatabase();
+	const database = await openTracktionProjectDatabase();
 	try {
-		await transact(database, storeNames, 'readwrite', async (stores) => {
+		await transact(database, tracktionProjectStores, 'readwrite', async (stores) => {
 			const versions = stores[generationStore];
-			const previous = decodeMetadata(await request(versions.get(project.id)));
+			const previous = decodeTracktionProjectMetadata(await request(versions.get(project.id)));
 			if ((previous?.generation ?? 0) !== project.generation) {
 				throw new Error('Another browser tab saved a newer revision of this Tracktion project');
 			}
 			await Promise.all([
 				request(stores[projectStore].put(snapshot, project.id)),
-				request(versions.put({ generation, name: project.name, updated: Date.now() } satisfies ProjectMetadata, project.id)),
+				request(versions.put({ generation, name: project.name, updated: Date.now() } satisfies TracktionProjectMetadata, project.id)),
 			]);
 		});
 	} finally {

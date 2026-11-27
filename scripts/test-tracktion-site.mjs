@@ -18,6 +18,12 @@ for (const browserType of [chromium, firefox, webkit]) {
 		await page.getByRole('heading', { name: 'Soundscaper Tracktion' }).waitFor();
 		assert.equal(await page.evaluate(() => crossOriginIsolated), true);
 		assert.deepEqual(engineRequests, [], 'the idle Soundscaper site must defer loading the native engine');
+		await page.getByText('File', { exact: true }).click();
+		await page.getByRole('button', { name: 'Open projects', exact: true }).click();
+		const chooser = page.getByRole('dialog', { name: 'Local projects' });
+		await chooser.getByRole('button', { name: 'Cancel', exact: true }).click();
+		await chooser.waitFor({ state: 'detached' });
+		assert.deepEqual(engineRequests, [], 'browsing the local project list must not load the native engine');
 		await verifyTracktionWebEditor(page, site.origin, site.pathname);
 		assert.ok(engineRequests.some((url) => url.endsWith('/tracktion/edit-core.wasm')), 'the regular site must run the Tracktion WASM core');
 		console.log(`${browserType.name()} passed the regular Soundscaper site workflow.`);

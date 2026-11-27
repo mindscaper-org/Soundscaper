@@ -209,8 +209,10 @@ explicit type-only imports. The ordinary source check still checks the default
 graph, and export-parity tests guard substitution coverage.
 The Soundscaper editor uses the Tracktion project request contract in
 `src/soundscaper/tracktion-project-contract.ts`. The browser worker owns the
-WASM Edit and commits project revisions with their media in IndexedDB. On
-desktop, the Electron main process owns file selection and publication.
+WASM Edit and commits project revisions with their media in IndexedDB. The
+renderer reads the saved names for the project chooser and starts the worker
+after a project is selected. On desktop, the Electron main process owns file
+selection and publication.
 The Tracktion utility process supervises the native peer, which owns the Edit,
 audio transport, and render. Soundscaper staging includes the Tracktion preload
 and utility entry. Its desktop plug-in processes handle scanning, effects, and

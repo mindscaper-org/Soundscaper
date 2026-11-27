@@ -6,7 +6,9 @@ import { JSDOM } from 'jsdom';
 
 import type { TracktionProjectPage } from '../src/soundscaper/tracktion-project-contract.ts';
 import { createTracktionWebBridge } from '../src/soundscaper/tracktion-web-bridge.ts';
+import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
 import { deferred } from './helpers/async-test-control.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 type Request = Readonly<{ id: number; request: Readonly<{ kind: string; project?: string }> }>;
 
@@ -26,9 +28,8 @@ class ProjectWorker extends EventTarget {
 		this.requests.push(request.kind);
 		if (request.kind === 'save') return;
 		if (request.kind === 'open') assert.equal(request.project, savedId);
-		const value = request.kind === 'projects' ? [{ id: savedId, name: 'Saved project' }] : project;
 		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
-		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine } })));
+		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value: project, releaseEngine } })));
 	}
 
 	terminate(): void { this.terminated = true; }
@@ -91,8 +92,43 @@ function installGlobals(context: TestContext, values: Readonly<Record<string, un
 	}
 }
 
+async function seedSavedProject(context: TestContext): Promise<void> {
+	const storage = createInstrumentedIndexedDB();
+	installGlobals(context, { indexedDB: storage });
+	const db = await openTracktionProjectDatabase();
+	storage.seedRecord(db.name, tracktionProjectStores[1], { name: 'Saved project', generation: 2, updated: 321 }, savedId);
+	db.close();
+}
+
+for (const selected of [false, true]) test(`the project chooser starts the Tracktion worker only after a saved project is selected ${selected}`, async (context) => {
+	const { chooser, window } = browserFixture(context);
+	await seedSavedProject(context);
+	const workers: ProjectWorker[] = [];
+	const bridge = createTracktionWebBridge(() => {
+		const worker = new ProjectWorker();
+		workers.push(worker);
+		return worker as unknown as Worker;
+	});
+	const opening = bridge.request({ kind: 'open' });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The saved project chooser never opened'))]);
+	assert.equal(workers.length, 0);
+	assert.match(dialog.textContent, /Saved project/u);
+	dialog.returnValue = selected ? savedId : '';
+	dialog.dispatchEvent(new window.Event('close'));
+	const opened = await opening;
+	if (!selected) {
+		assert.equal(opened, null);
+		assert.equal(workers.length, 0);
+		return;
+	}
+	assert.equal(opened?.name, 'Saved project');
+	assert.deepEqual(opened?.project, project);
+	assert.deepEqual(workers[0]?.requests, ['open']);
+});
+
 for (const cause of ['error', 'timeout', 'abort'] as const) test(`the browser can reopen a saved Tracktion project after worker ${cause}`, async (context) => {
 	const { window, deadlines, chooser } = browserFixture(context);
+	await seedSavedProject(context);
 	const workers: ProjectWorker[] = [];
 	const bridge = createTracktionWebBridge(() => {
 		const worker = new ProjectWorker();
@@ -127,7 +163,7 @@ for (const cause of ['error', 'timeout', 'abort'] as const) test(`the browser ca
 	assert.ok(reopened);
 	assert.equal(reopened.name, 'Saved project');
 	assert.deepEqual(reopened.project, project);
-	assert.deepEqual(workers[1]?.requests, ['projects', 'open']);
+	assert.deepEqual(workers[1]?.requests, ['open']);
 	assert.deepEqual(losses, [{ sessionId: working.sessionId, message: reason }]);
 	await assert.rejects(bridge.request({ kind: 'project', sessionId: working.sessionId, offset: 0 }), /expired/u);
 

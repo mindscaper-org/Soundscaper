@@ -8,9 +8,9 @@ import type {
 	TracktionTransportView,
 } from './tracktion-project-contract.ts';
 import { TracktionWebAudio } from './tracktion-web-audio.ts';
+import type { TracktionLocalProject } from './tracktion-web-project-library.ts';
 import { requireTracktionWebUpload } from './tracktion-web-upload.ts';
 
-type LocalProject = Readonly<{ id: string; name: string }>;
 type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string; releaseEngine?: true }>;
 type WorkerMessage = WorkerReply | Readonly<{ fatal: string }>;
 type Reply = TracktionProjectReply<TracktionProjectCommand>;
@@ -86,7 +86,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		if (command.kind === 'create' || command.kind === 'open') {
 			const selection = command.kind === 'create'
 				? { id: handle(), name: window.prompt(copy.projectName, copy.untitledProject)?.trim() }
-				: await chooseProject((await send({ kind: 'projects' })).value as readonly LocalProject[]);
+				: await chooseProject();
 			if (!selection?.name) return null;
 			const request = { ...command, project: selection.id };
 			const { value } = await send(command.kind === 'create' ? { ...request, name: selection.name } : request);
@@ -215,7 +215,9 @@ function chooseFile(accept: string): Promise<File | null> {
 	});
 }
 
-function chooseProject(projects: readonly LocalProject[]): Promise<LocalProject | null> {
+async function chooseProject(): Promise<TracktionLocalProject | null> {
+	const { listTracktionProjects } = await import('./tracktion-web-project-library.ts');
+	const projects = await listTracktionProjects();
 	const dialog = document.createElement('dialog');
 	const heading = document.createElement('h2');
 	heading.textContent = copy.projectsTitle;
@@ -237,7 +239,7 @@ function chooseProject(projects: readonly LocalProject[]): Promise<LocalProject 
 	cancel.textContent = copy.cancel;
 	form.append(cancel);
 	dialog.append(heading, form);
-	return new Promise((resolve) => {
+	return await new Promise((resolve) => {
 		dialog.addEventListener('close', () => {
 			dialog.remove();
 			resolve(projects.find((project) => project.id === dialog.returnValue) ?? null);

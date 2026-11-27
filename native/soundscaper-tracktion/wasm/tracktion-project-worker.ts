@@ -6,7 +6,7 @@ import { requireTracktionWebUpload } from '../../../src/soundscaper/tracktion-we
 import { TracktionHostedAudio, type HostedAudioRuntime } from './tracktion-hosted-audio.ts';
 
 import {
-	discardWorkingProject, listTracktionProjects, publishTracktionProject, restoreTracktionProject,
+	discardWorkingProject, publishTracktionProject, restoreTracktionProject,
 	type TracktionVirtualFilesystem, type WorkingProject,
 } from './tracktion-project-store.ts';
 
@@ -157,7 +157,6 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 
 async function run(message: CommandMessage): Promise<WorkerReply> {
 	const { request, input } = message;
-	if (request.kind === 'projects') return { value: await listTracktionProjects() };
 	await ready;
 	if (failed) throw failed;
 	const runtime = scope.Module as WasmRuntime;
