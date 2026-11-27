@@ -191,9 +191,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const selectedTrack = workspace.tracks.find((track) => track.id === trackId);
 		if (!selectedTrack) return;
 		run(async () => {
-			const clips = selectedTrack.clipCount === 0 ? []
-				: await readTracktionClips(bridge, workspace.sessionId, workspace.project.revision, trackId);
-			setWorkspace({ ...workspace, selectedTrack, clips });
+			const previous = workspace.previousSelection;
+			const clips = previous?.trackId === trackId ? previous.clips : (selectedTrack.clipCount === 0 ? []
+				: await readTracktionClips(bridge, workspace.sessionId, workspace.project.revision, trackId));
+			const previousSelection = workspace.selectedTrack && { trackId: workspace.selectedTrack.id, clips: workspace.clips };
+			setWorkspace({ ...workspace, selectedTrack, clips, previousSelection });
 		});
 	}
 

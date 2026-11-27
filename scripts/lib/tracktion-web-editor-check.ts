@@ -408,6 +408,12 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await list.getByText('Tracktion web media (172–735)', { exact: true }).waitFor();
 	await track.selectOption({ label: 'Audio track 2' });
 	await list.getByText('Tracktion web media (1439–1540)', { exact: true }).waitFor();
+	const trackReturnStart = (await commandsSince()).length;
+	await track.selectOption({ index: 0 });
+	await list.getByText('Tracktion web media (40–172)', { exact: true }).waitFor();
+	await track.selectOption({ label: 'Audio track 2' });
+	await list.getByText('Tracktion web media (1439–1540)', { exact: true }).waitFor();
+	assert.deepEqual(await commandsSince(trackReturnStart), []);
 	const pasted = waveData(await readFile(await (await exportFile('Export mix (WAV)')).path()));
 	assert.equal(pasted.length, 1540 * 4);
 	assert.equal(pasted.readInt16LE(1438 * 4), 0);

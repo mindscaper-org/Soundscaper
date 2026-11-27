@@ -10,7 +10,9 @@ import type {
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerTrack = 1, recoveredBeforeDiscard = false } = {}) {
+async function mountEditor(context: TestContext, {
+	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
+} = {}) {
 	const dom = installReactTestDom();
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -47,11 +49,12 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 			case 'clips': {
 				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
 				const next = Math.min(command.offset + 32, count);
+				const shift = undoChangesClips && revision !== firstPage.revision ? 16 : 0;
 				const clips = Array.from({ length: next - command.offset }, (_, index) => ({
 					id: `${command.trackId}/${command.offset + index}`,
 					get name() { clipTitleReads += 1; return `Clip ${command.trackId}`; },
-					start: (command.offset + index) * 512,
-					end: (command.offset + index + 1) * 512,
+					start: shift + (command.offset + index) * 512,
+					end: shift + (command.offset + index + 1) * 512,
 					sourceOffset: 0,
 				}));
 				return { revision, nextOffset: next < count ? next : null, clips };
@@ -70,7 +73,8 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 			case 'save': return { revision, itemId: null };
 			case 'undo': {
 				if (stopOnUndo) transport = { ...transport, playing: false };
-				return { revision: firstPage.revision, itemId: null };
+				if (undoChangesClips) revision += 1;
+				return { revision, itemId: null };
 			}
 			default: throw new Error(`Unexpected Tracktion request ${command.kind}`);
 		}
@@ -136,6 +140,28 @@ void test('changing tracks keeps the loaded track inventory and reads the select
 	});
 	assert.equal(dom.find('li'), null);
 	assert.equal(requests.length, before + 1);
+});
+
+void test('returning to the previous track reuses its clip pages until an edit changes them', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { clipsPerTrack: 65, undoChangesClips: true });
+	const selectTrack = (value: string) => act(async () => {
+		reactProps(dom.one('select')).onChange({ currentTarget: { value } });
+	});
+	await click('Open projects');
+	await selectTrack('33');
+	const before = requests.length;
+	await selectTrack('1');
+	assert.equal(dom.one('li').textContent, 'Clip 1 (0–512)');
+	assert.equal(requests.length, before, 'the cached track’s three pages need no bridge request');
+
+	await selectTrack('33');
+	await click('Undo');
+	const afterUndo = requests.length;
+	await selectTrack('1');
+	assert.equal(dom.one('li').textContent, 'Clip 1 (16–528)');
+	assert.deepEqual(requests.slice(afterUndo), [0, 32, 64].map((offset) => ({
+		kind: 'clips', sessionId: 'session', revision: 8, trackId: '1', offset,
+	})));
 });
 
 void test('whole mix export sends one request even when other tracks have more clip pages', async (context) => {

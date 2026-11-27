@@ -8,6 +8,7 @@ export interface TracktionWorkspace extends TracktionOpenedProject {
 	readonly tracks: readonly TracktionTrackView[];
 	readonly selectedTrack: TracktionTrackView | undefined;
 	readonly clips: readonly TracktionClipView[];
+	readonly previousSelection: Readonly<{ trackId: string; clips: readonly TracktionClipView[] }> | undefined;
 }
 
 export async function readTracktionWorkspace(
@@ -48,7 +49,7 @@ async function readWorkspaceFromPage(
 	}
 	const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0];
 	const clips = selectedTrack?.clipCount ? await readTracktionClips(bridge, sessionId, firstPage.revision, selectedTrack.id) : [];
-	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips };
+	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips, previousSelection: undefined };
 }
 
 export async function readTracktionClips(
