@@ -2,6 +2,7 @@
 
 #include "session_state.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -31,6 +32,33 @@ void ensureDirectory(const juce::File& directory)
 	if (!directory.createDirectory().wasOk() || directory.isSymbolicLink())
 		throw std::runtime_error("Cannot create a Tracktion directory");
 }
+
+#if JUCE_LINUX && ! JUCE_WASM
+bool copyImportedWave(const juce::File& source, const juce::File& destination)
+{
+	// JUCE's Linux copy counts input bytes even when a destination write fails.
+	const auto input = source.createInputStream();
+	if (!input) return false;
+	const auto bytes = input->getTotalLength();
+	if (bytes <= 0) return false;
+	juce::TemporaryFile staging(destination, juce::TemporaryFile::useHiddenFile);
+	{
+		juce::FileOutputStream output(staging.getFile(), 0);
+		if (output.failedToOpen()) return false;
+		constexpr int blockBytes = 256 * 1024;
+		juce::HeapBlock<char> buffer(blockBytes);
+		for (auto remaining = bytes; remaining > 0;)
+		{
+			const auto count = input->read(buffer.getData(), static_cast<int>(std::min<juce::int64>(remaining, blockBytes)));
+			if (count <= 0 || !output.write(buffer.getData(), static_cast<std::size_t>(count))) return false;
+			remaining -= count;
+		}
+		output.flush();
+		if (output.getStatus().failed()) return false;
+	}
+	return source.getSize() == bytes && staging.getFile().getSize() == bytes && staging.overwriteTargetFileWithTemporary();
+}
+#endif
 
 class HeadlessSettings final : public te::PropertyStorage
 {
@@ -346,8 +374,13 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 	if (!media.isDirectory() || media.isSymbolicLink())
 		throw std::runtime_error("The project media directory is unavailable");
 	const auto destination = media.getChildFile(juce::Uuid().toString() + ".wav");
+#if JUCE_LINUX && ! JUCE_WASM
+	if (!copyImportedWave(source, destination))
+		throw std::invalid_argument("Cannot copy the audio into the project");
+#else
 	if (!source.copyFileTo(destination))
 		throw std::runtime_error("Cannot copy the audio into the project");
+#endif
 
 	s.begin("Import audio");
 	const auto offsetTime = tracktion::TimeDuration::fromSamples(offset, s.sampleRate);
