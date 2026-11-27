@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { inspectTracktionReply } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
@@ -76,4 +77,50 @@ test('Tracktion gain and pan curves render, persist and ripple with track edits'
 			assert.ok(Math.abs((lane.points.at(-1)?.value ?? 0) + 12) < 0.001);
 		} finally { await reopened.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion returns the ordered automation point index across pages and unchanged updates', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-automation-order-'));
+	const exchangeDirectory = join(root, 'exchange');
+	try {
+		await mkdir(exchangeDirectory);
+		const peer = launchTracktionPeer({ executable, exchangeDirectory, projectDirectory: join(root, 'project'),
+			stateDirectory: join(root, 'state'), mode: 'create', sampleRate: 48_000 });
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const lane = { trackId: track.id, parameter: 'pan' } as const;
+			const point = { ...lane, kind: 'setAutomationPoint', value: -0.5, curve: 0 } as const;
+			for (let index = 0; index <= 32; index += 1) {
+				const added = await peer.request({ ...point, revision: index, index: null, frame: index * 128 });
+				assert.deepEqual(added, { revision: index + 1, itemId: null, pointIndex: index });
+			}
+			const moved = await peer.request({ ...point, revision: 33, index: 0, frame: 4097 });
+			assert.deepEqual(moved, { revision: 34, itemId: null, pointIndex: 32 });
+			const last = await peer.request({ ...lane, kind: 'trackAutomation', revision: moved.revision, offset: 32 });
+			assert.deepEqual(last.points, [{ frame: 4097, value: -0.5, curve: 0 }]);
+			const same = await peer.request({ ...point, revision: 34, index: 32, frame: 4097 });
+			assert.deepEqual(same, moved);
+			const updated = await peer.request({ ...point, revision: 34, index: 32, frame: 4097, value: -0.25 });
+			assert.deepEqual(updated, { revision: 35, itemId: null, pointIndex: 32 });
+			const returned = await peer.request({ ...point, revision: 35, index: 32, frame: 0 });
+			assert.deepEqual(returned, { revision: 36, itemId: null, pointIndex: 0 });
+			const first = await peer.request({ ...lane, kind: 'trackAutomation', revision: returned.revision, offset: 0 });
+			assert.deepEqual(first.points[0], { frame: 0, value: -0.5, curve: 0 });
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('the peer validates the point index and the revision in automation replies', () => {
+	const point = { kind: 'setAutomationPoint', parameter: 'pan', trackId: '1', revision: 3,
+		index: 0, frame: 32, value: 0, curve: 0 } as const;
+	const changed = { revision: 4, itemId: null, pointIndex: 1 } as const;
+	const read = (value: unknown) => inspectTracktionReply({ ok: true, value }, point);
+	assert.deepEqual(read(changed), changed);
+	assert.throws(() => read({ ...changed, pointIndex: -1 }), /integer/u);
+	assert.throws(() => read({ ...changed, revision: 3 }), /unchanged automation point/u);
+	assert.throws(() => read({ ...changed, revision: 5 }), /invalid revision/u);
+	const clear = { kind: 'clearAutomation', parameter: 'pan', trackId: '1', revision: 3 } as const;
+	assert.deepEqual(inspectTracktionReply({ ok: true, value: { revision: 4, itemId: null } }, clear), { revision: 4, itemId: null });
+	assert.throws(() => inspectTracktionReply({ ok: true, value: changed }, clear), /unsupported field/u);
 });

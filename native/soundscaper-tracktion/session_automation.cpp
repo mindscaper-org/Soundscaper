@@ -48,8 +48,8 @@ AutomationPage Session::trackAutomation(Revision expected, TrackId track, TrackP
 	return result;
 }
 
-void Session::setAutomationPoint(Revision expected, TrackId track, TrackParameter key,
-                                 std::optional<std::size_t> index, AutomationPoint point)
+std::size_t Session::setAutomationPoint(Revision expected, TrackId track, TrackParameter key,
+                                        std::optional<std::size_t> index, AutomationPoint point)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -65,7 +65,7 @@ void Session::setAutomationPoint(Revision expected, TrackId track, TrackParamete
 	const auto value = gain ? te::decibelsToVolumeFaderPosition(point.value) : point.value;
 	const auto slot = index ? static_cast<int>(*index) : -1;
 	const auto sameFrame = index && tracktion::toSamples(curve.getPointTime(slot), s.sampleRate) == point.frame;
-	if (sameFrame && curve.getPointValue(slot) == value && curve.getPointCurve(slot) == point.curve) return;
+	if (sameFrame && curve.getPointValue(slot) == value && curve.getPointCurve(slot) == point.curve) return *index;
 	if (!sameFrame)
 		for (int i = 0; i < curve.getNumPoints(); ++i)
 			if (tracktion::toSamples(curve.getPointTime(i), s.sampleRate) == point.frame)
@@ -73,6 +73,7 @@ void Session::setAutomationPoint(Revision expected, TrackId track, TrackParamete
 
 	s.begin(index ? "Update automation point" : "Add automation point");
 	auto* undo = &s.edit->getUndoManager();
+	auto pointIndex = slot;
 	if (sameFrame)
 	{
 		curve.setPointValue(slot, value, undo);
@@ -81,9 +82,10 @@ void Session::setAutomationPoint(Revision expected, TrackId track, TrackParamete
 	else
 	{
 		if (index) curve.removePoint(slot, undo);
-		curve.addPoint(te::EditPosition(time), value, point.curve, undo);
+		pointIndex = curve.addPoint(te::EditPosition(time), value, point.curve, undo);
 	}
 	s.commit();
+	return static_cast<std::size_t>(pointIndex);
 }
 
 void Session::removeAutomationPoint(Revision expected, TrackId track, TrackParameter key, std::size_t index)

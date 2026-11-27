@@ -33,6 +33,17 @@ async function verifyAutomationPages(page) {
 		await action('Add point').click();
 		await idle.waitFor();
 	}
+	await point.selectOption({ label: '0 · -3.000' });
+	await frame.fill('4097');
+	await action('Update point').click();
+	await idle.waitFor();
+	assert.equal(await option('4097 · -3.000').count(), 1, 'moving a point forward shows its new page');
+	assert.equal(await point.inputValue(), await option('4097 · -3.000').getAttribute('value'), 'the moved point stays selected');
+	await frame.fill('0');
+	await action('Update point').click();
+	await idle.waitFor();
+	assert.equal(await action('Previous points').isEnabled(), false, 'moving a point back returns to its earlier page');
+	assert.equal(await point.inputValue(), await option('0 · -3.000').getAttribute('value'), 'the point stays selected on the earlier page');
 	await action('Next points').click();
 	await point.selectOption({ label: '4096 · -3.000' });
 	await value.fill('-5');

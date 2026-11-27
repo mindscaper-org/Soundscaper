@@ -38,6 +38,11 @@ export interface TracktionEditResult {
 	readonly itemId: string | null;
 }
 
+export interface TracktionAutomationPointResult extends TracktionEditResult {
+	readonly itemId: null;
+	readonly pointIndex: number;
+}
+
 export interface TracktionTrackMix {
 	readonly gainDb: number;
 	readonly pan: number;
@@ -136,7 +141,8 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 						: Command extends { kind: 'import' | 'render' | 'archive' } ? TracktionEditResult | null
 							: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
 								: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
-									: Command extends { kind: 'close' } ? null : TracktionEditResult;
+									: Command extends { kind: 'setAutomationPoint' } ? TracktionAutomationPointResult
+										: Command extends { kind: 'close' } ? null : TracktionEditResult;
 
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;

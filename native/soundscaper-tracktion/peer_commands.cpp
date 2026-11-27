@@ -372,9 +372,11 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		const auto parameter = trackParameter(request);
 		const auto gain = parameter == TrackParameter::gainDb;
 		const auto index = request.getProperty("index").isVoid() ? std::nullopt : std::optional{arrayIndex(request, "index")};
-		session.setAutomationPoint(revision, itemId(request, "trackId"), parameter, index,
-		                           {integer("frame"), mixerValue(request, "value", gain ? -100.0 : -1.0, gain ? 6.0 : 1.0),
-		                            mixerValue(request, "curve", -1.0, 1.0)});
+		const auto pointIndex = session.setAutomationPoint(revision, itemId(request, "trackId"), parameter, index,
+			{integer("frame"), mixerValue(request, "value", gain ? -100.0 : -1.0, gain ? 6.0 : 1.0),
+			 mixerValue(request, "curve", -1.0, 1.0)});
+		return record({{"revision", number(session.revision())}, {"itemId", juce::var()},
+		               {"pointIndex", number(static_cast<std::int64_t>(pointIndex))}});
 	}
 	else if (kind == "removeAutomationPoint")
 	{

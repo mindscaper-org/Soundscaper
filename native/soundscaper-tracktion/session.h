@@ -109,7 +109,7 @@ public:
 	TrackMix trackMix(Revision, TrackId) const;
 	void setTrackMix(Revision, TrackId, TrackMix);
 	AutomationPage trackAutomation(Revision, TrackId, TrackParameter, std::size_t offset, std::size_t limit) const;
-	void setAutomationPoint(Revision, TrackId, TrackParameter, std::optional<std::size_t>, AutomationPoint);
+	std::size_t setAutomationPoint(Revision, TrackId, TrackParameter, std::optional<std::size_t>, AutomationPoint);
 	void removeAutomationPoint(Revision, TrackId, TrackParameter, std::size_t);
 	void clearAutomation(Revision, TrackId, TrackParameter);
 	std::uint64_t insertOfflineEffect(Revision, TrackId, const OfflineEffectIdentity&);

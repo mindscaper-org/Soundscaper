@@ -5,7 +5,7 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import type {
-	TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
+	TracktionAutomationPointResult, TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
 	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionRenderCommand, TracktionTrackMix,
 	TracktionTransportCommand, TracktionTransportObservation, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
@@ -53,7 +53,8 @@ export type TracktionReply<Command extends TracktionCommand> = Command extends {
 			: Command extends TracktionAudioDeviceCommand ? TracktionAudioDeviceReply<Command>
 				: Command extends UseAudioProfile ? null
 					: Command extends { kind: 'transportObservation' } ? TracktionTransportObservation
-						: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView : TracktionEditResult;
+						: Command extends TracktionTransportCommand | { kind: 'startRecording' } ? TracktionTransportView
+							: Command extends { kind: 'setAutomationPoint' } ? TracktionAutomationPointResult : TracktionEditResult;
 
 const transportKinds = new Set<TracktionCommand['kind']>([
 	'transportStatus', 'prepareOutput', 'play', 'stop', 'seek', 'setLoop', 'startRecording',
@@ -96,7 +97,8 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		return readTracktionTransport(value, command.kind !== 'transportObservation') as TracktionReply<Command>;
 	}
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
-	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
+	const result = readClosedDomainRecord(value, 'Tracktion edit result', command.kind === 'setAutomationPoint'
+		? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId']);
 	const revision = nonnegativeInteger(result.revision);
 	const advanced = revision - command.revision;
 	const discarding = command.kind === 'finishRecording' && command.discard;
@@ -114,6 +116,11 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const itemId = createsItem ? readItemId(result.itemId) : null;
 	if ((!createsItem && result.itemId !== null) || (createsItem && !edited)) {
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
+	}
+	if (command.kind === 'setAutomationPoint') {
+		const pointIndex = nonnegativeInteger(result.pointIndex);
+		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');
+		return Object.freeze({ revision, itemId: null, pointIndex }) as TracktionReply<Command>;
 	}
 	return Object.freeze({ revision, itemId }) as TracktionReply<Command>;
 }
