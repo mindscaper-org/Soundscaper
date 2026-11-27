@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import { JSDOM } from 'jsdom';
 
+import { wavFixture } from '../native/soundscaper-tracktion/tests/wave_fixture.ts';
 import type { TracktionProjectPage, TracktionTransportObservation } from '../src/soundscaper/tracktion-project-contract.ts';
 import { createTracktionWebBridge } from '../src/soundscaper/tracktion-web-bridge.ts';
 import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
@@ -201,6 +202,59 @@ test('WAV imports preserve nonempty native names within the UTF-8 byte limit', a
 		await bridge.request({ kind: 'import', sessionId: opened.sessionId, revision: project.revision, trackId: '3', start: 0 });
 	}
 	assert.deepEqual(worker.importedNames, ['.wav', unicodePrefix, existingName]);
+});
+
+test('RF64 imports use the authoritative audio length and refuse a missing payload', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const uploaded: ArrayBuffer[] = [];
+	const post = worker.postMessage.bind(worker);
+	context.mock.method(worker, 'postMessage', (message: Request & { readonly input?: ArrayBuffer }) => {
+		if (message.request.kind === 'importFile') {
+			assert.ok(message.input);
+			uploaded.push(message.input);
+		}
+		post(message);
+	});
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const wave = wavFixture();
+	const pcm = wave.subarray(44);
+	function rf64(chunkLength: number, dataSize: bigint): File {
+		const bytes = Buffer.alloc(wave.length + 36);
+		bytes.write('RF64', 0);
+		bytes.writeUInt32LE(0xffff_ffff, 4);
+		bytes.write('WAVEds64', 8);
+		bytes.writeUInt32LE(28, 16);
+		bytes.writeBigUInt64LE(BigInt(bytes.length - 8), 20);
+		bytes.writeBigUInt64LE(dataSize, 28);
+		wave.copy(bytes, 48, 12);
+		bytes.writeUInt32LE(chunkLength, 76);
+		return new File([bytes], 'recording.wav', { type: 'audio/wav' });
+	}
+	let file = rf64(0xffff_ffff, BigInt(pcm.length + 4));
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const command = { kind: 'import', sessionId: opened.sessionId, revision: project.revision, trackId: '3', start: 0 } as const;
+	await assert.rejects(bridge.request(command), /RF64 WAV audio data is truncated/u);
+	assert.deepEqual(uploaded, []);
+
+	const legacySize = BigInt(pcm.length + 4);
+	file = rf64(pcm.length, legacySize);
+	await bridge.request(command);
+	assert.equal(new DataView(await file.arrayBuffer()).getBigUint64(28, true), legacySize);
+	file = rf64(0xffff_ffff, BigInt(pcm.length));
+	await bridge.request(command);
+	assert.equal(uploaded.length, 2);
+	for (const input of uploaded) {
+		const header = new DataView(input);
+		assert.equal(header.getBigUint64(28, true), BigInt(pcm.length));
+		assert.equal(header.getUint32(76, true), pcm.length);
+		assert.deepEqual(Buffer.from(input, 80), pcm);
+	}
 });
 
 for (const releaseEngine of [true, false]) test(`closing a Tracktion project follows its worker retirement decision ${releaseEngine}`, async (context) => {

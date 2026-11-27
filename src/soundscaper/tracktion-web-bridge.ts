@@ -9,7 +9,7 @@ import type {
 } from './tracktion-project-contract.ts';
 import { TracktionWebAudio } from './tracktion-web-audio.ts';
 import type { TracktionLocalProject } from './tracktion-web-project-library.ts';
-import { requireTracktionWebUpload } from './tracktion-web-upload.ts';
+import { prepareTracktionWebWave, requireTracktionWebUpload } from './tracktion-web-upload.ts';
 
 type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string;
 	releaseEngine?: true; transport?: TracktionTransportObservation }>;
@@ -153,7 +153,9 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			requireTracktionWebUpload(wave.size, 'WAV');
 			const stem = wave.name.replace(/\.wav$/iu, '') || wave.name;
 			const { read } = new TextEncoder().encodeInto(stem, new Uint8Array(nativeClipNameByteLimit));
-			return (await sendToProject({ ...request, kind: 'importFile', asset: handle(), name: stem.slice(0, read) }, await wave.arrayBuffer())).value;
+			const bytes = await wave.arrayBuffer();
+			prepareTracktionWebWave(bytes);
+			return (await sendToProject({ ...request, kind: 'importFile', asset: handle(), name: stem.slice(0, read) }, bytes)).value;
 		}
 		if (request.kind === 'render' || request.kind === 'archive') {
 			const reply = await sendToProject({ ...request, asset: handle() });
