@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -53,6 +53,11 @@ const SOURCE_REVISION = 'b'.repeat(40);
 const WORKLOAD_RUNNER_SHA256 = createHash('sha256')
 	.update(await readFile(process.execPath))
 	.digest('hex');
+
+test('the unused native-media comparison prototype is absent from the source tree', async () => {
+	const comparison = new URL('../src/common/editor/native-media-semantic-comparison.ts', import.meta.url);
+	await assert.rejects(access(comparison), { code: 'ENOENT' });
+});
 
 test('five exact 5B collector profiles bind the registered workloads and fixtures', () => {
 	assert.deepEqual(Object.keys(M5B_QUALITY_PIPELINES), [
