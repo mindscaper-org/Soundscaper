@@ -32,7 +32,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/desktop-database.js', 'desktop/desktop-database-contention.js', 'desktop/local-storage-safety.js', 'desktop/local-storage-volume.js',
 	'desktop/desktop-storage-bootstrap.js', 'desktop/desktop-browser-cache.js',
 	'desktop/desktop-project-library-migration.js', 'desktop/desktop-projects-directory.js',
-	'desktop/application-lifecycle.js', 'desktop/main-trusted-ipc.js', 'desktop/save-size-warning-dialog.js', 'src/common/editor/controller/shared/file-size-warning.js', 'desktop/mcp-main-registration.js', 'desktop/mcp-service.js', 'desktop/original-file-overwrite.js',
+	'desktop/application-lifecycle.js', 'desktop/main-trusted-ipc.js', 'desktop/save-size-warning-dialog.js', 'src/common/editor/controller/shared/file-size-warning.js', 'desktop/mcp-service.js', 'desktop/original-file-overwrite.js',
 	'desktop/cpu-profile-accumulator.js',
 	'desktop/cpu-profile-preload.js',
 	'desktop/cpu-profile-service.js',

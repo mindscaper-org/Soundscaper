@@ -20,6 +20,11 @@ test('the native label clipboard descriptor is admitted to the desktop project r
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes('src/common/editor/commands/label-clipboard-codec.js'));
 });
 
+test('desktop compilation retains the MCP service and omits the unused registration adapter', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-service.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-main-registration.js'), false);
+});
+
 test('desktop project serialization stages its encoder outside the assistance runtime', () => {
 	const encoder = 'src/common/editor/scape-project-document-encode.js';
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(encoder));
