@@ -287,6 +287,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, changed));
 				return;
 			}
+			if (edit.kind !== 'pasteRange' && edit.trackId !== null) {
+				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision, { trackId: edit.trackId }));
+				return;
+			}
 			const selectedTrack = edit.trackId ?? workspace.selectedTrack?.id;
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, selectedTrack));
 		});
