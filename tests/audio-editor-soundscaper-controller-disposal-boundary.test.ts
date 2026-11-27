@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { register } from 'node:module';
 import test from 'node:test';
 
+import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
 const assetLoader = `
@@ -21,6 +22,19 @@ const { createSoundscaperAudioEditorController } = await import('../src/soundsca
 const { createSoundscaperEditorProjectEnvironment } = await import(
 	'../src/soundscaper/editor-project-environment.ts'
 );
+
+test('the retired controller exposes no desktop macro file batch action', async () => {
+	const environment = await createEnvironment();
+	const fileService = createAudioEditorFileService({ bridge: {} });
+	const controller = createSoundscaperAudioEditorController(environment, { fileService });
+	try {
+		await controller.ready;
+		assert.equal(fileService.isDesktop, true);
+		assert.equal(Reflect.has(controller.actions.macros, 'applyToFiles'), false);
+	} finally {
+		try { await controller.dispose(); } finally { await environment.close(); }
+	}
+});
 
 test('Soundscaper closes edit authority before awaiting product disposal', async () => {
 	const environment = await createEnvironment();

@@ -43,7 +43,6 @@ import {
 import type {
 	SoundscaperPersistentDeliveryExportRuntime,
 } from '../common/editor/controller/export/soundscaper-persistent-delivery-runtime-binding.ts';
-import { createDesktopMacroFileBatchBinding, type DesktopMacroFileBatchAction } from './desktop-macro-file-batch.ts';
 
 const PRESENTATION_FIELDS = [
 	'locale', 'copy', 'fileService', 'confirmMonoConversion', 'confirmFileSizeWarning',
@@ -61,7 +60,6 @@ type CommonAudioEditorController = ReturnType<typeof createAudioEditorController
 
 export type SoundscaperAudioEditorController = CommonAudioEditorController & Readonly<{
 	readonly actions: CommonAudioEditorController['actions'] & Readonly<{
-		readonly macros: CommonAudioEditorController['actions']['macros'] & Readonly<{ applyToFiles?: DesktopMacroFileBatchAction }>;
 		readonly project: CommonAudioEditorController['actions']['project'] & Readonly<{ recovery: ReturnType<typeof bindSoundscaperProjectRecovery> }>;
 		readonly audioAutomation: Readonly<SoundscaperAutomationControllerActions>;
 		readonly audioFreeze: Readonly<SoundscaperAudioFreezeActions>;
@@ -141,14 +139,8 @@ export function createSoundscaperAudioEditorController(
 	productController = createControllerFacade(
 		delegate, automation, freeze, createSoundscaperNativePluginActions(delegate), persistentDelivery,
 		bindSoundscaperProjectRecovery(environment.store, (project) => delegate.actions.project.open(project), delegate),
-		presentation,
 	);
 	return productController;
-}
-
-/** Construct detached batch editors through the product's shared-controller composition root. */
-function createSoundscaperMacroFileController(options: ControllerOptions): CommonAudioEditorController {
-	return createAudioEditorController(null, { ...options, productId: 'soundscaper', headless: true });
 }
 
 function createControllerFacade(
@@ -158,14 +150,12 @@ function createControllerFacade(
 	nativePlugins: Readonly<SoundscaperNativePluginActions>,
 	persistentDelivery: ReturnType<typeof createSoundscaperPersistentDeliveryControllerComposition>,
 	recovery: ReturnType<typeof bindSoundscaperProjectRecovery>,
-	presentation: SoundscaperAudioEditorControllerPresentation,
 ): SoundscaperAudioEditorController {
-	const batch = createDesktopMacroFileBatchBinding(delegate, presentation, createSoundscaperMacroFileController);
 	let disposal: Promise<void> | null = null;
 	let shutdownStarted = false;
 	const assertActive = (): void => { if (shutdownStarted) throw new EditorDisposedError(); };
-	const beginDisposal = (): void => { shutdownStarted = true; batch?.cancel(); delegate.beginDisposal(); };
-	const actions = decorateActions(delegate.actions, automation, freeze, nativePlugins, persistentDelivery, recovery, assertActive, batch);
+	const beginDisposal = (): void => { shutdownStarted = true; delegate.beginDisposal(); };
+	const actions = decorateActions(delegate.actions, automation, freeze, nativePlugins, persistentDelivery, recovery, assertActive);
 	const descriptors = Object.getOwnPropertyDescriptors(delegate);
 	const actionsDescriptor = descriptors.actions;
 	const beginDisposalDescriptor = descriptors.beginDisposal;
@@ -191,7 +181,7 @@ function createControllerFacade(
 				let beginFailure: unknown;
 				try { beginDisposal(); }
 				catch (error) { beginFailed = true; beginFailure = error; }
-				void Promise.resolve(batch?.drain()).then(() => disposeControllerBindings(delegate, automation, freeze, persistentDelivery)).then(
+				void Promise.resolve().then(() => disposeControllerBindings(delegate, automation, freeze, persistentDelivery)).then(
 					() => { if (beginFailed) reject(beginFailure); else resolve(); },
 					(error: unknown) => {
 						if (beginFailed) reject(new AggregateError(
@@ -218,12 +208,9 @@ function decorateActions(
 	persistentDelivery: ReturnType<typeof createSoundscaperPersistentDeliveryControllerComposition>,
 	recovery: ReturnType<typeof bindSoundscaperProjectRecovery>,
 	assertActive: () => void,
-	batch: ReturnType<typeof createDesktopMacroFileBatchBinding>,
 ): SoundscaperAudioEditorController['actions'] {
 	const actions = actionRecord(actionsValue, 'common editor actions');
 	const descriptors = Object.getOwnPropertyDescriptors(actions);
-	if (batch) descriptors.macros = replacementDescriptor(descriptors.macros,
-		Object.freeze({ ...actionsValue.macros, applyToFiles: (request: Parameters<DesktopMacroFileBatchAction>[0]) => { assertActive(); return batch.applyToFiles(request); } }), 'macro actions');
 	descriptors.project = replacementDescriptor(
 		descriptors.project,
 		Object.freeze({ ...lifecycleActions(actions.project, [
