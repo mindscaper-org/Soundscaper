@@ -22,6 +22,7 @@ import { imageSequenceStorageSha256 } from '../desktop/native-image-sequence-imp
 import { createNativeMediaCapabilitySnapshotV1 } from '../src/common/editor/native-media-capability-snapshot.ts';
 import {
 	createNativeMediaImageSequenceInventoryV25,
+	type NativeMediaImageSequenceSourcePackWriterV25,
 } from '../src/common/editor/native-media-image-sequence-v25.ts';
 import {
 	createNativeMediaImageSequenceSourcePackV25,
@@ -49,9 +50,8 @@ test('the unused image-sequence preload adapter is absent from the source tree',
 	await assert.rejects(access(adapter), { code: 'ENOENT' });
 });
 
-test('the bundled Framescaper preload streams pathless bytes through the real main IPC', async (context) => {
+test('the bundled Framescaper preload imports identical frames through the real main IPC', async (context) => {
 	const fixture = await authorityFixture(true);
-	const assets = await sequenceAssets(['one', 'two']);
 	const handlers = new Map<string, (event: unknown, request: unknown) => unknown>();
 	const listeners = new Map<string, (event: unknown, request: unknown) => void>();
 	const rendererEvent = Object.freeze({ sender: OWNER });
@@ -90,9 +90,8 @@ test('the bundled Framescaper preload streams pathless bytes through the real ma
 		projectId: 'candidate-project', projectRevision: 4,
 	});
 	const writer = await ports.createSourcePackWriter();
-	for (let offset = 0; offset < assets.packBytes.byteLength; offset += 3) {
-		await writer.write(assets.packBytes.slice(offset, Math.min(offset + 3, assets.packBytes.byteLength)));
-	}
+	const assets = await sequenceAssets(['same', 'same'], writer.write);
+	assert.equal(assets.entries[0]!.sha256, assets.entries[1]!.sha256);
 	await writer.commit(assets.pack);
 	await ports.publishInventory(assets.inventory.bytes, assets.inventory.reference);
 	assert.deepEqual(await ports.readCommittedBody({
@@ -387,7 +386,10 @@ function importBinding(streamId: string) {
 	});
 }
 
-async function sequenceAssets(contents: readonly string[]) {
+async function sequenceAssets(
+	contents: readonly string[],
+	writePackChunk?: NativeMediaImageSequenceSourcePackWriterV25['write'],
+) {
 	const files = contents.map((content, index) => ({
 		name: `shot.${String(index + 1).padStart(4, '0')}.png`,
 		bytes: rgbPngFrame(content),
@@ -406,7 +408,10 @@ async function sequenceAssets(contents: readonly string[]) {
 	const pack = await createNativeMediaImageSequenceSourcePackV25({
 		inventory: inventory.reference, entries, frameRate: resolved.frameRate,
 		frameChunks: (index) => [files[index]!.bytes],
-		write: (chunk) => { chunks.push(chunk.slice()); },
+		write: async (chunk) => {
+			chunks.push(chunk.slice());
+			await writePackChunk?.(chunk);
+		},
 	});
 	const packBytes = concatenate(chunks);
 	return { inventory, entries, pack, packBytes };
