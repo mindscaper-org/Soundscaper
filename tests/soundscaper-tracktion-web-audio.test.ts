@@ -59,6 +59,33 @@ test('a stalled browser audio startup expires for all callers and can retry', as
 	assert.deepEqual(closed, [1, 2]);
 });
 
+test('an audio worklet rejected by the browser retries with a fresh module URL', async (context) => {
+	const failure = new DOMException('Failed to load worklet module script', 'AbortError');
+	const modules: string[] = [];
+	const closed: number[] = [];
+	let created = 0;
+	class BrowserAudioContext {
+		readonly number = ++created;
+		readonly sampleRate = 48_000;
+		readonly audioWorklet = { addModule: (url: string) => {
+			modules.push(url);
+			return this.number === 1 ? Promise.reject(failure) : Promise.resolve();
+		} };
+		resume(): Promise<void> { return Promise.resolve(); }
+		close(): Promise<void> { closed.push(this.number); return Promise.resolve(); }
+	}
+	replaceBrowserGlobal(context, 'AudioContext', BrowserAudioContext);
+	const audio = new TracktionWebAudio();
+	await assert.rejects(audio.prepare(48_000), (error) => error === failure);
+	assert.deepEqual(closed, [1]);
+	await audio.prepare(48_000);
+	assert.equal(modules[0], '/tracktion/tracktion-audio-worklet.js');
+	assert.match(modules[1], /^\/tracktion\/tracktion-audio-worklet\.js\?retry=[a-f0-9-]{36}$/u);
+	assert.ok(audio.outputBuffer().byteLength > 0);
+	await audio.close();
+	assert.deepEqual(closed, [1, 2]);
+});
+
 for (const initiallyLive of [true, false]) test(`recording releases browser startup when the microphone is lost (initially live: ${initiallyLive})`, async (context) => {
 	context.mock.timers.enable({ apis: ['setTimeout'] });
 	const firstModule = deferred<void>();
