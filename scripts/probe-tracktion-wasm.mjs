@@ -28,12 +28,14 @@ const replaceOnce = (path, original, replacement) => replaceWasmSource(workspace
 
 try {
 	const tracktion = resolve(workspace, 'tracktion');
+	const juce = resolve(workspace, 'juce');
+	cpSync(sources.juce, juce, { recursive: true });
 	if (graphOnly) cpSync(sources.tracktion, tracktion, { recursive: true });
 	else execFileSync('cmake', [
 		`-DSOUNDSCAPER_TRACKTION_SOURCE=${sources.tracktion}`, `-DSOUNDSCAPER_TRACKTION_WORKSPACE=${tracktion}`,
+		`-DSOUNDSCAPER_TRACKTION_JUCE_SOURCE=${sources.juce}`, `-DSOUNDSCAPER_TRACKTION_JUCE_WORKSPACE=${juce}`,
 		'-P', resolve(project, 'wasm/prepare-tracktion.cmake'),
 	], { stdio: 'inherit' });
-	cpSync(sources.juce, resolve(workspace, 'juce'), { recursive: true });
 	mkdirSync(output);
 
 	// Browsers do not expose a physical CPU cycle counter or an x86 pause
