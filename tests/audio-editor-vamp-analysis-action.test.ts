@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
-import { createDeferredDesktopVampAnalysisAction } from '../src/common/editor/controller/analysis/internal/deferred-vamp-analysis-action.ts';
 import { createDesktopVampAnalysisAction } from '../src/common/editor/controller/analysis/internal/vamp-analysis-action.ts';
 import { deferred } from './helpers/async-test-control.ts';
 
@@ -354,12 +354,9 @@ test('Vamp action stays absent when any native analyzer bridge operation is unav
 		getProject: () => null,
 	};
 	assert.equal(createDesktopVampAnalysisAction(options), null);
-	assert.equal(createDeferredDesktopVampAnalysisAction(options), null);
 });
 
-test('deferred Vamp action loads its implementation after admitting a complete bridge', async () => {
-	const { bridge, engine, project } = harness();
-	const action = createDeferredDesktopVampAnalysisAction({ bridge, engine, getProject: () => project });
-	assert.ok(action);
-	assert.equal((await action.list()).length, 1);
+test('the unused deferred Vamp action wrapper is absent from the source tree', async () => {
+	const wrapper = new URL('../src/common/editor/controller/analysis/internal/deferred-vamp-analysis-action.ts', import.meta.url);
+	await assert.rejects(access(wrapper), { code: 'ENOENT' });
 });
