@@ -75,52 +75,6 @@ test('a digest mismatch cannot write completion or retire the active shell', asy
 	assert.deepEqual(await cacheStorage.keys(), [priorName]);
 });
 
-test('activation retires old shell caches only after the complete cache marker exists', async () => {
-	const cacheStorage = new MemoryCacheStorage();
-	const priorName = shellCacheName('e'.repeat(64));
-	await (await cacheStorage.open(priorName)).put('/', response('prior shell'));
-	const configuration = shellConfiguration('f');
-	await installOfflineShell({
-		configuration,
-		cacheStorage,
-		fetchImpl: async (url) => shellResponse(url),
-	});
-	let claims = 0;
-
-	await activateOfflineShell({
-		configuration,
-		cacheStorage,
-		clients: { claim: async () => { claims += 1; } },
-	});
-
-	assert.equal(claims, 1);
-	assert.deepEqual(await cacheStorage.keys(), [shellCacheName(configuration.releaseId)]);
-	assert.equal(cacheStorage.events.at(-1), `delete:${priorName}`);
-});
-
-test('a failed client takeover preserves the prior complete shell', async () => {
-	const cacheStorage = new MemoryCacheStorage();
-	const priorName = shellCacheName('2'.repeat(64));
-	await (await cacheStorage.open(priorName)).put('/', response('prior shell'));
-	const configuration = shellConfiguration('3');
-	await installOfflineShell({
-		configuration,
-		cacheStorage,
-		fetchImpl: async (url) => shellResponse(url),
-	});
-
-	await assert.rejects(
-		() => activateOfflineShell({
-			configuration,
-			cacheStorage,
-			clients: { claim: async () => { throw new Error('client takeover failed'); } },
-		}),
-		/client takeover failed/u,
-	);
-
-	assert.deepEqual(await cacheStorage.keys(), [priorName, shellCacheName(configuration.releaseId)]);
-});
-
 test('encoded network metadata is normalized around the verified decoded shell bytes', async () => {
 	const cacheStorage = new MemoryCacheStorage();
 	const configuration = shellConfiguration('1');

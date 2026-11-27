@@ -315,7 +315,24 @@ export async function activateOfflineShell({ configuration, cacheStorage, client
 	if (!await cacheIsComplete(cacheStorage, activeName, configuration, cryptoImpl)) {
 		throw new Error('Offline shell cache is not complete.');
 	}
-	await clients.claim();
+	const takeover = clients.claim();
+	if (configuration.productId === 'soundscaper') {
+		// Firefox can assign the controller to the page before its Tracktion
+		// workers acknowledge the claim. Let the verified shell serve requests
+		// while a delayed takeover keeps the previous release's caches intact.
+		let deadline;
+		try {
+			const claimed = await Promise.race([
+				takeover.then(() => true),
+				new Promise((resolve) => { deadline = setTimeout(() => resolve(false), 1_000); }),
+			]);
+			if (!claimed) return;
+		} finally {
+			clearTimeout(deadline);
+		}
+	} else {
+		await takeover;
+	}
 	for (const cacheName of await cacheStorage.keys()) {
 		const sameProduct = cacheName.startsWith(`soundscaper-application-shell-v2-${configuration.productId}-`);
 		const legacy = configuration.productId === 'soundscaper'
