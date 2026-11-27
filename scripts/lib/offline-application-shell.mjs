@@ -38,9 +38,13 @@ const STATIC_CONTROL_FILES = Object.freeze([
 	'_redirects',
 	'offline-shell.json',
 ]);
-const PRODUCT_ENTRIES = Object.freeze({
-	framescaper: 'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx',
-	soundscaper: 'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx',
+const PRODUCT_INSTALL_ENTRIES = Object.freeze({
+	framescaper: Object.freeze(['src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx']),
+	soundscaper: Object.freeze([
+		'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx',
+		// Open Projects must work offline before its first dynamic import.
+		'src/soundscaper/tracktion-web-project-library.ts',
+	]),
 });
 const PRODUCT_INSTALL_ARTIFACTS = Object.freeze({
 	framescaper: Object.freeze({
@@ -179,7 +183,7 @@ function productInstallUrls({ assets, buildManifest, productId, worker }) {
 	]);
 	if (worker.root) urls.add('/');
 	for (const logo of PRODUCT_INSTALL_ARTIFACTS[productId].logos) urls.add(logo);
-	for (const key of [entryKey, PRODUCT_ENTRIES[productId]]) {
+	for (const key of [entryKey, ...PRODUCT_INSTALL_ENTRIES[productId]]) {
 		for (const url of staticManifestClosure(buildManifest, key)) urls.add(url);
 	}
 	const assetUrls = new Set(assets.map(({ url }) => url));

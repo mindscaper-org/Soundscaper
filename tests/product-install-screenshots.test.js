@@ -156,6 +156,7 @@ async function productShell(context, productId) {
 		'assets/application-abc.js': 'export const application = 1;',
 		'assets/soundscaper-core.js': 'export const soundscaper = 1;',
 		'assets/framescaper-core.js': 'export const framescaper = 1;',
+		'assets/project-library.js': 'export const projects = [];',
 		'logo/framescaper.svg': '<svg viewBox="0 0 1 1" />',
 		'logo/soundscaper.svg': '<svg viewBox="0 0 1 1" />',
 		'logo/mindscaper.svg': '<svg viewBox="0 0 1 1" />',
@@ -170,6 +171,10 @@ async function productShell(context, productId) {
 			},
 			'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx': {
 				file: 'assets/soundscaper-core.js', isDynamicEntry: true,
+				dynamicImports: ['src/soundscaper/tracktion-web-project-library.ts'],
+			},
+			'src/soundscaper/tracktion-web-project-library.ts': {
+				file: 'assets/project-library.js', isDynamicEntry: true,
 			},
 			'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx': {
 				file: 'assets/framescaper-core.js', isDynamicEntry: true,

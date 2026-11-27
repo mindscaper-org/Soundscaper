@@ -80,6 +80,8 @@ test('offline shell generation inventories exact route URLs and emits installabl
 		'/assets/framescaper-core.js',
 		'/assets/optional-dialog.js',
 		'/assets/output-worklet.js',
+		'/assets/project-library-storage.js',
+		'/assets/project-library.js',
 		'/assets/shared.js',
 		'/assets/soundscaper-core.js',
 		'/embed/en/',
@@ -98,7 +100,7 @@ test('offline shell generation inventories exact route URLs and emits installabl
 	assert.deepEqual(soundWorker.fallbacks, { standard: '/en/', embedded: '/embed/en/' });
 	assert.deepEqual(
 		soundWorker.installUrls.filter((url) => url.endsWith('.js')),
-		['/assets/application-abc.js', '/assets/shared.js', '/assets/soundscaper-core.js'],
+		['/assets/application-abc.js', '/assets/project-library-storage.js', '/assets/project-library.js', '/assets/shared.js', '/assets/soundscaper-core.js'],
 	);
 	assert.equal(soundWorker.installUrls.includes('/logo/framescaper.svg'), true);
 	assert.equal(soundWorker.installUrls.includes('/assets/optional-dialog.js'), false);
@@ -173,6 +175,8 @@ test('a Framescaper build installs one root-scoped worker and manifest for its o
 		['/', '/embed/en/', '/en/'],
 	);
 	assert.equal(worker.installUrls.includes('/assets/soundscaper-core.js'), false);
+	assert.equal(worker.installUrls.includes('/assets/project-library.js'), false);
+	assert.equal(worker.installUrls.includes('/assets/project-library-storage.js'), false);
 	assert.equal(worker.installUrls.includes('/manifest-framescaper.webmanifest'), true);
 	assert.equal(await readFile(join(outputRoot, 'framescaper/service-worker.js'), 'utf8').catch(() => null), null);
 	assert.equal(await readFile(join(outputRoot, 'manifest-soundscaper.webmanifest'), 'utf8').catch(() => null), null);
@@ -453,6 +457,8 @@ async function shellFixture(context, routes = ['en', 'embed/en']) {
 		fixtureFile(outputRoot, 'assets/runtime-codec.wasm', 'wasm'),
 		fixtureFile(outputRoot, 'assets/soundscaper-core.js', 'export const soundscaper = 1;'),
 		fixtureFile(outputRoot, 'assets/framescaper-core.js', 'export const framescaper = 1;'),
+		fixtureFile(outputRoot, 'assets/project-library.js', 'export const projects = [];'),
+		fixtureFile(outputRoot, 'assets/project-library-storage.js', 'export const indexed = 1;'),
 		fixtureFile(outputRoot, 'assets/optional-dialog.js', 'export const optional = 1;'),
 		fixtureFile(outputRoot, 'assets/application-abc.js.map', '{}'),
 		...['soundscaper', 'framescaper'].flatMap((productId) => ['wide', 'narrow'].map((formFactor) => (
@@ -485,8 +491,13 @@ async function shellFixture(context, routes = ['en', 'embed/en']) {
 			},
 			'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx': {
 				file: 'assets/soundscaper-core.js', imports: ['_shared.js'], isDynamicEntry: true,
+				dynamicImports: ['_optional.js', 'src/soundscaper/tracktion-web-project-library.ts'],
+			},
+			'src/soundscaper/tracktion-web-project-library.ts': {
+				file: 'assets/project-library.js', imports: ['_project-library-storage.js'], isDynamicEntry: true,
 				dynamicImports: ['_optional.js'],
 			},
+			'_project-library-storage.js': { file: 'assets/project-library-storage.js', imports: ['_shared.js'] },
 			'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx': {
 				file: 'assets/framescaper-core.js', imports: ['_shared.js'], isDynamicEntry: true,
 			},
