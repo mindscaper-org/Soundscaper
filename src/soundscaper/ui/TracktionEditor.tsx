@@ -18,7 +18,7 @@ import type {
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
-	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceAfterPropertyEdit, type TracktionWorkspace,
+	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
@@ -268,6 +268,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			setRangeEdit(null);
 			if (edit.kind === 'copyRange' || edit.kind === 'cutRange') setHasClipboard(true);
 			if (edit.kind === 'copyRange' || result.revision === workspace.project.revision) return;
+			if (edit.kind === 'trim') {
+				setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision, 'clipGeometry'));
+				return;
+			}
 			const selectedTrack = ('trackId' in edit ? edit.trackId : null) ?? workspace.selectedTrack?.id;
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, selectedTrack));
 		});
@@ -287,7 +291,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const trackId = workspace.selectedTrack.id;
 		run(async () => {
 			const result = await bridge.request({ ...mix, kind: 'setTrackMix', trackId, sessionId: workspace.sessionId, revision: workspace.project.revision });
-			setWorkspace(await readTracktionWorkspaceAfterPropertyEdit(bridge, workspace, result.revision));
+			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision));
 		});
 	}
 
@@ -305,7 +309,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
 		run(async () => {
 			const result = await bridge.request({ ...edit, sessionId, revision, trackId });
-			const updated = await readTracktionWorkspaceAfterPropertyEdit(bridge, workspace, result.revision);
+			const updated = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision);
 			setWorkspace(updated);
 			const { parameter } = edit;
 			const selectedFrame = edit.kind === 'setAutomationPoint' && edit.index !== null ? edit.frame : null;
@@ -394,7 +398,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request('installationId' in selection
 				? { kind: 'addOfflineEffect', sessionId, revision, trackId, ...selection }
 				: { kind: 'removeOfflineEffect', sessionId, revision, trackId, ...selection });
-			setWorkspace(await readTracktionWorkspaceAfterPropertyEdit(bridge, workspace, result.revision));
+			setWorkspace(await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result.revision));
 		});
 	}
 

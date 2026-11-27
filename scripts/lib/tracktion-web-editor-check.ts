@@ -305,9 +305,11 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Trim clip').click();
 	await trim.getByRole('spinbutton', { name: 'Start frame' }).fill('128');
 	await trim.getByRole('spinbutton', { name: 'End frame' }).fill('896');
+	const changedTrim = (await commandsSince()).length;
 	await trim.getByRole('button', { name: 'Apply' }).click();
 	const clip = page.getByText('Tracktion web media (128–896)', { exact: true });
 	await clip.waitFor();
+	assert.deepEqual(await commandsSince(changedTrim), ['trim', 'project', 'clips']);
 	await editing.click();
 	await button('Add track').click();
 	const list = page.getByRole('list', { name: 'Audio clips' });

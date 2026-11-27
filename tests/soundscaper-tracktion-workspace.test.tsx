@@ -7,6 +7,7 @@ import React, { act } from 'react';
 import type {
 	TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
+import { readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -156,6 +157,37 @@ void test('creating an empty project skips the selected track clip request', asy
 	assert.equal(dom.one('select').options.length, 33);
 	assert.equal(dom.find('li'), null);
 	assert.deepEqual(requests.map(({ kind }) => kind), ['create', 'project', 'transportStatus']);
+});
+
+void test('a trim refresh reads all track metadata if the engine advances beyond its revision', async () => {
+	const tracks = Array.from({ length: 33 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 1 }));
+	const project = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32) };
+	const clip = { id: '1/0', name: 'Original', start: 0, end: 512, sourceOffset: 0 };
+	const workspace: TracktionWorkspace = {
+		sessionId: 'session', name: 'Project', project, tracks, selectedTrack: tracks[0], clips: [clip],
+		previousSelection: { trackId: '33', clips: [clip] },
+	};
+	const commands: TracktionProjectCommand[] = [];
+	const bridge: TracktionProjectBridge = {
+		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
+			commands.push(command);
+			const reply = command.kind === 'project'
+				? command.offset === 0 ? { ...project, revision: 9 }
+					: { ...project, revision: 9, nextOffset: null, tracks: [{ id: '33', name: 'Recovered on track 33', clipCount: 2 }] }
+				: { revision: 9, nextOffset: null, clips: [{ ...clip, start: 16 }] };
+			return reply as TracktionProjectReply<Command>;
+		},
+	};
+	const refreshed = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, 8, 'clipGeometry');
+	assert.equal(refreshed.project.revision, 9);
+	assert.equal(refreshed.tracks.at(-1)?.clipCount, 2);
+	assert.equal(refreshed.clips[0]?.start, 16);
+	assert.equal(refreshed.previousSelection, undefined);
+	assert.deepEqual(commands, [
+		{ kind: 'project', sessionId: 'session', offset: 0 },
+		{ kind: 'project', sessionId: 'session', offset: 32 },
+		{ kind: 'clips', sessionId: 'session', revision: 9, trackId: '1', offset: 0 },
+	]);
 });
 
 void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {

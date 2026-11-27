@@ -24,13 +24,16 @@ export function readOpenedTracktionWorkspace(bridge: TracktionProjectBridge, pro
 	return readWorkspaceFromPage(bridge, project, project.project);
 }
 
-export async function readTracktionWorkspaceAfterPropertyEdit(
-	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number,
+export async function readTracktionWorkspaceWithCachedTracks(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number, edited: 'properties' | 'clipGeometry' = 'properties',
 ): Promise<TracktionWorkspace> {
 	if (revision === workspace.project.revision) return workspace;
-	const project = await bridge.request({ kind: 'project', sessionId: workspace.sessionId, offset: 0 });
-	if (project.revision === revision) return { ...workspace, project };
-	return await readWorkspaceFromPage(bridge, workspace, project, workspace.selectedTrack?.id);
+	const { sessionId, selectedTrack } = workspace;
+	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	if (project.revision !== revision) return await readWorkspaceFromPage(bridge, workspace, project, selectedTrack?.id);
+	const clips = edited === 'clipGeometry' && selectedTrack?.clipCount
+		? await readTracktionClips(bridge, sessionId, revision, selectedTrack.id) : workspace.clips;
+	return { ...workspace, project, clips };
 }
 
 async function readWorkspaceFromPage(
