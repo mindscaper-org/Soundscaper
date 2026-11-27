@@ -11,8 +11,8 @@ export function requireTracktionWebUpload(bytes: number, format: keyof typeof up
 	if (bytes > limit * 1024 * 1024) throw new Error(`The browser Tracktion core accepts ${format} files up to ${limit} MiB`);
 }
 
-/** Keep the bounded upload consistent for JUCE without touching the user's File. */
-export function prepareTracktionWebWave(input: ArrayBuffer): void {
+/** Refuse truncated RF64 uploads before transferring the original media. */
+export function validateTracktionWebWave(input: ArrayBuffer): void {
 	const bytes = new Uint8Array(input);
 	if (bytes.length < 4 || ascii(bytes, 0, 4) !== 'RF64') return;
 	const ds64Start = 20;
@@ -29,8 +29,6 @@ export function prepareTracktionWebWave(input: ArrayBuffer): void {
 	if (directorySize < minimumDs64Size || riffEnd > bytes.length || firstChunk > riffEnd) {
 		throw new Error('The RF64 WAV payload is truncated.');
 	}
-	// JUCE uses ds64 sizes even when a finite 32-bit field is authoritative.
-	header.setBigUint64(ds64Start, riffSize, true);
 	for (let offset = firstChunk; offset + 8 <= riffEnd;) {
 		const length32 = header.getUint32(offset + 4, true);
 		const payload = offset + 8;
@@ -38,9 +36,6 @@ export function prepareTracktionWebWave(input: ArrayBuffer): void {
 			const dataSizeOffset = ds64Start + 8;
 			const length = length32 === DS64_UINT32_SENTINEL ? header.getBigUint64(dataSizeOffset, true) : BigInt(length32);
 			if (length > BigInt(riffEnd - payload)) throw new Error('The RF64 WAV audio data is truncated.');
-			// Give JUCE's 32-bit chunk-bound check the same bounded length.
-			header.setBigUint64(dataSizeOffset, length, true);
-			header.setUint32(offset + 4, Number(length), true);
 			return;
 		}
 		offset = payload + length32 + (length32 % 2);

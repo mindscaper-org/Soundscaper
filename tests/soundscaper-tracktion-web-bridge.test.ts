@@ -204,7 +204,7 @@ test('WAV imports preserve nonempty native names within the UTF-8 byte limit', a
 	assert.deepEqual(worker.importedNames, ['.wav', unicodePrefix, existingName]);
 });
 
-test('RF64 imports use the authoritative audio length and refuse a missing payload', async (context) => {
+test('RF64 imports preserve original bytes and refuse a missing payload before transfer', async (context) => {
 	const { window } = browserFixture(context);
 	const worker = new ProjectWorker();
 	const uploaded: ArrayBuffer[] = [];
@@ -221,13 +221,14 @@ test('RF64 imports use the authoritative audio length and refuse a missing paylo
 	assert.ok(opened);
 	const wave = wavFixture();
 	const pcm = wave.subarray(44);
-	function rf64(chunkLength: number, dataSize: bigint): File {
+	function rf64(chunkLength: number, dataSize: bigint, finiteRiffSize = false): File {
 		const bytes = Buffer.alloc(wave.length + 36);
+		const riffSize = bytes.length - 8;
 		bytes.write('RF64', 0);
-		bytes.writeUInt32LE(0xffff_ffff, 4);
+		bytes.writeUInt32LE(finiteRiffSize ? riffSize : 0xffff_ffff, 4);
 		bytes.write('WAVEds64', 8);
 		bytes.writeUInt32LE(28, 16);
-		bytes.writeBigUInt64LE(BigInt(bytes.length - 8), 20);
+		bytes.writeBigUInt64LE(BigInt(finiteRiffSize ? riffSize + 4 : riffSize), 20);
 		bytes.writeBigUInt64LE(dataSize, 28);
 		wave.copy(bytes, 48, 12);
 		bytes.writeUInt32LE(chunkLength, 76);
@@ -242,19 +243,12 @@ test('RF64 imports use the authoritative audio length and refuse a missing paylo
 	await assert.rejects(bridge.request(command), /RF64 WAV audio data is truncated/u);
 	assert.deepEqual(uploaded, []);
 
-	const legacySize = BigInt(pcm.length + 4);
-	file = rf64(pcm.length, legacySize);
-	await bridge.request(command);
-	assert.equal(new DataView(await file.arrayBuffer()).getBigUint64(28, true), legacySize);
-	file = rf64(0xffff_ffff, BigInt(pcm.length));
-	await bridge.request(command);
-	assert.equal(uploaded.length, 2);
-	for (const input of uploaded) {
-		const header = new DataView(input);
-		assert.equal(header.getBigUint64(28, true), BigInt(pcm.length));
-		assert.equal(header.getUint32(76, true), pcm.length);
-		assert.deepEqual(Buffer.from(input, 80), pcm);
+	const sources = [rf64(pcm.length, BigInt(pcm.length + 4), true), rf64(0xffff_ffff, BigInt(pcm.length))];
+	for (const source of sources) {
+		file = source;
+		await bridge.request(command);
 	}
+	assert.deepEqual(uploaded, await Promise.all(sources.map((source) => source.arrayBuffer())));
 });
 
 for (const releaseEngine of [true, false]) test(`closing a Tracktion project follows its worker retirement decision ${releaseEngine}`, async (context) => {
