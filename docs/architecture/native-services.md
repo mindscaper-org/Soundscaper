@@ -201,6 +201,8 @@ Input loss during recording commits only the already captured prefix through
 the normal recording publication path. The capture worklet drains the complete
 packets it already accepted and signals the valid frame count in its final
 render quantum. The recorder flushes those frames before renderer-side teardown.
+When Discard races with PipeWire input recovery, it removes the recovered clip
+from the edit and the editor adopts the resulting revision.
 Removing a PipeWire input ends its capture session. Opening a new session can
 select the new default source.
 Output loss pauses playback and stops monitoring. Pressing Play again

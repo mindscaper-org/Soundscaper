@@ -206,9 +206,13 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 {
 	auto& s = *state;
-	if (!discard)
-		if (const auto recovered = interruptedTake(); recovered && recovered->previousRevision == expected)
-			return recovered->item;
+	if (const auto recovered = interruptedTake(); recovered && recovered->previousRevision == expected)
+	{
+		if (!discard) return recovered->item;
+		if (recovered->item) deleteClip(recovered->revision, *recovered->item);
+		s.recoveredRecording.reset();
+		return std::nullopt;
+	}
 	s.checkRevision(expected, true);
 	if (!s.recording)
 		throw std::invalid_argument("There is no active Tracktion recording");

@@ -94,19 +94,19 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', ['revision', 'itemId']);
 	const revision = nonnegativeInteger(result.revision);
-	if (revision < command.revision || revision > command.revision + 1) {
+	const advanced = revision - command.revision;
+	const discarding = command.kind === 'finishRecording' && command.discard;
+	// A racing Discard can remove a take that PipeWire already recovered.
+	if (advanced < 0 || advanced > (discarding ? 2 : 1) || (discarding && advanced === 1)) {
 		throw new TypeError('A Tracktion edit returned an invalid revision.');
 	}
-	const edited = revision === command.revision + 1;
+	const edited = advanced === 1;
 	if ((command.kind === 'copyRange' && edited) || ((command.kind === 'cutRange' || command.kind === 'pasteRange') && !edited)) {
 		throw new TypeError('A Tracktion clipboard command returned an invalid revision.');
 	}
 	const createsItem = command.kind === 'addTrack' || command.kind === 'duplicateTrack' || command.kind === 'import' || command.kind === 'importFile'
 		|| command.kind === 'split' || command.kind === 'duplicateClip' || command.kind === 'insertOfflineEffect'
 		|| (command.kind === 'finishRecording' && edited && !command.discard);
-	if (command.kind === 'finishRecording' && command.discard && edited) {
-		throw new TypeError('Discarding a Tracktion take cannot advance the project revision.');
-	}
 	const itemId = createsItem ? readItemId(result.itemId) : null;
 	if ((!createsItem && result.itemId !== null) || (createsItem && !edited)) {
 		throw new TypeError('A Tracktion edit returned an invalid created item.');

@@ -384,12 +384,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				kind: 'finishRecording', sessionId: workspace.sessionId, revision: workspace.project.revision, discard,
 			});
 			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }));
-			if (result.itemId) {
+			if (result.revision !== workspace.project.revision) {
 				setWorkspace(await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
-				setStatus('Recording added to the track');
-			} else {
-				setStatus(discard ? 'Recording discarded' : 'No audio was recorded');
 			}
+			setStatus(result.itemId ? 'Recording added to the track' : discard ? 'Recording discarded' : 'No audio was recorded');
 		});
 	}
 

@@ -10,7 +10,7 @@ import type {
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerTrack = 1 } = {}) {
+async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerTrack = 1, recoveredBeforeDiscard = false } = {}) {
 	const dom = installReactTestDom();
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -37,11 +37,12 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 	let transport: TracktionTransportView = { ready: false, playing: false, recording: false, frame: 0 };
 	let projectLost: ((sessionId: string, message: string) => void) | undefined;
 	let clipTitleReads = 0;
+	let revision = firstPage.revision;
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'render': return { revision: firstPage.revision, itemId: null };
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
-			case 'project': return command.offset === 0 ? firstPage : { ...firstPage, tracks: tracks.slice(32), nextOffset: null };
+			case 'project': return command.offset === 0 ? { ...firstPage, revision } : { ...firstPage, revision, tracks: tracks.slice(32), nextOffset: null };
 			case 'clips': {
 				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
 				const next = Math.min(command.offset + 32, count);
@@ -52,13 +53,20 @@ async function mountEditor(context: TestContext, { stopOnUndo = false, clipsPerT
 					end: (command.offset + index + 1) * 512,
 					sourceOffset: 0,
 				}));
-				return { revision: 7, nextOffset: next < count ? next : null, clips };
+				return { revision, nextOffset: next < count ? next : null, clips };
 			}
 			case 'transportStatus': return transport;
 			case 'prepareOutput': return transport = { ...transport, ready: true };
 			case 'play': return transport = { ...transport, playing: true };
 			case 'stop': return transport = { ...transport, playing: false };
 			case 'startRecording': return transport = { ...transport, recording: true };
+			case 'finishRecording': {
+				assert.ok(command.discard && recoveredBeforeDiscard);
+				revision += 2;
+				transport = { ...transport, recording: false };
+				return { revision, itemId: null };
+			}
+			case 'save': return { revision, itemId: null };
 			case 'undo': {
 				if (stopOnUndo) transport = { ...transport, playing: false };
 				return { revision: firstPage.revision, itemId: null };
@@ -179,4 +187,14 @@ void test('a worker loss during recording lets the user reopen the saved project
 	assert.match(dom.one('[role="alert"]').textContent, /audio engine stopped/u);
 	await click('Open projects');
 	assert.equal(dom.one('h1').textContent, 'Imported project');
+});
+
+void test('discarding an automatically recovered recording updates the editor revision', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { recoveredBeforeDiscard: true });
+	await click('Open projects');
+	await click('Record onto the active track');
+	await click('Discard recording');
+	assert.equal(dom.one('[role="status"]').textContent, 'Recording discarded');
+	await click('Save project');
+	assert.deepEqual(requests.at(-1), { kind: 'save', sessionId: 'session', revision: 9 });
 });
