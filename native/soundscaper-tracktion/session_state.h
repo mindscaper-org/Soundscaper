@@ -17,6 +17,7 @@ inline constexpr auto mediaDirectory = "media";
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
 
 void registerOfflineEffectPlugin(te::Engine&);
+bool hasEnabledOfflineEffect(const te::Edit&);
 void requireLiveEffectSupport(const te::Edit&);
 std::array<te::AutomatableParameter*, 2> trackAutomationParameters(te::AudioTrack&);
 

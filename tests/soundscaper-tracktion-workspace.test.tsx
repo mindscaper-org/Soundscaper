@@ -5,12 +5,12 @@ import test, { type TestContext } from 'node:test';
 import React, { act } from 'react';
 
 import type {
-	TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply,
+	TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-async function mountEditor(context: TestContext) {
+async function mountEditor(context: TestContext, stopOnUndo = false) {
 	const dom = installReactTestDom();
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -34,13 +34,21 @@ async function mountEditor(context: TestContext) {
 	const firstPage: TracktionProjectPage = {
 		revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32),
 	};
+	let transport: TracktionTransportView = { ready: false, playing: false, recording: false, frame: 0 };
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
 			case 'project': return command.offset === 0 ? firstPage : { ...firstPage, tracks: tracks.slice(32), nextOffset: null };
 			case 'clips': return { revision: 7, nextOffset: null,
 				clips: [{ id: command.trackId, name: `Clip ${command.trackId}`, start: 0, end: 512, sourceOffset: 0 }] };
-			case 'transportStatus': return { ready: false, playing: false, recording: false, frame: 0 };
+			case 'transportStatus': return transport;
+			case 'prepareOutput': return transport = { ...transport, ready: true };
+			case 'play': return transport = { ...transport, playing: true };
+			case 'stop': return transport = { ...transport, playing: false };
+			case 'undo': {
+				if (stopOnUndo) transport = { ...transport, playing: false };
+				return { revision: firstPage.revision, itemId: null };
+			}
 			default: throw new Error(`Unexpected Tracktion request ${command.kind}`);
 		}
 	}
@@ -90,4 +98,16 @@ void test('changing tracks keeps the loaded track inventory and reads the select
 	});
 	assert.equal(dom.find('li'), null);
 	assert.equal(requests.length, before + 1);
+});
+
+void test('Undo that stops the native graph also stops browser output and updates the controls', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, true);
+	await click('Open projects');
+	await click('Play');
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+	await click('Undo');
+	assert.equal(requests.at(-1)?.kind, 'stop');
+	assert.equal(dom.one('[role="status"]').textContent, 'Stopped');
+	const playback = dom.container.querySelectorAll('button').find((element) => element.textContent === 'Play');
+	assert.equal(playback?.disabled, false);
 });

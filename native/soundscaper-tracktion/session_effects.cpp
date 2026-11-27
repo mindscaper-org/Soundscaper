@@ -144,11 +144,18 @@ void registerOfflineEffectPlugin(te::Engine& engine)
 	engine.getPluginManager().createBuiltInType<OfflineEffectPlugin>();
 }
 
+bool hasEnabledOfflineEffect(const te::Edit& edit)
+{
+	return std::ranges::any_of(te::getAllPlugins(edit, false), [](auto* plugin)
+	{
+		return dynamic_cast<OfflineEffectPlugin*>(plugin) && plugin->isEnabled();
+	});
+}
+
 void requireLiveEffectSupport(const te::Edit& edit)
 {
-	for (auto* plugin : te::getAllPlugins(edit, false))
-		if (dynamic_cast<OfflineEffectPlugin*>(plugin) && plugin->isEnabled())
-			throw std::invalid_argument("This Tracktion Edit has an effect that requires offline rendering");
+	if (hasEnabledOfflineEffect(edit))
+		throw std::invalid_argument("This Tracktion Edit has an effect that requires offline rendering");
 }
 
 std::uint64_t Session::insertOfflineEffect(Revision expected, TrackId id, const OfflineEffectIdentity& effect)

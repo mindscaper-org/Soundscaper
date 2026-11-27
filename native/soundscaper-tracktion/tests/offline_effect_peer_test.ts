@@ -7,9 +7,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { test } from 'node:test';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { createTracktionOfflineRender, type TracktionOfflineEffectHost } from '../../../desktop/tracktion-offline-effects.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
@@ -169,4 +171,57 @@ test('Tracktion duplicates the complete track with fresh IDs and shared media', 
 			assert.equal(clip?.sourceOffset, 11);
 		} finally { await reopened.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion stops live playback when history restores an offline effect', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-effect-history-'));
+	const config = join(root, 'alsa.conf');
+	const previous = process.env.ALSA_CONFIG_PATH;
+	const exchangeDirectory = join(root, 'exchange');
+	const asset = '3'.repeat(32);
+	try {
+		await writeAlsaOutputFixture(config, join(root, 'output.raw'));
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(48_000));
+		process.env.ALSA_CONFIG_PATH = config;
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'edit'), stateDirectory: join(root, 'state') });
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const trackId = track.id;
+			await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Playback signal', start: 0 });
+			const { itemId: slotId } = await peer.request({ kind: 'insertOfflineEffect', revision: 1, trackId, ...effect });
+			assert.ok(slotId);
+			await peer.request({ kind: 'removeOfflineEffect', revision: 2, trackId, slotId });
+			const play = { kind: 'play', frame: 0 } as const;
+			const status = { kind: 'transportStatus' } as const;
+			let transport = await peer.request({ kind: 'prepareOutput' });
+			for (let attempt = 0; attempt < 100 && !transport.ready; attempt += 1) {
+				await sleep(10);
+				transport = await peer.request(status);
+			}
+			assert.equal(transport.ready, true);
+			assert.equal((await peer.request(play)).playing, true);
+			await peer.request({ kind: 'undo', revision: 3 });
+			assert.equal((await peer.request(status)).playing, false, 'undoing removal stops playback before restoring the effect');
+			assert.deepEqual((await peer.request({ kind: 'offlineEffects', revision: 4, trackId, offset: 0 })).slots.map(({ id }) => id), [slotId]);
+			await assert.rejects(peer.request(play), /requires offline rendering/u);
+
+			await peer.request({ kind: 'undo', revision: 4 });
+			assert.equal((await peer.request(play)).playing, true);
+			await peer.request({ kind: 'redo', revision: 5 });
+			assert.equal((await peer.request(status)).playing, false, 'redoing insertion stops playback before restoring the effect');
+			assert.deepEqual((await peer.request({ kind: 'offlineEffects', revision: 6, trackId, offset: 0 })).slots.map(({ id }) => id), [slotId]);
+			await peer.request({ kind: 'redo', revision: 6 });
+			assert.equal((await peer.request(play)).playing, true, 'playback resumes once the effect is removed');
+			await peer.request({ kind: 'addTrack', revision: 7, name: 'Other track' });
+			await peer.request({ kind: 'undo', revision: 8 });
+			assert.equal((await peer.request(status)).playing, true, 'a regular undo leaves playback active');
+		} finally { await peer.close(); }
+	} finally {
+		if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
+		else process.env.ALSA_CONFIG_PATH = previous;
+		await rm(root, { recursive: true, force: true });
+	}
 });

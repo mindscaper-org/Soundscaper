@@ -191,6 +191,14 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		run(async () => {
 			const result = await bridge.request(edit);
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));
+			if (playing && (kind === 'undo' || kind === 'redo')) {
+				const current = await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId });
+				if (!current.playing && !current.recording) {
+					setTransport(await bridge.request({ kind: 'stop', sessionId: workspace.sessionId }));
+					setStatus('Stopped');
+					if (current.outputInterrupted) setFailure(AUDIO_DEVICE_COPY_BY_LOCALE.en.audioHostDeviceLost);
+				}
+			}
 		});
 	}
 

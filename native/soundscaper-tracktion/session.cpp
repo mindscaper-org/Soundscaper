@@ -479,8 +479,8 @@ void Session::deleteClip(Revision expected, ClipId id)
 bool Session::undo(Revision expected)
 {
 	state->checkRevision(expected);
-	if (!state->edit->getUndoManager().undo())
-		return false;
+	if (!state->edit->getUndoManager().undo()) return false;
+	if (isPlaying() && hasEnabledOfflineEffect(*state->edit)) stop();
 	state->commit();
 	return true;
 }
@@ -488,8 +488,8 @@ bool Session::undo(Revision expected)
 bool Session::redo(Revision expected)
 {
 	state->checkRevision(expected);
-	if (!state->edit->getUndoManager().redo())
-		return false;
+	if (!state->edit->getUndoManager().redo()) return false;
+	if (isPlaying() && hasEnabledOfflineEffect(*state->edit)) stop();
 	state->commit();
 	return true;
 }
