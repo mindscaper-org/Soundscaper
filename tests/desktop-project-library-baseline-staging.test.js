@@ -53,6 +53,11 @@ test('desktop staging omits the retired Soundscaper desktop delivery modules', (
 	assert.deepEqual(DESKTOP_EXPECTED_RUNTIME_FILES.filter((file) => file.startsWith('desktop/soundscaper-delivery-')), []);
 });
 
+test('desktop staging keeps the active native media executor', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-media-v14-executor.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-media-execution.js'), false);
+});
+
 test('desktop staging includes the shared Framescaper durable asset authority', () => {
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
 		'src/framescaper/editor-scape-durable-asset-plan-core.js',
