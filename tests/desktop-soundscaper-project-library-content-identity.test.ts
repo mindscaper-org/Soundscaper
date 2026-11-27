@@ -29,6 +29,11 @@ import {
 import { applySoundscaperProjectCommand } from '../src/soundscaper/editor-project-commands.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 
+test('the publication transport omits the retired renderer abort-reply validator', async () => {
+	const transport = await import('../desktop/soundscaper-project-library-publication-transport.ts');
+	assert.equal(Reflect.has(transport, 'validateSoundscaperDesktopProjectLibraryPublicationAbortResult'), false);
+});
+
 test('unchanged freeze PCM keeps one content identity across project saves', () => {
 	const first = frozenProject();
 	const second = applySoundscaperProjectCommand(first, { type: 'project/rename', title: 'Renamed project' });
@@ -204,10 +209,19 @@ test('a metadata save negotiates existing frozen PCM without upload or a tempora
 	const session = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
 	context.after(() => session.close());
 	const firstId = '1'.repeat(48);
-	const firstAdmission = await session.beginPublication({
+	const firstRequest = {
 		publicationId: firstId, expectedMetadataRevision: 0, expectedProject: null,
 		project, bodies: [descriptor],
-	});
+	};
+	assert.deepEqual((await session.beginPublication(firstRequest)).requiredBodyIndexes, [0]);
+	const foreignSession = main.openSession(createSoundscaperDesktopProjectLibraryHandshake());
+	try {
+		assert.equal(await foreignSession.abortPublication({ publicationId: firstId }), false);
+	} finally { await foreignSession.close(); }
+	assert.equal(await session.abortPublication({ publicationId: firstId }), true);
+	assert.equal(await session.abortPublication({ publicationId: firstId }), false);
+	assert.equal(await session.readProjectBundle(project.id), null);
+	const firstAdmission = await session.beginPublication(firstRequest);
 	assert.deepEqual(firstAdmission.requiredBodyIndexes, [0]);
 	assert.equal((await session.writePublicationChunk({
 		publicationId: firstId, bodyIndex: 0, offset: 0, bytes,
