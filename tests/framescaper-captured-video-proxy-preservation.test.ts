@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test, { type TestContext } from 'node:test';
 
 import { openDatabase } from '../src/common/editor/storage/indexeddb-backend.ts';
@@ -51,6 +52,11 @@ const TIMING_MIME_TYPE = 'application/vnd.soundscaper.video-timing';
 const TIMING_ENCODING = 'soundscaper-video-timing-v1';
 const NOW = 1_786_550_400_200;
 const STORES = ['projects', 'revisions', 'mediaAssets', MEDIA_ASSET_STAGING_STORE_NAME];
+
+test('the unused sequence proxy publication repository is absent from the source tree', async () => {
+	const repository = new URL('../src/framescaper/editor-project-sequence-preservation-repository.ts', import.meta.url);
+	await assert.rejects(access(repository), { code: 'ENOENT' });
+});
 
 test('publishing an exact next revision commits the project, its revision row, and both bodies', async (context) => {
 	const scenario = await createScenario(context);
