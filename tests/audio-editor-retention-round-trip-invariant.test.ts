@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -30,6 +31,11 @@ const PROFILE = FRAMESCAPER_PROJECT_RUNTIME_PROFILE;
 const RENDER_SHA = 'ab'.repeat(32);
 const CAMERA_A_SHA = '12'.repeat(32);
 const CAMERA_B_SHA = '34'.repeat(32);
+
+test('the unused sequence retention collector is absent from the source tree', async () => {
+	const retention = new URL('../src/framescaper/editor-project-sequence-retention.ts', import.meta.url);
+	await assert.rejects(access(retention), { code: 'ENOENT' });
+});
 
 interface PersistableDocument {
 	readonly name: string;
