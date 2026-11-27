@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import { applyEditorCommand } from '../src/common/editor/commands.js';
@@ -188,6 +189,11 @@ test('selection and toggle commands preserve non-annotation selection fields and
 	fixture.service.removeAnnotations(['sample-region']);
 	assert.equal(fixture.state.selectedAnnotationId, null);
 	assert.deepEqual(fixture.project().selection.annotationIds, []);
+});
+
+test('the unused timeline annotation navigation module is absent from the source tree', async () => {
+	const navigation = new URL('../src/common/editor/timeline-annotation-navigation.ts', import.meta.url);
+	await assert.rejects(access(navigation), { code: 'ENOENT' });
 });
 
 test('previous and next navigation use projected order within the requested sequence', () => {
