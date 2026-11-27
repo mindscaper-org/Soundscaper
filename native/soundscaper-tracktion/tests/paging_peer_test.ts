@@ -7,13 +7,86 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import type { TracktionEditResult, TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
+import type { TracktionClipPage, TracktionEditResult, TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
+
+test('a full Tracktion clip lane survives a refused split and can split after freeing a slot', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-clip-limit-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const launch = { executable, exchangeDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') };
+	const source = wavFixture();
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await mkdir(join(exchangeDirectory, 'output'));
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), source);
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		let trackId: string;
+		let expected: TracktionClipPage['clips'];
+		try {
+			const project = { kind: 'project', offset: 0 } as const;
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			trackId = track.id;
+			await peer.request({ kind: 'save', revision: 0 });
+			const imported = await peer.request({ kind: 'importFile', trackId, revision: 0, asset, name: 'Unsaved audio', start: 0 });
+			assert.ok(imported.itemId);
+			const clipId = imported.itemId;
+			let revision = imported.revision;
+			for (let index = 1; index < 1500; index += 1) {
+				({ revision } = await peer.request({ kind: 'duplicateClip', revision, trackId, clipId, start: index * 64 }));
+			}
+			({ revision } = await peer.request({ kind: 'addTrack', revision, name: 'Redo witness' }));
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const before = await peer.request(project);
+			assert.ok(before.canUndo && before.canRedo);
+			const clips = await readClipPages(peer, trackId, revision);
+			assert.equal(clips.length, 1500);
+			const split = { kind: 'split', clipId, frame: 32 } as const;
+			await assert.rejects(peer.request({ ...split, revision }), /Tracktion (?:refused|session)/u);
+			assert.deepEqual(await peer.request(project), before);
+			assert.deepEqual(await readClipPages(peer, trackId, revision), clips);
+
+			({ revision } = await peer.request({ kind: 'redo', revision }));
+			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const last = clips.at(-1);
+			assert.ok(last);
+			({ revision } = await peer.request({ kind: 'deleteClip', revision, clipId: last.id }));
+			const applied = await peer.request({ ...split, revision });
+			assert.ok(applied.itemId);
+			expected = await readClipPages(peer, trackId, applied.revision);
+			assert.deepEqual(expected.slice(0, 2), [
+				{ id: clipId, name: 'Unsaved audio', start: 0, end: 32, sourceOffset: 0 },
+				{ id: applied.itemId, name: 'Unsaved audio', start: 32, end: 64, sourceOffset: 32 },
+			]);
+			assert.deepEqual(expected.slice(2), clips.slice(1, -1));
+			await peer.request({ kind: 'save', revision: applied.revision });
+		} finally { await peer.close(); }
+
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			assert.deepEqual(await readClipPages(reopened, trackId, 0), expected);
+			await reopened.request({ kind: 'render', revision: 0, asset, start: 0, end: 64 });
+			const pcm = waveData(await readFile(join(exchangeDirectory, 'output', `${asset}.wav`)));
+			assert.deepEqual(pcm, waveData(source));
+		} finally { await reopened.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+async function readClipPages(peer: ReturnType<typeof launchTracktionPeer>, trackId: string, revision: number) {
+	const clips: TracktionClipPage['clips'][number][] = [];
+	for (let offset: number | null = 0; offset !== null;) {
+		const page: TracktionClipPage = await peer.request({ kind: 'clips', trackId, revision, offset });
+		clips.push(...page.clips);
+		offset = page.nextOffset;
+	}
+	return clips;
+}
 
 test('a full Tracktion Edit survives a refused Add Track with its audio and history', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-limit-'));

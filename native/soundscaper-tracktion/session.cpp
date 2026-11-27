@@ -430,8 +430,8 @@ ClipId Session::split(Revision expected, ClipId id, Frame frame)
 	auto* right = track.splitClip(clip, position);
 	if (right == nullptr)
 	{
-		s.edit->getUndoManager().undoCurrentTransactionOnly();
-		throw std::runtime_error("Tracktion refused the clip split");
+		s.rollback();
+		throw std::invalid_argument("Tracktion refused the clip split");
 	}
 	s.commit();
 	return right->itemID.getRawID();
