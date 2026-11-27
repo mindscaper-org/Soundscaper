@@ -50,6 +50,7 @@ interface ActiveProject {
 	readonly exchange: string;
 	readonly peer: TracktionProjectPeer;
 	audioPreferencesApplied: boolean;
+	savedRevision: number;
 }
 
 interface Operation {
@@ -153,6 +154,11 @@ export class TracktionProjectService {
 			await closeProject(active);
 			return null;
 		}
+		if (command.kind === 'save') {
+			const saved = await active.peer.request(withoutSession(command));
+			active.savedRevision = saved.revision;
+			return saved;
+		}
 		if (command.kind === 'import') return this.#import(active, command, signal);
 		if (command.kind === 'render' || command.kind === 'archive') return this.#export(active, command, signal);
 		if (command.kind === 'offlineEffectCatalog') return await this.#ports.pluginLibrary?.catalog() ?? null;
@@ -195,7 +201,8 @@ export class TracktionProjectService {
 		const directory = await selectedProjectDirectory(selection, command.kind);
 		const previous = this.#active;
 		if (previous?.owner === owner && previous.directory === directory && command.kind === 'open') {
-			return describe(previous);
+			const current = await describe(previous);
+			if (current.project.revision === previous.savedRevision) return current;
 		}
 
 		await mkdir(this.#ports.scratchRoot, { recursive: true, mode: 0o700 });
@@ -214,10 +221,12 @@ export class TracktionProjectService {
 			const peer = await this.#ports.startPeer(command.kind === 'create'
 				? { ...location, mode: 'create', sampleRate: command.sampleRate }
 				: { ...location, mode: 'open' });
-			candidate = { owner, directory, scratch, exchange, peer, audioPreferencesApplied: false, id: randomBytes(16).toString('hex') };
+			candidate = { owner, directory, scratch, exchange, peer, audioPreferencesApplied: false,
+				savedRevision: 0, id: randomBytes(16).toString('hex') };
 			this.#assertOwner(owner, signal);
 			if (command.kind === 'create') await peer.request({ kind: 'save', revision: 0 });
 			const opened = await describe(candidate);
+			candidate.savedRevision = opened.project.revision;
 			this.#assertOwner(owner, signal);
 			if (previous) {
 				this.#active = null;

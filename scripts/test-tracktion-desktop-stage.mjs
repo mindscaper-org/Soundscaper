@@ -38,6 +38,7 @@ try {
 			filePaths: [options.properties.includes('openDirectory') ? paths.projectDirectory : paths.input],
 		});
 		dialog.showSaveDialog = async () => ({ canceled: false, filePath: paths.output });
+		dialog.showMessageBoxSync = () => 1;
 	}, { projectDirectory, input, output });
 	async function fileCommand(name) {
 		await window.getByText('File', { exact: true }).click();
@@ -98,7 +99,25 @@ try {
 	await track.selectOption({ label: 'Audio track 2' });
 	await fileCommand('Save project');
 	await window.getByText('All changes saved locally').waitFor();
-	assert.match(await readFile(join(projectDirectory, 'project.tracktionedit'), 'utf8'), /<EDIT\b/u);
+	const savedProjectFile = join(projectDirectory, 'project.tracktionedit');
+	assert.match(await readFile(savedProjectFile, 'utf8'), /<EDIT\b/u);
+	await editing.click();
+	await window.getByRole('button', { name: 'Add track', exact: true }).click();
+	await track.getByRole('option', { name: 'Audio track 3', exact: true }).waitFor({ state: 'attached' });
+	await application.evaluate(({ dialog }, file) => {
+		dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
+	}, savedProjectFile);
+	await window.evaluate(() => {
+		window.confirm = (message) => {
+			document.body.setAttribute('data-confirmation', message);
+			return true;
+		};
+	});
+	await fileCommand('Open projects');
+	await window.locator('main[aria-busy="false"]').waitFor();
+	assert.match(await window.locator('body').getAttribute('data-confirmation'), /discard unsaved changes/iu);
+	assert.equal(await track.locator('option').count(), 2, 'reopening the same file discards the unsaved third track');
+	await track.selectOption({ label: 'Audio track 2' });
 	await fileCommand('Export mix (WAV)');
 	await window.locator('main[aria-busy="false"]').waitFor();
 	const mix = waveData(await readFile(output));
