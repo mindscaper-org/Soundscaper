@@ -40,7 +40,7 @@ test('the closed common export seam binds the Soundscaper delivery runtime', () 
 
 });
 
-test('production wiring selects persistence only inside the Soundscaper product owner', async () => {
+test('the common delivery seam has no product controller consumer', async () => {
 	const [common, soundscaper, framescaper] = await Promise.all([
 		readFile(new URL('../src/common/editor/app.js', import.meta.url), 'utf8'),
 		readFile(new URL('../src/soundscaper/editor-controller.ts', import.meta.url), 'utf8'),
@@ -49,7 +49,6 @@ test('production wiring selects persistence only inside the Soundscaper product 
 	assert.match(common, /bindSoundscaperPersistentDeliveryRuntime\(options,/u);
 	assert.match(common, /cancelExport: cancelPersistentAudioDelivery/u);
 	assert.doesNotMatch(common, /cancelExport:\s*\(\)\s*=>\s*handleExportAction\('cancel'\)/u);
-	assert.match(soundscaper, /createSoundscaperPersistentDeliveryControllerComposition/u);
-	assert.match(soundscaper, /persistentDelivery/u);
+	assert.doesNotMatch(soundscaper, /PersistentDelivery|persistentDelivery/u);
 	assert.doesNotMatch(framescaper, /PersistentDelivery|persistentDelivery/u);
 });
