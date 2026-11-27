@@ -27,6 +27,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
 		PATTERN "tracktion_TrackUtils.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
+		PATTERN "tracktion_NodeRenderContext.cpp" EXCLUDE
 		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
 		PATTERN "tracktion_EditFileOperations.cpp" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
@@ -119,6 +120,21 @@ function(soundscaper_prepare_tracktion_source source destination)
                 }
                 ok = ok && staging.overwriteTargetFileWithTemporary();
             }
+]=])
+
+	# Completing the render loop after a failed audio write must report failure.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/playback/graph/tracktion_NodeRenderContext.cpp"
+		"40f8e18c146c05e93dc40a54602a6af674ca81a6253120e4782e9a59ae5af6a2"
+		[=[
+         && ! writer->appendBuffer (buffer, blockSizeSamples))
+        return WriteResult::failed;
+]=] [=[
+         && ! writer->appendBuffer (buffer, blockSizeSamples))
+    {
+        owner.errorMessage = TRANS("Couldn't write to target file");
+        return WriteResult::failed;
+    }
 ]=])
 
 	# Preserve an explicitly chosen start sample even within the first 5 ms.

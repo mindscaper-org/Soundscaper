@@ -13,6 +13,7 @@ namespace
 {
 constexpr int isolatedEffectBlockSize = 128;
 constexpr int nativeRenderBlockSize = 1024;
+constexpr int renderWavBitDepth = 16;
 // Match the professional scan bound before allocating Tracktion compensation buffers.
 constexpr int maximumLatencyFrames = 1'048'576;
 const juce::Identifier formatProperty("soundscaperEffectFormat");
@@ -137,6 +138,16 @@ public:
 private:
 	std::vector<OfflineEffectPlugin*> effects;
 };
+
+bool isCompleteWav(const juce::File& file, int sampleRate, Frame frames)
+{
+	auto input = file.createInputStream();
+	if (!input) return false;
+	juce::WavAudioFormat format;
+	const std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(input.release(), true));
+	return reader && reader->sampleRate == sampleRate && reader->numChannels == 2
+		&& reader->bitsPerSample == renderWavBitDepth && reader->lengthInSamples == frames;
+}
 }
 
 void registerOfflineEffectPlugin(te::Engine& engine)
@@ -244,7 +255,7 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 	params.tracksToDo = te::toBitSet(te::getAllTracks(*renderEdit));
 	params.sampleRateForAudio = s.sampleRate;
 	params.blockSizeForAudio = bindings.renderBlockSize();
-	params.bitDepth = 16;
+	params.bitDepth = renderWavBitDepth;
 	params.canRenderInMono = false;
 	params.checkNodesForAudio = false;
 	params.useMasterPlugins = true;
@@ -257,8 +268,9 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 		throw std::runtime_error("The Tracktion render was cancelled");
 	if (bindings.failed.load())
 		throw std::invalid_argument("An isolated Tracktion effect failed during rendering");
-	if (task->errorMessage.isNotEmpty() || !staging.getFile().existsAsFile()
-	    || !staging.overwriteTargetFileWithTemporary())
-		throw std::runtime_error("Tracktion could not render the Edit");
+	if (task->errorMessage.isNotEmpty() || !isCompleteWav(staging.getFile(), s.sampleRate, end - start))
+		throw std::invalid_argument("Tracktion could not write a complete WAV export");
+	if (!staging.overwriteTargetFileWithTemporary())
+		throw std::invalid_argument("Tracktion could not publish the WAV export");
 }
 }

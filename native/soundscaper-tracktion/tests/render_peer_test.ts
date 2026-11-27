@@ -1,18 +1,96 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { TracktionRejectedCommand } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { readTracktionProjectRequest } from '../../../desktop/tracktion-project-request.ts';
+import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import { exerciseInterruptedExport } from './export_peer_fixture.ts';
+import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion render test through CTest.');
+
+test('a short Tracktion WAV write preserves the destination and the live Edit', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-short-render-'));
+	const limited = join(root, 'limited-peer');
+	const project = join(root, 'project');
+	const source = join(root, 'source.wav');
+	const output = join(root, 'mix.wav');
+	const originalAudio = wavFixture(200_000);
+	const owner = {};
+	let exchange: string | undefined;
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => project, chooseOpenProject: async () => null,
+		chooseWave: async () => source, chooseExport: async () => output,
+		startPeer: async (options) => {
+			exchange = options.exchangeDirectory;
+			return launchTracktionPeer({ ...options, executable: limited });
+		},
+	});
+	try {
+		await mkdir(project);
+		await writeFileSizeLimitedPeer(limited);
+		await writeFile(source, originalAudio);
+		const opened = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+		assert.ok(opened && 'sessionId' in opened && exchange);
+		const { sessionId } = opened;
+		const [track] = opened.project.tracks;
+		assert.ok(track);
+		const imported = await service.request(owner, { kind: 'import', sessionId, trackId: track.id, revision: 0, start: 0 });
+		assert.ok(imported && 'itemId' in imported && imported.itemId);
+		const added = await service.request(owner, { kind: 'duplicateClip', sessionId, revision: imported.revision,
+			trackId: track.id, clipId: imported.itemId, start: 200_000 });
+		assert.ok(added && 'itemId' in added && added.itemId);
+		const witness = await service.request(owner, { kind: 'addTrack', sessionId, revision: added.revision, name: 'Redo witness' });
+		assert.ok(witness && 'itemId' in witness);
+		const undone = await service.request(owner, { kind: 'undo', sessionId, revision: witness.revision });
+		assert.ok(undone && 'itemId' in undone);
+		const page = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, page);
+		assert.ok(before && 'tracks' in before && before.canUndo && before.canRedo);
+		const full = { kind: 'render', sessionId, revision: before.revision } as const;
+		await service.request(owner, { ...full, start: 0, end: 10_000 });
+		const previous = await readFile(output);
+		const previousPcm = waveData(previous);
+		assert.deepEqual(previousPcm, waveData(originalAudio).subarray(0, 10_000 * 4));
+		const headerBytes = previous.length - previousPcm.length;
+		const firstUnwritableFrame = Math.floor((1024 * 1024 - headerBytes) / 4) + 1;
+
+		for (const request of [full, { ...full, start: 0, end: firstUnwritableFrame }]) {
+			let refusal: unknown;
+			await service.request(owner, request).catch((error: unknown) => { refusal = error; });
+			const attempted = await readFile(output);
+			assert.equal(attempted.length, previous.length, 'A short render must preserve the previous export.');
+			assert.deepEqual(attempted, previous);
+			assert.ok(refusal instanceof TracktionRejectedCommand);
+			assert.match(refusal.message, /complete WAV export/u);
+			assert.deepEqual(await readdir(join(exchange, 'output')), []);
+			assert.deepEqual(await service.request(owner, page), before);
+		}
+
+		const redone = await service.request(owner, { kind: 'redo', sessionId, revision: before.revision });
+		assert.ok(redone && 'itemId' in redone);
+		const after = await service.request(owner, page);
+		assert.ok(after && 'tracks' in after);
+		assert.equal(after.tracks[1]?.name, 'Redo witness');
+		const removed = await service.request(owner, { kind: 'deleteClip', sessionId, revision: after.revision, clipId: added.itemId });
+		assert.ok(removed && 'itemId' in removed);
+		await service.request(owner, { ...full, revision: removed.revision });
+		assert.deepEqual(waveData(await readFile(output)), waveData(originalAudio));
+		assert.deepEqual(await readdir(join(exchange, 'output')), []);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
 
 test('desktop Tracktion WAV export refuses unavailable project media and retries with exact PCM', async () => {
 	const { reference, retried, source } = await exerciseInterruptedExport(executable, 'render');
