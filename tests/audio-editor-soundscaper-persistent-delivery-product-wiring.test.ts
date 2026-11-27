@@ -23,3 +23,8 @@ test('the retired persistent-delivery composition and binding are absent from th
 	await assert.rejects(access(composition), { code: 'ENOENT' });
 	await assert.rejects(access(binding), { code: 'ENOENT' });
 });
+
+test('the retired persistent-delivery private transport is absent from the source tree', async () => {
+	const transport = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-private-transport.ts', import.meta.url);
+	await assert.rejects(access(transport), { code: 'ENOENT' });
+});

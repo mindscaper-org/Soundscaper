@@ -3,6 +3,7 @@
 import type { DeliveryReport } from '../../../../delivery-report.ts';
 import {
 	fingerprintSoundscaperDeliveryPlanV1,
+	type SoundscaperDeliveryCurrentAuthorityV1,
 	type SoundscaperDeliveryProjectIdentityV1,
 } from '../../../../soundscaper-delivery-contract-v1.ts';
 import {
@@ -11,12 +12,32 @@ import {
 	validateSoundscaperPersistentAudioDeliveryPlanV1,
 } from '../../../../soundscaper-persistent-delivery-plan-v1.ts';
 import { createSoundscaperPersistentDeliverySaveTarget } from '../../../../soundscaper-persistent-delivery-save-target.ts';
-import type {
-	SoundscaperPersistentDeliveryClaimCapability,
-	SoundscaperPersistentDeliveryPrivateTransport,
-} from './soundscaper-persistent-delivery-private-transport.ts';
 
 type Awaitable<Value> = PromiseLike<Value> | Value;
+
+interface SoundscaperPersistentDeliveryClaimCapability {
+	readonly jobId: string;
+	readonly claimId: string;
+	readonly plan: unknown;
+	progress(progress: number): Promise<unknown>;
+	beginWrite(value: Readonly<{
+		fileName: string; size?: number; maximumSize?: number; finalPrefixByteLength?: number;
+	}>): Promise<unknown>;
+	writeChunk(value: Readonly<{ writeId: string; offset: number; bytes: Uint8Array }>): Promise<unknown>;
+	patchFinalPrefix(value: Readonly<{ writeId: string; bytes: Uint8Array }>): Promise<unknown>;
+	finishWrite(writeId: string): Promise<unknown>;
+	abortWrite(writeId: string): Promise<unknown>;
+	complete(report: DeliveryReport): Promise<unknown>;
+	fail(failureCode: string, report: DeliveryReport | null): Promise<unknown>;
+	release(): Promise<unknown>;
+}
+
+interface SoundscaperPersistentDeliveryPrivateTransport {
+	claimNext(value: Readonly<{
+		jobId: string;
+		currentAuthority: SoundscaperDeliveryCurrentAuthorityV1;
+	}>): Promise<SoundscaperPersistentDeliveryClaimCapability | null>;
+}
 
 interface PersistentDeliveryWorkerBridge {
 	list(value: Readonly<{ limit: number; cursor?: string }>): PromiseLike<Readonly<{
