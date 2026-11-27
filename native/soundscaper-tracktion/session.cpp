@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace soundscaper::tracktion_backend
@@ -75,7 +76,7 @@ private:
 	juce::File directory;
 };
 
-bool admitsSampleRate(int sampleRate)
+bool admitsSampleRate(double sampleRate)
 {
 	return sampleRate >= 8000 && sampleRate <= 192000;
 }
@@ -370,10 +371,14 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 
 	juce::WavAudioFormat format;
 	std::unique_ptr<juce::AudioFormatReader> reader(format.createReaderFor(source.createInputStream().release(), true));
-	if (reader == nullptr || reader->sampleRate != s.sampleRate || reader->numChannels < 1
-	    || reader->numChannels > 2 || offset > reader->lengthInSamples)
-		throw std::invalid_argument("Import requires project-rate mono or stereo WAV with the requested source range");
-	const auto available = reader->lengthInSamples - offset;
+	if (reader == nullptr || !admitsSampleRate(reader->sampleRate) || reader->numChannels < 1
+	    || reader->numChannels > 2 || reader->lengthInSamples < 0)
+		throw std::invalid_argument("Import requires a mono or stereo WAV at a supported sample rate");
+	// Source ranges and clip positions use project frames. Tracktion plays the original WAV at its own rate.
+	const auto duration = tracktion::TimeDuration::fromSamples(reader->lengthInSamples, reader->sampleRate);
+	if (duration.inSeconds() * s.sampleRate >= static_cast<double>(std::numeric_limits<Frame>::max()))
+		throw std::invalid_argument("The source interval is outside the Tracktion Edit");
+	const auto available = tracktion::toSamples(duration, s.sampleRate) - offset;
 	const auto count = requestedCount.value_or(available);
 	if (count <= 0 || count > available || count > maxFrame - start)
 		throw std::invalid_argument("The source interval is outside the Tracktion Edit");

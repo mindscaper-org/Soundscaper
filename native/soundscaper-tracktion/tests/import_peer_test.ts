@@ -10,6 +10,7 @@ import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import type { TracktionClipView } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
+import './mixed_rate_peer_test.ts';
 import './project_persistence_peer_test.ts';
 import './rf64_peer_test.ts';
 import { wavFixture } from './wave_fixture.ts';
