@@ -69,6 +69,24 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	});
 	useEffect(() => bridge.onRecordingInterrupted?.(() => recoverMicrophone()), [bridge]);
 
+	const dismissLostProject = useEffectEvent((sessionId: string, message: string) => {
+		if (workspace?.sessionId !== sessionId) return;
+		setWorkspace(null);
+		setSavedRevision(null);
+		setTransport(null);
+		setHasClipboard(false);
+		setClipEdit(null);
+		setRangeEdit(null);
+		setPaste(false);
+		setMixer(null);
+		setAutomation(null);
+		setAudioSetup(null);
+		setEffects(null);
+		setStatus('');
+		setFailure(message);
+	});
+	useEffect(() => bridge.onProjectLost?.((sessionId, message) => dismissLostProject(sessionId, message)), [bridge]);
+
 	const observeNativeTransport = useEffectEvent((isCurrent: () => boolean) => {
 		if (!workspace || pending.current || transportProbe.current) return;
 		const probe = bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }).then(async (next) => {

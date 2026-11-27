@@ -11,27 +11,35 @@ type Microphone = Readonly<{
 
 export class TracktionWebAudio {
 	#context: AudioContext | undefined;
+	#preparing: Promise<readonly void[]> | undefined;
 	#node: AudioWorkletNode | undefined;
 	#microphone: Microphone | undefined;
 
 	get playing(): boolean { return this.#node !== undefined; }
 
 	async prepare(sampleRate: number): Promise<void> {
+		if (this.#preparing) {
+			await this.#preparing;
+			return;
+		}
 		if (this.#context) {
 			await this.#context.resume();
 			return;
 		}
 		const context = new AudioContext({ sampleRate });
+		this.#context = context;
 		try {
 			if (context.sampleRate !== sampleRate) throw new Error('The browser could not use the Tracktion project sample rate');
-			await Promise.all([
+			this.#preparing = Promise.all([
 				context.resume(),
 				context.audioWorklet.addModule('/tracktion/tracktion-audio-worklet.js'),
 			]);
-			this.#context = context;
+			await this.#preparing;
 		} catch (error) {
-			await context.close();
+			if (this.#context === context) await this.close();
 			throw error;
+		} finally {
+			if (this.#context === context) this.#preparing = undefined;
 		}
 	}
 
@@ -117,6 +125,7 @@ export class TracktionWebAudio {
 		this.stop();
 		const context = this.#context;
 		this.#context = undefined;
+		this.#preparing = undefined;
 		if (context) await context.close();
 	}
 }

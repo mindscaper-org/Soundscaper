@@ -30,7 +30,7 @@ type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer }>;
 const scope = globalThis as unknown as {
 	location: Location;
 	Module: WasmRuntime | WasmSettings;
-	postMessage(reply: WorkerReply & Readonly<{ id: number }>, transfer?: Transferable[]): void;
+	postMessage(reply: (WorkerReply & Readonly<{ id: number }>) | Readonly<{ fatal: string }>, transfer?: Transferable[]): void;
 	importScripts(url: string): void;
 	onmessage: ((event: MessageEvent<CommandMessage>) => void) | null;
 };
@@ -62,6 +62,7 @@ const ready = new Promise<void>((resolve) => {
 		},
 		onAbort(reason) {
 			failed = new Error(String(reason));
+			scope.postMessage({ fatal: failed.message });
 			completion?.resolve({ error: 'host', detail: failed.message });
 			resolve();
 		},

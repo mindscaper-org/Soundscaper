@@ -35,6 +35,7 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 		revision: 7, sampleRate: 48_000, canUndo: true, canRedo: false, nextOffset: 32, tracks: tracks.slice(0, 32),
 	};
 	let transport: TracktionTransportView = { ready: false, playing: false, recording: false, frame: 0 };
+	let projectLost: ((sessionId: string, message: string) => void) | undefined;
 	function reply(command: TracktionProjectCommand): unknown {
 		switch (command.kind) {
 			case 'open': return { sessionId: 'session', name: 'Imported project', project: firstPage };
@@ -45,6 +46,7 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 			case 'prepareOutput': return transport = { ...transport, ready: true };
 			case 'play': return transport = { ...transport, playing: true };
 			case 'stop': return transport = { ...transport, playing: false };
+			case 'startRecording': return transport = { ...transport, recording: true };
 			case 'undo': {
 				if (stopOnUndo) transport = { ...transport, playing: false };
 				return { revision: firstPage.revision, itemId: null };
@@ -57,6 +59,10 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 			requests.push(command);
 			return reply(command) as TracktionProjectReply<Command>;
 		},
+		onProjectLost(listener) {
+			projectLost = listener;
+			return () => { projectLost = undefined; };
+		},
 	};
 	await act(async () => root.render(<TracktionEditor bridge={bridge} />));
 	async function click(label: string): Promise<void> {
@@ -64,7 +70,10 @@ async function mountEditor(context: TestContext, stopOnUndo = false) {
 		assert.ok(button, label);
 		await act(async () => { reactProps(button).onClick(); });
 	}
-	return { dom, requests, click };
+	async function loseProject(sessionId: string): Promise<void> {
+		await act(async () => { projectLost?.(sessionId, 'The audio engine stopped responding'); });
+	}
+	return { dom, requests, click, loseProject };
 }
 
 void test('opening a paginated project reuses its first track page', async (context) => {
@@ -110,4 +119,19 @@ void test('Undo that stops the native graph also stops browser output and update
 	assert.equal(dom.one('[role="status"]').textContent, 'Stopped');
 	const playback = dom.container.querySelectorAll('button').find((element) => element.textContent === 'Play');
 	assert.equal(playback?.disabled, false);
+});
+
+void test('a worker loss during recording lets the user reopen the saved project', async (context) => {
+	const { dom, click, loseProject } = await mountEditor(context);
+	await click('Open projects');
+	await click('Record onto the active track');
+	assert.equal(dom.one('[role="status"]').textContent, 'Recording');
+	await loseProject('old-session');
+	assert.equal(dom.one('[role="status"]').textContent, 'Recording');
+	await loseProject('session');
+	assert.equal(dom.find('[role="status"]'), null);
+	assert.equal(dom.one('h1').textContent, 'Soundscaper Tracktion');
+	assert.match(dom.one('[role="alert"]').textContent, /audio engine stopped/u);
+	await click('Open projects');
+	assert.equal(dom.one('h1').textContent, 'Imported project');
 });
