@@ -205,7 +205,7 @@ test('Tracktion fits 64 tracks with fully escaped names in one reply', async () 
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('Tracktion returns stable clip pages and rejects offsets beyond their end', async () => {
+test('Tracktion returns stable 64-row clip pages with fully escaped names', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-page-'));
 	const exchangeDirectory = join(root, 'exchange');
 	try {
@@ -217,32 +217,34 @@ test('Tracktion returns stable clip pages and rejects offsets beyond their end',
 			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
 			assert.ok(track);
 			const trackId = track.id;
+			const name = '\u0001'.repeat(128);
 			const { itemId: clipId } = await peer.request({ kind: 'import', revision: 0, trackId, asset,
-				name: 'Paged clip', start: 0, sourceOffset: 5, frames: 52 });
+				name, start: 0, sourceOffset: 5, frames: 52 });
 			assert.ok(clipId);
 			const clipIds = [clipId];
-			for (let index = 1; index <= 32; index += 1) {
+			for (let index = 1; index <= 64; index += 1) {
 				const duplicate: TracktionEditResult = await peer.request({ kind: 'duplicateClip', revision: index, trackId, clipId, start: index * 64 });
 				assert.ok(duplicate.itemId);
 				clipIds.push(duplicate.itemId);
 			}
-			const revision = 33;
+			const revision = 65;
 			const summary = await peer.request({ kind: 'project', offset: 0 });
 			assert.deepEqual(summary.tracks, [{ ...track, clipCount: revision }]);
 			const clipPage = { kind: 'clips', revision, trackId } as const;
 			const first = await peer.request({ ...clipPage, offset: 0 });
 			assert.equal(first.revision, revision);
-			assert.equal(first.nextOffset, 32);
-			const last = await peer.request({ ...clipPage, offset: 32 });
+			assert.equal(first.clips.length, 64);
+			assert.equal(first.nextOffset, 64);
+			const last = await peer.request({ ...clipPage, offset: 64 });
 			assert.equal(last.revision, revision);
 			assert.equal(last.nextOffset, null);
 			assert.deepEqual([...first.clips, ...last.clips], clipIds.map((id, index) => ({
-				id, name: 'Paged clip', start: index * 64, end: index * 64 + 52, sourceOffset: 5,
+				id, name, start: index * 64, end: index * 64 + 52, sourceOffset: 5,
 			})));
 			assert.deepEqual(await peer.request({ ...clipPage, offset: revision }), { revision, clips: [], nextOffset: null });
 			await assert.rejects(peer.request({ ...clipPage, offset: revision + 1 }), /clip page/u);
 			await assert.rejects(peer.request({ ...clipPage, trackId: '18446744073709551615', offset: 0 }), /clip page/u);
-			await assert.rejects(peer.request({ ...clipPage, revision: revision - 1, offset: 32 }), /revision/u);
+			await assert.rejects(peer.request({ ...clipPage, revision: revision - 1, offset: 64 }), /revision/u);
 			assert.deepEqual((await peer.request({ kind: 'project', offset: 1 })).tracks, []);
 			await assert.rejects(peer.request({ kind: 'project', offset: 2 }), /track page/u);
 		} finally { await peer.close(); }

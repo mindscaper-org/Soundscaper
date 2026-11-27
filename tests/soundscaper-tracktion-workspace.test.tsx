@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import test, { type TestContext } from 'node:test';
 import React, { act } from 'react';
 
-import type {
-	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
-	TracktionTransportObservation,
+import {
+	TRACKTION_CLIP_PAGE_SIZE, type TracktionClipPage, type TracktionProjectBridge, type TracktionProjectCommand,
+	type TracktionProjectPage, type TracktionProjectReply, type TracktionTransportView, type TracktionTransportObservation,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import {
 	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackInsertion, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
@@ -74,7 +74,7 @@ async function mountEditor(context: TestContext, {
 				nextOffset: command.offset + 32 < tracks.length ? command.offset + 32 : null };
 			case 'clips': {
 				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
-				const next = Math.min(command.offset + 32, count);
+				const next = Math.min(command.offset + TRACKTION_CLIP_PAGE_SIZE, count);
 				const shift = undoChangesClips && revision !== firstPage.revision ? 16 : 0;
 				const clips = Array.from({ length: next - command.offset }, (_, index) => ({
 					id: `${command.trackId}/${command.offset + index}`,
@@ -197,15 +197,15 @@ void test('trimming applies the ordered clip returned by the edit across a clip 
 	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: true, nextOffset: null, tracks: [track] };
 	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks: [track],
 		selectedTrack: track, previousSelection: undefined, clips };
-	const original = clips.at(31);
+	const original = clips.at(63);
 	assert.ok(original);
 	const clip = { ...original, start: original.start + 24, end: original.end - 8, sourceOffset: 29 };
 	const noRead: TracktionProjectBridge = { async request() { return assert.fail('An acknowledged trim requires no bridge requests'); } };
 	const updated = await readTracktionWorkspaceAfterClipEdit(noRead, workspace, {
-		revision: 8, itemId: null, history: { canUndo: true, canRedo: false }, trimmedClip: { clip, index: 32 },
+		revision: 8, itemId: null, history: { canUndo: true, canRedo: false }, trimmedClip: { clip, index: 64 },
 	});
-	assert.deepEqual(updated.clips, [...clips.slice(0, 31), clips[32], clip, ...clips.slice(33)]);
-	assert.equal(updated.clips[32], clip);
+	assert.deepEqual(updated.clips, [...clips.slice(0, 63), clips[64], clip]);
+	assert.equal(updated.clips[64], clip);
 	assert.equal(updated.selectedTrack, track);
 	assert.equal(updated.tracks, workspace.tracks);
 	assert.deepEqual(updated.project, { ...project, revision: 8, canRedo: false });
@@ -347,14 +347,14 @@ void test('returning to the previous track reuses its clip pages until an edit c
 	const before = requests.length;
 	await selectTrack('1');
 	assert.equal(dom.one('li').textContent, 'Clip 1 (0–512)');
-	assert.equal(requests.length, before, 'the cached track’s three pages need no bridge request');
+	assert.equal(requests.length, before, 'the cached track’s two pages need no bridge request');
 
 	await selectTrack('33');
 	await click('Undo');
 	const afterUndo = requests.length;
 	await selectTrack('1');
 	assert.equal(dom.one('li').textContent, 'Clip 1 (16–528)');
-	assert.deepEqual(requests.slice(afterUndo), [0, 32, 64].map((offset) => ({
+	assert.deepEqual(requests.slice(afterUndo), [0, 64].map((offset) => ({
 		kind: 'clips', sessionId: 'session', revision: 8, trackId: '1', offset,
 	})));
 });

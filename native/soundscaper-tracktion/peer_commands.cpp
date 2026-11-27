@@ -15,9 +15,10 @@ namespace soundscaper::tracktion_backend
 namespace
 {
 constexpr auto pageSize = 32u;
-// Track names are capped at 128 characters. Even at six JSON bytes per
-// character, 64 track rows and their envelope fit in a 64 KiB reply.
+// Names are capped at 128 characters. Even with six JSON bytes per character,
+// 64 rows with their IDs, frame positions and envelope fit in a 64 KiB reply.
 constexpr auto trackPageSize = 64u;
+constexpr auto clipPageSize = 64u;
 constexpr auto maxJsInteger = 9007199254740991ll;
 using Fields = std::initializer_list<std::pair<const char*, juce::var>>;
 
@@ -319,7 +320,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
 		const auto offset = arrayIndex(request, "offset");
-		return clipPageReply(session.clipPage(itemId(request, "trackId"), offset, pageSize), revision, offset);
+		return clipPageReply(session.clipPage(itemId(request, "trackId"), offset, clipPageSize), revision, offset);
 	}
 	if (kind == "trackMix")
 	{

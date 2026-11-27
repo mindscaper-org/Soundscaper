@@ -5,7 +5,7 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import {
-	TRACKTION_TRACK_PAGE_SIZE, type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
+	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_TRACK_PAGE_SIZE, type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
 	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
 	type TracktionRecordingCommand, type TracktionRenderCommand, type TracktionTrackMix,
 	type TracktionTransportCommand, type TracktionTransportObservation, type TracktionTransportView,
@@ -221,9 +221,9 @@ function readClip(value: unknown) {
 function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): TracktionClipPage {
 	const page = readClosedDomainRecord(value, 'Tracktion clip page', ['revision', 'clips', 'nextOffset']);
 	if (page.revision !== command.revision) throw new TypeError('A Tracktion clip page has changed revision.');
-	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, PAGE_SIZE).map(readClip);
+	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, TRACKTION_CLIP_PAGE_SIZE).map(readClip);
 	return Object.freeze({
-		revision: command.revision, nextOffset: readNextOffset(page.nextOffset, command.offset, clips.length),
+		revision: command.revision, nextOffset: readNextOffset(page.nextOffset, command.offset, clips.length, TRACKTION_CLIP_PAGE_SIZE),
 		clips: Object.freeze(clips),
 	});
 }

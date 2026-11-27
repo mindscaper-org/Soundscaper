@@ -5,6 +5,7 @@ import type { TracktionAutomationCommand, TracktionAutomationPage } from './trac
 import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffectPage } from './tracktion-effect-contract.ts';
 
 export const TRACKTION_TRACK_PAGE_SIZE = 64;
+export const TRACKTION_CLIP_PAGE_SIZE = 64;
 
 export interface TracktionTrackView {
 	readonly id: string;
