@@ -39,6 +39,15 @@ const NOW = '2026-08-14T11:00:00.000Z';
 const LATER = '2026-08-14T11:01:00.000Z';
 const HIGH_RATE = Object.freeze({ num: 40_000, den: 1 });
 
+test('Soundscaper history omits the unused full-stack clone entry points', async () => {
+	const [history, productionHistory] = await Promise.all([
+		import('../src/soundscaper/editor-project-history.ts'),
+		import('../src/soundscaper/editor-project-production-history.ts'),
+	]);
+	assert.equal(Reflect.has(history, 'cloneSoundscaperProjectHistory'), false);
+	assert.equal(Reflect.has(productionHistory, 'cloneSoundscaperProductionHistory'), false);
+});
+
 test('baseline commands replace complete lane and graph values by optimistic equality', () => {
 	const project = fixture();
 	const lane = {

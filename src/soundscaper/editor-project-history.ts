@@ -3,7 +3,6 @@
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import {
 	createSoundscaperProductionHistory,
-	cloneSoundscaperProductionHistory,
 	executeSoundscaperProductionCommand,
 	redoSoundscaperProductionCommand,
 	undoSoundscaperProductionCommand,
@@ -67,12 +66,6 @@ export function validateSoundscaperProjectHistory(
 ): history is SoundscaperProjectHistory {
 	validateSoundscaperProductionHistory(history, BASELINE);
 	return true;
-}
-
-export function cloneSoundscaperProjectHistory(
-	history: SoundscaperProjectHistory | unknown,
-): SoundscaperProjectHistory {
-	return asBaseline(cloneSoundscaperProductionHistory(history, BASELINE));
 }
 
 export function executeSoundscaperProjectCommand(
