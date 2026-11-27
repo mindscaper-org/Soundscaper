@@ -107,6 +107,7 @@ public:
 	{
 		stop();
 		healthy.store(false, std::memory_order_release);
+		playbackActive.store(false, std::memory_order_relaxed);
 		inputStream.reset();
 		outputStream.reset();
 		inputMask.clear();
@@ -145,6 +146,12 @@ public:
 		return soundscaper_pipewire_disconnected(outputStream.get()) ? PipeWireRoute::interrupted : PipeWireRoute::active;
 	}
 
+	void setPlaybackActive(bool active)
+	{
+		playbackActive.store(active, std::memory_order_release);
+		notify();
+	}
+
 	void quiesce()
 	{
 		signalThreadShouldExit();
@@ -179,6 +186,13 @@ private:
 	{
 		while (!threadShouldExit())
 		{
+			// The graph keeps the device route open between takes. Park the
+			// producer until Play or capture needs another audio block.
+			if (!inputStream && !playbackActive.load(std::memory_order_acquire))
+			{
+				wait(-1);
+				continue;
+			}
 			const bool outputAvailable = outputStream && !soundscaper_pipewire_disconnected(outputStream.get());
 			const auto outputBuffered = outputAvailable ? soundscaper_pipewire_buffered_frames(outputStream.get()) : 0;
 			const auto block = static_cast<uint32_t>(blockSize);
@@ -246,6 +260,7 @@ private:
 	juce::BigInteger outputMask, inputMask;
 	juce::AudioIODeviceCallback* callback = nullptr;
 	std::atomic<bool> healthy{false};
+	std::atomic<bool> playbackActive{false};
 	juce::String error;
 	int sampleRate = 48000;
 	int blockSize = defaultBlock;
@@ -330,6 +345,11 @@ PipeWireRoute pipeWireOutput(juce::AudioIODevice* device)
 {
 	if (const auto* pipewire = dynamic_cast<PipeWireDevice*>(device)) return pipewire->output();
 	return PipeWireRoute::inactive;
+}
+
+void setPipeWirePlaybackActive(juce::AudioIODevice* device, bool active)
+{
+	if (auto* pipewire = dynamic_cast<PipeWireDevice*>(device)) pipewire->setPlaybackActive(active);
 }
 
 bool quiescePipeWireCapture(juce::AudioIODevice* device)

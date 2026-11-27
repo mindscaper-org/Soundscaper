@@ -309,6 +309,11 @@ async function runEditorWorkflow(window: BrowserWindow, sessionId: string, outpu
 		await click('Playback and recording');
 		await click('Play');
 		await waitForVisible('Playing');
+		await requestFromEditor(window, { kind: 'stop', sessionId });
+		await waitForVisible('Stopped');
+		await click('Playback and recording');
+		await click('Play');
+		await waitForVisible('Playing');
 		if (testMissingSpeakers) {
 			await sleep(150);
 			removePipeWireFixtureSink();

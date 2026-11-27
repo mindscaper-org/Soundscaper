@@ -170,7 +170,11 @@ juce::String Session::State::recordingInputName() const
 void Session::State::initialiseSystemDevices()
 {
 	if (systemDeviceManagerInitialised) return;
-	engine.getDeviceManager().initialise(0, 0);
+	auto& devices = engine.getDeviceManager();
+	devices.initialise(0, 0);
+	// This audio-only session has no MIDI device routes. A deferred MIDI scan
+	// would clear the playback graph when it first populates the device list.
+	devices.setMidiDeviceScanIntervalSeconds(0);
 	systemDeviceManagerInitialised = true;
 }
 

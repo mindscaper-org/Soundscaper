@@ -10,5 +10,6 @@ enum class PipeWireRoute { inactive, active, interrupted };
 
 PipeWireRoute pipeWireCapture(juce::AudioIODevice*);
 PipeWireRoute pipeWireOutput(juce::AudioIODevice*);
+void setPipeWirePlaybackActive(juce::AudioIODevice*, bool);
 bool quiescePipeWireCapture(juce::AudioIODevice*);
 }

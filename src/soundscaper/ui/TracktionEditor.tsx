@@ -74,7 +74,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const probe = bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }).then(async (next) => {
 			const take = next.interruptedTake;
 			const lostOutput = next.outputInterrupted && (next.recording || !next.playing) && !transport?.outputInterrupted;
-			if ((!take && !lostOutput) || !isCurrent() || pending.current) return;
+			const stopped = transport?.playing && !next.playing && !next.recording;
+			if ((!take && !lostOutput && !stopped) || !isCurrent() || pending.current) return;
 			const updated = take?.itemId ? await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id) : workspace;
 			if (!isCurrent() || pending.current) return;
 			setWorkspace(updated);

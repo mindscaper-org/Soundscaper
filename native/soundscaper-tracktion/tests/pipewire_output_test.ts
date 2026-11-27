@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -10,7 +11,78 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import type { TracktionTransportView } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { removePipeWireFixtureSink, restorePipeWireFixtureSink } from './pipewire_fixture.ts';
-import { waveData } from './wave_fixture.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
+
+test('Tracktion sustains PipeWire playback and can restart from the stopped playhead', {
+	skip: process.platform !== 'linux' || process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT !== '1',
+}, async () => {
+	const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
+	assert.ok(executable, 'build the Tracktion peer first');
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-pipewire-playback-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const options = { executable, exchangeDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') };
+	const asset = 'a'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture(8 * 48_000));
+		const creator = launchTracktionPeer({ ...options, mode: 'create', sampleRate: 48_000 });
+		try {
+			const [track] = (await creator.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track, 'the project has an audio track');
+			await creator.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Sustained output', start: 0 });
+			await creator.request({ kind: 'save', revision: 1 });
+		} finally {
+			await creator.close();
+		}
+		const peer = launchTracktionPeer({ ...options, mode: 'open' });
+		const monitor = spawn('pw-record', ['--target', 'tracktion.test.speakers', '--properties', '{"stream.capture.sink":true}',
+			'--rate', '48000', '--channels', '2', '--format', 'f32', '--latency', '256', '-'], { stdio: ['ignore', 'pipe', 'inherit'] });
+		const monitorClosed = new Promise<void>((resolve) => { monitor.once('close', () => resolve()); });
+		let frames = 0;
+		let partial: Buffer = Buffer.alloc(0);
+		monitor.stdout.on('data', (samples: Buffer) => {
+			const data = partial.length ? Buffer.concat([partial, samples]) : samples;
+			const completeBytes = data.length - data.length % 8;
+			for (let offset = 0; offset < completeBytes; offset += 8)
+				if (data.readFloatLE(offset) > 0.02) frames += 1;
+			partial = data.subarray(completeBytes);
+		});
+		try {
+			const { hosts } = await peer.request({ kind: 'audioHosts' });
+			const host = hosts.find(({ name }) => name === 'PipeWire');
+			assert.ok(host, 'the fixture exposes the PipeWire host');
+			const status = () => peer.request({ kind: 'transportStatus' });
+			for (const blockSize of [256, 512]) {
+				await peer.request({ kind: 'setAudioSetup', hostId: host.id, inputId: '', outputId: '',
+					inputChannel: 0, outputChannel: 0, sampleRate: 48_000, blockSize });
+				await peer.request({ kind: 'prepareOutput' });
+				await waitForTransport(status, (snapshot) => snapshot.ready);
+				assert.equal((await peer.request({ kind: 'seek', frame: 0 })).frame, 0);
+				assert.equal((await peer.request({ kind: 'play', frame: 0 })).playing, true);
+				await waitForTransport(status, (snapshot) => snapshot.playing && snapshot.frame >= 24_000);
+				const before = frames;
+				// Cross the old four-second MIDI scan interval on a fresh route.
+				await waitForTransport(status, (snapshot) => snapshot.playing && snapshot.frame >= 216_000, 6_000);
+				assert.ok(frames - before > 153_600, `the ${blockSize}-frame stream carries sustained audio`);
+				const stopped = await peer.request({ kind: 'stop' });
+				assert.equal(stopped.playing, false);
+				await peer.request({ kind: 'prepareOutput' });
+				await waitForTransport(status, (snapshot) => snapshot.ready);
+				const beforeRestart = frames;
+				assert.equal((await peer.request({ kind: 'play', frame: stopped.frame })).playing, true);
+				await waitForTransport(status, (snapshot) => snapshot.playing && snapshot.frame >= stopped.frame + 8_192);
+				assert.ok(frames - beforeRestart > 4_096, 'audio resumes from the stopped playhead');
+				await peer.request({ kind: 'stop' });
+			}
+		} finally {
+			monitor.kill('SIGTERM');
+			await monitorClosed;
+			await peer.close();
+		}
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
 
 test('Tracktion keeps capture and playback independent when the named PipeWire sink disappears', {
 	skip: process.platform !== 'linux' || process.env.SOUNDSCAPER_TRACKTION_TEST_PIPEWIRE_OUTPUT !== '1',
@@ -115,8 +187,9 @@ function audibleFrames(samples: Buffer): number {
 async function waitForTransport(
 	read: () => Promise<TracktionTransportView>,
 	accept: (view: TracktionTransportView) => boolean,
+	timeout = 3_000,
 ): Promise<TracktionTransportView> {
-	const deadline = performance.now() + 3000;
+	const deadline = performance.now() + timeout;
 	let view = await read();
 	while (!accept(view) && performance.now() < deadline) {
 		await sleep(20);

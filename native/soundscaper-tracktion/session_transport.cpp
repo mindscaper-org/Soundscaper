@@ -99,6 +99,7 @@ void Session::prepareSystemOutput()
 		return;
 	}
 	devices.initialise(0, 2);
+	devices.setMidiDeviceScanIntervalSeconds(0);
 	s.systemDeviceManagerInitialised = true;
 	auto* output = devices.deviceManager.getCurrentAudioDevice();
 	if (output == nullptr || !output->isOpen() || output->getActiveOutputChannels().countNumberOfSetBits() < 2)
@@ -163,7 +164,11 @@ void Session::watchAudioDevice()
 					s.edit->getTransport().setPosition(tracktion::TimePosition::fromSamples(frame, s.sampleRate));
 				}
 			}
-			if (!isRecording() && !isPlaying()) s.deviceLossMonitor->stopTimer();
+			if (!isRecording() && !isPlaying())
+			{
+				setPipeWirePlaybackActive(device, false);
+				s.deviceLossMonitor->stopTimer();
+			}
 			if (!isRecording() || pipeWireCapture(device) != PipeWireRoute::interrupted) return;
 			const auto before = s.revision;
 			try
@@ -190,6 +195,9 @@ void Session::play(Frame start)
 	auto& transport = s.edit->getTransport();
 	transport.setPosition(s.position(start));
 	transport.play(false);
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	setPipeWirePlaybackActive(s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice(), transport.isPlaying());
+#endif
 	watchAudioDevice();
 }
 
@@ -231,6 +239,9 @@ void Session::stop()
 	if (state->deviceLossMonitor) state->deviceLossMonitor->stopTimer();
 #endif
 	state->edit->getTransport().stop(false, false, false);
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+	setPipeWirePlaybackActive(state->engine.getDeviceManager().deviceManager.getCurrentAudioDevice(), false);
+#endif
 }
 
 bool Session::processPlaybackBlock(juce::AudioBuffer<float>& audio, juce::MidiBuffer& midi, const float* monoInput) noexcept
