@@ -289,8 +289,8 @@ TrackId Session::addTrack(Revision expected, const std::string& name)
 	const auto track = s.edit->insertNewAudioTrack(te::TrackInsertPoint::getEndOfTracks(*s.edit), nullptr);
 	if (track == nullptr)
 	{
-		s.edit->getUndoManager().undoCurrentTransactionOnly();
-		throw std::runtime_error("Tracktion refused the audio track");
+		s.rollback();
+		throw std::invalid_argument("Tracktion refused the audio track");
 	}
 	track->setName(juce::String::fromUTF8(name.data(), static_cast<int>(name.size())));
 	s.commit();

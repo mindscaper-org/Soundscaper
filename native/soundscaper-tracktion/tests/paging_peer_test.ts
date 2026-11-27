@@ -1,19 +1,78 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import type { TracktionEditResult } from '../../../src/soundscaper/tracktion-project-contract.ts';
-import { wavFixture } from './wave_fixture.ts';
+import type { TracktionEditResult, TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
+
+test('a full Tracktion Edit survives a refused Add Track with its audio and history', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-limit-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const launch = { executable, exchangeDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') };
+	const source = wavFixture();
+	const output = 'f'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await mkdir(join(exchangeDirectory, 'output'));
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), source);
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		let expected: TracktionProjectPage['tracks'];
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			await peer.request({ kind: 'save', revision: 0 });
+			const imported = await peer.request({ kind: 'import', trackId: track.id, revision: 0, asset,
+				name: 'Unsaved audio', start: 37, sourceOffset: 5, frames: 52 });
+			let revision = imported.revision;
+			// The pinned Tracktion limit of 400 includes five internal tracks.
+			for (let index = 1; index <= 394; index += 1) {
+				({ revision } = await peer.request({ kind: 'addTrack', revision, name: `Unsaved ${index}` }));
+			}
+			({ revision } = await peer.request({ kind: 'setTrackMix', revision, trackId: track.id,
+				gainDb: 0, pan: 0, muted: true, solo: false }));
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const before = await readTrackPages(peer);
+			assert.ok(before[0]?.canUndo && before[0].canRedo);
+			expected = before.flatMap((page) => page.tracks);
+			assert.equal(expected.length, 395);
+
+			await assert.rejects(peer.request({ kind: 'addTrack', revision, name: 'Beyond the limit' }), /Tracktion (?:refused|session)/u);
+			assert.deepEqual(await readTrackPages(peer), before);
+			({ revision } = await peer.request({ kind: 'redo', revision }));
+			assert.equal((await peer.request({ kind: 'trackMix', revision, trackId: track.id })).muted, true);
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			await peer.request({ kind: 'save', revision });
+		} finally { await peer.close(); }
+
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			assert.deepEqual((await readTrackPages(reopened)).flatMap((page) => page.tracks), expected);
+			await reopened.request({ kind: 'render', revision: 0, asset: output });
+			const pcm = waveData(await readFile(join(exchangeDirectory, 'output', `${output}.wav`)));
+			assert.deepEqual(pcm, Buffer.concat([Buffer.alloc(37 * 4), waveData(source).subarray(5 * 4, 57 * 4)]));
+		} finally { await reopened.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+async function readTrackPages(peer: ReturnType<typeof launchTracktionPeer>): Promise<TracktionProjectPage[]> {
+	const pages: TracktionProjectPage[] = [];
+	for (let offset: number | null = 0; offset !== null;) {
+		const page: TracktionProjectPage = await peer.request({ kind: 'project', offset });
+		pages.push(page);
+		offset = page.nextOffset;
+	}
+	return pages;
+}
 
 test('Tracktion fits 64 tracks with fully escaped names in one reply', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-track-pages-'));
