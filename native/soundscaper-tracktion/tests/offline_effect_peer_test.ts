@@ -142,6 +142,7 @@ test('Tracktion duplicates the complete track with fresh IDs and shared media', 
 			copyTrackId = copy.itemId;
 			const project = await peer.request({ kind: 'project', offset: 0 });
 			assert.deepEqual(project.tracks.map(({ id }) => id), [trackId, copyTrackId, after.itemId]);
+			assert.deepEqual(copy.insertion, { track: project.tracks[1], index: 1 });
 			assert.equal(project.tracks[1]?.name, `${source.name} copy`);
 			const clip = async (trackId: string) => (await peer.request({ kind: 'clips', revision: 6, trackId, offset: 0 })).clips[0];
 			const original = await clip(trackId);

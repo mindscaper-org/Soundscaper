@@ -7,6 +7,14 @@
 
 namespace soundscaper::tracktion_backend
 {
+namespace
+{
+TrackSummary summarizeTrack(te::AudioTrack& track)
+{
+	return {track.itemID.getRawID(), track.getName().toStdString(), static_cast<std::size_t>(track.getClips().size())};
+}
+}
+
 EditHistory Session::editHistory() const
 {
 	const auto& history = state->edit->getUndoManager();
@@ -25,12 +33,17 @@ ProjectPage Session::projectPage(std::size_t offset, std::size_t limit) const
 	ProjectPage page{s.revision, s.sampleRate, history.canUndo, history.canRedo, total, {}};
 	page.tracks.reserve(count);
 	for (auto index = offset; index < offset + count; ++index)
-	{
-		auto* track = tracks.getUnchecked(static_cast<int>(index));
-		page.tracks.push_back({track->itemID.getRawID(), track->getName().toStdString(),
-		                       static_cast<std::size_t>(track->getClips().size())});
-	}
+		page.tracks.push_back(summarizeTrack(*tracks.getUnchecked(static_cast<int>(index))));
 	return page;
+}
+
+std::optional<TrackInsertion> Session::trackInsertion(TrackId id) const
+{
+	const auto tracks = te::getAudioTracks(*state->edit);
+	for (int index = 0; index < tracks.size(); ++index)
+		if (auto* track = tracks.getUnchecked(index); track->itemID.getRawID() == id)
+			return TrackInsertion{summarizeTrack(*track), static_cast<std::size_t>(index)};
+	return std::nullopt;
 }
 
 ClipPage Session::clipPage(TrackId id, std::size_t offset, std::size_t limit) const

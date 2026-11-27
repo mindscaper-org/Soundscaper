@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import type {
-	TracktionClipPage, TracktionClipView, TracktionEditResult, TracktionProjectBridge, TracktionOpenedProject, TracktionProjectPage, TracktionTrackView,
+import {
+	TRACKTION_TRACK_PAGE_SIZE, type TracktionClipPage, type TracktionClipView, type TracktionEditResult,
+	type TracktionProjectBridge, type TracktionOpenedProject, type TracktionProjectPage, type TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
 export interface TracktionWorkspace extends TracktionOpenedProject {
@@ -75,44 +76,23 @@ function withClipCount(track: TracktionTrackView, clipCount: number): TracktionT
 	return track.clipCount === clipCount ? track : { ...track, clipCount };
 }
 
-export async function readTracktionWorkspaceAfterAddingTrack(
-	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number, added: TracktionTrackView,
-): Promise<TracktionWorkspace> {
-	const project = await bridge.request({ kind: 'project', sessionId: workspace.sessionId, offset: 0 });
-	if (project.revision !== revision) return await readWorkspaceFromPage(bridge, workspace, project, added.id);
-	const tracks = project.nextOffset === null ? project.tracks : [...workspace.tracks, added];
-	const selectedTrack = tracks.at(-1);
-	if (selectedTrack?.id !== added.id || selectedTrack.clipCount !== 0) {
-		return await readWorkspaceFromPage(bridge, workspace, project, added.id);
-	}
-	const previousSelection = workspace.selectedTrack && { trackId: workspace.selectedTrack.id, clips: workspace.clips };
-	return { ...workspace, project, tracks, selectedTrack, clips: [], previousSelection };
-}
-
-export async function readTracktionWorkspaceAfterTrackDuplication(
-	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, revision: number, sourceId: string, duplicateId: string,
+export async function readTracktionWorkspaceAfterTrackInsertion(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, result: TracktionEditResult,
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: previous } = workspace;
-	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
-	// Tracktion duplicates an audio track immediately after its source.
-	const index = workspace.tracks.findIndex((track) => track.id === sourceId) + 1;
-	if (project.revision !== revision || index === 0) return await readWorkspaceFromPage(bridge, workspace, project, duplicateId);
-	let selectedTrack = project.tracks[index];
-	if (!selectedTrack && project.nextOffset !== null) {
-		const page = await bridge.request({ kind: 'project', sessionId, offset: index });
-		if (page.revision !== revision) return await readTracktionWorkspace(bridge, workspace, duplicateId);
-		selectedTrack = page.tracks[0];
+	const { insertion, itemId, revision } = result;
+	const project = projectWithEdit(workspace, result);
+	if (!project || !insertion || insertion.track.id !== itemId || insertion.index < 0 || insertion.index > workspace.tracks.length) {
+		return await readTracktionWorkspace(bridge, workspace, itemId ?? previous?.id);
 	}
-	if (selectedTrack?.id !== duplicateId) return await readWorkspaceFromPage(bridge, workspace, project, duplicateId);
-	let tracks = project.tracks;
-	if (project.nextOffset !== null) {
-		const updatedTracks = workspace.tracks.slice();
-		updatedTracks.splice(index, 0, selectedTrack);
-		tracks = updatedTracks;
-	}
-	const clips = selectedTrack.clipCount ? await readTracktionClips(bridge, sessionId, revision, duplicateId) : [];
+	const { index, track: selectedTrack } = insertion;
+	const tracks = workspace.tracks.slice();
+	tracks.splice(index, 0, selectedTrack);
+	const nextOffset = tracks.length > TRACKTION_TRACK_PAGE_SIZE ? TRACKTION_TRACK_PAGE_SIZE : null;
+	const firstPage = { ...project, nextOffset, tracks: nextOffset === null ? tracks : tracks.slice(0, nextOffset) };
+	const clips = selectedTrack.clipCount ? await readTracktionClips(bridge, sessionId, revision, selectedTrack.id) : [];
 	const previousSelection = previous && { trackId: previous.id, clips: workspace.clips };
-	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
+	return { ...workspace, project: firstPage, tracks, selectedTrack, clips, previousSelection };
 }
 
 async function readWorkspaceFromPage(

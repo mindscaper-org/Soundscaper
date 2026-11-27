@@ -4,10 +4,11 @@ import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply, TracktionA
 import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationCommand,
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
-import type {
-	TracktionAutomationPointResult, TracktionClipCommand, TracktionClipPage, TracktionEditResult, TracktionMixCommand, TracktionProjectPage,
-	TracktionPasteCommand, TracktionRangeCommand, TracktionRecordingCommand, TracktionRenderCommand, TracktionTrackMix,
-	TracktionTransportCommand, TracktionTransportObservation, TracktionTransportView,
+import {
+	TRACKTION_TRACK_PAGE_SIZE, type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
+	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
+	type TracktionRecordingCommand, type TracktionRenderCommand, type TracktionTrackMix,
+	type TracktionTransportCommand, type TracktionTransportObservation, type TracktionTransportView,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readClosedDomainArray, readClosedDomainRecord } from '../src/common/foundation/closed-domain-value.ts';
 
@@ -16,7 +17,6 @@ import type { TracktionOfflineEffectIdentity } from './tracktion-offline-effects
 
 export const TRACKTION_CONTROL_BYTES = 64 * 1024;
 const PAGE_SIZE = 32;
-const TRACK_PAGE_SIZE = 64;
 
 type Revision = Readonly<{ revision: number }>;
 type UseAudioProfile = Readonly<{ kind: 'useAudioProfile' }> & TracktionAudioSetup;
@@ -99,9 +99,11 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	}
 	if (!('revision' in command)) throw new TypeError('A Tracktion edit command requires a revision.');
 	const fields = command.kind === 'setAutomationPoint' ? ['revision', 'itemId', 'pointIndex'] : ['revision', 'itemId'];
+	const permitsInsertion = command.kind === 'addTrack' || command.kind === 'duplicateTrack';
 	const permitsHistory = command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
-	const result = readClosedDomainRecord(value, 'Tracktion edit result', permitsHistory ? [...fields, 'history'] : fields, fields);
+	const allowed = permitsInsertion ? [...fields, 'history', 'insertion'] : permitsHistory ? [...fields, 'history'] : fields;
+	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
 	const advanced = revision - command.revision;
 	const discarding = command.kind === 'finishRecording' && command.discard;
@@ -113,7 +115,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if ((command.kind === 'copyRange' && edited) || ((command.kind === 'cutRange' || command.kind === 'pasteRange') && !edited)) {
 		throw new TypeError('A Tracktion clipboard command returned an invalid revision.');
 	}
-	const createsItem = command.kind === 'addTrack' || command.kind === 'duplicateTrack' || command.kind === 'import' || command.kind === 'importFile'
+	const createsItem = permitsInsertion || command.kind === 'import' || command.kind === 'importFile'
 		|| command.kind === 'split' || command.kind === 'duplicateClip' || command.kind === 'insertOfflineEffect'
 		|| (command.kind === 'finishRecording' && edited && !command.discard);
 	const itemId = createsItem ? readItemId(result.itemId) : null;
@@ -126,13 +128,21 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');
 		return Object.freeze({ revision, itemId: null, pointIndex, ...history }) as TracktionReply<Command>;
 	}
-	return Object.freeze({ revision, itemId, ...history }) as TracktionReply<Command>;
+	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
+	return Object.freeze({ revision, itemId, ...history, ...insertion }) as TracktionReply<Command>;
 }
 
 function readEditHistory(value: unknown) {
 	const { canUndo, canRedo } = readClosedDomainRecord(value, 'Tracktion edit history', ['canUndo', 'canRedo']);
 	if (typeof canUndo !== 'boolean' || typeof canRedo !== 'boolean') throw new TypeError('Invalid Tracktion edit history.');
 	return Object.freeze({ canUndo, canRedo });
+}
+
+function readTrackInsertion(value: unknown, itemId: string | null) {
+	const { track, index } = readClosedDomainRecord(value, 'Tracktion track insertion', ['track', 'index']);
+	const inserted = readTrack(track);
+	if (inserted.id !== itemId) throw new TypeError('Tracktion returned an inconsistent inserted track.');
+	return Object.freeze({ track: inserted, index: nonnegativeInteger(index) });
 }
 
 function readTracktionTrackMix(value: unknown): TracktionTrackMix {
@@ -176,16 +186,16 @@ function readTracktionProjectPage(value: unknown, offset: number): TracktionProj
 	if (sampleRate < 8000 || sampleRate > 192_000 || typeof page.canUndo !== 'boolean' || typeof page.canRedo !== 'boolean') {
 		throw new TypeError('Invalid Tracktion project page.');
 	}
-	const tracks = readClosedDomainArray(page.tracks, 'Tracktion tracks', 0, TRACK_PAGE_SIZE).map((entry) => {
-		const item = readClosedDomainRecord(entry, 'Tracktion track', ['id', 'name', 'clipCount']);
-		return Object.freeze({
-			id: readItemId(item.id), name: boundedText(item.name), clipCount: nonnegativeInteger(item.clipCount),
-		});
-	});
+	const tracks = readClosedDomainArray(page.tracks, 'Tracktion tracks', 0, TRACKTION_TRACK_PAGE_SIZE).map(readTrack);
 	return Object.freeze({
 		revision: nonnegativeInteger(page.revision), sampleRate, canUndo: page.canUndo, canRedo: page.canRedo,
-		nextOffset: readNextOffset(page.nextOffset, offset, tracks.length, TRACK_PAGE_SIZE), tracks: Object.freeze(tracks),
+		nextOffset: readNextOffset(page.nextOffset, offset, tracks.length, TRACKTION_TRACK_PAGE_SIZE), tracks: Object.freeze(tracks),
 	});
+}
+
+function readTrack(value: unknown) {
+	const { id, name, clipCount } = readClosedDomainRecord(value, 'Tracktion track', ['id', 'name', 'clipCount']);
+	return Object.freeze({ id: readItemId(id), name: boundedText(name), clipCount: nonnegativeInteger(clipCount) });
 }
 
 function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): TracktionClipPage {

@@ -156,15 +156,20 @@ juce::var pageCursor(size_t end, size_t total)
 	return end < total ? number(static_cast<std::int64_t>(end)) : juce::var();
 }
 
+juce::var trackReply(const TrackSummary& track)
+{
+	return record({
+		{"id", juce::String(std::to_string(track.id))},
+		{"name", juce::String(track.name).substring(0, 128)},
+		{"clipCount", number(static_cast<std::int64_t>(track.clipCount))},
+	});
+}
+
 juce::var projectPageReply(const ProjectPage& project, size_t offset)
 {
 	juce::Array<juce::var> tracks;
 	for (const auto& track : project.tracks)
-		tracks.add(record({
-			{"id", juce::String(std::to_string(track.id))},
-			{"name", juce::String(track.name).substring(0, 128)},
-			{"clipCount", number(static_cast<std::int64_t>(track.clipCount))},
-		}));
+		tracks.add(trackReply(track));
 	return record({
 		{"revision", number(project.revision)}, {"sampleRate", project.sampleRate},
 		{"canUndo", project.canUndo}, {"canRedo", project.canRedo},
@@ -507,8 +512,14 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"revision", number(session.revision())},
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
-	if (kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
+	if (insertedTrack || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
+	if (insertedTrack)
+		if (const auto insertion = session.trackInsertion(created))
+			reply.getDynamicObject()->setProperty("insertion", record({
+				{"track", trackReply(insertion->track)}, {"index", number(static_cast<std::int64_t>(insertion->index))},
+			}));
 	return reply;
 }
 }

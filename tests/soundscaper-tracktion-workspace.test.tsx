@@ -8,7 +8,9 @@ import type {
 	TracktionClipPage, TracktionProjectBridge, TracktionProjectCommand, TracktionProjectPage, TracktionProjectReply, TracktionTransportView,
 	TracktionTransportObservation,
 } from '../src/soundscaper/tracktion-project-contract.ts';
-import { readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
+import {
+	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackInsertion, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
+} from '../src/soundscaper/tracktion-workspace.ts';
 import { TracktionEditor } from '../src/soundscaper/ui/TracktionEditor.tsx';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
@@ -251,6 +253,46 @@ void test('deleting a clip reuses the remaining clips outside the first track pa
 	assert.equal(mixed.clips, workspace.clips);
 	assert.equal(mixed.tracks, workspace.tracks);
 	assert.deepEqual(mixed.project, refreshedPage);
+});
+
+void test('track insertions preserve track and clip selection across the project page boundary', async () => {
+	const tracks = Array.from({ length: 64 }, (_, index) => ({ id: String(index + 1), name: `Track ${index + 1}`, clipCount: 0 }));
+	const source = { id: '63', name: 'Track 63', clipCount: 1 };
+	tracks[62] = source;
+	const originalClip = { id: 'a', name: 'Source', start: 0, end: 32, sourceOffset: 0 };
+	const copiedClip = { ...originalClip, id: 'b' };
+	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: null, tracks };
+	const workspace: TracktionWorkspace = {
+		sessionId: 'session', name: 'Project', project, tracks, selectedTrack: source, clips: [originalClip], previousSelection: undefined,
+	};
+	const history = { canUndo: true, canRedo: false };
+	const duplicate = { id: '65', name: 'Track 63 copy', clipCount: 1 };
+	const commands: TracktionProjectCommand[] = [];
+	const bridge: TracktionProjectBridge = {
+		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
+			commands.push(command);
+			assert.equal(command.kind, 'clips');
+			return { revision: 8, nextOffset: null, clips: [copiedClip] } as TracktionProjectReply<Command>;
+		},
+	};
+	const copied = await readTracktionWorkspaceAfterTrackInsertion(bridge, workspace, {
+		revision: 8, itemId: duplicate.id, history, insertion: { index: 63, track: duplicate },
+	});
+	assert.deepEqual(copied.tracks.slice(-3), [source, duplicate, tracks[63]]);
+	assert.equal(copied.project.tracks.at(-1), duplicate);
+	assert.equal(copied.project.nextOffset, 64);
+	assert.equal(copied.selectedTrack, duplicate);
+	assert.deepEqual(copied.clips, [copiedClip]);
+	assert.deepEqual(copied.previousSelection, { trackId: source.id, clips: [originalClip] });
+	const newTrack = { id: '66', name: 'New track', clipCount: 0 };
+	const appended = await readTracktionWorkspaceAfterTrackInsertion(bridge, copied, {
+		revision: 9, itemId: newTrack.id, history, insertion: { index: 65, track: newTrack },
+	});
+	assert.equal(appended.tracks.at(-1), newTrack);
+	assert.equal(appended.project.tracks.at(-1), duplicate);
+	assert.equal(appended.selectedTrack, newTrack);
+	assert.deepEqual(appended.clips, []);
+	assert.deepEqual(commands, [{ kind: 'clips', sessionId: 'session', revision: 8, trackId: duplicate.id, offset: 0 }]);
 });
 
 void test('changing tracks keeps the loaded track inventory and reads the selected clips', async (context) => {

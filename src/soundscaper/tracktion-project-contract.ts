@@ -4,6 +4,8 @@ import type { TracktionAudioDeviceCommand, TracktionAudioDeviceReply } from './t
 import type { TracktionAutomationCommand, TracktionAutomationPage } from './tracktion-automation-contract.ts';
 import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffectPage } from './tracktion-effect-contract.ts';
 
+export const TRACKTION_TRACK_PAGE_SIZE = 64;
+
 export interface TracktionTrackView {
 	readonly id: string;
 	readonly name: string;
@@ -40,6 +42,7 @@ export interface TracktionEditResult {
 	readonly revision: number;
 	readonly itemId: string | null;
 	readonly history?: TracktionEditHistory;
+	readonly insertion?: Readonly<{ track: TracktionTrackView; index: number }>;
 }
 
 export interface TracktionAutomationPointResult extends TracktionEditResult {

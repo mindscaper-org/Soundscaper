@@ -18,8 +18,8 @@ import type {
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
-	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceAfterAddingTrack,
-	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackDuplication, readTracktionWorkspaceWithCachedTracks,
+	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace,
+	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackInsertion, readTracktionWorkspaceWithCachedTracks,
 	type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
@@ -230,13 +230,8 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!edit) return;
 		run(async () => {
 			const result = await bridge.request(edit);
-			if (edit.kind === 'addTrack' && result.itemId) {
-				const track = { id: result.itemId, name: edit.name, clipCount: 0 };
-				setWorkspace(await readTracktionWorkspaceAfterAddingTrack(bridge, workspace, result.revision, track));
-				return;
-			}
-			if (edit.kind === 'duplicateTrack' && result.itemId) {
-				setWorkspace(await readTracktionWorkspaceAfterTrackDuplication(bridge, workspace, result.revision, edit.trackId, result.itemId));
+			if (edit.kind === 'addTrack' || edit.kind === 'duplicateTrack') {
+				setWorkspace(await readTracktionWorkspaceAfterTrackInsertion(bridge, workspace, result));
 				return;
 			}
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));

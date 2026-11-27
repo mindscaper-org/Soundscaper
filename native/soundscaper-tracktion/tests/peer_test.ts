@@ -44,6 +44,7 @@ test('a Tracktion Save refused by the filesystem preserves the Edit and can be r
 			await peer.request({ kind: 'save', revision: 0 });
 			const previous = await readFile(edit);
 			const track = await peer.request({ kind: 'addTrack', revision: 0, name: 'Unsaved track' });
+			assert.deepEqual(track.insertion, { track: { id: track.itemId, name: 'Unsaved track', clipCount: 0 }, index: 1 });
 			const before = await peer.request(status);
 			assert.equal(before.canUndo, true);
 			await rename(edit, backup);

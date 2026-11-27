@@ -266,7 +266,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	const copiedTrack = track.getByRole('option', { name: / copy$/u });
 	await copiedTrack.waitFor({ state: 'attached' });
 	assert.equal(await track.inputValue(), await copiedTrack.getAttribute('value'));
-	assert.deepEqual(await commandsSince(duplicateTrackStart), ['duplicateTrack', 'project', 'clips']);
+	assert.deepEqual(await commandsSince(duplicateTrackStart), ['duplicateTrack', 'clips']);
 	const duplicatePcm = waveData(await readFile(await (await exportFile('Export mix (WAV)')).path()));
 	assert.equal(duplicatePcm.readInt16LE(4 * 4_096), 8192);
 	assert.ok(Math.abs(duplicatePcm.readInt16LE(4 * 48_000) - 2058) <= 4);
@@ -321,7 +321,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await page.getByText('0 clips', { exact: true }).waitFor();
 	await track.selectOption({ index: 0 });
 	await clip.waitFor();
-	assert.deepEqual(await commandsSince(addedTrack), ['addTrack', 'project']);
+	assert.deepEqual(await commandsSince(addedTrack), ['addTrack']);
 	await editing.click();
 	await button('Duplicate clip').click();
 	const duplicate = page.getByRole('dialog', { name: 'Duplicate clip' });
