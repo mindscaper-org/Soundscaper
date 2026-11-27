@@ -411,7 +411,7 @@ async function matchOfflineNavigationFallback(cache, pathname, configuration, de
 	return null;
 }
 
-async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl }) {
+async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl, networkCache }) {
 	const cached = await cache.match(descriptor.url, { ignoreSearch: true });
 	if (cached) {
 		try {
@@ -421,7 +421,7 @@ async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImp
 		}
 	}
 	const response = await fetchImpl(networkUrl, {
-		cache: 'default',
+		cache: networkCache,
 		credentials: 'same-origin',
 		redirect: 'error',
 	});
@@ -458,7 +458,11 @@ export async function handleApplicationShellFetch({
 			// Let the retry reach the network independently of a stalled request.
 			// Verification and Cache Storage still use the canonical descriptor.
 			const networkUrl = retryWorklet ? descriptor.url + requestUrl.search : descriptor.url;
-			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl });
+			// Unversioned engine scripts can leave a stale response in the HTTP cache.
+			const reloadEngineScript = configuration.productId === 'soundscaper'
+				&& (descriptor.url === '/tracktion/tracktion-project-worker.js' || descriptor.url === '/tracktion/edit-core.js');
+			const networkCache = reloadEngineScript ? 'reload' : 'default';
+			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl, networkCache });
 		} catch (error) {
 			if (request.mode === 'navigate') {
 				const fallback = await matchOfflineNavigationFallback(
