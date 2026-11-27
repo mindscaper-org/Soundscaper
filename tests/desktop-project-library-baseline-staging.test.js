@@ -58,6 +58,10 @@ test('desktop staging keeps the active native media executor', () => {
 	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-media-execution.js'), false);
 });
 
+test('desktop staging omits the unused in-process M5B diagnostic runner', () => {
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-m5b-diagnostic-runner.js'), false);
+});
+
 test('desktop staging includes the shared Framescaper durable asset authority', () => {
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
 		'src/framescaper/editor-scape-durable-asset-plan-core.js',

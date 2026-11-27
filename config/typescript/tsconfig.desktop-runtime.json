@@ -191,7 +191,6 @@
 		"../../desktop/native-services-project-media-authority.ts",
 		"../../desktop/native-services-project-media-custody.ts",
 		"../../desktop/native-services-proxy-output-broker.ts",
-		"../../desktop/framescaper-m5b-diagnostic-runner.ts",
 		"../../desktop/framescaper-native-image-sequence-registration.ts",
 		"../../desktop/native-media-file-auth.ts",
 		"../../desktop/openfx-isolated-host-manager.ts",
