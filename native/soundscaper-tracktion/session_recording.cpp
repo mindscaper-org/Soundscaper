@@ -127,7 +127,10 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	s.checkRevision(expected);
 	requireLiveEffectSupport(*s.edit);
 	const auto start = s.position(frame);
-	const auto target = s.track(trackId).itemID;
+	const auto& track = s.track(trackId);
+	if (track.getClips().size() >= s.engine.getEngineBehaviour().getEditLimits().maxClipsInTrack)
+		throw std::invalid_argument("Tracktion cannot record onto a full track");
+	const auto target = track.itemID;
 	auto& transport = s.edit->getTransport();
 	if (transport.isPlaying() || transport.looping || s.edit->recordingPunchInOut)
 		throw std::invalid_argument("Stop playback and turn off loop or punch recording before recording a take");

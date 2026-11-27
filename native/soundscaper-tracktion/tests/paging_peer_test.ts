@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -15,7 +15,7 @@ if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
 
-test('a full Tracktion clip lane survives a refused split and can split after freeing a slot', async () => {
+test('a full Tracktion clip lane refuses recording or splitting and can split after freeing a slot', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-clip-limit-'));
 	const exchangeDirectory = join(root, 'exchange');
 	const launch = { executable, exchangeDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') };
@@ -46,6 +46,18 @@ test('a full Tracktion clip lane survives a refused split and can split after fr
 			assert.ok(before.canUndo && before.canRedo);
 			const clips = await readClipPages(peer, trackId, revision);
 			assert.equal(clips.length, 1500);
+			const observation = { kind: 'transportObservation' } as const;
+			const stopped = await peer.request(observation);
+			assert.equal(stopped.recording, false);
+			const media = join(launch.projectDirectory, 'media');
+			const beforeMedia = await readdir(media);
+			await assert.rejects(peer.request({ kind: 'startRecording', revision, trackId, frame: 0 }),
+				/Tracktion cannot record onto a full track/u);
+			assert.deepEqual(await peer.request(observation), stopped);
+			assert.deepEqual(await readdir(media), beforeMedia);
+			assert.deepEqual(await peer.request(project), before);
+			assert.deepEqual(await readClipPages(peer, trackId, revision), clips);
+
 			const split = { kind: 'split', clipId, frame: 32 } as const;
 			await assert.rejects(peer.request({ ...split, revision }), /Tracktion (?:refused|session)/u);
 			assert.deepEqual(await peer.request(project), before);
