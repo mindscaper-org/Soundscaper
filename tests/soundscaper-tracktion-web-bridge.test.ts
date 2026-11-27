@@ -34,11 +34,63 @@ class ProjectWorker extends EventTarget {
 			this.importedNames.push(request.name);
 		}
 		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
-		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value: project, releaseEngine } })));
+		const transport = ['prepareOutput', 'play', 'stop'].includes(request.kind);
+		const value = transport ? { ready: true, playing: request.kind === 'play', recording: false, frame: 0 } : project;
+		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine } })));
 	}
 
 	terminate(): void { this.terminated = true; }
 }
+
+for (const suspensionFails of [false, true]) test(`Stop retains its transport reply and Play reuses audio when suspension fails ${suspensionFails}`, async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const suspendRequested = deferred<void>();
+	const finishSuspend = deferred<void>();
+	let loaded = 0;
+	let disconnected = 0;
+	let connected = 0;
+	const contexts: PlaybackContext[] = [];
+	class PlaybackContext {
+		readonly sampleRate = 48_000;
+		readonly destination = {};
+		readonly audioWorklet = { addModule: () => { loaded += 1; return Promise.resolve(); } };
+		state: AudioContextState = 'suspended';
+		constructor() { contexts.push(this); }
+		resume(): Promise<void> { this.state = 'running'; return Promise.resolve(); }
+		async suspend(): Promise<void> {
+			suspendRequested.resolve();
+			await finishSuspend.promise;
+			this.state = 'suspended';
+		}
+	}
+	class PlaybackNode {
+		readonly port = { close() {} };
+		connect(): void { connected += 1; }
+		disconnect(): void { disconnected += 1; }
+	}
+	installGlobals(context, { AudioContext: PlaybackContext, AudioWorkletNode: PlaybackNode });
+	const { sessionId } = opened;
+	await bridge.request({ kind: 'prepareOutput', sessionId });
+	await bridge.request({ kind: 'play', sessionId, frame: 0 });
+	assert.equal(contexts[0]?.state, 'running');
+	const stopped = bridge.request({ kind: 'stop', sessionId });
+	await Promise.race([suspendRequested.promise, stopped.then(() => assert.fail('Stop completed before suspending audio'))]);
+	assert.equal(disconnected, 1);
+	if (suspensionFails) finishSuspend.reject(new Error('The browser could not suspend its audio context'));
+	else finishSuspend.resolve();
+	assert.equal((await stopped).playing, false);
+	assert.equal(contexts[0]?.state, suspensionFails ? 'running' : 'suspended');
+	await bridge.request({ kind: 'prepareOutput', sessionId });
+	await bridge.request({ kind: 'play', sessionId, frame: 0 });
+	assert.equal(contexts[0]?.state, 'running');
+	assert.equal(contexts.length, 1);
+	assert.equal(loaded, 1);
+	assert.equal(connected, 2);
+});
 
 test('WAV imports preserve nonempty native names within the UTF-8 byte limit', async (context) => {
 	const { window } = browserFixture(context);

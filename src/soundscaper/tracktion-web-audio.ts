@@ -116,13 +116,22 @@ export class TracktionWebAudio {
 		this.#node = undefined;
 	}
 
-	stop(): void {
+	#disconnect(): void {
 		this.sealCapture();
 		this.#disconnectOutput();
 	}
 
+	async stop(): Promise<void> {
+		this.#disconnect();
+		const context = this.#context;
+		if (context && context.state !== 'closed' && context.state !== 'suspended') {
+			// Preserve the transport reply if the browser rejects output cleanup.
+			await context.suspend().catch(() => undefined);
+		}
+	}
+
 	async close(): Promise<void> {
-		this.stop();
+		this.#disconnect();
 		const context = this.#context;
 		this.#context = undefined;
 		this.#preparing = undefined;

@@ -110,10 +110,9 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			const { value } = await sendToProject(request, undefined, buffers);
 			try {
 				if ((value as TracktionTransportView).playing) audio.connect(buffers);
-				else audio.stop();
+				else await audio.stop();
 			} catch (error) {
-				audio.stop();
-				await sendToProject({ kind: 'stop' }).catch(() => undefined);
+				await Promise.allSettled([audio.stop(), sendToProject({ kind: 'stop' })]);
 				throw error;
 			}
 			return value;
@@ -131,15 +130,16 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 				});
 				return value;
 			} catch (error) {
-				audio.stop();
+				const stopping = audio.stop().catch(() => undefined);
 				if (started) await sendToProject({ kind: 'finishRecording', revision: request.revision, discard: true }).catch(() => undefined);
+				await stopping;
 				throw error;
 			}
 		}
 		if (request.kind === 'finishRecording') {
 			audio.sealCapture();
 			const { value } = await sendToProject(request);
-			audio.stop();
+			await audio.stop();
 			return value;
 		}
 
@@ -159,7 +159,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		}
 		const engine = worker;
 		const reply = await sendToProject(request);
-		if (request.kind === 'stop') audio.stop();
+		if (request.kind === 'stop') await audio.stop();
 		if (request.kind !== 'close') return reply.value;
 		project = undefined;
 		if (reply.releaseEngine && engine) disposeWorker(engine, new Error('This Tracktion project handle has expired'));
