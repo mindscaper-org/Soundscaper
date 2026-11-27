@@ -135,7 +135,7 @@ async function openProject(runtime: WasmRuntime, message: CommandMessage): Promi
 	}
 	let next: WorkingProject = {
 		id: request.project, directory: crypto.randomUUID().replaceAll('-', ''), generation: 0,
-		name: name?.trim() ?? 'Untitled project',
+		name: name?.trim() ?? 'Untitled project', savedMedia: [],
 	};
 	try {
 		if (request.kind === 'open') next = await restoreTracktionProject(runtime.FS, next);

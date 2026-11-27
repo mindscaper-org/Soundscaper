@@ -211,10 +211,14 @@ The Soundscaper editor uses the Tracktion project request contract in
 `src/soundscaper/tracktion-project-contract.ts`. The browser worker owns the
 WASM Edit and commits project revisions with their media in IndexedDB. The
 renderer reads the saved names for the project chooser and starts the worker
-after a project is selected. On desktop, the Electron main process owns file
-selection and publication.
-The Tracktion utility process supervises the native peer, which owns the Edit,
-audio transport, and render. Soundscaper staging includes the Tracktion preload
+after a project is selected. The browser stores immutable WAVs in separate
+records and publishes changes to the Edit, media references, and generation in
+one IndexedDB transaction. Older saved projects with embedded WAVs move to the
+same layout on their next save.
+
+On desktop, the Electron main process owns file selection and publication. The
+Tracktion utility process supervises the native peer, which owns the Edit, audio
+transport, and render. Soundscaper staging includes the Tracktion preload
 and utility entry. Its desktop plug-in processes handle scanning, effects, and
 analyzers. The separate audio-device helper is available in the Framescaper
 desktop composition, which also owns the existing project-library bridge.
