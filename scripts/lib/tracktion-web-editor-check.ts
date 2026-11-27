@@ -311,11 +311,13 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await clip.waitFor();
 	assert.deepEqual(await commandsSince(changedTrim), ['trim', 'project', 'clips']);
 	await editing.click();
+	const addedTrack = (await commandsSince()).length;
 	await button('Add track').click();
 	const list = page.getByRole('list', { name: 'Audio clips' });
 	await page.getByText('0 clips', { exact: true }).waitFor();
 	await track.selectOption({ index: 0 });
 	await clip.waitFor();
+	assert.deepEqual(await commandsSince(addedTrack), ['addTrack', 'project']);
 	await editing.click();
 	await button('Duplicate clip').click();
 	const duplicate = page.getByRole('dialog', { name: 'Duplicate clip' });

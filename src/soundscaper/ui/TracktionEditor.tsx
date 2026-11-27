@@ -18,7 +18,8 @@ import type {
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
-	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
+	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, readTracktionWorkspaceAfterAddingTrack,
+	readTracktionWorkspaceWithCachedTracks, type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
@@ -223,6 +224,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!edit) return;
 		run(async () => {
 			const result = await bridge.request(edit);
+			if (edit.kind === 'addTrack' && result.itemId) {
+				const track = { id: result.itemId, name: edit.name, clipCount: 0 };
+				setWorkspace(await readTracktionWorkspaceAfterAddingTrack(bridge, workspace, result.revision, track));
+				return;
+			}
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));
 			if (playing && (kind === 'undo' || kind === 'redo')) {
 				const current = await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId });
