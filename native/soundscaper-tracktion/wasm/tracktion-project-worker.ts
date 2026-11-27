@@ -188,7 +188,11 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 			activeProject = await publishTracktionProject(runtime.FS, activeProject);
 		}
 		if (!exporting || !path) return reply;
-		return { ...reply, output: Uint8Array.from(runtime.FS.readFile(path)).buffer };
+		// WASMFS normally returns a dedicated JavaScript buffer ready for transfer.
+		const bytes = runtime.FS.readFile(path);
+		const output = bytes.buffer instanceof ArrayBuffer && bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+			? bytes.buffer : Uint8Array.from(bytes).buffer;
+		return { ...reply, output };
 	} finally {
 		completion = undefined;
 		if (path && runtime.FS.findObject(path)) runtime.FS.unlink(path);
