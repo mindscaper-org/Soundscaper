@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createFramescaperCompanionAudioProjectScopeV15 } from '../src/framescaper/editor-project-companion-audio-scope.ts';
@@ -9,6 +10,11 @@ import { createFramescaperProjectNativeMedia } from '../src/framescaper/editor-p
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
 const PROFILE = FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE;
+
+test('the unused Framescaper native delivery bundle constructor is absent from the source tree', async () => {
+	const builder = new URL('../src/framescaper/editor-project-unified-render-delivery.ts', import.meta.url);
+	await assert.rejects(access(builder), { code: 'ENOENT' });
+});
 
 test('a companion-audio scope retains the complete empty selection contract', () => {
 	const project = createFramescaperProjectNativeMedia(PROFILE, framescaperV20Options());
