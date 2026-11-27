@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -42,6 +42,11 @@ const OWNER = Object.freeze({ id: 'candidate-renderer' });
 const PROJECT_IDENTITY = Object.freeze({
 	schemaFamily: 'framescaper' as const,
 	schemaVersion: 1 as const,
+});
+
+test('the unused image-sequence preload adapter is absent from the source tree', async () => {
+	const adapter = new URL('../desktop/native-image-sequence-import-preload.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
 });
 
 test('the bundled Framescaper preload streams pathless bytes through the real main IPC', async (context) => {
