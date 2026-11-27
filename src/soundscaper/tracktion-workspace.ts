@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import type {
-	TracktionClipPage, TracktionClipView, TracktionProjectBridge, TracktionOpenedProject, TracktionTrackView,
+	TracktionClipPage, TracktionClipView, TracktionProjectBridge, TracktionOpenedProject, TracktionProjectPage, TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
 export interface TracktionWorkspace extends TracktionOpenedProject {
@@ -15,8 +15,21 @@ export async function readTracktionWorkspace(
 	project: Pick<TracktionOpenedProject, 'sessionId' | 'name'>,
 	selectedTrackId?: string,
 ): Promise<TracktionWorkspace> {
+	const firstPage = await bridge.request({ kind: 'project', sessionId: project.sessionId, offset: 0 });
+	return await readWorkspaceFromPage(bridge, project, firstPage, selectedTrackId);
+}
+
+export function readOpenedTracktionWorkspace(bridge: TracktionProjectBridge, project: TracktionOpenedProject): Promise<TracktionWorkspace> {
+	return readWorkspaceFromPage(bridge, project, project.project);
+}
+
+async function readWorkspaceFromPage(
+	bridge: TracktionProjectBridge,
+	project: Pick<TracktionOpenedProject, 'sessionId' | 'name'>,
+	firstPage: TracktionProjectPage,
+	selectedTrackId?: string,
+): Promise<TracktionWorkspace> {
 	const { sessionId } = project;
-	const firstPage = await bridge.request({ kind: 'project', sessionId, offset: 0 });
 	const tracks = [...firstPage.tracks];
 	for (let offset = firstPage.nextOffset; offset !== null;) {
 		const page = await bridge.request({ kind: 'project', sessionId, offset });

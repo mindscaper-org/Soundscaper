@@ -15,7 +15,7 @@ import type {
 	TracktionClipCommand, TracktionPasteCommand, TracktionProjectBridge, TracktionRangeCommand, TracktionTrackMix, TracktionTransportView,
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
-import { readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
+import { readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace, type TracktionWorkspace } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
 import { TracktionClipEditDialog } from './TracktionClipEditDialog.tsx';
@@ -131,7 +131,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const opened = kind === 'archive' ? await bridge.openArchive?.()
 				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
-			const next = await readTracktionWorkspace(bridge, opened);
+			const next = await readOpenedTracktionWorkspace(bridge, opened);
 			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
