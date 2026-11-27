@@ -54,6 +54,7 @@ test('the product binding action dispatches exactly one playback-visible canonic
 		} } },
 	}
 	const actions = createSoundscaperNativePluginActions(controller)
+	assert.equal(Reflect.has(actions, 'remove'), false, 'rack removal uses the project command')
 	const result = actions.commitBinding({
 		operation: 'author', trackId: 'track-1',
 		effect: effect() as unknown as Readonly<Record<string, unknown>>, state: state(),

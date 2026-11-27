@@ -20,7 +20,6 @@ export interface SoundscaperNativePluginBindingResult {
 export interface SoundscaperNativePluginActions {
 	commitBinding(request: SoundscaperNativePluginBindingRequest): SoundscaperNativePluginBindingResult
 	upsert(state: unknown): SoundscaperProject
-	remove(instanceId: string): SoundscaperProject
 	setBypassed(instanceId: string, bypassed: boolean): SoundscaperProject
 }
 
@@ -68,7 +67,6 @@ export function createSoundscaperNativePluginActions(
 		upsert: (state: unknown) => commit({
 			type: 'native-plugin-state/upsert', state: createSoundscaperNativePluginState(state),
 		}),
-		remove: (instanceId: string) => commit({ type: 'native-plugin-state/remove', instanceId }),
 		setBypassed: (instanceId: string, bypassed: boolean) => {
 			if (typeof bypassed !== 'boolean') throw new TypeError('A native plug-in bypass flag is required.')
 			const state = currentState(controller.project, instanceId)
