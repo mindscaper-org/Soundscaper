@@ -19,6 +19,7 @@ const savedId = '4'.repeat(32);
 class ProjectWorker extends EventTarget {
 	readonly requests: string[] = [];
 	terminated = false;
+	releaseOnClose = false;
 
 	postMessage({ id, request }: Request): void {
 		assert.equal(this.terminated, false);
@@ -26,11 +27,33 @@ class ProjectWorker extends EventTarget {
 		if (request.kind === 'save') return;
 		if (request.kind === 'open') assert.equal(request.project, savedId);
 		const value = request.kind === 'projects' ? [{ id: savedId, name: 'Saved project' }] : project;
-		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value } })));
+		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
+		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine } })));
 	}
 
 	terminate(): void { this.terminated = true; }
 }
+
+for (const releaseEngine of [true, false]) test(`closing a Tracktion project follows its worker retirement decision ${releaseEngine}`, async (context) => {
+	browserFixture(context);
+	const workers: ProjectWorker[] = [];
+	const bridge = createTracktionWebBridge(() => {
+		const worker = new ProjectWorker();
+		worker.releaseOnClose = releaseEngine;
+		workers.push(worker);
+		return worker as unknown as Worker;
+	});
+	bridge.onProjectLost?.(() => assert.fail('Explicit Close must not report an unexpected project loss'));
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	assert.equal(await bridge.request({ kind: 'close', sessionId: opened.sessionId }), null);
+	assert.equal(workers[0]?.terminated, releaseEngine);
+	await assert.rejects(bridge.request({ kind: 'project', sessionId: opened.sessionId, offset: 0 }), /expired/u);
+	const next = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(next);
+	assert.equal(workers.length, releaseEngine ? 2 : 1);
+	assert.deepEqual(await bridge.request({ kind: 'project', sessionId: next.sessionId, offset: 0 }), project);
+});
 
 function browserFixture(context: TestContext) {
 	const { window } = new JSDOM('<!doctype html><body></body>');

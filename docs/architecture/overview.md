@@ -222,6 +222,9 @@ Browser Tracktion ZIP import and export share a 65 MiB file size limit and a
 checks those entries before compression and checks the ZIP before publishing.
 Individual browser WAV imports are limited to 16 MiB. The browser engine starts
 with 128 MiB of shared WebAssembly memory and can grow up to 512 MiB.
+Closing a browser project releases the worker when its heap grew and its audio
+clipboard is empty. A worker carrying copied audio stays available for paste
+into the next project.
 
 Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
 editing states, without project identity or media bodies. The enclosing document

@@ -26,7 +26,7 @@ interface WasmSettings {
 type ProjectCommand = Readonly<{ kind: string; asset?: string }> & Readonly<Record<string, unknown>>;
 type CommandMessage = Readonly<{ id: number; request: ProjectCommand; input?: ArrayBuffer; audio?: TracktionAudioBuffers }>;
 type NativeReply = Readonly<{ error?: string; detail?: string; value?: unknown }>;
-type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer }>;
+type WorkerReply = NativeReply & Readonly<{ output?: ArrayBuffer; releaseEngine?: true }>;
 
 const scope = globalThis as unknown as {
 	location: Location;
@@ -43,11 +43,16 @@ let completion: Readonly<{ id: number; resolve: (result: NativeReply) => void }>
 let failed: Error | undefined;
 let activeProject: WorkingProject | undefined;
 let activeAudio: TracktionHostedAudio | undefined;
+let initialMemoryBytes = 0;
+let hasClipboard = false;
 
 const ready = new Promise<void>((resolve) => {
 	scope.Module = {
 		mainScriptUrlOrBlob: core,
-		tracktionReady: resolve,
+		tracktionReady() {
+			initialMemoryBytes = (scope.Module as WasmRuntime).HEAPU8.byteLength;
+			resolve();
+		},
 		tracktionCompleted(id, pointer) {
 			const runtime = scope.Module as WasmRuntime;
 			try {
@@ -180,10 +185,13 @@ async function run(message: CommandMessage): Promise<WorkerReply> {
 			if (request.kind !== 'close' || transportReply.error) return transportReply;
 			if (activeProject) discardWorkingProject(runtime.FS, activeProject);
 			activeProject = undefined;
-			return transportReply;
+			// Wasm memory keeps its high-water size until its worker is released.
+			return !hasClipboard && runtime.HEAPU8.byteLength > initialMemoryBytes
+				? { ...transportReply, releaseEngine: true } : transportReply;
 		}
 		const reply = await submit(runtime, message);
 		if (reply.error) return reply;
+		if (request.kind === 'copyRange' || request.kind === 'cutRange') hasClipboard = true;
 		if (request.kind === 'save' && activeProject) {
 			activeProject = await publishTracktionProject(runtime.FS, activeProject);
 		}

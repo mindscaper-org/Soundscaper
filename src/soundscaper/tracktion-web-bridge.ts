@@ -11,7 +11,7 @@ import { TracktionWebAudio } from './tracktion-web-audio.ts';
 import { requireTracktionWebUpload } from './tracktion-web-upload.ts';
 
 type LocalProject = Readonly<{ id: string; name: string }>;
-type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string }>;
+type WorkerReply = Readonly<{ id: number; value?: unknown; output?: ArrayBuffer; error?: string; detail?: string; releaseEngine?: true }>;
 type WorkerMessage = WorkerReply | Readonly<{ fatal: string }>;
 type Reply = TracktionProjectReply<TracktionProjectCommand>;
 
@@ -27,11 +27,16 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 	const interruptionListeners = new Set<() => void>();
 	const projectLossListeners = new Set<(sessionId: string, message: string) => void>();
 
-	function retireWorker(opened: Worker, error: Error): void {
-		if (worker !== opened) return;
+	function disposeWorker(opened: Worker, error: Error): boolean {
+		if (worker !== opened) return false;
 		worker = undefined;
 		opened.terminate();
 		for (const request of pending.values()) request.reject(error);
+		return true;
+	}
+
+	function retireWorker(opened: Worker, error: Error): void {
+		if (!disposeWorker(opened, error)) return;
 		const lost = project;
 		project = undefined;
 		void audio.close().catch(() => undefined);
@@ -149,10 +154,12 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			download(reply.output, current.name, request.kind === 'archive' ? 'zip' : 'wav');
 			return reply.value;
 		}
+		const engine = worker;
 		const reply = await sendToProject(request);
 		if (request.kind === 'stop') audio.stop();
 		if (request.kind !== 'close') return reply.value;
 		project = undefined;
+		if (reply.releaseEngine && engine) disposeWorker(engine, new Error('This Tracktion project handle has expired'));
 		await audio.close();
 		return null;
 	}
