@@ -272,7 +272,8 @@ void test('track insertions preserve track and clip selection across the project
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			commands.push(command);
 			assert.equal(command.kind, 'clips');
-			return { revision: 8, nextOffset: null, clips: [copiedClip] } as TracktionProjectReply<Command>;
+			const reply: TracktionClipPage = { revision: 8, nextOffset: null, clips: [copiedClip] };
+			return reply as TracktionProjectReply<Command>;
 		},
 	};
 	const copied = await readTracktionWorkspaceAfterTrackInsertion(bridge, workspace, {
