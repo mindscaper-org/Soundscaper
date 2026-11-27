@@ -308,6 +308,18 @@ void test('desktop playback and recording timers observe transport without check
 	assert.equal(dom.one('[role="status"]').textContent, 'Recording added to the track');
 });
 
+void test('desktop project opening and playback edits observe transport without checking readiness', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { desktopAudioSetup: true });
+	await click('Open projects');
+	assert.equal(requests.at(-1)?.kind, 'transportObservation');
+	assert.equal(dom.one('h1').textContent, 'Imported project');
+	await click('Play');
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+	await click('Undo');
+	assert.equal(requests.at(-1)?.kind, 'transportObservation');
+	assert.equal(dom.one('[role="status"]').textContent, 'Playing');
+});
+
 void test('playing and stopping a large project reuse its rendered tracks and clips', async (context) => {
 	const editor = await mountEditor(context, { clipsPerTrack: 128, trackCount: 512 });
 	await editor.click('Open projects');

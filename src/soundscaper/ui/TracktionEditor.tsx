@@ -158,6 +158,11 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		return !dirty || window.confirm('Close the current project and discard unsaved changes?');
 	}
 
+	function readTransport(sessionId: string): Promise<TracktionTransportObservation> {
+		return desktopAudioSetup ? bridge.request({ kind: 'transportObservation', sessionId })
+			: bridge.request({ kind: 'transportStatus', sessionId });
+	}
+
 	function open(kind: 'open' | 'create' | 'archive'): void {
 		if (!confirmReplacement()) return;
 		run(async () => {
@@ -165,7 +170,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
 			const next = await readOpenedTracktionWorkspace(bridge, opened);
-			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: opened.sessionId }));
+			setTransport(await readTransport(opened.sessionId));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
 		});
@@ -236,7 +241,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			}
 			setWorkspace(await readTracktionWorkspace(bridge, workspace, result.itemId ?? trackId));
 			if (playing && (kind === 'undo' || kind === 'redo')) {
-				const current = await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId });
+				const current = await readTransport(workspace.sessionId);
 				if (!current.playing && !current.recording) {
 					setTransport(await bridge.request({ kind: 'stop', sessionId: workspace.sessionId }));
 					setStatus('Stopped');
@@ -267,7 +272,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			return;
 		}
 		run(async () => {
-			const current = await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId });
+			const current = await readTransport(workspace.sessionId);
 			setPasteFrame(current.frame);
 		});
 	}
@@ -427,7 +432,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const result = await bridge.request({
 				kind: 'finishRecording', sessionId: workspace.sessionId, revision: workspace.project.revision, discard,
 			});
-			setTransport(await bridge.request({ kind: 'transportStatus', sessionId: workspace.sessionId }));
+			setTransport(await readTransport(workspace.sessionId));
 			if (result.revision !== workspace.project.revision) {
 				setWorkspace(result.itemId ? await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result.revision)
 					: await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id));
