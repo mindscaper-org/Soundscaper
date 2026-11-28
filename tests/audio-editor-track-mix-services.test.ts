@@ -3,13 +3,14 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts';
+import { prepareMixRenderOperationCommit } from '../src/common/editor/controller/track-audio/internal/mix-render/mix-render-commit.ts';
+import { normalizeMixRenderOptions } from '../src/common/editor/controller/track-audio/mix-render-options.ts';
 import {
 	createEditorTrackService,
 	type EditorTrackServiceDependencies,
 } from '../src/common/editor/controller/track-audio/internal/track-service.ts';
 import {
 	createMixRenderSnapshot,
-	prepareMixRenderCommit,
 	selectAudioTracksForMix,
 } from '../src/common/editor/controller/track-audio/mix-render-model.ts';
 import {
@@ -140,17 +141,16 @@ test('mix model scopes routing and auto-duck control tracks without mutating the
 	assert.deepEqual(project.tracks.map((track) => track.id), ['first', 'second', 'control', 'ignored']);
 
 	let sequence = 0;
-	const prepared = prepareMixRenderCommit(project, targets, sourceFixture('mix-source'), {
-		startFrame: 100,
-		mixName: 'Mix',
-		createId: (prefix) => `${prefix}-${++sequence}`,
-	});
+	const prepared = prepareMixRenderOperationCommit(project,
+		[{ targetTracks: targets, source: sourceFixture('mix-source'), startFrame: 100, name: 'Mix' }],
+		normalizeMixRenderOptions(),
+		{ createId: prefix => `${prefix}-${++sequence}` },
+	);
 	assert.equal(prepared.command.type, 'batch');
 	assert.deepEqual(prepared.command.commands.map((command) => command.type), [
 		'source/add', 'track/remove', 'track/remove', 'track/add', 'clip/add', 'selection/set',
 	]);
-	assert.equal(prepared.trackId, 'mixed-track-1');
-	assert.equal(prepared.clipId, 'mixed-clip-2');
+	assert.deepEqual(prepared.results, [{ trackId: 'mixed-track-1', clipId: 'mixed-clip-2', sourceId: 'mix-source' }]);
 });
 
 test('derived source persistence removes a committed source when project ownership changes', async () => {

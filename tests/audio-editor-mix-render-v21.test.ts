@@ -3,10 +3,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-	createMixRenderSnapshot,
-	prepareMixRenderCommit,
-} from '../src/common/editor/controller/track-audio/mix-render-model.ts';
+import * as mixRenderModel from '../src/common/editor/controller/track-audio/mix-render-model.ts';
+import { prepareMixRenderOperationCommit } from '../src/common/editor/controller/track-audio/internal/mix-render/mix-render-commit.ts';
+import { normalizeMixRenderOptions } from '../src/common/editor/controller/track-audio/mix-render-options.ts';
 import type {
 	ControllerProject,
 	ControllerSource,
@@ -23,6 +22,11 @@ import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 
 const NOW = '2026-08-14T12:00:00.000Z';
+const { createMixRenderSnapshot } = mixRenderModel;
+
+test('the duplicate Mix and Render preparation helper is absent', () => {
+	assert.equal(Object.hasOwn(mixRenderModel, 'prepareMixRenderCommit'), false);
+});
 
 test('V21 mix snapshots retain exact graph authority and never create legacy routes or envelopes', () => {
 	const project = fixture();
@@ -57,12 +61,16 @@ test('single-track V21 mix uses a closed direct graph and removes baked strip au
 	assert.deepEqual(snapshot.mixer.sends, []);
 	assert.deepEqual(snapshot.automationLanes.map(({ id }) => id), ['voice-gain']);
 
-	const prepared = prepareMixRenderCommit(
+	const prepared = prepareMixRenderOperationCommit(
 		project as unknown as ControllerProject,
-		[voice],
-		derivedSource(),
-		{ startFrame: 0, mixName: 'Voice', createId: (prefix) => `${prefix}-mixed` },
+		[{ targetTracks: [voice], source: derivedSource(), startFrame: 100, name: 'Voice' }],
+		normalizeMixRenderOptions(),
+		{ createId: prefix => `${prefix}-mixed` },
 	);
+	assert.deepEqual(prepared.directRoutingTrackIds, [voice.id]);
+	const clip = prepared.command.commands.find(command => command.type === 'clip/add');
+	assert.equal(clip?.trackId, voice.id);
+	assert.equal(clip?.clip.timelineStartFrame, 100);
 	const laneRemoval = prepared.command.commands.find(({ type }) => type === 'automation-lane/set');
 	assert.equal(laneRemoval?.type, 'automation-lane/set');
 	const trackUpdate = prepared.command.commands.find(({ type }) => type === 'track/update');
