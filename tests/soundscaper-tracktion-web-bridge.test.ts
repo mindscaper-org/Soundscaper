@@ -358,6 +358,39 @@ for (const choice of ['cancel', 'blank', 'named'] as const) test(`an embedded Ne
 	assert.equal(dialog.isConnected, false);
 });
 
+for (const choice of ['cancel action', 'cancel picker', 'pick archive'] as const) test(`expired archive activation waits for a new gesture (${choice})`, async (context) => {
+	const { chooser, window } = browserFixture(context);
+	const userActivation = { isActive: false };
+	installGlobals(context, { navigator: { userActivation } });
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened && bridge.openArchive);
+	const clicked = deferred<void>();
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		clicked.resolve();
+		if (!userActivation.isActive) return;
+		if (choice === 'pick archive') Object.defineProperty(this, 'files', { value: [new File(['archive'], 'Retry.zip')] });
+		this.dispatchEvent(new window.Event(choice === 'pick archive' ? 'change' : 'cancel'));
+	});
+	const opening = bridge.openArchive();
+	const dialog = await Promise.race([chooser, clicked.promise.then(() => assert.fail('A picker without activation was opened'))]);
+	assert.equal(dialog.getAttribute('aria-label'), 'Open project archive (ZIP)');
+	assert.equal(window.document.querySelector('input[type=file]'), null);
+	const button = [...dialog.querySelectorAll('button')].find((item) =>
+		item.textContent === (choice === 'cancel action' ? 'Cancel' : 'Open project archive (ZIP)'));
+	assert.ok(button);
+	userActivation.isActive = true;
+	button.click();
+	userActivation.isActive = false;
+	const selected = await opening;
+	assert.equal(dialog.isConnected, false);
+	assert.equal(window.document.querySelector('input[type=file]'), null);
+	assert.equal(selected?.name, choice === 'pick archive' ? 'Retry' : undefined);
+	assert.deepEqual(worker.requests, choice === 'pick archive' ? ['create', 'openArchive'] : ['create']);
+	if (!selected) assert.deepEqual(await bridge.request({ kind: 'project', sessionId: opened.sessionId, offset: 0 }), project);
+});
+
 function installGlobals(context: TestContext, values: Readonly<Record<string, unknown>>): void {
 	for (const [key, value] of Object.entries(values)) {
 		const previous = Object.getOwnPropertyDescriptor(globalThis, key);

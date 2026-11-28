@@ -148,7 +148,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 		}
 
 		if (request.kind === 'import') {
-			const wave = await chooseFile('.wav,audio/wav');
+			const wave = await chooseFile('.wav,audio/wav', copy.importAudio);
 			if (!wave) return null;
 			requireTracktionWebUpload(wave.size, 'WAV');
 			const stem = wave.name.replace(/\.wav$/iu, '') || wave.name;
@@ -196,7 +196,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			return () => { projectLossListeners.delete(listener); };
 		},
 		async openArchive(): Promise<TracktionOpenedProject | null> {
-			const archive = await chooseFile('.zip,application/zip');
+			const archive = await chooseFile('.zip,application/zip', copy.openTracktionArchive);
 			if (!archive) return null;
 			requireTracktionWebUpload(archive.size, 'ZIP');
 			const stem = archive.name.replace(/\.zip$/iu, '').slice(0, 128);
@@ -230,7 +230,22 @@ async function chooseProjectName(): Promise<string | undefined> {
 	return await choice === 'create' ? name.value.trim() : undefined;
 }
 
-function chooseFile(accept: string): Promise<File | null> {
+function chooseFile(accept: string, label: string): Promise<File | null> {
+	if (navigator.userActivation?.isActive !== false) return requestFile(accept);
+	const dialog = document.createElement('dialog');
+	dialog.setAttribute('aria-label', label);
+	const choose = projectDialogButton(dialog, label, 'choose');
+	dialog.append(choose, projectDialogButton(dialog, copy.cancel));
+	return new Promise((resolve, reject) => {
+		// The original gesture can expire while the user reads a native confirmation.
+		choose.addEventListener('click', () => { resolve(requestFile(accept)); }, { once: true });
+		void showProjectDialog(dialog).then((choice) => {
+			if (choice !== 'choose') resolve(null);
+		}, reject);
+	});
+}
+
+function requestFile(accept: string): Promise<File | null> {
 	return new Promise((resolve) => {
 		const input = document.createElement('input');
 		input.type = 'file';
