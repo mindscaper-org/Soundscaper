@@ -10,7 +10,7 @@ import type { TracktionAppliedAudioSetup, TracktionAudioDevices, TracktionAudioS
 import type { TracktionProjectBridge, TracktionProjectCommand, TracktionProjectReply } from '../src/soundscaper/tracktion-project-contract.ts';
 import { TracktionAudioSetupDialog } from '../src/soundscaper/ui/TracktionAudioSetupDialog.tsx';
 
-test('refreshing Tracktion audio devices preserves unapplied settings and named devices', async (context) => {
+test('Tracktion Audio Setup preserves the draft through refresh and a save retry', async (context) => {
 	const { window } = new JSDOM('<main></main>');
 	Object.defineProperty(window.HTMLDialogElement.prototype, 'showModal', {
 		value(this: HTMLDialogElement) { this.open = true; },
@@ -40,16 +40,19 @@ test('refreshing Tracktion audio devices preserves unapplied settings and named 
 		inputChannel: 1, outputChannel: 2, sampleRate: 96_000, blockSize: 512 };
 	const applied: TracktionAppliedAudioSetup = { setup, actualSampleRate: 96_000, actualBlockSize: 512 };
 	let devices: TracktionAudioDevices = { inputs: [microphone], outputs: [speakers], separateDevices: true };
+	let preferencesSaved = false;
+	let dismissed = 0;
 	const requests: TracktionProjectCommand[] = [];
 	const bridge: TracktionProjectBridge = {
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			requests.push(command);
 			assert.ok(command.kind === 'audioDevices' || command.kind === 'setAudioSetup');
-			return (command.kind === 'audioDevices' ? devices : applied) as TracktionProjectReply<Command>;
+			const result = preferencesSaved ? applied : { ...applied, preferencesSaved: false };
+			return (command.kind === 'audioDevices' ? devices : result) as TracktionProjectReply<Command>;
 		},
 	};
 	await act(async () => root.render(<TracktionAudioSetupDialog inventory={{ hosts: [{ id: 'mock', name: 'Mock audio host' }], selected: null }}
-		bridge={bridge} sessionId="session" sampleRate={48_000} onDismiss={() => undefined} />));
+		bridge={bridge} sessionId="session" sampleRate={48_000} onDismiss={() => { dismissed += 1; }} />));
 
 	function field(name: string): HTMLInputElement | HTMLSelectElement {
 		const input = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`);
@@ -77,4 +80,11 @@ test('refreshing Tracktion audio devices preserves unapplied settings and named 
 	await click('Refresh devices');
 	await click('Apply');
 	assert.deepEqual(requests.at(-1), { kind: 'setAudioSetup', sessionId: 'session', ...setup });
+	assert.equal(dismissed, 0);
+	assert.match(document.querySelector('[role="alert"]')?.textContent ?? '', /active for this session/u);
+	for (const [name, value] of Object.entries(draft)) assert.equal(field(name).value, value, name);
+	preferencesSaved = true;
+	await click('Apply');
+	assert.equal(dismissed, 1);
+	assert.equal(document.querySelector('[role="alert"]'), null);
 });

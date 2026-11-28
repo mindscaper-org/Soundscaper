@@ -198,7 +198,11 @@ export class TracktionProjectService {
 			const applied = await active.peer.request(withoutSession(command));
 			active.audioPreferencesApplied = true;
 			this.#assertOwner(owner, signal);
-			await this.#ports.audioPreferences?.write(applied.setup);
+			try {
+				await this.#ports.audioPreferences?.write(applied.setup);
+			} catch {
+				return { ...applied, preferencesSaved: false };
+			}
 			return applied;
 		}
 		if (!active.audioPreferencesApplied && (command.kind === 'prepareOutput' || command.kind === 'startRecording')) {

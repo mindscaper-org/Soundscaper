@@ -41,4 +41,4 @@ export type TracktionAudioDeviceCommand =
 export type TracktionAudioDeviceReply<Command extends TracktionAudioDeviceCommand> =
 	Command extends { kind: 'audioHosts' } ? TracktionAudioHosts
 		: Command extends { kind: 'audioDevices' } ? TracktionAudioDevices
-			: TracktionAppliedAudioSetup;
+			: TracktionAppliedAudioSetup & Readonly<{ preferencesSaved?: false }>;

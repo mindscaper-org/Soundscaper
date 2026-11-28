@@ -32,6 +32,7 @@ export const AUDIO_DEVICE_COPY_BY_LOCALE = Object.freeze({
 			tracktionStereoPairStart: 'First channel of the stereo output pair',
 			tracktionDeviceSampleRate: 'Device sample rate (Hz)',
 			tracktionDeviceBufferSize: 'Device buffer size (frames)',
+			tracktionAudioPreferencesNotSaved: 'Audio settings are active for this session. They could not be saved. Select Apply to try again.',
 			audioDeviceRecordingSampleRate: 'Recording sample rate',
 			audioDeviceRecordingSampleRateNote: 'Choose the sample rate for new recordings with the selected audio host.',
 			audioDeviceRecordingChannels: 'Recording channels',

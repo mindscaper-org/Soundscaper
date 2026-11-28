@@ -42,13 +42,17 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 		setPending(true);
 		setFailure('');
 		try {
-			await bridge.request({
+			const result = await bridge.request({
 				kind: 'setAudioSetup', sessionId, hostId,
 				inputId: String(form.get('inputId') ?? ''), outputId: String(form.get('outputId') ?? ''),
 				inputChannel: Number(form.get('inputChannel')) - 1,
 				outputChannel: Number(form.get('outputChannel')) - 1,
 				sampleRate: Number(form.get('sampleRate')), blockSize: Number(form.get('blockSize')),
 			});
+			if (result.preferencesSaved === false) {
+				setFailure(copy.tracktionAudioPreferencesNotSaved);
+				return;
+			}
 			onDismiss();
 		} catch (error) {
 			setFailure(error instanceof Error ? error.message : String(error));
