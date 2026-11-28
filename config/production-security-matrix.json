@@ -11260,29 +11260,6 @@
 						}
 					],
 					"policyAuthority": "family-v1-active"
-				},
-				{
-					"id": "static-reviewed-effect-realtime-host",
-					"summary": "Only separately realtime-approved catalog keys may enter the static first-party AudioWorklet host; approval is checked by both the main-thread catalog and the worklet's closed package policy and is not inferred from a valid hash. The host passes a prevalidated WebAssembly.Module rather than package JavaScript, and the worklet rechecks zero imports and exact exports, channel, block, memory, parameter, and finite-output bounds before publishing samples, silencing a failed block. The exact current realtime package is repository-owned Utility Gain 1.0.0. Constructor and reference-vector tests exercise the static host contract, but this qualification does not qualify another package, hostile CPU behavior, actual browser realtime scheduling, device behavior, or an operating-system sandbox.",
-					"evidence": [
-						{
-							"kind": "implementation",
-							"path": "src/common/editor/reviewed-effects/realtime-worklet-host.ts"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/common/editor/reviewed-effects/realtime-worklet.js"
-						},
-						{
-							"kind": "implementation",
-							"path": "src/common/editor/reviewed-effects/runtime.ts"
-						},
-						{
-							"kind": "test",
-							"path": "tests/audio-editor-reviewed-effects.test.ts"
-						}
-					],
-					"policyAuthority": "family-v1-active"
 				}
 			],
 			"residualRisks": []

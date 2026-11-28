@@ -19,7 +19,6 @@ interface CatalogBase {
 	readonly catalogRelease: typeof REVIEWED_EFFECT_CATALOG_RELEASE;
 	readonly manifest: ReviewedEffectManifest;
 	readonly sha256: string;
-	readonly realtimeApproved: boolean;
 }
 
 export interface ApprovedReviewedEffectCatalogEntry extends CatalogBase {
@@ -54,7 +53,6 @@ const catalogRecords: readonly InternalCatalogRecord[] = Object.freeze([
 			catalogRelease: REVIEWED_EFFECT_CATALOG_RELEASE,
 			manifest: UTILITY_GAIN_MANIFEST,
 			sha256: UTILITY_GAIN_PACKAGE_SHA256,
-			realtimeApproved: true,
 			state: 'approved',
 		}),
 		readBytes: utilityGainPackageBytes,
@@ -64,7 +62,6 @@ const catalogRecords: readonly InternalCatalogRecord[] = Object.freeze([
 			catalogRelease: REVIEWED_EFFECT_CATALOG_RELEASE,
 			manifest: revokedUtilityGainManifest,
 			sha256: UTILITY_GAIN_PACKAGE_SHA256,
-			realtimeApproved: false,
 			state: 'revoked',
 			revocation: Object.freeze({
 				release: REVIEWED_EFFECT_CATALOG_RELEASE,

@@ -48,7 +48,6 @@ export interface LoadedReviewedEffectPackage {
 	readonly key: string;
 	readonly manifest: ReviewedEffectManifest;
 	readonly sha256: string;
-	readonly realtimeApproved: boolean;
 	readonly module: WebAssembly.Module;
 }
 
@@ -92,7 +91,6 @@ async function loadCatalogEntry(
 		key: reviewedEffectPackageKey(descriptor.manifest),
 		manifest: descriptor.manifest,
 		sha256: descriptor.sha256,
-		realtimeApproved: descriptor.realtimeApproved,
 		module: validated.module,
 	});
 	loadedPackages.add(loaded);
