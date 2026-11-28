@@ -204,6 +204,35 @@ test('WAV imports preserve nonempty native names within the UTF-8 byte limit', a
 	assert.deepEqual(worker.importedNames, ['.wav', unicodePrefix, existingName]);
 });
 
+test('opening an archive does not split a Unicode character at the project name limit', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	assert.ok(bridge.openArchive);
+	const names: string[] = [];
+	const post = worker.postMessage.bind(worker);
+	context.mock.method(worker, 'postMessage', (message: Request) => {
+		if (message.request.kind === 'openArchive') {
+			assert.ok(message.request.name);
+			names.push(message.request.name);
+		}
+		post(message);
+	});
+	let file: File;
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const fits = `${'a'.repeat(126)}🥁`;
+	const beforePair = 'b'.repeat(127);
+	const cases = [[fits, fits], [`${beforePair}🥁`, beforePair], ['', 'Untitled project']];
+	for (const [stem, expected] of cases) {
+		file = new File([Uint8Array.of(1, 2, 3)], `${stem}.zip`, { type: 'application/zip' });
+		assert.equal((await bridge.openArchive())?.name, expected);
+	}
+	assert.deepEqual(names, cases.map(([, expected]) => expected));
+});
+
 test('RF64 imports preserve original bytes and refuse a missing payload before transfer', async (context) => {
 	const { window } = browserFixture(context);
 	const worker = new ProjectWorker();

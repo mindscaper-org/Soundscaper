@@ -199,7 +199,9 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			const archive = await chooseFile('.zip,application/zip');
 			if (!archive) return null;
 			requireTracktionWebUpload(archive.size, 'ZIP');
-			const name = archive.name.replace(/\.zip$/iu, '').slice(0, 128).trim() || copy.untitledProject;
+			const stem = archive.name.replace(/\.zip$/iu, '').slice(0, 128);
+			// Truncation can leave half of a Unicode character at the end.
+			const name = stem.replace(/[\uD800-\uDBFF]$/u, '').trim() || copy.untitledProject;
 			const reply = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
 			return await describeOpened(name, reply, true);
 		},
