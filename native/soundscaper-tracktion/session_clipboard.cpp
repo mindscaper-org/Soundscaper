@@ -106,7 +106,7 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 		throw std::invalid_argument("The Tracktion clipboard directory is invalid");
 	ClipboardGeneration snapshot{clipboard.getChildFile(generation)};
 	const auto media = snapshot.directory.getChildFile(mediaDirectory);
-	if (!media.createDirectory().wasOk()) throw std::runtime_error("Cannot create Tracktion clipboard storage");
+	if (!media.createDirectory().wasOk()) throw std::invalid_argument("Cannot create Tracktion clipboard storage");
 	for (const auto& source : sources)
 		copyOwnedWave(source, media.getChildFile(source.getFileName()), "Cannot preserve Tracktion clipboard media");
 	const juce::TemporaryFile staged(clipboard.getChildFile(selectionName));

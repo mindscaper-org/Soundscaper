@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -159,6 +159,62 @@ test('Tracktion Cut preserves the Edit and clipboard when writing the selection 
 			const pasted = (await peer.request({ ...clipPage, revision })).clips.at(-1);
 			assert.ok(pasted);
 			assert.deepEqual([pasted.name, pasted.start, pasted.end], ['Source PCM', 4096, 4160]);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion Cut keeps the Edit and prior clipboard when clipboard storage cannot be created', {
+	skip: process.platform === 'win32' || process.getuid?.() === 0,
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-clipboard-outage-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const clipboardDirectory = join(root, 'clipboard');
+	const selection = join(clipboardDirectory, 'selection.xml');
+	const asset = 'a'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture());
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			clipboardDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'state') });
+		try {
+			const project = { kind: 'project', offset: 0 } as const;
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			const trackId = track.id;
+			const imported = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Source', start: 0 });
+			assert.ok(imported.itemId);
+			await peer.request({ kind: 'save', revision: imported.revision });
+			await peer.request({ kind: 'copyRange', revision: imported.revision, trackId, mode: 'leaveGap', start: 0, end: 64 });
+			const previousClipboard = await readFile(selection);
+			const previousFiles = (await readdir(clipboardDirectory)).sort();
+			const duplicate = await peer.request({ kind: 'duplicateClip', revision: imported.revision, trackId, clipId: imported.itemId, start: 128 });
+			const witness = await peer.request({ kind: 'addTrack', revision: duplicate.revision, name: 'Redo witness' });
+			const { revision } = await peer.request({ kind: 'undo', revision: witness.revision });
+			const before = await peer.request(project);
+			assert.ok(before.canUndo && before.canRedo);
+			assert.equal(before.tracks[0]?.clipCount, 2);
+			const clips = { kind: 'clips', revision, trackId, offset: 0 } as const;
+			const beforeClips = await peer.request(clips);
+			const cut = { kind: 'cutRange', trackId, mode: 'leaveGap', start: 128, end: 192 } as const;
+			await chmod(clipboardDirectory, 0o500);
+			try {
+				await assert.rejects(peer.request({ ...cut, revision }), /Cannot create Tracktion clipboard storage/u);
+				assert.deepEqual(await peer.request(project), before);
+				assert.deepEqual(await peer.request(clips), beforeClips);
+				assert.deepEqual(await readFile(selection), previousClipboard);
+				assert.deepEqual((await readdir(clipboardDirectory)).sort(), previousFiles);
+			} finally { await chmod(clipboardDirectory, 0o700); }
+
+			const redone = await peer.request({ kind: 'redo', revision });
+			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
+			const pasted = await peer.request({ kind: 'pasteRange', revision: redone.revision, trackId, mode: 'overlap', start: 256 });
+			const afterPaste = await peer.request({ ...clips, revision: pasted.revision });
+			assert.deepEqual(afterPaste.clips.map(({ start, end }) => [start, end]), [[0, 64], [128, 192], [256, 320]]);
+			const retried = await peer.request({ ...cut, revision: pasted.revision });
+			assert.deepEqual((await peer.request({ ...clips, revision: retried.revision })).clips,
+				[afterPaste.clips[0], afterPaste.clips[2]]);
+			const undone = await peer.request({ kind: 'undo', revision: retried.revision });
+			assert.deepEqual((await peer.request({ ...clips, revision: undone.revision })).clips, afterPaste.clips);
 		} finally { await peer.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
