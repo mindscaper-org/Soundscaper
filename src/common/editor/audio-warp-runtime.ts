@@ -86,13 +86,6 @@ export interface AudioWarpRenderPathStatus {
 	readonly fallback: boolean;
 }
 
-export interface AudioWarpRenderParityEvidence {
-	readonly breakpointCount: number;
-	readonly comparedFrameCount: number;
-	readonly maximumErrorFrames: number;
-	readonly errorBudgetFrames: number;
-}
-
 export interface AudioWarpRuntimeEvaluator {
 	readonly map: Readonly<AudioWarpMap>;
 	readonly fingerprint: string;
@@ -100,7 +93,6 @@ export interface AudioWarpRuntimeEvaluator {
 }
 
 const TEXT_ENCODER = new TextEncoder();
-export const AUDIO_WARP_RENDER_PARITY_ERROR_FRAMES = 0.000_001;
 
 /** Fingerprint the canonical map used by playback, waveform, stretch, and render caches. */
 export function audioWarpMapFingerprint(value: unknown): string {
@@ -320,50 +312,6 @@ export function createAudioWarpRenderPathStatus(
 		realtimeAcceleration,
 		exactOfflineAvailable,
 		fallback: path === 'exact-offline',
-	});
-}
-
-/**
- * Compare the native segment projection with the exact evaluator at every
- * breakpoint and representative interior frames. Live and offline scheduling
- * both consume these same segments; this makes their numerical budget explicit.
- */
-export function evaluateAudioWarpRenderParity(
-	project: AudioWarpRuntimeProject,
-	clip: AudioWarpRuntimeClip,
-	range: AudioWarpRuntimeRange,
-): Readonly<AudioWarpRenderParityEvidence> {
-	const evaluator = createAudioWarpRuntimeEvaluator(project, clip);
-	const segments = buildAudioWarpRuntimeSegments(project, clip, range);
-	const comparedFrames = new Set<number>();
-	let maximumErrorFrames = 0;
-	for (const segment of segments) {
-		const frames = [
-			segment.timelineStartFrame,
-			Math.floor((segment.timelineStartFrame + segment.timelineEndFrame) / 2),
-			segment.timelineEndFrame,
-		];
-		for (const frame of frames) {
-			comparedFrames.add(frame);
-			const progress = (frame - segment.timelineStartFrame)
-				/ (segment.timelineEndFrame - segment.timelineStartFrame);
-			const realtimeSource = rationalNumber(segment.sourceStartFrame)
-				+ (rationalNumber(segment.sourceEndFrame) - rationalNumber(segment.sourceStartFrame))
-				* progress;
-			const exactSource = rationalNumber(evaluator.sourceAtTimelineFrame(frame));
-			maximumErrorFrames = Math.max(maximumErrorFrames, Math.abs(realtimeSource - exactSource));
-		}
-	}
-	if (maximumErrorFrames > AUDIO_WARP_RENDER_PARITY_ERROR_FRAMES) {
-		throw new Error('Audio warp realtime and exact-offline projections exceed their shared error budget.');
-	}
-	return Object.freeze({
-		breakpointCount: new Set(segments.flatMap((segment) => (
-			[segment.timelineStartFrame, segment.timelineEndFrame]
-		))).size,
-		comparedFrameCount: comparedFrames.size,
-		maximumErrorFrames,
-		errorBudgetFrames: AUDIO_WARP_RENDER_PARITY_ERROR_FRAMES,
 	});
 }
 
