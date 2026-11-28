@@ -91,3 +91,4 @@ port.on('message', (event) => {
 	});
 });
 port.postMessage({ kind: 'ready' });
+void peer.completion.then(() => stop(1));

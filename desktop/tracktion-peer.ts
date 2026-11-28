@@ -102,7 +102,7 @@ export function launchTracktionPeer(options: TracktionLaunch, createEffectRender
 		return closing;
 	}
 
-	return Object.freeze({ request, close });
+	return Object.freeze({ request, close, completion: terminated });
 }
 
 function checkedPath(value: string): string {
