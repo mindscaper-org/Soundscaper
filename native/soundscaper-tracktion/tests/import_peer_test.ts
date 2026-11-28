@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
+import { TracktionRejectedCommand } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import type { TracktionClipView } from '../../../src/soundscaper/tracktion-project-contract.ts';
@@ -14,6 +15,89 @@ import './mixed_rate_peer_test.ts';
 import './project_persistence_peer_test.ts';
 import './rf64_peer_test.ts';
 import { wavFixture } from './wave_fixture.ts';
+
+test('desktop WAV import survives a temporary project media outage and keeps the unsaved Edit', async () => {
+	const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
+	assert.ok(executable, 'build the Tracktion peer first');
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-media-outage-'));
+	const owner = {};
+	const project = join(root, 'project');
+	const media = join(project, 'media');
+	const offline = join(root, 'offline-media');
+	const original = join(root, 'original.wav');
+	const incoming = join(root, 'incoming.wav');
+	const source = wavFixture(96);
+	let selected = original;
+	let exchange: string | undefined;
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => project, chooseOpenProject: async () => join(project, 'project.tracktionedit'),
+		chooseWave: async () => selected, chooseExport: async () => null,
+		startPeer: async (options) => {
+			exchange = options.exchangeDirectory;
+			return launchTracktionPeer({ ...options, executable });
+		},
+	});
+	try {
+		await mkdir(project);
+		await Promise.all([writeFile(original, wavFixture()), writeFile(incoming, source)]);
+		const opened = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+		assert.ok(opened && 'sessionId' in opened && exchange);
+		const { sessionId } = opened;
+		const [track] = opened.project.tracks;
+		assert.ok(track);
+		const trackId = track.id;
+		const imported = await service.request(owner, { kind: 'import', sessionId, trackId, revision: 0, start: 0 });
+		assert.ok(imported && 'itemId' in imported && imported.itemId);
+		await service.request(owner, { kind: 'save', sessionId, revision: imported.revision });
+		const duplicate = await service.request(owner, { kind: 'duplicateClip', sessionId, trackId,
+			revision: imported.revision, clipId: imported.itemId, start: 128 });
+		assert.ok(duplicate && 'itemId' in duplicate);
+		const witness = await service.request(owner, { kind: 'addTrack', sessionId, revision: duplicate.revision, name: 'Redo witness' });
+		assert.ok(witness && 'itemId' in witness);
+		await service.request(owner, { kind: 'undo', sessionId, revision: witness.revision });
+		const projectPage = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, projectPage);
+		assert.ok(before && 'tracks' in before && before.canUndo && before.canRedo);
+		assert.equal(before.tracks[0]?.clipCount, 2);
+		const clips = { kind: 'clips', sessionId, trackId, revision: before.revision, offset: 0 } as const;
+		const beforeClips = await service.request(owner, clips);
+		assert.ok(beforeClips && 'clips' in beforeClips);
+		const existing = await readdir(media);
+		const command = { kind: 'import', sessionId, trackId, start: 256 } as const;
+
+		selected = incoming;
+		await rename(media, offline);
+		try {
+			await assert.rejects(service.request(owner, { ...command, revision: before.revision }),
+				(error: unknown) => error instanceof TracktionRejectedCommand && /project media directory is unavailable/u.test(error.message));
+			assert.deepEqual(await service.request(owner, projectPage), before);
+			assert.deepEqual(await service.request(owner, clips), beforeClips);
+			assert.deepEqual(await readdir(join(exchange, 'input')), []);
+		} finally { await rename(offline, media); }
+
+		assert.deepEqual(await readdir(media), existing);
+		const redone = await service.request(owner, { kind: 'redo', sessionId, revision: before.revision });
+		assert.ok(redone && 'itemId' in redone);
+		const retried = await service.request(owner, { ...command, revision: redone.revision });
+		assert.ok(retried && 'itemId' in retried && retried.itemId);
+		const adopted = (await readdir(media)).find((file) => !existing.includes(file));
+		assert.ok(adopted);
+		assert.deepEqual(await readFile(join(media, adopted)), source);
+		await service.request(owner, { kind: 'save', sessionId, revision: retried.revision });
+		await service.request(owner, { kind: 'close', sessionId });
+		const reopened = await service.request(owner, { kind: 'open' });
+		assert.ok(reopened && 'sessionId' in reopened);
+		assert.equal(reopened.project.tracks[1]?.name, 'Redo witness');
+		const reopenedClips = await service.request(owner, { ...clips, sessionId: reopened.sessionId, revision: reopened.project.revision });
+		assert.ok(reopenedClips && 'clips' in reopenedClips);
+		assert.deepEqual(reopenedClips.clips, [...beforeClips.clips,
+			{ id: retried.itemId, name: 'incoming', start: 256, end: 352, sourceOffset: 0 }]);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
 
 test('desktop WAV import into a full Tracktion track preserves the Edit and retries after freeing a slot', async () => {
 	const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;

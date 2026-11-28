@@ -386,7 +386,7 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 
 	const auto media = s.directory.getChildFile(mediaDirectory);
 	if (!media.isDirectory() || media.isSymbolicLink())
-		throw std::runtime_error("The project media directory is unavailable");
+		throw std::invalid_argument("The project media directory is unavailable");
 	const auto destination = media.getChildFile(juce::Uuid().toString() + ".wav");
 	copyOwnedWave(source, destination, "Cannot copy the audio into the project");
 
