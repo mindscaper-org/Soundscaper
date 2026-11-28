@@ -73,6 +73,7 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 	selection.setProperty("generation", generation, nullptr);
 	selection.setProperty("rate", s.sampleRate, nullptr);
 	selection.setProperty("frames", static_cast<juce::int64>(end - start), nullptr);
+	std::map<juce::String, juce::String> references;
 	std::set<juce::File> sources;
 	for (auto* track : targets)
 	{
@@ -85,17 +86,22 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 			const auto first = std::max(start, origin);
 			const auto last = std::min(end, tracktion::toSamples(position.getEnd(), s.sampleRate));
 			if (first >= last) continue;
-			const auto file = clip->getSourceFileReference().getFile();
-			const auto reference = mediaReference(file);
-			if (ownedMediaFile(s.directory, reference) != file)
-				throw std::invalid_argument("The Tracktion clipboard requires project-owned audio");
-			sources.insert(file);
+			const auto& sourceRef = clip->getSourceFileReference();
+			const auto [reference, inserted] = references.try_emplace(sourceRef.source.get());
+			if (inserted)
+			{
+				const auto file = sourceRef.getFile();
+				reference->second = mediaReference(file);
+				if (file == juce::File{} || ownedMediaFile(s.directory, reference->second) != file)
+					throw std::invalid_argument("The Tracktion clipboard requires project-owned audio");
+				sources.insert(file);
+			}
 			juce::ValueTree item("ITEM");
 			item.setProperty("first", static_cast<juce::int64>(first - start), nullptr);
 			item.setProperty("last", static_cast<juce::int64>(last - start), nullptr);
 			item.setProperty("trim", static_cast<juce::int64>(first - origin), nullptr);
 			auto clipState = te::ClipCopy::fromClip(*clip).getState();
-			clipState.setProperty(te::IDs::source, reference, nullptr);
+			clipState.setProperty(te::IDs::source, reference->second, nullptr);
 			item.addChild(clipState, -1, nullptr);
 			lane.addChild(item, -1, nullptr);
 		}
@@ -108,7 +114,11 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 	const auto media = snapshot.directory.getChildFile(mediaDirectory);
 	if (!media.createDirectory().wasOk()) throw std::invalid_argument("Cannot create Tracktion clipboard storage");
 	for (const auto& source : sources)
+	{
+		if (ownedMediaFile(s.directory, mediaReference(source)) != source)
+			throw std::invalid_argument("The Tracktion clipboard requires project-owned audio");
 		copyOwnedWave(source, media.getChildFile(source.getFileName()), "Cannot preserve Tracktion clipboard media");
+	}
 	const juce::TemporaryFile staged(clipboard.getChildFile(selectionName));
 	if (!stageSelection(selection, staged.getFile()))
 		throw std::invalid_argument("The Tracktion clipboard selection could not be staged");

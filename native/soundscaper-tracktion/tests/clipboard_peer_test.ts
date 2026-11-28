@@ -19,6 +19,50 @@ const longFrames = 524_288;
 const shortStart = 32;
 const longStart = 128;
 
+test('Tracktion Copy stages shared media once and checks availability again on the next copy', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-shared-clipboard-'));
+	const clipboardDirectory = join(root, 'clipboard');
+	const exchangeDirectory = join(root, 'exchange');
+	const projectDirectory = join(root, 'project');
+	const asset = 'd'.repeat(32);
+	const wave = wavFixture();
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wave);
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, clipboardDirectory,
+			exchangeDirectory, projectDirectory, stateDirectory: join(root, 'settings') });
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const { itemId } = await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Source', start: 0 });
+			assert.ok(itemId);
+			await peer.request({ kind: 'duplicateClip', revision: 1, trackId: track.id, clipId: itemId, start: 64 });
+			const command = { kind: 'copyRange', revision: 2, trackId: track.id, mode: 'leaveGap', start: 0, end: 128 } as const;
+			const selection = join(clipboardDirectory, 'selection.xml');
+			await peer.request(command);
+			const before = await readFile(selection, 'utf8');
+			assert.equal((before.match(/<ITEM /gu) ?? []).length, 2);
+			const generation = /generation="([0-9a-f]{32})"/u.exec(before)?.[1];
+			assert.ok(generation);
+			const media = join(projectDirectory, 'media');
+			const [name] = await readdir(media);
+			assert.ok(name);
+			const staged = join(clipboardDirectory, generation, 'media');
+			assert.deepEqual(await readdir(staged), [name]);
+			assert.deepEqual(await readFile(join(staged, name)), wave);
+			const source = join(media, name);
+			const moved = join(root, 'missing.wav');
+			await rename(source, moved);
+			await assert.rejects(peer.request(command), /clipboard requires project-owned audio/u);
+			assert.equal(await readFile(selection, 'utf8'), before);
+			await rename(moved, source);
+			await peer.request(command);
+			const after = await readFile(selection, 'utf8');
+			assert.equal(after.replace(/generation="[0-9a-f]{32}"/u, ''), before.replace(/generation="[0-9a-f]{32}"/u, ''));
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('Tracktion acknowledges single-track overlap Paste with its canonical ordered placements', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-paste-reply-'));
 	const exchangeDirectory = join(root, 'exchange');
