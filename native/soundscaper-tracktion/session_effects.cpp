@@ -240,10 +240,7 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 	const auto renderEdit = s.makeEdit(s.edit->state.createCopy(), te::Edit::forRendering);
 	if (!renderEdit)
 		throw std::runtime_error("Cannot detach the Tracktion Edit for rendering");
-	for (auto* track : te::getAudioTracks(*renderEdit))
-		for (auto* clip : track->getClips())
-			if (clip->getSourceFileReference().getFile() == juce::File{})
-				throw std::invalid_argument("The Tracktion project media is unavailable");
+	requireEditMedia(*renderEdit, "The Tracktion project media is unavailable");
 	RenderBindings bindings;
 	bindings.attach(*renderEdit, effects, s.sampleRate);
 

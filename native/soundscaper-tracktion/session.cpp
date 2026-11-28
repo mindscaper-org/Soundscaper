@@ -9,21 +9,6 @@
 
 namespace soundscaper::tracktion_backend
 {
-juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference)
-{
-	const auto relative = reference.replaceCharacter('\\', '/');
-	if (!relative.startsWith("media/"))
-		return {};
-	const auto name = relative.substring(6);
-	if (name.length() != 36 || !name.endsWith(".wav") || !name.dropLastCharacters(4).containsOnly("0123456789abcdef"))
-		return {};
-	const auto media = directory.getChildFile(mediaDirectory);
-	const auto file = media.getChildFile(name);
-	if (media.isSymbolicLink() || file.isSymbolicLink() || !file.existsAsFile())
-		return {};
-	return file;
-}
-
 namespace
 {
 const juce::Identifier projectSampleRate("soundscaperProjectSampleRate");
@@ -160,32 +145,12 @@ Session::State::State(const juce::File& directory, const juce::File& stateDirect
 	if (edit == nullptr)
 		throw std::runtime_error("Cannot create the Tracktion Edit");
 	edit->alwaysUseRelativePaths = true;
-	for (auto* track : te::getAudioTracks(*edit))
-		for (auto* clip : track->getClips())
-			if (dynamic_cast<te::WaveAudioClip*>(clip) == nullptr
-			    || !clip->getSourceFileReference().getFile().existsAsFile())
-				throw std::invalid_argument("The project contains missing or unsupported clip media");
+	requireEditMedia(*edit, "The project contains missing or unsupported clip media");
 	// Tracktion can first request its scene list from an asynchronous callback.
 	// Initialise it here before clearing the Edit's setup transactions.
 	static_cast<void>(edit->getSceneList());
 	endTransaction(*edit);
 	edit->getUndoManager().clearUndoHistory();
-}
-
-std::unique_ptr<te::Edit> Session::State::makeEdit(juce::ValueTree tree, te::Edit::EditRole role)
-{
-	return te::Edit::createEdit({
-		.engine = engine,
-		.editState = std::move(tree),
-		.editProjectItemID = te::ProjectItemID::createNewID(te::ProjectID{}),
-		.role = role,
-		.editFileRetriever = [file = editFile] { return file; },
-		.filePathResolver = [folder = directory](const juce::String& reference)
-		{
-			return ownedMediaFile(folder, reference);
-		},
-		.defaultMasterVolumedB = 0.0f,
-	});
 }
 
 juce::ValueTree Session::State::newProject(int rate)

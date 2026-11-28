@@ -35,7 +35,7 @@ sources=("${modules[@]/#/\/source\/juce\/modules\/}"
 	/source/tracktion/modules/tracktion_graph/tracktion_graph.cpp
 	/project/session.cpp /project/session_paging.cpp /project/session_automation.cpp /project/session_range.cpp
 	/project/session_clipboard.cpp /project/session_transport.cpp /project/session_recording.cpp
-	/project/session_device.cpp /project/session_effects.cpp /project/project_archive.cpp
+	/project/session_device.cpp /project/session_effects.cpp /project/session_media.cpp /project/project_archive.cpp
 	/source/juce/modules/juce_core/juce_core_zlib.c
 	/source/juce/modules/juce_audio_formats/juce_audio_formats_*.c
 	/source/juce/modules/juce_graphics/juce_graphics_*.c)
