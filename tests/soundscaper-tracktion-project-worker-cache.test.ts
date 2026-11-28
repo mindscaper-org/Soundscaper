@@ -9,12 +9,12 @@ import { asset, MemoryCacheStorage, response, shellCacheName, shellConfiguration
 const origin = 'https://soundscaper.test';
 const workerPath = '/tracktion/tracktion-project-worker.js';
 const corePath = '/tracktion/edit-core.js';
+const wasmPath = '/tracktion/edit-core.wasm';
 const contents = 'verified engine';
 const stale = 'previous engine';
 
 for (const outcome of ['unchanged', 'changed WASM', 'stale response', 'offline', 'missing WASM', 'cache write failure'] as const) {
 	test(`an offline shell update preserves a reusable Tracktion engine as a group (${outcome})`, async (context) => {
-		const wasmPath = '/tracktion/edit-core.wasm';
 		const changed = outcome === 'changed WASM' || outcome === 'stale response' || outcome === 'offline';
 		const complete = outcome === 'unchanged' || outcome === 'changed WASM';
 		const unrelated = '/assets/deferred.js';
@@ -92,7 +92,7 @@ for (const outcome of ['unchanged', 'changed WASM', 'stale response', 'offline',
 	});
 }
 
-for (const path of [workerPath, corePath]) test(`Tracktion reloads ${path} until verified bytes are cached`, async () => {
+for (const path of [workerPath, corePath, wasmPath]) test(`Tracktion reloads ${path} until verified bytes are cached`, async () => {
 	const cacheStorage = new MemoryCacheStorage();
 	const configuration = shellConfiguration('2', [asset(path, contents)]);
 	const cache = await cacheStorage.open(shellCacheName(configuration.releaseId));
@@ -115,7 +115,7 @@ for (const path of [workerPath, corePath]) test(`Tracktion reloads ${path} until
 	assert.deepEqual(fetches, [[path, 'reload'], [path, 'reload']]);
 });
 
-for (const [productId, path] of [['framescaper', workerPath], ['soundscaper', '/tracktion/unrelated.js']]) {
+for (const [productId, path] of [['framescaper', workerPath], ['framescaper', wasmPath], ['soundscaper', '/tracktion/unrelated.js']]) {
 	test(`${productId} keeps the normal HTTP cache for ${path}`, async () => {
 		const configuration = shellConfiguration('3', [asset(path, contents)], { productId });
 		const reply = await handleOfflineShellFetch({

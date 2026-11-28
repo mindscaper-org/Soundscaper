@@ -504,10 +504,10 @@ export async function handleApplicationShellFetch({
 			// Let the retry reach the network independently of a stalled request.
 			// Verification and Cache Storage still use the canonical descriptor.
 			const networkUrl = retryWorklet ? descriptor.url + requestUrl.search : descriptor.url;
-			// Unversioned engine scripts can leave a stale response in the HTTP cache.
-			const reloadEngineScript = configuration.productId === 'soundscaper'
-				&& (descriptor.url === '/tracktion/tracktion-project-worker.js' || descriptor.url === '/tracktion/edit-core.js');
-			const networkCache = reloadEngineScript ? 'reload' : 'default';
+			// Unversioned engine assets can leave a stale response in the HTTP cache.
+			const reloadEngineAsset = configuration.productId === 'soundscaper'
+				&& ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm'].includes(descriptor.url);
+			const networkCache = reloadEngineAsset ? 'reload' : 'default';
 			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl, networkCache });
 		} catch (error) {
 			if (request.mode === 'navigate') {
