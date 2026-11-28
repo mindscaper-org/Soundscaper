@@ -56,6 +56,39 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await verifyNarrowSavedChooser(page, nav, file, name);
 	await verifyNarrowMoveRetry(page, nav, editing);
 	await verifyNarrowMixerPrecision(page, nav, file, editing);
+	await verifyNarrowAutomationFocus(page, nav, editing);
+}
+
+async function verifyNarrowAutomationFocus(page: Page, nav: Locator, editing: Locator): Promise<void> {
+	await editing.tap();
+	await nav.getByRole('button', { name: 'Track automation', exact: true }).tap();
+	const dialog = page.getByRole('dialog', { name: 'Track automation', exact: true });
+	const point = dialog.getByRole('combobox', { name: 'Automation point', exact: true });
+	const frame = dialog.getByRole('spinbutton', { name: 'Frame', exact: true });
+	const value = dialog.getByRole('spinbutton', { name: 'Value', exact: true });
+	const option = (name: string) => point.getByRole('option', { name, exact: true });
+	for (const [at, gain] of [['64', '-6'], ['128', '-3']] as const) {
+		await frame.fill(at);
+		await value.fill(gain);
+		await dialog.getByRole('button', { name: 'Add point', exact: true }).tap();
+		await option(`${at} · ${Number(gain).toFixed(3)}`).waitFor({ state: 'attached' });
+	}
+	await point.selectOption({ label: '64 · -6.000' });
+	await frame.fill('160');
+	await page.keyboard.press('Enter');
+	await option('160 · -6.000').waitFor({ state: 'attached' });
+	assert.equal(await point.inputValue(), '1', 'the moved automation point stays selected after reordering');
+	assert.equal(await frame.evaluate((element) => element === element.ownerDocument.activeElement), true);
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.type('192');
+	await page.keyboard.press('Enter');
+	await option('192 · -6.000').waitFor({ state: 'attached' });
+	await value.fill('-9');
+	await page.keyboard.press('Enter');
+	await option('192 · -9.000').waitFor({ state: 'attached' });
+	assert.equal(await value.evaluate((element) => element === element.ownerDocument.activeElement), true);
+	await page.keyboard.press('Escape');
+	await dialog.waitFor({ state: 'detached' });
 }
 
 async function verifyNarrowMixerPrecision(page: Page, nav: Locator, file: Locator, editing: Locator): Promise<void> {

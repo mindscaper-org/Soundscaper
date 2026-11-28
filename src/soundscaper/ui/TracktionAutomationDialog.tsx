@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
@@ -27,6 +27,25 @@ export function TracktionAutomationDialog({ track, onDismiss, failure, ...editor
 	readonly onDismiss: () => void;
 }) {
 	const dialog = useTracktionModalDialog();
+	const submittedField = useRef<string | undefined>(undefined);
+	useLayoutEffect(() => {
+		if (editor.busy) return;
+		const name = submittedField.current;
+		submittedField.current = undefined;
+		const modal = dialog.current;
+		if (!modal || !name) return;
+		const { activeElement, body } = modal.ownerDocument;
+		if (activeElement !== body && activeElement !== modal) return;
+		const field = Array.from(modal.querySelectorAll<HTMLInputElement>('input[type="number"]')).find((input) => input.name === name);
+		field?.focus({ preventScroll: true });
+	}, [dialog, editor.busy, editor.page]);
+
+	function editPoint(edit: TracktionAutomationEdit): void {
+		if (editor.busy) return;
+		if (edit.kind === 'setAutomationPoint') submittedField.current = dialog.current?.querySelector<HTMLInputElement>('input:focus')?.name;
+		editor.onEdit(edit);
+	}
+
 	return <dialog ref={dialog} aria-label={copy.tracktionAutomation} onCancel={(event) => {
 		event.preventDefault();
 		if (!editor.busy) onDismiss();
@@ -41,7 +60,7 @@ export function TracktionAutomationDialog({ track, onDismiss, failure, ...editor
 				<option value="gainDb">{copy.gain} (dB)</option>
 				<option value="pan">{copy.pan}</option>
 			</select></label></p>
-			<AutomationPointEditor key={`${editor.page.revision}:${editor.parameter}:${editor.offset}`} {...editor} />
+			<AutomationPointEditor key={`${editor.page.revision}:${editor.parameter}:${editor.offset}`} {...editor} onEdit={editPoint} />
 		</fieldset>
 		{failure && <p role="alert">{failure}</p>}
 		<button type="button" disabled={editor.busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.close}</button>
