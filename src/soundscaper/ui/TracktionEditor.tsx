@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 
 import { AUDIO_DEVICE_COPY_BY_LOCALE } from '../../common/i18n/audio-device-copy.js';
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
@@ -67,6 +67,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const playing = transport?.playing === true;
 	const visibleStatus = recording ? 'Recording' : status || (playing ? 'Playing' : '');
 	const menuBar = useRef<HTMLElement>(null);
+	const menuGroup = useId();
 	const tracks = workspace?.tracks;
 	const trackOptions = useMemo(() => tracks?.map((track) => <option key={track.id} value={track.id}>{track.name}</option>), [tracks]);
 	const clips = workspace?.clips;
@@ -446,7 +447,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 
 	return <div className="tracktion-editor" data-audio-editor-bound="true">
 		<nav ref={menuBar} aria-label="Application menu">
-			<details>
+			<details name={menuGroup}>
 				<summary>File</summary>
 				<div>
 					<button type="button" disabled={busy || recording} onClick={() => replace('create')}>{copy.newProject}</button>
@@ -459,7 +460,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => replace('close')}>{copy.closeProject}</button>
 				</div>
 			</details>
-			<details>
+			<details name={menuGroup}>
 				<summary>{editCopy.editControls}</summary>
 				<div>
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => editProject('addTrack')}>{trackCopy.addTrack}</button>
@@ -480,7 +481,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 					<button type="button" disabled={busy || recording || !workspace?.project.canRedo} onClick={() => editProject('redo')}>{editCopy.redo}</button>
 				</div>
 			</details>
-			<details>
+			<details name={menuGroup}>
 				<summary>{transportCopy.transport}</summary>
 				<div>
 					{desktopAudioSetup && <button type="button" disabled={busy || recording || !workspace || transport?.playing} onClick={showAudioSetup}>

@@ -19,7 +19,10 @@ for (const browserType of [chromium, firefox, webkit]) {
 		await page.getByRole('heading', { name: 'Soundscaper Tracktion' }).waitFor();
 		assert.equal(await page.evaluate(() => crossOriginIsolated), true);
 		assert.deepEqual(engineRequests, [], 'the idle Soundscaper site must defer loading the native engine');
+		const editing = page.getByText('Editing tools', { exact: true });
+		await editing.click();
 		await page.getByText('File', { exact: true }).click();
+		assert.equal(await editing.locator('..').getAttribute('open'), null, 'opening File closes the Editing tools menu');
 		await page.getByRole('button', { name: 'Open projects', exact: true }).click();
 		const chooser = page.getByRole('dialog', { name: 'Local projects' });
 		await chooser.getByRole('button', { name: 'Cancel', exact: true }).click();
