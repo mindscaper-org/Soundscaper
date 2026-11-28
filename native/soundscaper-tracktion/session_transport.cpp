@@ -118,6 +118,7 @@ bool Session::playbackReady() const
 	if (s.playbackMediaRevision != s.revision)
 	{
 		std::set<juce::File> files;
+		te::Clip::Array restoredSources;
 		for (auto* track : te::getAudioTracks(*s.edit))
 			for (auto* clip : track->getClips())
 			{
@@ -126,7 +127,19 @@ bool Session::playbackReady() const
 				const auto [source, inserted] = files.insert(std::move(file));
 				if (inserted && ownedMediaFile(s.directory, juce::String(mediaDirectory) + "/" + source->getFileName()) != *source)
 					return false;
+				if (clip->getCurrentSourceFile() == juce::File{}) restoredSources.add(clip);
 			}
+		// Undo can initialise a clip while its source is absent, leaving the playback graph silent after the file returns.
+		if (!restoredSources.isEmpty())
+		{
+			for (auto* clip : restoredSources)
+			{
+				clip->sourceMediaChanged();
+				if (clip->getCurrentSourceFile() == juce::File{}) return false;
+			}
+			s.edit->restartPlayback();
+			s.edit->dispatchPendingUpdatesSynchronously();
+		}
 		s.playbackMedia.clear();
 		s.playbackMedia.reserve(files.size());
 		for (const auto& file : files) s.playbackMedia.emplace_back(s.engine, file);
