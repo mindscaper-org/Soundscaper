@@ -92,6 +92,45 @@ test('saving an edited Tracktion project reuses saved audio and updates only cha
 	assert.equal(reopened.files.has(`/projects/reopened/media/${firstName}`), false);
 });
 
+test('reopening saved Tracktion audio reads bounded groups before writing the Edit', async (context) => {
+	const { storage, name } = await setup(context);
+	const media = Array.from({ length: 19 }, (_, offset) => ({
+		name: `${(offset + 1).toString(16).padStart(32, '0')}.wav`, bytes: Uint8Array.of(offset + 1),
+	}));
+	storage.seedRecord(name, projects, { edit: initialEdit, mediaNames: media.map((file) => file.name) }, id);
+	storage.seedRecord(name, generations, 3, id);
+	for (const file of media) {
+		if (file !== media.at(-1)) storage.seedRecord(name, projects, file.bytes, `${id}/${file.name}`);
+	}
+	const path = '/projects/reopened';
+	const edit = `${path}/project.tracktionedit`;
+	const incomplete = new ProjectFilesystem();
+	await assert.rejects(restoreTracktionProject(incomplete, { ...draft, directory: 'reopened' }), /media is unavailable/u);
+	assert.equal(incomplete.files.has(edit), false);
+	const last = media.at(-1);
+	assert.ok(last);
+	storage.seedRecord(name, projects, last.bytes, `${id}/${last.name}`);
+	storage.stats.getRequests.length = 0;
+	const windows: number[] = [];
+	class ObservedFilesystem extends ProjectFilesystem {
+		override writeFile(target: string, data: Uint8Array): void {
+			if (target.startsWith(`${path}/media/`)) {
+				const completed = storage.stats.getRequests.filter(({ key }) => String(key).startsWith(`${id}/`)).length;
+				windows.push(completed - windows.length);
+			}
+			super.writeFile(target, data);
+		}
+	}
+	const reopened = new ObservedFilesystem();
+	const restored = await restoreTracktionProject(reopened, { ...draft, directory: 'reopened' });
+	assert.equal(restored.generation, 3);
+	assert.equal(windows.length, media.length);
+	assert.ok(Math.max(...windows) > 1, 'independent media requests are queued together');
+	assert.ok(Math.max(...windows) <= 8, 'the media request window is bounded');
+	assert.deepEqual(reopened.files.get(edit), initialEdit);
+	for (const file of media) assert.deepEqual(reopened.files.get(`${path}/media/${file.name}`), file.bytes);
+});
+
 test('legacy inline Tracktion audio reopens and is moved into its own record on the next save', async (context) => {
 	const { storage, name } = await setup(context);
 	storage.seedRecord(name, projects, { edit: initialEdit, media: [{ name: firstName, bytes: initialMedia }] }, id);

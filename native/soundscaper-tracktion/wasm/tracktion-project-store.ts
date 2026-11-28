@@ -39,6 +39,7 @@ export interface WorkingProject {
 
 const [projectStore, generationStore] = tracktionProjectStores;
 const mediaName = /^[0-9a-f]{32}\.wav$/;
+const restoreMediaBatchSize = 8;
 const editName = 'project.tracktionedit';
 const editHeaderDecoder = new TextDecoder('windows-1252');
 const rootProjectId = /^((?:<\?xml\b[^?]*\?>\s*)?<EDIT(?=\s)[^>]*?\sprojectID=")(0\/[0-9a-f]{1,8})"/u;
@@ -78,11 +79,17 @@ export async function restoreTracktionProject(
 			let savedMedia: readonly string[];
 			const inlineMedia = !('mediaNames' in saved);
 			if (!inlineMedia) {
-				for (const name of saved.mediaNames) {
-					if (!mediaName.test(name)) throw new Error('The saved Tracktion media name is invalid');
-					const bytes: unknown = await request(projects.get(mediaRecord(project.id, name)));
-					if (!(bytes instanceof Uint8Array)) throw new Error('The saved Tracktion media is unavailable');
-					fs.writeFile(`${path}/media/${name}`, bytes);
+				for (let offset = 0; offset < saved.mediaNames.length; offset += restoreMediaBatchSize) {
+					const batch = saved.mediaNames.slice(offset, offset + restoreMediaBatchSize);
+					// Write each WAV as its read finishes and drain the group before a failed restore is cleaned up.
+					const results = await Promise.allSettled(batch.map(async (name) => {
+						if (!mediaName.test(name)) throw new Error('The saved Tracktion media name is invalid');
+						const bytes: unknown = await request(projects.get(mediaRecord(project.id, name)));
+						if (!(bytes instanceof Uint8Array)) throw new Error('The saved Tracktion media is unavailable');
+						fs.writeFile(`${path}/media/${name}`, bytes);
+					}));
+					const failed = results.find((result) => result.status === 'rejected');
+					if (failed) throw failed.reason;
 				}
 				savedMedia = saved.mediaNames;
 			} else {
