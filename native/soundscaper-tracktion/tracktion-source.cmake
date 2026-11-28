@@ -26,6 +26,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_AutomatableEditItem.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
+		PATTERN "tracktion_ClipTrack.cpp" EXCLUDE
 		PATTERN "tracktion_TrackUtils.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
 		PATTERN "tracktion_NodeRenderContext.cpp" EXCLUDE
@@ -154,6 +155,19 @@ void AudioClipBase::createNewProxyAsync()
 		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"
 		code "${code}")
 	file(CONFIGURE OUTPUT "${destination}/${clip_owner}" CONTENT "${code}" @ONLY)
+
+	# The collection listener only updates grouped clips. Skip lookups when a
+	# position change has no collection to update or an added clip has no group.
+	set(clip_track "modules/tracktion_engine/model/tracks/tracktion_ClipTrack.cpp")
+	soundscaper_read_tracktion_source("${source}" "${clip_track}"
+		"874eaf51596858248829319955581c096e011cea29894e84e0ddf743557017c2" code)
+	string(REPLACE "        else if (id == IDs::start || id == IDs::length)"
+		"        else if ((id == IDs::start || id == IDs::length) && ! collectionClips.isEmpty())" code "${code}")
+	string(REPLACE
+		"    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree& child) override\n    {\n        if (Clip::isClipState (child))"
+		"    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree& child) override\n    {\n        if (Clip::isClipState (child) && child.hasProperty (IDs::groupID))"
+		code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${clip_track}" CONTENT "${code}" @ONLY)
 
 	# An asynchronous track sort uses the Edit's UndoManager. Expose the
 	# pending update so the host can finish it in the track edit transaction.
