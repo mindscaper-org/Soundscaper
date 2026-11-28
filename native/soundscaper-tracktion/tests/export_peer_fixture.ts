@@ -5,21 +5,23 @@ import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { TracktionRejectedCommand } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import { wavFixture } from './wave_fixture.ts';
 
-export async function exerciseInterruptedExport(executable: string, kind: 'render' | 'archive') {
+export async function exerciseInterruptedExport(executable: string, kind: 'render' | 'archive', unavailable: 'project media' | 'export staging') {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-interrupted-export-'));
 	const owner = {};
 	const project = join(root, 'project');
 	const media = join(project, 'media');
-	const offline = join(root, 'offline-media');
+	const offline = join(root, 'unavailable-directory');
 	const sourcePath = join(root, 'source.wav');
 	const extension = kind === 'render' ? 'wav' : 'zip';
 	const source = wavFixture(4800);
 	const output = join(root, `output.${extension}`);
 	let destination = join(root, `reference.${extension}`);
+	let exchange: string | undefined;
 	const service = new TracktionProjectService({
 		scratchRoot: join(root, 'scratch'),
 		isOwnerCurrent: (caller) => caller === owner,
@@ -27,13 +29,16 @@ export async function exerciseInterruptedExport(executable: string, kind: 'rende
 		chooseOpenProject: async () => null,
 		chooseWave: async () => sourcePath,
 		chooseExport: async () => destination,
-		startPeer: async (options) => launchTracktionPeer({ ...options, executable }),
+		startPeer: async (options) => {
+			exchange = options.exchangeDirectory;
+			return launchTracktionPeer({ ...options, executable });
+		},
 	});
 	try {
 		await mkdir(project);
 		await writeFile(sourcePath, source);
 		const created = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
-		assert.ok(created && 'sessionId' in created);
+		assert.ok(created && 'sessionId' in created && exchange);
 		const { sessionId } = created;
 		const [track] = created.project.tracks;
 		assert.ok(track);
@@ -52,13 +57,17 @@ export async function exerciseInterruptedExport(executable: string, kind: 'rende
 		await service.request(owner, exportProject);
 		const reference = await readFile(destination);
 
-		await rename(media, offline);
-		try {
-			destination = output;
-			await assert.rejects(service.request(owner, exportProject), /Tracktion (?:project media|session)/u);
-			await assert.rejects(readFile(output), { code: 'ENOENT' });
-			assert.deepEqual(await service.request(owner, status), before);
-		} finally { await rename(offline, media); }
+		const isStagingUnavailable = unavailable === 'export staging';
+		const directory = isStagingUnavailable ? join(exchange, 'output') : media;
+		const failure = isStagingUnavailable ? 'The Tracktion exchange directory is unavailable' : 'The Tracktion project media is unavailable';
+		destination = output;
+		if (isStagingUnavailable) await writeFile(output, reference);
+		await rename(directory, offline);
+		await assert.rejects(service.request(owner, exportProject), { constructor: TracktionRejectedCommand, message: failure });
+		if (isStagingUnavailable) assert.deepEqual(await readFile(output), reference);
+		else await assert.rejects(readFile(output), { code: 'ENOENT' });
+		assert.deepEqual(await service.request(owner, status), before);
+		await rename(offline, directory);
 
 		await service.request(owner, exportProject);
 		const retried = await readFile(output);

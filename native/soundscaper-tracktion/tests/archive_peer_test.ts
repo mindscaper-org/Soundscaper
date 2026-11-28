@@ -20,13 +20,15 @@ import { wavFixture } from './wave_fixture.ts';
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion archive test through CTest.');
 
-test('desktop Tracktion ZIP export refuses unavailable project media and retries with the exact entries', async () => {
-	const { reference, retried, source, mediaPath } = await exerciseInterruptedExport(executable, 'archive');
-	const entries = unzipSync(retried);
-	assert.deepEqual(entries, unzipSync(reference));
-	assert.deepEqual(Object.keys(entries).sort(), [mediaPath, 'project.tracktionedit', 'project_info.json']);
-	assert.deepEqual(entries[mediaPath], Uint8Array.from(source));
-});
+for (const unavailable of ['project media', 'export staging'] as const) {
+	test(`desktop Tracktion ZIP export refuses unavailable ${unavailable} and retries with the exact entries`, async () => {
+		const { reference, retried, source, mediaPath } = await exerciseInterruptedExport(executable, 'archive', unavailable);
+		const entries = unzipSync(retried);
+		assert.deepEqual(entries, unzipSync(reference));
+		assert.deepEqual(Object.keys(entries).sort(), [mediaPath, 'project.tracktionedit', 'project_info.json']);
+		assert.deepEqual(entries[mediaPath], Uint8Array.from(source));
+	});
+}
 
 test('desktop Tracktion ZIP export refuses incomplete WAVs without replacing the previous archive', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-incomplete-archive-media-'));

@@ -136,7 +136,7 @@ juce::File exchangeFile(const juce::File& exchange, const juce::DynamicObject& r
 		throw std::invalid_argument("The Tracktion asset handle is invalid");
 	const auto directory = exchange.getChildFile(direction);
 	if (!directory.isDirectory() || directory.isSymbolicLink() || exchange.isSymbolicLink())
-		throw std::runtime_error("The Tracktion exchange directory is unavailable");
+		throw std::invalid_argument("The Tracktion exchange directory is unavailable");
 	const auto file = directory.getChildFile(name + extension);
 	if (file.isSymbolicLink())
 		throw std::invalid_argument("The Tracktion asset handle names a symbolic link");

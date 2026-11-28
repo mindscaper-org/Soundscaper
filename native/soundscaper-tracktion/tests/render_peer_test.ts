@@ -92,13 +92,15 @@ test('a short Tracktion WAV write preserves the destination and the live Edit', 
 	}
 });
 
-test('desktop Tracktion WAV export refuses unavailable project media and retries with exact PCM', async () => {
-	const { reference, retried, source } = await exerciseInterruptedExport(executable, 'render');
-	const pcm = waveData(retried);
-	assert.deepEqual(pcm, waveData(reference));
-	assert.deepEqual(pcm.subarray(0, 64 * 4), Buffer.alloc(64 * 4));
-	assert.deepEqual(pcm.subarray(64 * 4), waveData(source));
-});
+for (const unavailable of ['project media', 'export staging'] as const) {
+	test(`desktop Tracktion WAV export refuses unavailable ${unavailable} and retries with exact PCM`, async () => {
+		const { reference, retried, source } = await exerciseInterruptedExport(executable, 'render', unavailable);
+		const pcm = waveData(retried);
+		assert.deepEqual(pcm, waveData(reference));
+		assert.deepEqual(pcm.subarray(0, 64 * 4), Buffer.alloc(64 * 4));
+		assert.deepEqual(pcm.subarray(64 * 4), waveData(source));
+	});
+}
 
 test('Tracktion exports a persisted reversed wave from a cold detached Edit', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-reversed-render-'));
