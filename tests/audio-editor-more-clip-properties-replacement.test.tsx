@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import ClipPropertiesDialog from '../src/common/editor/ui/inspector/ClipPropertiesDialog.jsx';
 import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
@@ -14,7 +14,14 @@ import { createFixture, createAudioEditorController, createMemoryEngine, ENGLISH
 import { createMemoryFfmpeg } from './helpers/audio-editor-controller-fixtures.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-for (const panel of [false, true]) test(`${panel ? 'panel' : 'dialog'} clip names retire on same-ID native file replacement`, async context => {
+test('the retired inspector facade and clip properties modal are absent from the source tree', async () => {
+	for (const path of ['AudioEditorInspector.jsx', 'inspector/ClipPropertiesDialog.jsx']) {
+		const source = new URL(`../src/common/editor/ui/${path}`, import.meta.url);
+		await assert.rejects(access(source), { code: 'ENOENT' }, path);
+	}
+});
+
+test('panel clip names retire on same-ID native file replacement', async context => {
 	type Options = NonNullable<Parameters<typeof createAudioEditorController>[1]>;
 	const dom = installReactTestDom(), root = createRoot(dom.container as unknown as Element);
 	const globals = globalThis as typeof globalThis & { React?: typeof React; IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -34,9 +41,13 @@ for (const panel of [false, true]) test(`${panel ? 'panel' : 'dialog'} clip name
 	controller.actions.timeline.selectClip('voice-clip');
 	const render = async () => await act(async () => {
 		const props = { controller, snapshot: controller.getSnapshot() as unknown as Parameters<typeof ClipPropertiesPanel>[0]['snapshot'], copy: ENGLISH_COPY };
-		root.render(panel ? <ClipPropertiesPanel {...props} run={work => work()} /> : <ClipPropertiesDialog {...props} isOpen onClose={() => undefined} />);
+		root.render(<ClipPropertiesPanel {...props} run={work => work()} />);
 	});
-	const input = () => { const value = dom.one(panel ? '[data-clip-properties-field="name"]' : '[data-clip-field="name"]').querySelector('input'); assert.ok(value); return value; };
+	const input = () => {
+		const value = dom.one('[data-clip-properties-field="name"]').querySelector('input');
+		assert.ok(value);
+		return value;
+	};
 	await render();
 	await act(async () => { reactProps(input()).onChange({ currentTarget: { value: 'Old draft' }, target: { value: 'Old draft' } }); });
 	const saved = await fixture.store.loadProject(fixture.project.id); assert.ok(saved);
