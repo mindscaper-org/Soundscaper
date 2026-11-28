@@ -234,7 +234,7 @@ void runSessionTest(const juce::File& root)
 		const auto trimmed = readProjectSnapshot(session);
 		require(trimmed.tracks.front().clips.front().start == 371 && trimmed.tracks.front().clips.front().sourceOffset == 245, "trim preserves source sync");
 		require(session.undo(2), "undo trim");
-		right = session.split(3, original, 513);
+		right = session.split(3, original, 513).itemId;
 		const auto split = readProjectSnapshot(session);
 		require(split.revision == 4 && split.tracks.front().clips.size() == 2 && split.tracks.front().clips[0].end == 513
 			&& split.tracks.front().clips[1].start == 513 && split.tracks.front().clips[1].sourceOffset == 387

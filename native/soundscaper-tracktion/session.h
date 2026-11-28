@@ -54,6 +54,17 @@ struct IndexedClip
 	std::size_t index;
 };
 
+struct SplitClips
+{
+	IndexedClip left, right;
+};
+
+struct SplitResult
+{
+	ClipId itemId;
+	std::optional<SplitClips> clips;
+};
+
 struct TrackSummary
 {
 	TrackId id;
@@ -139,7 +150,7 @@ public:
 	ClipId insertAudio(Revision, TrackId, const juce::File& source, Frame start, Frame sourceOffset,
 	                  std::optional<Frame> frameCount, const std::string& name = {});
 	std::optional<IndexedClip> trim(Revision, ClipId, Frame start, Frame end);
-	ClipId split(Revision, ClipId, Frame);
+	SplitResult split(Revision, ClipId, Frame);
 	void moveClip(Revision, ClipId, TrackId destination, Frame start);
 	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);
 	void deleteClip(Revision, ClipId);

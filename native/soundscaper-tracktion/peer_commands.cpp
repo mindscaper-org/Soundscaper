@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "peer_commands.h"
+#include "peer_reply.h"
 #include "session.h"
 
 #include <algorithm>
@@ -20,20 +21,10 @@ constexpr auto pageSize = 32u;
 constexpr auto trackPageSize = 64u;
 constexpr auto clipPageSize = 64u;
 constexpr auto maxJsInteger = 9007199254740991ll;
-using Fields = std::initializer_list<std::pair<const char*, juce::var>>;
-
-juce::var record(Fields fields)
-{
-	auto result = std::make_unique<juce::DynamicObject>();
-	for (const auto& [key, value] : fields)
-		result->setProperty(key, value);
-	return juce::var(result.release());
-}
-
-juce::var number(std::int64_t value)
-{
-	return juce::var(static_cast<juce::int64>(value));
-}
+using peer_reply::clipReply;
+using peer_reply::indexedClipReply;
+using peer_reply::number;
+using peer_reply::record;
 
 void requireFields(const juce::DynamicObject& request, std::initializer_list<const char*> fields)
 {
@@ -184,14 +175,6 @@ juce::var editHistoryReply(const Session& session)
 	return record({{"canUndo", history.canUndo}, {"canRedo", history.canRedo}});
 }
 
-juce::var clipReply(const ClipView& clip)
-{
-	return record({
-		{"id", juce::String(std::to_string(clip.id))}, {"name", juce::String(clip.name).substring(0, 128)},
-		{"start", number(clip.start)}, {"end", number(clip.end)}, {"sourceOffset", number(clip.sourceOffset)},
-	});
-}
-
 juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
 {
 	juce::Array<juce::var> clips;
@@ -310,6 +293,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 
 	std::uint64_t created = 0;
 	std::optional<IndexedClip> editedClip;
+	std::optional<SplitClips> splitClips;
 	auto stoppedRecording = false;
 	if (kind == "startRecording")
 	{
@@ -437,7 +421,9 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	else if (kind == "split")
 	{
 		requireFields(request, {"revision", "clipId", "frame"});
-		created = session.split(revision, itemId(request, "clipId"), integer("frame"));
+		auto split = session.split(revision, itemId(request, "clipId"), integer("frame"));
+		created = split.itemId;
+		splitClips = std::move(split.clips);
 	}
 	else if (kind == "moveClip" || kind == "duplicateClip")
 	{
@@ -525,7 +511,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
 	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
-	if (insertedTrack || editedClip || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+	if (insertedTrack || editedClip || splitClips || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
 	if (insertedTrack)
 		if (const auto insertion = session.trackInsertion(created))
@@ -535,10 +521,12 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	if (editedClip)
 	{
 		const auto field = kind == "trim" ? "trimmedClip" : kind == "finishRecording" ? "recordedClip" : "importedClip";
-		reply.getDynamicObject()->setProperty(field, record({
-			{"clip", clipReply(editedClip->clip)}, {"index", number(static_cast<std::int64_t>(editedClip->index))},
-		}));
+		reply.getDynamicObject()->setProperty(field, indexedClipReply(*editedClip));
 	}
+	if (splitClips)
+		reply.getDynamicObject()->setProperty("splitClips", record({
+			{"left", indexedClipReply(splitClips->left)}, {"right", indexedClipReply(splitClips->right)},
+		}));
 	if (stoppedRecording) reply.getDynamicObject()->setProperty("transport", transportObservation(session));
 	return reply;
 }

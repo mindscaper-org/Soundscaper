@@ -296,8 +296,10 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await button('Split clip').click();
 	const split = page.getByRole('dialog', { name: 'Split clip' });
 	await split.getByRole('spinbutton', { name: 'Split frame' }).fill('512');
+	const beforeSplit = (await commandsSince()).length;
 	await split.getByRole('button', { name: 'Apply' }).click();
 	await page.getByText('2 clips', { exact: true }).waitFor();
+	assert.deepEqual(await commandsSince(beforeSplit), ['split']);
 	await editing.click();
 	await button('Undo').click();
 	await page.getByText('1 clip', { exact: true }).waitFor();

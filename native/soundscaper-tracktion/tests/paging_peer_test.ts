@@ -76,6 +76,9 @@ test('a full Tracktion clip lane refuses recording or splitting and can split af
 				{ id: clipId, name: 'Unsaved audio', start: 0, end: 32, sourceOffset: 0 },
 				{ id: applied.itemId, name: 'Unsaved audio', start: 32, end: 64, sourceOffset: 32 },
 			]);
+			assert.deepEqual(applied, { revision: revision + 1, itemId: applied.itemId,
+				history: { canUndo: true, canRedo: false },
+				splitClips: { left: { clip: expected[0], index: 0 }, right: { clip: expected[1], index: 1 } } });
 			assert.deepEqual(expected.slice(2), clips.slice(1, -1));
 			await peer.request({ kind: 'save', revision: applied.revision });
 		} finally { await peer.close(); }

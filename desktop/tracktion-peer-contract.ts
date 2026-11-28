@@ -105,11 +105,13 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const discarding = finishesRecording && command.discard;
 	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
-	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
+	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split'
+		|| command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
 	const allowed = permitsHistory ? [...fields, 'history'] : [...fields];
 	if (permitsInsertion) allowed.push('insertion');
 	if (editedClipField) allowed.push(editedClipField);
+	if (command.kind === 'split') allowed.push('splitClips');
 	if (finishesRecording) allowed.push('transport');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
@@ -139,15 +141,28 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		return Object.freeze({ revision, itemId: null, pointIndex, ...history }) as TracktionReply<Command>;
 	}
 	if (editedClipField && result[editedClipField] !== undefined) {
-		const { clip, index } = readClosedDomainRecord(result[editedClipField], 'Tracktion edited clip', ['clip', 'index']);
-		const updated = readClip(clip);
+		const placement = readIndexedClip(result[editedClipField]);
 		const expectedId = command.kind === 'trim' ? command.clipId : itemId;
-		if (!edited || updated.id !== expectedId) throw new TypeError('Tracktion returned an inconsistent edited clip.');
-		const placement = Object.freeze({ clip: updated, index: nonnegativeInteger(index) });
+		if (!edited || placement.clip.id !== expectedId) throw new TypeError('Tracktion returned an inconsistent edited clip.');
 		return Object.freeze({ ...edit, [editedClipField]: placement }) as TracktionReply<Command>;
+	}
+	if (command.kind === 'split' && result.splitClips !== undefined) {
+		const reply = readClosedDomainRecord(result.splitClips, 'Tracktion split clips', ['left', 'right']);
+		const left = readIndexedClip(reply.left);
+		const right = readIndexedClip(reply.right);
+		if (!edited || left.clip.id !== command.clipId || right.clip.id !== itemId || left.clip.id === right.clip.id
+			|| left.index === right.index || left.clip.end !== command.frame || right.clip.start !== command.frame) {
+			throw new TypeError('Tracktion returned inconsistent split clips.');
+		}
+		return Object.freeze({ ...edit, splitClips: Object.freeze({ left, right }) }) as TracktionReply<Command>;
 	}
 	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
 	return Object.freeze({ ...edit, ...insertion }) as TracktionReply<Command>;
+}
+
+function readIndexedClip(value: unknown) {
+	const { clip, index } = readClosedDomainRecord(value, 'Tracktion edited clip', ['clip', 'index']);
+	return Object.freeze({ clip: readClip(clip), index: nonnegativeInteger(index) });
 }
 
 function readEditHistory(value: unknown) {

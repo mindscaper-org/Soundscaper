@@ -63,11 +63,9 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
-	const { revision, importedClip, recordedClip, trimmedClip } = result;
-	const insertedClip = importedClip ?? recordedClip;
-	const placement = insertedClip ?? trimmedClip;
-	if (placement && source && source.id === trackId && (!insertedClip || insertedClip.clip.id === result.itemId)) {
-		const clips = placeEditedClip(workspace.clips, placement, insertedClip !== undefined);
+	const { revision } = result;
+	if (source && source.id === trackId) {
+		const clips = applyClipPlacements(workspace.clips, result);
 		if (clips) {
 			const selectedTrack = withClipCount(source, clips.length);
 			const changedTrack = selectedTrack === source ? undefined : selectedTrack;
@@ -96,6 +94,27 @@ export async function readTracktionWorkspaceAfterClipEdit(
 		return track.id === previousTrack?.id ? previousTrack : track;
 	});
 	return { ...workspace, project, tracks, selectedTrack, clips, recentClips };
+}
+
+function applyClipPlacements(clips: readonly TracktionClipView[], result: TracktionEditResult): readonly TracktionClipView[] | undefined {
+	const { splitClips, importedClip, recordedClip, trimmedClip, itemId } = result;
+	if (splitClips) {
+		const { left, right } = splitClips;
+		if (right.clip.id !== itemId) return undefined;
+		const [first, second] = left.index < right.index ? [left, right] : [right, left];
+		if (first.index < 0 || first.index === second.index || second.index > clips.length) return undefined;
+		const previous = clips.findIndex(({ id }) => id === left.clip.id);
+		if (previous < 0 || clips.some(({ id }) => id === right.clip.id)) return undefined;
+		const updated = clips.slice();
+		updated.splice(previous, 1);
+		updated.splice(first.index, 0, first.clip);
+		updated.splice(second.index, 0, second.clip);
+		return updated;
+	}
+	const inserted = importedClip ?? recordedClip;
+	const placement = inserted ?? trimmedClip;
+	if (!placement || inserted && inserted.clip.id !== itemId) return undefined;
+	return placeEditedClip(clips, placement, inserted !== undefined);
 }
 
 function placeEditedClip(

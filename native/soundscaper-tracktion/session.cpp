@@ -427,7 +427,7 @@ std::optional<IndexedClip> Session::trim(Revision expected, ClipId id, Frame sta
 	return IndexedClip{summarizeClip(clip, s.sampleRate), static_cast<std::size_t>(index)};
 }
 
-ClipId Session::split(Revision expected, ClipId id, Frame frame)
+SplitResult Session::split(Revision expected, ClipId id, Frame frame)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -435,6 +435,7 @@ ClipId Session::split(Revision expected, ClipId id, Frame frame)
 	const auto position = s.position(frame);
 	if (position <= clip.getPosition().getStart() || position >= clip.getPosition().getEnd())
 		throw std::invalid_argument("Split must be inside the clip");
+	const auto linked = clip.isLinked();
 	s.begin("Split clip");
 	auto* right = track.splitClip(clip, position);
 	if (right == nullptr)
@@ -443,7 +444,19 @@ ClipId Session::split(Revision expected, ClipId id, Frame frame)
 		throw std::invalid_argument("Tracktion refused the clip split");
 	}
 	s.commit();
-	return right->itemID.getRawID();
+	const auto created = right->itemID.getRawID();
+	if (linked) return {created, std::nullopt};
+	const auto& clips = track.getClips();
+	const auto leftIndex = clips.indexOf(&clip);
+	const auto rightIndex = clips.indexOf(right);
+	if (leftIndex < 0 || rightIndex < 0) return {created, std::nullopt};
+	auto leftView = summarizeClip(clip, s.sampleRate);
+	auto rightView = summarizeClip(*right, s.sampleRate);
+	if (leftView.end != frame || rightView.start != frame) return {created, std::nullopt};
+	return {created, SplitClips{
+		{std::move(leftView), static_cast<std::size_t>(leftIndex)},
+		{std::move(rightView), static_cast<std::size_t>(rightIndex)},
+	}};
 }
 
 void Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame start)
