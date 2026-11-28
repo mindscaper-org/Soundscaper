@@ -72,6 +72,7 @@ export class TracktionProjectService {
 	readonly #ports: Ports;
 	readonly #revoked = new WeakSet<object>();
 	readonly #exports = createTracktionExportWriter();
+	readonly #deferredEditScratch = new Set<string>();
 	#active: ActiveProject | null = null;
 	#clipboard: Readonly<{ owner: object; directory: string }> | null = null;
 	#operation: Operation | null = null;
@@ -116,6 +117,7 @@ export class TracktionProjectService {
 		const owners = new Set([this.#operation?.owner, this.#active?.owner, this.#clipboard?.owner]);
 		this.#disposal = Promise.allSettled([...owners].flatMap((owner) => owner ? [this.revokeOwner(owner)] : []))
 			.then(async (results) => {
+				await Promise.all([...this.#deferredEditScratch].map((scratch) => this.#removeEditScratch(scratch)));
 				await this.#exports.dispose();
 				for (const result of results) if (result.status === 'rejected') throw result.reason;
 			});
@@ -128,13 +130,28 @@ export class TracktionProjectService {
 			running?.result.catch(() => undefined),
 			this.#exports.revokeOwner(owner),
 		]);
-		if (active) await rm(active.scratch, { force: true, recursive: true });
+		if (active) await this.#removeEditScratch(active.scratch);
 		if (this.#clipboard?.owner === owner) {
 			const { directory } = this.#clipboard;
 			this.#clipboard = null;
 			await rm(directory, { force: true, recursive: true });
 		}
 		for (const result of results) if (result.status === 'rejected') throw result.reason;
+	}
+
+	async #removeEditScratch(scratch: string): Promise<void> {
+		try {
+			await rm(scratch, { force: true, recursive: true });
+			this.#deferredEditScratch.delete(scratch);
+		} catch (error) {
+			if (!this.#deferredEditScratch.has(scratch)) console.error('Could not remove retired Tracktion session files.', error);
+			this.#deferredEditScratch.add(scratch);
+		}
+	}
+
+	async #closeProject(active: ActiveProject): Promise<void> {
+		try { await active.peer.close(); }
+		finally { await this.#removeEditScratch(active.scratch); }
 	}
 
 	#assertOwner(owner: object, signal?: AbortSignal): void {
@@ -162,7 +179,7 @@ export class TracktionProjectService {
 				if (this.#ports.isOwnerCurrent(active.owner)) this.#ports.onProjectLost?.(active.owner, active.id, UTILITY_EXIT_MESSAGE);
 			} finally {
 				await operation?.result.catch(() => undefined);
-				await closeProject(active);
+				await this.#closeProject(active);
 			}
 		}).catch(console.error);
 	}
@@ -173,7 +190,7 @@ export class TracktionProjectService {
 		const active = this.#requireProject(owner, command.sessionId);
 		if (command.kind === 'close') {
 			this.#active = null;
-			await closeProject(active);
+			await this.#closeProject(active);
 			return null;
 		}
 		if (command.kind === 'save') {
@@ -273,7 +290,7 @@ export class TracktionProjectService {
 			if (peer.stopped) throw new Error(UTILITY_EXIT_MESSAGE);
 			if (previous && this.#active === previous) {
 				this.#active = null;
-				await closeProject(previous);
+				await this.#closeProject(previous);
 			}
 			this.#assertOwner(owner, signal);
 			if (peer.stopped) throw new Error(UTILITY_EXIT_MESSAGE);
@@ -281,8 +298,8 @@ export class TracktionProjectService {
 			this.#observeProjectExit(candidate);
 			return opened;
 		} catch (error) {
-			if (candidate) await closeProject(candidate);
-			else await rm(scratch, { force: true, recursive: true });
+			if (candidate) await this.#closeProject(candidate);
+			else await this.#removeEditScratch(scratch);
 			throw error;
 		}
 	}
@@ -331,11 +348,6 @@ export class TracktionProjectService {
 			await rm(staged, { force: true });
 		}
 	}
-}
-
-async function closeProject(active: ActiveProject): Promise<void> {
-	try { await active.peer.close(); }
-	finally { await rm(active.scratch, { force: true, recursive: true }); }
 }
 
 async function saveNewProject(active: ActiveProject): Promise<void> {

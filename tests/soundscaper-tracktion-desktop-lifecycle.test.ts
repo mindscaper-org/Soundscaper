@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
@@ -33,6 +33,7 @@ function peer(stopsBeforePublication = false) {
 
 async function projectService(context: TestContext, peers: ReturnType<typeof peer>[]) {
 	const root = await mkdtemp(join(tmpdir(), 'tracktion-utility-lifecycle-'));
+	const scratchRoot = join(root, 'scratch');
 	const projects = [join(root, 'Saved'), join(root, 'Replacement')];
 	for (const directory of projects) {
 		await mkdir(directory);
@@ -42,7 +43,7 @@ async function projectService(context: TestContext, peers: ReturnType<typeof pee
 	const lost: { owner: object; sessionId: string; message: string }[] = [];
 	let selected = 0;
 	const service = new TracktionProjectService({
-		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		scratchRoot, isOwnerCurrent: (caller) => caller === owner,
 		chooseCreateDirectory: async () => null, chooseOpenProject: async () => join(projects[selected]!, 'project.tracktionedit'),
 		chooseWave: async () => null, chooseExport: async () => null,
 		startPeer: async () => {
@@ -62,7 +63,7 @@ async function projectService(context: TestContext, peers: ReturnType<typeof pee
 		assert.ok(result && 'sessionId' in result);
 		return result;
 	}
-	return { service, owner, lost, open };
+	return { service, owner, lost, open, scratchRoot };
 }
 
 void test('an idle Tracktion utility exit expires the visible project and permits reopening it', async (context) => {
@@ -96,4 +97,58 @@ void test('a Tracktion utility that stopped before publication cannot replace th
 	await assert.rejects(open(1), /Tracktion.*unexpectedly/u);
 	assert.deepEqual(lost, []);
 	assert.deepEqual(await service.request(owner, { kind: 'project', sessionId: current.sessionId, offset: 0 }), current.project);
+});
+
+for (const command of ['close', 'open'] as const) {
+	void test(`Tracktion ${command} completes when the retired peer's temporary files cannot be removed`, {
+		skip: process.platform === 'win32' || process.getuid?.() === 0,
+	}, async (context) => {
+		const retiring = peer();
+		const next = peer();
+		const cleanupError = context.mock.method(console, 'error', () => undefined);
+		const { service, owner, lost, open, scratchRoot } = await projectService(context, [retiring, next]);
+		const before = await open();
+		const [directory] = (await readdir(scratchRoot)).filter((name) => name.startsWith('edit-'));
+		assert.ok(directory);
+		const scratch = join(scratchRoot, directory);
+		await chmod(scratch, 0o500);
+		try {
+			if (command === 'close') {
+				assert.equal(await service.request(owner, { kind: 'close', sessionId: before.sessionId }), null);
+			} else {
+				const replacement = await open(1);
+				assert.deepEqual(await service.request(owner, { kind: 'project', sessionId: replacement.sessionId, offset: 0 }), replacement.project);
+			}
+			assert.equal(retiring.stopped, true);
+			assert.equal(next.stopped, false);
+			assert.deepEqual(lost, []);
+			assert.equal(cleanupError.mock.callCount(), 1);
+			await assert.rejects(service.request(owner, { kind: 'project', sessionId: before.sessionId, offset: 0 }), /handle has expired/u);
+		} finally { await chmod(scratch, 0o700); }
+		await service.dispose();
+		assert.deepEqual(await readdir(scratchRoot), []);
+	});
+}
+
+void test('Tracktion reports a peer shutdown failure even if its temporary cleanup fails', {
+	skip: process.platform === 'win32' || process.getuid?.() === 0,
+}, async (context) => {
+	const retiring = peer();
+	const failure = new Error('The Tracktion utility could not stop.');
+	context.mock.method(retiring, 'close', async () => {
+		retiring.exit();
+		throw failure;
+	});
+	context.mock.method(console, 'error', () => undefined);
+	const { service, owner, open, scratchRoot } = await projectService(context, [retiring]);
+	const project = await open();
+	const [directory] = (await readdir(scratchRoot)).filter((name) => name.startsWith('edit-'));
+	assert.ok(directory);
+	const scratch = join(scratchRoot, directory);
+	await chmod(scratch, 0o500);
+	try {
+		await assert.rejects(service.request(owner, { kind: 'close', sessionId: project.sessionId }), failure);
+	} finally { await chmod(scratch, 0o700); }
+	await service.dispose();
+	assert.deepEqual(await readdir(scratchRoot), []);
 });
