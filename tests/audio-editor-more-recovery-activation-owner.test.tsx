@@ -7,20 +7,19 @@ import { createRoot } from 'react-dom/client';
 import ProjectRecoveryDialog from '../src/common/editor/ui/dialogs/ProjectRecoveryDialog.tsx';
 import { PROJECT_RECOVERY_COPY_BY_LOCALE } from '../src/common/i18n/editor-project-recovery-copy.ts';
 import { RECORDING_RECOVERY_KEY_PREFIX } from '../src/common/editor/storage/recording-recovery-journal-repository.ts';
-import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { bindSoundscaperProjectRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-import { createSoundscaperCompatibilityController } from './helpers/soundscaper-controller-session.ts';
+import { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } from './helpers/soundscaper-controller-session.ts';
 
 test('MP59: dismissed pending File Recovery cannot replace a newer workspace', async () => {
-	const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
+	const environment = await openSoundscaperCompatibilityFixture({
 		indexedDB: createInstrumentedIndexedDB(), preferOpfs: false,
 		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true,
 			persist: async () => true } as unknown as StorageManager,
-	} });
+	});
 	const controller = createSoundscaperCompatibilityController(environment);
 	await controller.ready;
 	const original = createSoundscaperProject({ id: 'recover-pending-original', title: 'Original work' });

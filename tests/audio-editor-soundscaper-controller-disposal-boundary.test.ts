@@ -4,9 +4,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
-import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { createSoundscaperCompatibilityController } from './helpers/soundscaper-controller-session.ts';
+import { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } from './helpers/soundscaper-controller-session.ts';
 
 test('the shared controller exposes no desktop macro file batch action', async () => {
 	const environment = await createEnvironment();
@@ -59,15 +58,13 @@ test('explicit early disposal fencing also closes project edits', async () => {
 });
 
 function createEnvironment() {
-	return createSoundscaperEditorProjectEnvironment({
-		storeOptions: {
-			indexedDB: createInstrumentedIndexedDB(),
-			preferOpfs: false,
-			storageManager: {
-				estimate: async () => ({ usage: 0, quota: 1024 * 1024 * 1024 }),
-				persisted: async () => true,
-				persist: async () => true,
-			} as unknown as StorageManager,
-		},
+	return openSoundscaperCompatibilityFixture({
+		indexedDB: createInstrumentedIndexedDB(),
+		preferOpfs: false,
+		storageManager: {
+			estimate: async () => ({ usage: 0, quota: 1024 * 1024 * 1024 }),
+			persisted: async () => true,
+			persist: async () => true,
+		} as unknown as StorageManager,
 	});
 }

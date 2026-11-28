@@ -3,17 +3,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { acceptNativePluginPortOffer, createNativePluginEffectNode, registerNativePluginRuntimeIdentity, releaseNativePluginRuntime } from '../src/common/editor/native-plugin-realtime-node.js';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
-import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { quiesceNativePluginState, registerNativePluginStateQuiescence } from '../src/common/editor/native-plugin-state-quiescence.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-import { createSoundscaperCompatibilityController } from './helpers/soundscaper-controller-session.ts';
+import { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } from './helpers/soundscaper-controller-session.ts';
 
 for (const changed of [false, true]) test(`MP60: File Duplicate completes after ${changed ? 'changed' : 'unchanged'} live native state capture`, async () => {
-	const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
+	const environment = await openSoundscaperCompatibilityFixture({
 		indexedDB: createInstrumentedIndexedDB(), preferOpfs: false,
 		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true, persist: async () => true } as unknown as StorageManager,
-	} });
+	});
 	const controller: ReturnType<typeof createSoundscaperCompatibilityController> = createSoundscaperCompatibilityController(environment, {
 		prepareProjectSnapshot: purpose => quiesceNativePluginState(controller, purpose),
 	});

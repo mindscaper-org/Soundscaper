@@ -17,9 +17,8 @@ async function createProductSession(product: Product, indexedDB: ReturnType<type
 	const presentation = { locale: 'en', copy: ENGLISH_COPY, fileService };
 	const options = { storeOptions: { indexedDB, preferOpfs: false } };
 	if (product === 'soundscaper') {
-		const { createSoundscaperEditorProjectEnvironment } = await import('../../src/soundscaper/editor-project-environment.ts');
-		const { createSoundscaperCompatibilityController } = await import('./soundscaper-controller-session.ts');
-		const environment = await createSoundscaperEditorProjectEnvironment(options);
+		const { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } = await import('./soundscaper-controller-session.ts');
+		const environment = await openSoundscaperCompatibilityFixture(options.storeOptions);
 		try {
 			return { environment, controller: createSoundscaperCompatibilityController(environment, presentation), fileService, copy: ENGLISH_COPY };
 		} catch (error) { await environment.close(); throw error; }

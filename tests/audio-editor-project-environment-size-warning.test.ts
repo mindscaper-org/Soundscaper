@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
+import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { createFramescaperEditorProjectEnvironment } from '../src/framescaper/editor-project-environment.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
@@ -11,28 +11,31 @@ import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js
 
 for (const product of ['soundscaper', 'framescaper'] as const) {
 	test(`${product} project creation forwards a current-operation size decision before persistence`, async () => {
-		const createEnvironment = product === 'soundscaper' ? createSoundscaperEditorProjectEnvironment : createFramescaperEditorProjectEnvironment;
-		const environment = await createEnvironment({ storeOptions: {
+		const storeOptions = {
 			indexedDB: createInstrumentedIndexedDB(), preferOpfs: false, maximumProjectDocumentBytes: 100,
 			storageManager: {
 				estimate: async () => ({ usage: 0, quota: 1024 ** 3 }),
 				persisted: async () => true, persist: async () => true,
 			} as unknown as StorageManager,
-		} });
+		};
+		const framescaper = product === 'framescaper' ? await createFramescaperEditorProjectEnvironment({ storeOptions }) : null;
+		const store = framescaper?.store ?? createSoundscaperProjectStore(storeOptions);
+		const authority = framescaper ?? store;
 		try {
+			await store.ready();
 			const options = { id: `${product}-size-warning`, title: 'Large project' };
 			const project = product === 'soundscaper' ? createSoundscaperProject(options)
 				: createFramescaperProject(FRAMESCAPER_PROJECT_RUNTIME_PROFILE, options);
 			let requests = 0;
-			await assert.rejects(environment.createProjectIfAbsent(project, {
+			await assert.rejects(authority.createProjectIfAbsent(project, {
 				confirmFileSizeWarning: async () => { requests += 1; return false; },
 			}), { name: 'AbortError' });
-			assert.equal(await environment.store.loadProject(project.id), null);
+			assert.equal(await store.loadProject(project.id), null);
 			assert.equal(requests, 1);
-			assert.deepEqual(await environment.createProjectIfAbsent(project, {
+			assert.deepEqual(await authority.createProjectIfAbsent(project, {
 				confirmFileSizeWarning: async () => { requests += 1; return true; },
 			}), project);
 			assert.equal(requests, 2);
-		} finally { await environment.close(); }
+		} finally { await authority.close(); }
 	});
 }
