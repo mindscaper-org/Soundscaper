@@ -131,6 +131,6 @@ void Session::archive(Revision expected, const juce::File& output, ProjectArchiv
 			throw std::invalid_argument("Cannot write a complete Tracktion archive");
 	}
 	if (!staging.overwriteTargetFileWithTemporary())
-		throw std::runtime_error("Cannot publish the Tracktion archive");
+		throw std::invalid_argument("Cannot publish the Tracktion archive");
 }
 }

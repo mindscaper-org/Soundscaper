@@ -2,7 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { randomFillSync } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmodSync, watch } from 'node:fs';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -164,6 +165,94 @@ test('Tracktion ZIP snapshot write failure preserves the unsaved Edit and its hi
 		assert.ok(redone && 'tracks' in redone);
 		assert.equal(redone.tracks[1]?.name, 'Redo witness');
 		assert.equal(redone.tracks[0]?.clipCount, 12);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
+
+test('Tracktion ZIP publication failure preserves the previous archive and permits a same-project retry', {
+	skip: process.platform !== 'linux' || process.getuid?.() === 0,
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-archive-publication-'));
+	const project = join(root, 'project');
+	const original = join(root, 'Original.wav');
+	const incoming = join(root, 'Incoming.wav');
+	const destination = join(root, 'project.zip');
+	const owner = {};
+	const originalWave = wavFixture();
+	const incomingWave = randomFillSync(wavFixture(4 * 1024 * 1024), 44);
+	let selected = original;
+	let exchange: string | undefined;
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => project, chooseOpenProject: async () => null,
+		chooseWave: async () => selected, chooseExport: async () => destination,
+		startPeer: async (options) => {
+			exchange = options.exchangeDirectory;
+			return launchTracktionPeer({ ...options, executable });
+		},
+	});
+	try {
+		await mkdir(project);
+		await Promise.all([writeFile(original, originalWave), writeFile(incoming, incomingWave)]);
+		const opened = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+		assert.ok(opened && 'sessionId' in opened && exchange);
+		const { sessionId } = opened;
+		const [track] = opened.project.tracks;
+		assert.ok(track);
+		const importClip = { kind: 'import', sessionId, trackId: track.id } as const;
+		const savedClip = await service.request(owner, { ...importClip, revision: 0, start: 0 });
+		assert.ok(savedClip && 'itemId' in savedClip);
+		await service.request(owner, { kind: 'save', sessionId, revision: savedClip.revision });
+		const archive = { kind: 'archive', sessionId } as const;
+		await service.request(owner, { ...archive, revision: savedClip.revision });
+		const previous = await readFile(destination);
+		assert.ok(unzipSync(previous)['project.tracktionedit']);
+
+		selected = incoming;
+		const unsaved = await service.request(owner, { ...importClip, revision: savedClip.revision, start: 64 });
+		assert.ok(unsaved && 'itemId' in unsaved);
+		const witness = await service.request(owner, { kind: 'addTrack', sessionId, revision: unsaved.revision, name: 'Redo witness' });
+		assert.ok(witness && 'itemId' in witness);
+		await service.request(owner, { kind: 'undo', sessionId, revision: witness.revision });
+		const page = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, page);
+		assert.ok(before && 'tracks' in before && before.canUndo && before.canRedo);
+		assert.equal(before.tracks[0]?.clipCount, 2);
+		const clips = { kind: 'clips', sessionId, trackId: track.id, offset: 0, revision: before.revision } as const;
+		const beforeClips = await service.request(owner, clips);
+		const exchangeOutput = join(exchange, 'output');
+		let blocked = false;
+		const watcher = watch(exchangeOutput, (event, name) => {
+			if (blocked || event !== 'rename' || !name?.includes('_temp')) return;
+			// The opened stream can finish writing. Removing directory write permission only blocks publication.
+			chmodSync(exchangeOutput, 0o500);
+			blocked = true;
+		});
+		try {
+			await assert.rejects(service.request(owner, { ...archive, revision: before.revision }),
+				(error: unknown) => error instanceof TracktionRejectedCommand && /Cannot publish the Tracktion archive/u.test(error.message));
+			assert.equal(blocked, true);
+		} finally {
+			watcher.close();
+			await chmod(exchangeOutput, 0o700);
+		}
+		assert.deepEqual(await readFile(destination), previous);
+		assert.deepEqual(await service.request(owner, page), before);
+		assert.deepEqual(await service.request(owner, clips), beforeClips);
+
+		const redone = await service.request(owner, { kind: 'redo', sessionId, revision: before.revision });
+		assert.ok(redone && 'itemId' in redone);
+		const after = await service.request(owner, page);
+		assert.ok(after && 'tracks' in after);
+		assert.equal(after.tracks[1]?.name, 'Redo witness');
+		await service.request(owner, { ...archive, revision: redone.revision });
+		const files = unzipSync(await readFile(destination));
+		assert.deepEqual(Object.keys(files).filter((file) => !file.startsWith('media/')).sort(), ['project.tracktionedit', 'project_info.json']);
+		const waves = Object.entries(files).filter(([file]) => file.startsWith('media/'))
+			.map(([, wave]) => Buffer.from(wave.buffer, wave.byteOffset, wave.byteLength)).sort((a, b) => a.length - b.length);
+		assert.deepEqual(waves, [originalWave, incomingWave]);
 	} finally {
 		try { await service.dispose(); }
 		finally { await rm(root, { recursive: true, force: true }); }
