@@ -3,19 +3,17 @@
 #include "session_state.h"
 
 #include <algorithm>
+#include <functional>
+#include <iostream>
 #include <set>
 #include <stdexcept>
 
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 #include "pipewire_device.h"
-
-#include <functional>
-#include <iostream>
 #endif
 
 namespace soundscaper::tracktion_backend
 {
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 namespace
 {
 class DeviceLossMonitor final : public juce::Timer
@@ -28,13 +26,10 @@ private:
 	std::function<void()> inspect;
 };
 }
-#endif
 
 Session::~Session()
 {
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	if (state->deviceLossMonitor) state->deviceLossMonitor->stopTimer();
-#endif
 	if (state->recording)
 	{
 		state->edit->getTransport().stop(true, true, false);
@@ -165,14 +160,22 @@ bool Session::outputInterrupted() const
 
 void Session::watchAudioDevice()
 {
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	auto& s = *state;
-	auto* device = s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
-	if (pipeWireOutput(device) == PipeWireRoute::inactive && pipeWireCapture(device) == PipeWireRoute::inactive) return;
+	if (s.playback != nullptr) return;
+	if (!isRecording())
+	{
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+		auto* device = s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
+		if (pipeWireOutput(device) == PipeWireRoute::inactive && pipeWireCapture(device) == PipeWireRoute::inactive) return;
+#else
+		return;
+#endif
+	}
 	if (!s.deviceLossMonitor)
 		s.deviceLossMonitor = std::make_unique<DeviceLossMonitor>([this]
 		{
 			auto& s = *state;
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 			auto* device = s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice();
 			if (pipeWireOutput(device) == PipeWireRoute::interrupted)
 			{
@@ -184,12 +187,24 @@ void Session::watchAudioDevice()
 					s.edit->getTransport().setPosition(tracktion::TimePosition::fromSamples(frame, s.sampleRate));
 				}
 			}
-			if (!isRecording() && !isPlaying())
+#endif
+			if (!isRecording())
 			{
-				setPipeWirePlaybackActive(device, false);
-				s.deviceLossMonitor->stopTimer();
+				if (!isPlaying())
+				{
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+					setPipeWirePlaybackActive(device, false);
+#endif
+					s.deviceLossMonitor->stopTimer();
+				}
+				return;
 			}
-			if (!isRecording() || pipeWireCapture(device) != PipeWireRoute::interrupted) return;
+			// The engine may stop on a disk write failure while the session still owns the take.
+			auto interrupted = !s.edit->getTransport().isRecording();
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
+			interrupted = interrupted || pipeWireCapture(device) == PipeWireRoute::interrupted;
+#endif
+			if (!interrupted) return;
 			const auto before = s.revision;
 			try
 			{
@@ -202,7 +217,6 @@ void Session::watchAudioDevice()
 			}
 		});
 	s.deviceLossMonitor->startTimer(40);
-#endif
 }
 
 void Session::play(Frame start)
@@ -255,9 +269,7 @@ Frame Session::playbackPosition() const
 void Session::stop()
 {
 	state->requireNoRecording();
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	if (state->deviceLossMonitor) state->deviceLossMonitor->stopTimer();
-#endif
 	state->edit->getTransport().stop(false, false, false);
 #if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	setPipeWirePlaybackActive(state->engine.getDeviceManager().deviceManager.getCurrentAudioDevice(), false);

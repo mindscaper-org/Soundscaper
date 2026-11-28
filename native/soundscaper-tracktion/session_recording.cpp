@@ -231,12 +231,12 @@ std::optional<ClipId> Session::finishRecording(Revision expected, bool discard)
 	s.begin("Record audio");
 	auto& transport = s.edit->getTransport();
 	auto alignWithCapture = s.hostedMonoInput;
-#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	if (s.deviceLossMonitor) s.deviceLossMonitor->stopTimer();
+#if defined(SOUNDSCAPER_TRACKTION_PIPEWIRE)
 	if (s.recording->native)
 		alignWithCapture = quiescePipeWireCapture(s.engine.getDeviceManager().deviceManager.getCurrentAudioDevice());
 #endif
-	if (!discard && alignWithCapture)
+	if (!discard && alignWithCapture && transport.isRecording())
 		if (auto* head = transport.getCurrentPlaybackContext()->getNodePlayHead(); head && head->isPlaying())
 		{
 			// Tracktion stops at the start of the most recent device block.

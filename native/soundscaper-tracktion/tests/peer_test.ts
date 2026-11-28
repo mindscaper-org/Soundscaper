@@ -12,6 +12,7 @@ import { unzipSync } from 'fflate';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { countAlsaFrames, startAlsaCaptureFixture, startAlsaRoutingFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { exerciseInterruptedExport } from './export_peer_fixture.ts';
+import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import './paging_peer_test.ts';
 import './pipewire_capture_peer_test.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
@@ -353,6 +354,75 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 		else process.env.ALSA_CONFIG_PATH = previous;
 		try { await stopInput?.(); }
 		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
+
+test('Tracktion ends a disk-aborted recording and preserves the existing Edit', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-aborted-take-'));
+	const config = join(root, 'alsa.conf');
+	const previous = process.env.ALSA_CONFIG_PATH;
+	const limited = join(root, 'limited-peer');
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const media = join(projectDirectory, 'media');
+	const launch = { projectDirectory, exchangeDirectory, stateDirectory: join(root, 'settings') };
+	const project = { kind: 'project', offset: 0 } as const;
+	const observation = { kind: 'transportObservation' } as const;
+	let stopInput: (() => Promise<void>) | undefined;
+	try {
+		stopInput = await startAlsaCaptureFixture(config, join(root, 'input.raw'));
+		process.env.ALSA_CONFIG_PATH = config;
+		await writeFileSizeLimitedPeer(limited, 32);
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		const audio = wavFixture();
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), audio);
+		const peer = launchTracktionPeer({ ...launch, executable: limited, mode: 'create', sampleRate: 48_000 });
+		try {
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			const imported = await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Earlier audio', start: 0 });
+			const added = await peer.request({ kind: 'addTrack', revision: imported.revision, name: 'Redo witness' });
+			const { revision } = await peer.request({ kind: 'undo', revision: added.revision });
+			const before = await peer.request(project);
+			assert.ok(before.canUndo && before.canRedo);
+			const [stored] = await readdir(media);
+			assert.ok(stored);
+			await peer.request({ kind: 'save', revision });
+			await peer.request({ kind: 'prepareOutput' });
+			const start = 144;
+			const started = await peer.request({ kind: 'startRecording', revision, trackId: track.id, frame: start });
+			assert.equal(started.recording, true);
+			let current = await peer.request(observation);
+			const deadline = performance.now() + 3000;
+			while (current.recording && performance.now() < deadline) {
+				await sleep(10);
+				current = await peer.request(observation);
+			}
+			assert.equal(current.recording, false, 'A take stopped by Tracktion must no longer show as recording.');
+			assert.ok(current.frame >= start + 8192);
+			assert.deepEqual(current.interruptedTake, { revision, itemId: null });
+			assert.deepEqual(await peer.request(project), before);
+			assert.deepEqual(await readdir(media), [stored]);
+			assert.deepEqual(await readFile(join(media, stored)), audio);
+			const stopped = await peer.request({ kind: 'finishRecording', revision, discard: false });
+			assert.equal(stopped.revision, revision);
+			assert.equal(stopped.itemId, null);
+			const redone = await peer.request({ kind: 'redo', revision });
+			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
+			const undone = await peer.request({ kind: 'undo', revision: redone.revision });
+			await peer.request({ kind: 'save', revision: undone.revision });
+			await peer.close();
+			const reopened = launchTracktionPeer({ ...launch, executable, mode: 'open' });
+			try { assert.deepEqual((await reopened.request(project)).tracks, before.tracks); }
+			finally { await reopened.close(); }
+		} finally { await peer.close(); }
+	} finally {
+		try { await stopInput?.(); }
+		finally {
+			if (previous === undefined) delete process.env.ALSA_CONFIG_PATH;
+			else process.env.ALSA_CONFIG_PATH = previous;
+			await rm(root, { recursive: true, force: true });
+		}
 	}
 });
 
