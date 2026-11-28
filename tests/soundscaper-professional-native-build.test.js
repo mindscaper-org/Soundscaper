@@ -224,6 +224,7 @@ test('professional build plans bind exact SDK pins and never treat the VST3 meta
 		buildRoot: join(roots.juce, '..', 'build-mac'),
 	});
 	assert.deepEqual(mac.configure.argv.slice(4, 6), ['-G', 'Ninja']);
+	assert.deepEqual(mac.build.argv.slice(-2), ['--parallel', '2']);
 	assert.match(mac.configure.argv.join('\n'), /CMAKE_OSX_ARCHITECTURES=arm64/u);
 	assert(mac.configure.argv.includes(`-DCMAKE_OSX_SYSROOT=${await realpath(macosSdk)}`));
 	const macProgress = [];

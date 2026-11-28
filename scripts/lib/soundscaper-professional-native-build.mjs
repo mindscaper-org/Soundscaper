@@ -199,6 +199,8 @@ function authenticatedBuildPlan({
 		definitions.push('-DCMAKE_OSX_ARCHITECTURES=arm64');
 	}
 	if (target === 'linux-arm64') definitions.push('-DCMAKE_SYSTEM_PROCESSOR=arm64');
+	// Bound concurrent JUCE compiler processes on macOS ARM64 runners.
+	const parallel = target === 'mac-arm64' ? ['--parallel', '2'] : ['--parallel'];
 	const plan = Object.freeze({
 		schemaVersion: 1,
 		target,
@@ -227,7 +229,7 @@ function authenticatedBuildPlan({
 			command: 'cmake',
 			argv: Object.freeze(['-S', sourceRoot, '-B', buildRoot, ...targetSelection, ...definitions]),
 		}),
-		build: Object.freeze({ command: 'cmake', argv: Object.freeze(['--build', buildRoot, '--config', 'Release', '--parallel']) }),
+		build: Object.freeze({ command: 'cmake', argv: Object.freeze(['--build', buildRoot, '--config', 'Release', ...parallel]) }),
 		test: Object.freeze({ command: 'ctest', argv: Object.freeze([
 			'--test-dir', buildRoot, '-C', 'Release', '--output-on-failure', '--no-tests=error',
 		]) }),
