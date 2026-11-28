@@ -318,7 +318,6 @@
 		"../../desktop/native-services-lease-coordinator.ts",
 		"../../desktop/native-services-lifecycle-v3.ts",
 		"../../desktop/native-services-main-ipc.ts",
-		"../../desktop/native-services-main-preload.ts",
 		"../../desktop/framescaper-external-display-preload.ts",
 		"../../desktop/native-services-node-ports.ts",
 		"../../desktop/native-services-publication.ts",

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
@@ -23,6 +24,13 @@ test('the native label clipboard descriptor is admitted to the desktop project r
 test('desktop compilation retains the MCP service and omits the unused registration adapter', () => {
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-service.js'));
 	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-main-registration.js'), false);
+});
+
+test('desktop compilation retains the real Framescaper native IPC and display preload', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-services-main-ipc.js'));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-external-display-preload.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-services-main-preload.js'), false);
+	assert.equal(existsSync(new URL('../desktop/native-services-main-preload.ts', import.meta.url)), false);
 });
 
 test('desktop stages the current shot boundary review and detector modes', () => {

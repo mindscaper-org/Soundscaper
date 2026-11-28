@@ -6383,7 +6383,7 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "desktop/native-services-main-preload.ts"
+							"path": "desktop/framescaper-external-display-preload.ts"
 						},
 						{
 							"kind": "implementation",

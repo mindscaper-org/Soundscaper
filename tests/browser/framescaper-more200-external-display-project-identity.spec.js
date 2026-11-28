@@ -15,7 +15,7 @@ import { createFramescaperScapeNativeRuntime } from '../../src/framescaper/edito
 for (const { id, trackId } of [{ id: 'Programme:one', trackId: 'pictures' },
 	{ id: 'Programme 映像', trackId: 'pictures' }, { id: 'track-identity', trackId: 'Pictures 映像' }]) test(`File Open preserves ${id}/${trackId} in preview and clean-display publication`, async ({ page }) => {
 	test.setTimeout(60_000);
-	const native = createRound7ExternalDisplayNativeFixture();
+	const native = await createRound7ExternalDisplayNativeFixture();
 	try {
 		await page.exposeBinding('__identityDisplayNative', async (_context, method, request) => {
 			if (method === 'presentExternalDisplay') request = { ...request, rgba: Uint8Array.from(request.rgba) };

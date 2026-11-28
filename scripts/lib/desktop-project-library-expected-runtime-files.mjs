@@ -132,7 +132,6 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/native-services-external-display-port.js',
 	'desktop/native-services-lease-coordinator.js',
 	'desktop/native-services-main-ipc.js',
-	'desktop/native-services-main-preload.js',
 	'desktop/native-services-node-ports.js',
 	'desktop/native-services-publication.js',
 	'desktop/native-services-root-repository.js',
