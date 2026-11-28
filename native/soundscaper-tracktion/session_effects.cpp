@@ -150,13 +150,17 @@ bool isCompleteWav(const juce::File& file, int sampleRate, Frame frames)
 		&& reader->bitsPerSample == renderWavBitDepth && reader->lengthInSamples == frames;
 }
 
-bool prepareReversedSources(te::Edit& edit, std::set<juce::File>& prepared, const std::atomic_bool* cancelled)
+bool prepareRenderClips(te::Edit& edit, std::set<juce::File>& prepared, const std::atomic_bool* cancelled)
 {
 	for (auto* track : te::getAudioTracks(edit))
 		for (auto* clip : track->getClips())
 		{
 			auto* wave = dynamic_cast<te::WaveAudioClip*>(clip);
-			if (!wave || !wave->getIsReversed() || !wave->needsRender()) continue;
+			if (!wave) continue;
+			// Schedule the same update as live Edit loading. The graph's fade getters
+			// run the pending calculation synchronously when they read the fade lengths.
+			if (wave->getAutoCrossfade()) wave->updateAutoCrossfadesAsync(false);
+			if (!wave->getIsReversed() || !wave->needsRender()) continue;
 			// The detached renderer runs on the message thread, so queued source jobs cannot finish here.
 			wave->updateSourceFile();
 			const auto proxy = wave->getAudioFile();
@@ -280,7 +284,7 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 	const auto renderEdit = s.makeEdit(s.edit->state.createCopy(), te::Edit::forRendering);
 	if (!renderEdit)
 		throw std::runtime_error("Cannot detach the Tracktion Edit for rendering");
-	const auto sourcesReady = prepareReversedSources(*renderEdit, reversedSources, cancelled);
+	const auto sourcesReady = prepareRenderClips(*renderEdit, reversedSources, cancelled);
 	if (isCancelled())
 		throw std::runtime_error("The Tracktion render was cancelled");
 	if (!sourcesReady)

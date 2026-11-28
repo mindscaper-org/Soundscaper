@@ -180,6 +180,67 @@ test('Tracktion exports a persisted reversed wave from a cold detached Edit', as
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('Tracktion WAV export applies automatic crossfades from a cold or reopened Edit', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-render-crossfade-'));
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const edit = join(projectDirectory, 'project.tracktionedit');
+	const input = join(exchangeDirectory, 'input');
+	const output = join(exchangeDirectory, 'output');
+	const launch = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'state') };
+	const asset = '1'.repeat(32);
+	const wave = wavFixture(9600);
+	try {
+		await Promise.all([mkdir(input, { recursive: true }), mkdir(output, { recursive: true })]);
+		await writeFile(join(input, `${asset}.wav`), wave);
+		const created = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		try {
+			const [track] = (await created.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			await created.request({ kind: 'importFile', revision: 0, trackId: track.id, asset, name: 'Left clip', start: 0 });
+			await created.request({ kind: 'importFile', revision: 1, trackId: track.id, asset, name: 'Right clip', start: 4800 });
+			await created.request({ kind: 'save', revision: 2 });
+		} finally { await created.close(); }
+
+		const original = await readFile(edit, 'utf8');
+		const cases = [
+			{ name: 'paired', left: 'autoCrossfade="1"', right: 'autoCrossfade="1"', levels: [4096, 4096, 4096] },
+			{ name: 'left only', left: 'autoCrossfade="1" fadeOut="0.075"', right: '', levels: [7168, 6144, 5120] },
+			{ name: 'plain', left: '', right: '', levels: [8192, 8192, 8192] },
+		];
+		const render = async (peer: ReturnType<typeof launchTracktionPeer>, id: string) => {
+			await peer.request({ kind: 'render', revision: 0, asset: id });
+			return waveData(await readFile(join(output, `${id}.wav`)));
+		};
+		const source = waveData(wave);
+		for (const [index, fixture] of cases.entries()) {
+			let matches = 0;
+			const authored = original.replace(/(<AUDIOCLIP\b[^>]*\bname="(Left|Right) clip"[^>]*)(>)/gu, (_tag, prefix: string, side: string) => {
+				matches += 1;
+				return `${prefix} ${side === 'Left' ? fixture.left : fixture.right}>`;
+			});
+			assert.equal(matches, 2);
+			await writeFile(edit, authored);
+			const peer = launchTracktionPeer({ ...launch, mode: 'open' });
+			let first: Buffer;
+			try {
+				first = await render(peer, String(index + 2).repeat(32));
+				assert.equal(first.length, 14400 * 4);
+				assert.ok(first.subarray(0, 4800 * 4).equals(source.subarray(0, 4800 * 4)));
+				assert.ok(first.subarray(9600 * 4).equals(source.subarray(4800 * 4)));
+				const overlap = [6000, 7200, 8400].map(frame => [first.readInt16LE(frame * 4), first.readInt16LE(frame * 4 + 2)]);
+				assert.deepEqual(overlap, fixture.levels.map(level => [level, -level / 2]), fixture.name);
+				await peer.request({ kind: 'save', revision: 0 });
+			} finally { await peer.close(); }
+			const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+			try {
+				const second = await render(reopened, String(index + 5).repeat(32));
+				assert.ok(second.equals(first), `${fixture.name} crossfade PCM must survive Save and Open`);
+			} finally { await reopened.close(); }
+		}
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('a Tracktion whole mix uses the last audio clip and matches explicit range PCM', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-mix-'));
 	const exchangeDirectory = join(root, 'exchange');
