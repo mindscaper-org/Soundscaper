@@ -119,7 +119,7 @@ void Session::archive(Revision expected, const juce::File& output, ProjectArchiv
 	for (const auto& file : sources)
 	{
 		const auto path = juce::String(mediaDirectory) + "/" + file.getFileName();
-		if (file == juce::File{} || ownedMediaFile(s.directory, path) != file)
+		if (file == juce::File{} || ownedMediaFile(s.directory, path) != file || !hasReadableWaveFrames(file))
 			throw std::invalid_argument("The Tracktion project media is unavailable");
 		accountEntry(file.getSize());
 		archive.addFile(file, 1, path);

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { randomFillSync } from 'node:crypto';
 import { chmodSync, watch } from 'node:fs';
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -26,6 +26,61 @@ test('desktop Tracktion ZIP export refuses unavailable project media and retries
 	assert.deepEqual(entries, unzipSync(reference));
 	assert.deepEqual(Object.keys(entries).sort(), [mediaPath, 'project.tracktionedit', 'project_info.json']);
 	assert.deepEqual(entries[mediaPath], Uint8Array.from(source));
+});
+
+test('desktop Tracktion ZIP export refuses incomplete WAVs without replacing the previous archive', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-incomplete-archive-media-'));
+	const project = join(root, 'project');
+	const input = join(root, 'Source.wav');
+	const output = join(root, 'project.zip');
+	const complete = join(root, 'Complete.wav');
+	const owner = {};
+	const source = wavFixture(4800);
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => project, chooseOpenProject: async () => null,
+		chooseWave: async () => input, chooseExport: async () => output,
+		startPeer: async (options) => launchTracktionPeer({ ...options, executable }),
+	});
+	try {
+		await Promise.all([mkdir(project), writeFile(input, source)]);
+		const created = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+		assert.ok(created && 'sessionId' in created && created.project.tracks[0]);
+		const { sessionId } = created;
+		await service.request(owner, { kind: 'import', sessionId, trackId: created.project.tracks[0].id, revision: 0, start: 0 });
+		const archive = { kind: 'archive', sessionId } as const;
+		await service.request(owner, { ...archive, revision: 1 });
+		const previous = await readFile(output);
+		const media = join(project, 'media');
+		const [name] = await readdir(media);
+		assert.ok(name);
+		const owned = join(media, name);
+		const path = `media/${name}`;
+		assert.deepEqual(unzipSync(previous)[path], Uint8Array.from(source));
+		await service.request(owner, { kind: 'addTrack', sessionId, revision: 1, name: 'Undo witness' });
+		await service.request(owner, { kind: 'undo', sessionId, revision: 2 });
+		const page = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, page);
+		assert.ok(before && 'tracks' in before && before.canUndo && before.canRedo);
+		for (const incomplete of [Buffer.alloc(0), source.subarray(0, source.length / 2)]) {
+			await rename(owned, complete);
+			try {
+				await writeFile(owned, incomplete);
+				await assert.rejects(service.request(owner, { ...archive, revision: before.revision }),
+					(error: unknown) => error instanceof TracktionRejectedCommand && /Tracktion project media is unavailable/u.test(error.message));
+				assert.ok((await readFile(output)).equals(previous));
+				assert.deepEqual(await service.request(owner, page), before);
+			} finally { await rename(complete, owned); }
+		}
+		await service.request(owner, { kind: 'redo', sessionId, revision: before.revision });
+		await service.request(owner, { ...archive, revision: before.revision + 1 });
+		const entries = unzipSync(await readFile(output));
+		assert.deepEqual(entries[path], Uint8Array.from(source));
+		assert.match(Buffer.from(entries['project.tracktionedit'] ?? []).toString(), /Undo witness/u);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
 });
 
 test('a short Tracktion ZIP write preserves the previous archive and the live Edit', { skip: process.platform !== 'linux' }, async () => {

@@ -61,23 +61,26 @@ std::unique_ptr<te::Edit> Session::State::makeEdit(juce::ValueTree tree, te::Edi
 	});
 }
 
+bool hasReadableWaveFrames(const juce::File& file)
+{
+	// A sync placeholder or incomplete WAV can still exist at the managed path.
+	auto stream = file.createInputStream();
+	if (!stream) return false;
+	juce::WavAudioFormat wave;
+	const std::unique_ptr<juce::AudioFormatReader> reader(wave.createReaderFor(stream.release(), true));
+	return reader && reader->lengthInSamples > 0;
+}
+
 void requireEditMedia(const te::Edit& edit, const char* failure)
 {
 	std::set<juce::String> checked;
-	juce::WavAudioFormat wave;
 	for (auto* track : te::getAudioTracks(edit))
 		for (auto* clip : track->getClips())
 		{
 			if (dynamic_cast<te::WaveAudioClip*>(clip) == nullptr) throw std::invalid_argument(failure);
 			const auto& source = clip->getSourceFileReference();
-			if (!checked.insert(source.source.get()).second) continue;
-			// A sync placeholder or incomplete WAV can still exist at the managed path.
-			if (auto stream = source.getFile().createInputStream())
-			{
-				std::unique_ptr<juce::AudioFormatReader> reader(wave.createReaderFor(stream.release(), true));
-				if (reader && reader->lengthInSamples > 0) continue;
-			}
-			throw std::invalid_argument(failure);
+			if (checked.insert(source.source.get()).second && !hasReadableWaveFrames(source.getFile()))
+				throw std::invalid_argument(failure);
 		}
 }
 }

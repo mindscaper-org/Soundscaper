@@ -22,6 +22,7 @@ inline void requireReopenableEditSize(juce::int64 size)
 		throw std::invalid_argument("The Tracktion Edit exceeds the 16 MiB limit");
 }
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
+bool hasReadableWaveFrames(const juce::File&);
 void requireEditMedia(const te::Edit&, const char* failure);
 void copyOwnedWave(const juce::File& source, const juce::File& destination, const char* failure);
 ClipView summarizeClip(const te::Clip&, int sampleRate);
