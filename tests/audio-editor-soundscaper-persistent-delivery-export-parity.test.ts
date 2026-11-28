@@ -1,15 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import { createEditorExportService } from '../src/common/editor/controller/export/internal/export-service.ts';
 import { createDeferredEditorExportService } from '../src/common/editor/controller/export/deferred-export-service.ts';
 import { createAudioEditorFileService } from '../src/common/editor/file-service.js';
-import {
-	bindSoundscaperPersistentDeliverySave,
-	createSoundscaperPersistentDeliverySaveTarget,
-} from '../src/common/editor/soundscaper-persistent-delivery-save-target.ts';
 import { encodeWav } from '../src/common/editor/wav.js';
 import {
 	createDirectPcmExportFixture,
@@ -17,8 +14,13 @@ import {
 	directPlan,
 } from './helpers/direct-pcm-export-fixture.ts';
 
-const CLAIM = '7'.repeat(48);
+const DESKTOP_TARGET = Object.freeze({ id: '7'.repeat(48), name: 'mix.wav' });
 const WRITE = '8'.repeat(48);
+
+test('the retired private delivery save target is absent', () => {
+	const source = new URL('../src/common/editor/soundscaper-persistent-delivery-save-target.ts', import.meta.url);
+	assert.equal(existsSync(source), false);
+});
 
 test('direct and persistent production exports produce identical bytes and delivery reports', async () => {
 	const staged = encodeWav([new Float32Array(2), new Float32Array(2)], {
@@ -62,8 +64,9 @@ test('direct and persistent production exports produce identical bytes and deliv
 	const persistentFixture = createDirectPcmExportFixture(plan, fixtureOptions);
 	const written: Uint8Array[] = [];
 	let offset = 0;
-	const persistentBridge = {
-		async beginWrite() {
+	const desktopBridge = {
+		async beginWrite(request: Readonly<{ targetId: string }>) {
+			assert.equal(request.targetId, DESKTOP_TARGET.id);
 			return { writeId: WRITE, chunkSize: 4 * 1024 * 1024 };
 		},
 		async writeChunk(request: Readonly<{ writeId: string; offset: number; bytes: Uint8Array }>) {
@@ -104,7 +107,7 @@ test('direct and persistent production exports produce identical bytes and deliv
 		},
 		updateExportProgress: () => undefined,
 		fileService: createAudioEditorFileService({
-			bridge: {},
+			bridge: desktopBridge,
 			document: null,
 			urlApi: {},
 		}),
@@ -112,7 +115,7 @@ test('direct and persistent production exports produce identical bytes and deliv
 	const derived = await persistent.derivePersistentAudioDeliveryPlan({ useFileSystemAccess: true });
 	const persistentOutcome = await persistent.executePersistentAudioDeliveryPlan({
 		...derived,
-		destination: createSoundscaperPersistentDeliverySaveTarget(CLAIM, persistentBridge),
+		destination: DESKTOP_TARGET,
 		onProgress: (progress: number) => { durableProgress.push(progress); },
 	});
 	assert.equal(persistentFixture.errors.length, 0, String(persistentFixture.errors[0]));
@@ -124,21 +127,6 @@ test('direct and persistent production exports produce identical bytes and deliv
 	assert.deepEqual(
 		(directFixture.state as { deliveryReport?: unknown }).deliveryReport,
 		(persistentFixture.state as { deliveryReport?: unknown }).deliveryReport,
-	);
-});
-
-test('persistent delivery rejects bidi-spoofed on-disk file names', () => {
-	const writer = {
-		beginWrite: () => ({}),
-		writeChunk: () => ({}),
-		patchFinalPrefix: () => ({}),
-		finishWrite: () => ({}),
-		abortWrite: () => ({}),
-	};
-	const target = createSoundscaperPersistentDeliverySaveTarget(CLAIM, writer);
-	assert.throws(
-		() => bindSoundscaperPersistentDeliverySave(target, 'report\u202efdp.wav'),
-		/file name is invalid/iu,
 	);
 });
 

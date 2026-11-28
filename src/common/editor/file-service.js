@@ -20,7 +20,6 @@ import { desktopReadCapabilityIdFor, registerDesktopReadCapability } from './des
 import { readSourceWithRecovery } from './storage/source-read-recovery.ts';
 import { releaseDownloadObjectUrl } from './object-url-revoke.ts';
 import { createDesktopLinkedVideoOriginalAccess } from './storage/desktop-linked-video-original-port.ts';
-import { bindSoundscaperPersistentDeliverySave } from './soundscaper-persistent-delivery-save-target.ts';
 import { createDesktopExternalMediaFiles } from './desktop-external-media-files.ts';
 import { registerDesktopOriginalFile, withDesktopOriginalReadCleanup } from './desktop-original-file-port.ts';
 import { sanitizeSuggestedFileName as sanitizeSuggestedName } from './portable-save-file-name.ts';
@@ -291,9 +290,8 @@ export function createAudioEditorFileService(options = {}) {
 		}
 		if (!target) return Object.freeze({ mode: 'cancelled', cancelled: true, fileName });
 		if (bridge) {
-			const persistent = bindSoundscaperPersistentDeliverySave(target, fileName);
-			const prepared = withProjectFileTarget(createDesktopPreparedSave({ ...(persistent ?? { bridge, target }), fileName, signal: request.signal }), target);
-			if (persistent || typeof bridge.releaseSaveTarget !== 'function') return prepared;
+			const prepared = withProjectFileTarget(createDesktopPreparedSave({ bridge, target, fileName, signal: request.signal }), target);
+			if (typeof bridge.releaseSaveTarget !== 'function') return prepared;
 			return Object.freeze({
 				...prepared,
 				/** @param {unknown} [reason] */
@@ -350,13 +348,10 @@ export function createAudioEditorFileService(options = {}) {
 
 	async function writeDesktopFile(target, blob, fileName, signal, onProgress) {
 		throwIfAborted(signal);
-		const persistent = bindSoundscaperPersistentDeliverySave(target, fileName);
-		const saveBridge = persistent?.bridge ?? bridge;
-		const saveTarget = persistent?.target ?? target;
-		if (!saveTarget?.id || !saveBridge.beginWrite || !saveBridge.writeChunk || !saveBridge.finishWrite) {
+		if (!target?.id || !bridge.beginWrite || !bridge.writeChunk || !bridge.finishWrite) {
 			throw new Error('Desktop file writing is unavailable.');
 		}
-		const session = await saveBridge.beginWrite({ targetId: saveTarget.id, size: blob.size });
+		const session = await bridge.beginWrite({ targetId: target.id, size: blob.size });
 		if (!session?.writeId) throw new Error('The desktop save session could not be started.');
 		const chunkSize = Math.max(1, Math.min(DEFAULT_WRITE_CHUNK_BYTES, Number(session.chunkSize) || DEFAULT_WRITE_CHUNK_BYTES));
 		let offset = 0;
@@ -367,7 +362,7 @@ export function createAudioEditorFileService(options = {}) {
 				throwIfAborted(signal);
 				const bytes = new Uint8Array(await blob.slice(offset, offset + chunkSize).arrayBuffer());
 				throwIfAborted(signal);
-				const result = await saveBridge.writeChunk({ writeId: session.writeId, offset, bytes });
+				const result = await bridge.writeChunk({ writeId: session.writeId, offset, bytes });
 				throwIfAborted(signal);
 				const expectedOffset = offset + bytes.byteLength;
 				if (Number(result?.nextOffset) !== expectedOffset) throw new Error('The desktop save stream lost synchronization.');
@@ -375,12 +370,12 @@ export function createAudioEditorFileService(options = {}) {
 				onProgress?.(Math.min(0.999, offset / blob.size));
 			}
 			throwIfAborted(signal);
-			const result = await saveBridge.finishWrite(session.writeId);
+			const result = await bridge.finishWrite(session.writeId);
 			if (Number(result?.byteLength) !== blob.size) throw new Error('The desktop save completed with an unexpected size.');
 			onProgress?.(1);
-			return { method: 'desktop', fileName: saveTarget.name || fileName, size: blob.size };
+			return { method: 'desktop', fileName: target.name || fileName, size: blob.size };
 		} catch (error) {
-			await Promise.resolve(saveBridge.abortWrite?.(session.writeId)).catch(() => undefined);
+			await Promise.resolve(bridge.abortWrite?.(session.writeId)).catch(() => undefined);
 			throw error;
 		}
 	}
