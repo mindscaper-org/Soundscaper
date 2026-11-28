@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import {
+	access,
 	mkdtemp,
 	mkdir,
 	readFile,
@@ -22,6 +23,7 @@ import {
 	resolveDesktopNightlyTestsOutputRoot,
 	runDesktopNightlyTests,
 	writeDesktopNightlyTestsResultEnvelope,
+	type DesktopNightlyTestsPlaywrightPlan,
 } from '../scripts/lib/desktop-nightly-tests-runtime.mjs';
 import { PACKAGED_RUNTIME_ARTIFACT_PATHS } from '../scripts/lib/desktop-nightly-tests-packaged-runtime.mjs';
 import { nightlyProductSitesFixture } from './helpers/nightly-tests-product-sites.ts';
@@ -271,6 +273,55 @@ test('Playwright exit mapping and result envelopes distinguish failures from inf
 	assert.equal(Object.isFrozen(envelope), true);
 	assert.equal(Object.isFrozen(envelope.product), true);
 	assert.equal(Object.isFrozen(envelope.artifacts), true);
+});
+
+test('the retired nightly dual-origin runner and config are absent from the source tree', async () => {
+	for (const path of [
+		'../scripts/lib/desktop-nightly-tests-dual-origin.mjs',
+		'../scripts/lib/desktop-nightly-tests-dual-origin.d.mts',
+		'../config/playwright/playwright.nightly-dual-origin.config.mjs',
+	]) {
+		await assert.rejects(access(new URL(path, import.meta.url)), { code: 'ENOENT' }, path);
+	}
+});
+
+test('the nightly runtime runs only GPU, performance, packaged desktop, and real-model phases', async (context) => {
+	const outputRoot = await mkdtemp(join(tmpdir(), 'soundscaper-nightly-runner-'));
+	context.after(() => rm(outputRoot, { recursive: true, force: true }));
+	const plans: DesktopNightlyTestsPlaywrightPlan[] = [];
+	let closeCalls = 0;
+	const completed = await runDesktopNightlyTests({
+		executablePath: '/opt/soundscaper-tests',
+		payloadRoot: '/opt/resources/nightly-tests',
+		outputRoot,
+		product: { id: 'soundscaper', name: 'Soundscaper', version: '1.0.0-rc.1' },
+		platform: 'linux',
+		arch: 'x64',
+		environment: { PATH: '/usr/bin' },
+		sourceRevision: 'b'.repeat(40),
+	}, {
+		startProductSites: nightlyProductSitesFixture(47777, () => { closeCalls += 1; }),
+		runPlaywright: async (plan) => {
+			plans.push(plan);
+			return { code: plans.length === 1 ? 1 : 0, signal: null };
+		},
+		writeMetricsDiagnostics: async () => ({ passed: true }),
+		writePackagedMetricsDiagnostics: async () => ({ passed: true }),
+		preserveCoverageEvidence: async () => '/tmp/coverage-evidence',
+	});
+
+	assert.equal(completed.exitCode, 1);
+	assert.equal(closeCalls, 1);
+	assert.equal(plans.length, 5);
+	assert.match(plans[0]?.args.at(-1) ?? '', /playwright\.nightly-tests\.config\.mjs$/u);
+	assert.match(plans[1]?.args.at(-1) ?? '', /playwright\.nightly-metrics\.config\.mjs$/u);
+	assert.match(plans[2]?.args.at(-1) ?? '', /playwright\.nightly-packaged-metrics\.config\.mjs$/u);
+	assert.match(plans[3]?.args.at(-1) ?? '', /playwright\.nightly-packaged-coverage\.config\.mjs$/u);
+	assert.match(plans[4]?.args.at(-1) ?? '', /playwright\.nightly-local-assistance\.config\.mjs$/u);
+	assert.equal(
+		JSON.parse(await readFile(join(completed.runRoot, 'run.json'), 'utf8')).status,
+		'failed',
+	);
 });
 
 test('the injected nightly runtime turns server and child errors into an error envelope', async (context) => {
