@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <set>
 #include <stdexcept>
 
 namespace soundscaper::tracktion_backend
@@ -148,6 +149,39 @@ bool isCompleteWav(const juce::File& file, int sampleRate, Frame frames)
 	return reader && reader->sampleRate == sampleRate && reader->numChannels == 2
 		&& reader->bitsPerSample == renderWavBitDepth && reader->lengthInSamples == frames;
 }
+
+bool prepareReversedSources(te::Edit& edit, std::set<juce::File>& prepared, const std::atomic_bool* cancelled)
+{
+	for (auto* track : te::getAudioTracks(edit))
+		for (auto* clip : track->getClips())
+		{
+			auto* wave = dynamic_cast<te::WaveAudioClip*>(clip);
+			if (!wave || !wave->getIsReversed() || !wave->needsRender()) continue;
+			// The detached renderer runs on the message thread, so queued source jobs cannot finish here.
+			wave->updateSourceFile();
+			const auto proxy = wave->getAudioFile();
+			const auto file = proxy.getFile();
+			const auto source = wave->getOriginalFile();
+			if (file == juce::File{} || file == source) return false;
+			if (!prepared.insert(file).second) continue;
+			const std::unique_ptr<juce::AudioFormatReader> original(te::AudioFileUtils::createReaderFor(edit.engine, source));
+			if (!original || original->lengthInSamples <= 0) return false;
+			juce::TemporaryFile staging(file, juce::TemporaryFile::useHiddenFile);
+			std::atomic<float> progress{0};
+			if (!te::AudioFileUtils::reverse(edit.engine, source, staging.getFile(), progress, nullptr, true, cancelled))
+				return false;
+			{
+				const std::unique_ptr<juce::AudioFormatReader> derived(te::AudioFileUtils::createReaderFor(edit.engine, staging.getFile()));
+				if (!derived || derived->sampleRate != original->sampleRate || derived->numChannels != original->numChannels
+				    || derived->lengthInSamples != original->lengthInSamples)
+					return false;
+			}
+			if (!staging.overwriteTargetFileWithTemporary()) return false;
+			edit.engine.getAudioFileManager().validateFile(proxy, true);
+			if (!proxy.isValid()) return false;
+		}
+	return true;
+}
 }
 
 void registerOfflineEffectPlugin(te::Engine& engine)
@@ -238,9 +272,19 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 		throw std::runtime_error("The Tracktion render was cancelled");
 	requireEditMedia(*s.edit, "The Tracktion project media is unavailable");
 	s.edit->flushState();
+	std::set<juce::File> reversedSources;
+	const juce::ScopeGuard cleanup{[&] {
+		for (const auto& file : reversedSources) te::AudioFile(s.engine, file).deleteFile();
+		if (!reversedSources.empty()) reversedSources.begin()->getParentDirectory().deleteFile();
+	}};
 	const auto renderEdit = s.makeEdit(s.edit->state.createCopy(), te::Edit::forRendering);
 	if (!renderEdit)
 		throw std::runtime_error("Cannot detach the Tracktion Edit for rendering");
+	const auto sourcesReady = prepareReversedSources(*renderEdit, reversedSources, cancelled);
+	if (isCancelled())
+		throw std::runtime_error("The Tracktion render was cancelled");
+	if (!sourcesReady)
+		throw std::invalid_argument("Tracktion could not render a reversed clip source");
 	RenderBindings bindings;
 	bindings.attach(*renderEdit, effects, s.sampleRate);
 

@@ -23,6 +23,8 @@ endfunction()
 function(soundscaper_prepare_tracktion_source source destination)
 	file(COPY "${source}/" DESTINATION "${destination}"
 		PATTERN "tracktion_AudioClipBase.cpp" EXCLUDE
+		PATTERN "tracktion_AudioFileUtils.cpp" EXCLUDE
+		PATTERN "tracktion_AudioFileUtils.h" EXCLUDE
 		PATTERN "tracktion_AutomatableEditItem.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
@@ -36,6 +38,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
+		PATTERN "tracktion_WaveAudioClip.cpp" EXCLUDE
 		PATTERN "tracktion_WaveDeviceDescription.cpp" EXCLUDE)
 
 	# An ordinary wave already plays from its source. Reserve the proxy timer
@@ -70,6 +73,40 @@ void AudioClipBase::createNewProxyAsync()
     startTimer (600);
 }
 ]=])
+
+	# The device-less render Edit still needs reversed WAV sources. Its caller
+	# prepares them synchronously because queued jobs need the message thread.
+	set(wave_clip "modules/tracktion_engine/model/clips/tracktion_WaveAudioClip.cpp")
+	soundscaper_read_tracktion_source("${source}" "${wave_clip}"
+		"986e047c6dd091186c118bfe3970e26e9f8c10f38324976963dbcfe4275b66ad" code)
+	string(REPLACE "    if (! edit.shouldPlay())\n        return false;"
+		"    if (! edit.shouldPlay() && (edit.getEditRole() != Edit::forRendering || ! getIsReversed()))\n        return false;"
+		code "${code}")
+	string(REPLACE "    // do this here so we don't end up creating a multiple copies of a File"
+		"    if (edit.getEditRole() == Edit::forRendering && getIsReversed())\n        return {};\n\n    // do this here so we don't end up creating a multiple copies of a File"
+		code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${wave_clip}" CONTENT "${code}" @ONLY)
+
+	# Let the same engine routine that drives live reverse jobs also honor
+	# cancellation while it prepares a source on the offline message thread.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/audio_files/tracktion_AudioFileUtils.h"
+		"83a01152e0888fc3dd23634ecec5e4edb1b8e453bf5ee296fa16beaaaf1462cd"
+		"                         bool canCreateWavIntermediate = true);"
+		"                         bool canCreateWavIntermediate = true, const std::atomic_bool* cancelled = nullptr);")
+	set(audio_file_utils "modules/tracktion_engine/audio_files/tracktion_AudioFileUtils.cpp")
+	soundscaper_read_tracktion_source("${source}" "${audio_file_utils}"
+		"b51b2e5c3443b89e9e2782644d48cb3ba7d3e4612505e9acb13abf6fa0de60b2" code)
+	string(REPLACE "std::atomic<float>& progress, juce::ThreadPoolJob* job, bool canCreateWavIntermediate)"
+		"std::atomic<float>& progress, juce::ThreadPoolJob* job, bool canCreateWavIntermediate,\n                              const std::atomic_bool* cancelled)" code "${code}")
+	string(REPLACE "return reverse (engine, tempFile.getFile(), destination, progress, job, false);"
+		"return reverse (engine, tempFile.getFile(), destination, progress, job, false, cancelled);" code "${code}")
+	string(REPLACE "    bool shouldExit = false;\n\n    while (! shouldExit)"
+		"    bool shouldExit = false;\n\n    while (! shouldExit && ! (cancelled != nullptr && cancelled->load()))" code "${code}")
+	string(REPLACE "        sampleNum -= numThisTime;\n        reader->read (buffers, numChans, sampleNum, numThisTime, true);"
+		"        sampleNum -= numThisTime;\n        if (! reader->read (buffers, numChans, sampleNum, numThisTime, true))\n            return false;"
+		code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${audio_file_utils}" CONTENT "${code}" @ONLY)
 
 	# Serializing explicit parameter values must preserve undo and redo history.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"
