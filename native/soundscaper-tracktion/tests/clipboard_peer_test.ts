@@ -69,6 +69,61 @@ test('Tracktion Cut keeps the source and prior clipboard if a media write fails'
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('Tracktion Cut preserves the Edit and clipboard when writing the selection is incomplete', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-cut-metadata-'));
+	const limited = join(root, 'limited-peer');
+	const clipboardDirectory = join(root, 'clipboard');
+	const exchangeDirectory = join(root, 'exchange');
+	const asset = 'd'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture());
+		await writeFileSizeLimitedPeer(limited, 2);
+		const peer = launchTracktionPeer({ executable: limited, projectDirectory: join(root, 'project'), exchangeDirectory,
+			clipboardDirectory, stateDirectory: join(root, 'state'), mode: 'create', sampleRate: 48_000 });
+		try {
+			const project = { kind: 'project', offset: 0 } as const;
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			const scope = { trackId: track.id, mode: 'leaveGap', start: 0 } as const;
+			const imported = await peer.request({ kind: 'importFile', revision: 0, trackId: track.id, name: 'Source PCM', asset, start: 0 });
+			assert.ok(imported.itemId);
+			await peer.request({ ...scope, kind: 'copyRange', revision: imported.revision, end: 64 });
+			const selection = join(clipboardDirectory, 'selection.xml');
+			const previous = await readFile(selection);
+			assert.ok(previous.length < 2048);
+			const previousFiles = (await readdir(clipboardDirectory)).sort();
+			let revision = imported.revision;
+			for (let index = 1; index < 10; index += 1) {
+				({ revision } = await peer.request({ kind: 'duplicateClip', revision, trackId: track.id, clipId: imported.itemId, start: index * 128 }));
+			}
+			({ revision } = await peer.request({ kind: 'addTrack', revision, name: 'Redo witness' }));
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const before = await peer.request(project);
+			assert.ok(before.canUndo && before.canRedo);
+			const clipPage = { kind: 'clips', revision, trackId: track.id, offset: 0 } as const;
+			const clips = await peer.request(clipPage);
+			assert.equal(clips.clips.length, 10);
+			let refusal: unknown;
+			await peer.request({ ...scope, kind: 'cutRange', revision, end: 1280 }).catch((error: unknown) => { refusal = error; });
+			const kept = await readFile(selection);
+			assert.equal(kept.length, previous.length, 'An incomplete Cut must preserve the previous clipboard.');
+			assert.deepEqual(kept, previous);
+			assert.ok(refusal instanceof Error);
+			assert.match(refusal.message, /clipboard selection could not be staged/u);
+			assert.deepEqual(await peer.request(project), before);
+			assert.deepEqual(await peer.request(clipPage), clips);
+			assert.deepEqual((await readdir(clipboardDirectory)).sort(), previousFiles);
+			({ revision } = await peer.request({ kind: 'redo', revision }));
+			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
+			({ revision } = await peer.request({ kind: 'pasteRange', revision, trackId: track.id, mode: 'overlap', start: 4096 }));
+			const pasted = (await peer.request({ ...clipPage, revision })).clips.at(-1);
+			assert.ok(pasted);
+			assert.deepEqual([pasted.name, pasted.start, pasted.end], ['Source PCM', 4096, 4160]);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('Tracktion Paste rejects incomplete media without changing the destination', { skip: process.platform !== 'linux' }, async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-paste-limit-'));
 	try {

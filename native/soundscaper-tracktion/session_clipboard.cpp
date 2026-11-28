@@ -3,6 +3,7 @@
 #include "session_state.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -13,6 +14,48 @@ namespace
 {
 constexpr auto selectionName = "selection.xml";
 constexpr auto metadataLimit = 16 * 1024 * 1024;
+
+class ClipboardOutputStream final : public juce::OutputStream
+{
+public:
+	explicit ClipboardOutputStream(const juce::File& file)
+		: output(file), healthy(output.openedOk() && output.getPosition() == 0) {}
+
+	void flush() override { output.flush(); }
+	juce::int64 getPosition() override { return output.getPosition(); }
+	bool setPosition(juce::int64) override
+	{
+		healthy = false;
+		return false;
+	}
+
+	bool write(const void* data, std::size_t bytes) override
+	{
+		healthy = healthy && bytes <= static_cast<std::size_t>(metadataLimit - getPosition())
+		          && output.write(data, bytes);
+		return healthy;
+	}
+
+	bool complete()
+	{
+		flush();
+		// A short final flush can leave the stream status successful.
+		return healthy && output.getStatus().wasOk() && getPosition() == output.getFile().getSize();
+	}
+
+private:
+	juce::FileOutputStream output;
+	bool healthy;
+};
+
+bool stageSelection(const juce::ValueTree& selection, const juce::File& file)
+{
+	const auto xml = selection.createXml();
+	if (!xml) return false;
+	ClipboardOutputStream output(file);
+	xml->writeTo(output, {});
+	return output.complete();
+}
 
 struct ClipboardGeneration
 {
@@ -98,8 +141,7 @@ void Session::copyRange(Revision expected, RangeDeleteMode mode, std::optional<T
 	for (const auto& source : sources)
 		copyOwnedWave(source, media.getChildFile(source.getFileName()), "Cannot preserve Tracktion clipboard media");
 	const juce::TemporaryFile staged(clipboard.getChildFile(selectionName));
-	const auto xml = selection.createXml();
-	if (!xml || !xml->writeTo(staged.getFile()) || staged.getFile().getSize() > metadataLimit)
+	if (!stageSelection(selection, staged.getFile()))
 		throw std::invalid_argument("The Tracktion clipboard selection could not be staged");
 	const auto publish = [&]
 	{
