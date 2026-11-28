@@ -45,3 +45,12 @@ test('the retired persistent-delivery adapter and publication guard are absent f
 	await assert.rejects(access(adapter), { code: 'ENOENT' });
 	await assert.rejects(access(publication), { code: 'ENOENT' });
 });
+
+test('the retired persistent export branch is absent from the source tree', async () => {
+	const saveTarget = new URL('../src/common/editor/soundscaper-persistent-delivery-save-target.ts', import.meta.url);
+	await assert.rejects(access(saveTarget), { code: 'ENOENT' });
+	const directory = new URL('../src/common/editor/controller/export/internal/', import.meta.url);
+	for (const path of ['delivery/persistent-audio-delivery-execution.ts', 'delivery/persistent-export-progress.ts', 'export-operation-availability.ts']) {
+		await assert.rejects(access(new URL(path, directory)), { code: 'ENOENT' });
+	}
+});

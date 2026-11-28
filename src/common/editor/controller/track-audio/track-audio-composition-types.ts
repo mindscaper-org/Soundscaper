@@ -83,7 +83,6 @@ export type TrackAudioExportPorts = Readonly<{
 	readonly getPerformanceOptimizationMode?: () => string | undefined;
 	readonly toggleExport: (active: boolean) => void;
 	readonly updateExportProgress: ExportSnapshotRendererRuntime['updateExportProgress'];
-	readonly setPersistentExportProgressObserver: (observer: ((value: number) => void) | null) => void;
 }>;
 
 export interface TrackAudioCompositionDependencies {

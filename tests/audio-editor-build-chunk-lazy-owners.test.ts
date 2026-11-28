@@ -143,8 +143,6 @@ test('the export and delivery split keeps its implementation behind the export o
 	for (const path of [
 		'src/common/editor/controller/export/internal/bw64-render-project.ts',
 		'src/common/editor/controller/export/internal/mastering-sequence-export-render.ts',
-		'src/common/editor/controller/export/internal/delivery/persistent-audio-delivery-execution.ts',
-		'src/common/editor/controller/export/internal/delivery/persistent-export-progress.ts',
 		'src/common/editor/controller/export/internal/archive/streaming-stem-archive-export.ts',
 		'src/common/editor/controller/export/video-export-original-loader.ts',
 		'src/common/editor/controller/export/internal/video/video-export-staged-audio.ts',

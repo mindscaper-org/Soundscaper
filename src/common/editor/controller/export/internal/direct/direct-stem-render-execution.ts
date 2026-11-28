@@ -23,7 +23,7 @@ export async function executeDirectStemRenderArchive(options: Readonly<{
 	preflightStorage(bytes: number, kind: 'export'): Promise<unknown>;
 	stemProject(snapshot: StemSnapshot, trackId: string): StemSnapshot;
 	renderSequential(snapshot: StemSnapshot, output: StemOutput, index: number): Awaitable<ExportEncodedOutput>;
-	conformSequential(plan: StemPlan, encoded: ExportEncodedOutput, start: number, end: number): Promise<readonly DeliveryConformanceFinding[]>;
+	conformSequential(plan: StemPlan, encoded: ExportEncodedOutput): Promise<readonly DeliveryConformanceFinding[]>;
 }>) {
 	const { plan } = options; const presentation = createMonotonicStemPresentation(options.presentation);
 	const ownedSettings = options.settings, rate = options.snapshot.sampleRate, width = options.snapshot.masterChannels;
@@ -63,7 +63,7 @@ export async function executeDirectStemRenderArchive(options: Readonly<{
 			const target = outputFor(output, index);
 			const { encoded, conformance } = await renderConformedStem({
 				render: () => options.renderSequential(options.stemProject(options.snapshot, target.trackId), target, index),
-				conform: (candidate) => options.conformSequential(plan, candidate, index / plan.outputs.length, (index + 1) / plan.outputs.length),
+				conform: (candidate) => options.conformSequential(plan, candidate),
 			});
 			findings.push(...conformance); return encoded;
 		},

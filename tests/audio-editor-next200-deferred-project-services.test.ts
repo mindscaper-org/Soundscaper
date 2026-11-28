@@ -40,8 +40,7 @@ for (const kind of ['analysis', 'export'] as const) for (const transition of ['s
 			throwIfAborted() {}, updateExportProgress() {},
 		};
 		const exporter = createDeferredEditorExportService(runtime, async () => ({
-			createEditorExportService: () => ({ handleExportAction: async () => { f.entries.push(f.getProject().id); },
-				persistentAudioDeliveryAvailable: () => true, whenPersistentAudioDeliveryAvailable: async () => undefined }),
+			createEditorExportService: () => ({ handleExportAction: async () => { f.entries.push(f.getProject().id); } }),
 		} as unknown as DeferredEditorExportModule));
 		const analysis = createDeferredAudioAnalysisService(f.dependencies);
 		const invoke = () => kind === 'analysis' ? analysis.findClipping() : exporter.handleExportAction('start');

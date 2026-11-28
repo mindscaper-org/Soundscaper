@@ -194,7 +194,6 @@ export function createTrackAudioComposition(dependencies: TrackAudioCompositionD
 		toggleExport: dependencies.export.toggleExport,
 		updateExportProgress: dependencies.export.updateExportProgress,
 		taskProgress,
-		setPersistentExportProgressObserver: dependencies.export.setPersistentExportProgressObserver,
 		verifyProjectFallbackIntegrity: (...[project, fallbackStore, verifyOptions]: Parameters<typeof verifyProjectFallbackIntegrity>) => verifyProjectFallbackIntegrity(
 			project, fallbackStore, { ...verifyOptions, confirmFileSizeWarning: dependencies.controllerOptions?.confirmFileSizeWarning },
 		),

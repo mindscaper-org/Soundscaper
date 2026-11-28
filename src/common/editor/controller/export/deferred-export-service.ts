@@ -25,25 +25,11 @@ export type DeferredEditorExportLoader = () => Promise<DeferredEditorExportModul
 const DEFAULT_LOADER: DeferredEditorExportLoader = () => import('./internal/export-service.ts');
 
 const DEFERRED_EXPORT_METHOD_NAMES = [
-	'derivePersistentAudioDeliveryPlan',
-	'cancelPersistentAudioDelivery',
-	'executePersistentAudioDeliveryPlan',
 	'exportVideo',
 	'handleExportAction',
 ] as const satisfies readonly (keyof EditorExportService)[];
 
-/**
- * Keep shared snapshot rendering eager while loading delivery execution on demand.
- *
- * `persistentAudioDeliveryAvailable` stays synchronous, as it is on the real
- * service, by answering from state this facade holds eagerly: until something
- * has asked for the delivery module there is no export in flight, so delivery
- * is available, and once the module has loaded the real predicate answers.
- * The window in between - a load requested but not settled - reports busy,
- * which is the conservative reading and matches what the service will say the
- * moment it exists. Waiting is answered the same way, so a queue worker polling
- * for an idle exporter never pulls the delivery slice into the boot path.
- */
+/** Keep shared snapshot rendering eager while loading delivery execution on demand. */
 export function createDeferredEditorExportService<Runtime extends DeferredEditorExportRuntime>(
 	runtime: Runtime,
 	loadModule: DeferredEditorExportLoader = DEFAULT_LOADER,
@@ -68,8 +54,7 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 	};
 	const facade = createDeferredModuleFacade(loadService, DEFERRED_EXPORT_METHOD_NAMES, {
 		prepareInvocation: (name, args) => {
-			if (name !== 'exportVideo' && (name !== 'handleExportAction'
-				|| args[0] === 'cancel' || args[3] === 'persistent')) return undefined;
+			if (name === 'handleExportAction' && args[0] === 'cancel') return undefined;
 			runtime.lifetime.assertActive();
 			const token = runtime.projectGeneration.capture(runtime.getProject()?.id ?? null);
 			const generation = cancellationGeneration;
@@ -85,20 +70,13 @@ export function createDeferredEditorExportService<Runtime extends DeferredEditor
 					renderSnapshot: async (project, range, signal) => await exportSnapshotRenderer.renderSnapshot(project, range, undefined, signal) as RenderedAudio,
 				}, request);
 			},
-			persistentAudioDeliveryAvailable: ((): boolean => (
-				loadedService ? loadedService.persistentAudioDeliveryAvailable() : servicePromise === null
-			)) satisfies EditorExportService['persistentAudioDeliveryAvailable'],
-			whenPersistentAudioDeliveryAvailable: (async (): Promise<void> => {
-				if (!servicePromise) return;
-				await (await loadService()).whenPersistentAudioDeliveryAvailable();
-			}) satisfies EditorExportService['whenPersistentAudioDeliveryAvailable'],
 			renderSnapshot: exportSnapshotRenderer.renderSnapshot satisfies
 				EditorExportService['renderSnapshot'],
 		},
 	});
 	return Object.freeze({ ...facade,
 		handleExportAction: async (...args: Parameters<EditorExportService['handleExportAction']>) => {
-			if (args[0] === 'cancel' && args[3] !== 'persistent') {
+			if (args[0] === 'cancel') {
 				cancellationGeneration += 1;
 				if (!loadedService) return;
 			}

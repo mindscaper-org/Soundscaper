@@ -220,10 +220,8 @@ export function createAudioEditorController(_root = null, options = {}) {
 		document: documentSnapshotRuntime, telemetry: state, audioDevices: state, engine, mediaDevices, copy, presentationRevision: () => localization.port.getSnapshot().revision,
 		videoEffectGestures: state.videoEffectGestures, videoEffectGestureKey: bindings.videoEffectGestureKey,
 	});
-	/** @type {((value: number) => void) | null} */
-	let persistentExportProgressObserver = null;
 	const taskProgress = createEditorTaskProgressCoordinator({ formatMessage: localization.formatMessage, onChange: (progress) => {
-		state.taskProgress = progress; if (progress?.kind === 'export' && typeof progress.value === 'number') persistentExportProgressObserver?.(progress.value); publishTelemetrySnapshot();
+		state.taskProgress = progress; publishTelemetrySnapshot();
 	} });
 	const presentationState = createControllerPresentationState({ state, copy, formatMessage: localization.formatMessage, publishDocument: publishDocumentSnapshot, publishTelemetry: publishTelemetrySnapshot, updateTaskProgress: (value) => taskProgress.updateActive(value) });
 	const disposeLocalization = bindPresentationLocalization(localization, presentationState, taskProgress, publishDocumentSnapshot);
@@ -508,7 +506,7 @@ export function createAudioEditorController(_root = null, options = {}) {
 		export: {
 			state: createEditorExportStateAccess(state),
 			ffmpeg, fileService, playbackProjects: playbackProjectService, productName: product.name, prepareProjectForExport: options.prepareProjectForExport,
-			normalizeExportSettings, getPerformanceOptimizationMode: () => state.preferences.performance.optimizeFor, toggleExport: bindings.toggleExport, updateExportProgress: bindings.updateExportProgress, setPersistentExportProgressObserver: (observer) => { persistentExportProgressObserver = observer; },
+			normalizeExportSettings, getPerformanceOptimizationMode: () => state.preferences.performance.optimizeFor, toggleExport: bindings.toggleExport, updateExportProgress: bindings.updateExportProgress,
 		},
 		createRenderEngine: bindings.createCacheAwareRenderEngine, createPreviewEngine: (previewOptions) => playbackPreviews.create(previewOptions), stopProjectBinPreview: bindings.projectBin.stopPreview, prepareCommittedTimePitchCaches: bindings.prepareCommittedTimePitchCaches,
 		getProject: () => documentState.project, getCommandProject, getSpectrogramDefaults: () => state.preferences.spectrogram, editingBlocked, labelEditingBlocked: () => selectAudioEditorControllerLabelEditBlock(state).blocked || Boolean(framescaperCapture?.originSnapshot(documentState.project?.id ?? null).editBlocked), commit: bindings.commit, setStatus: bindings.setStatus, publishDocumentSnapshot, publishProjectState: bindings.publishProjectState, handleError: bindings.handleError, preflightStorage: bindings.preflightStorage,

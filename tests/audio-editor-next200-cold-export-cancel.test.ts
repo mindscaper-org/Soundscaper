@@ -14,8 +14,6 @@ function fixture() {
 	const module = { createEditorExportService: () => ({
 		handleExportAction: async (...args: unknown[]) => { entries.push(args); },
 		exportVideo: async (...args: unknown[]) => { entries.push(['video', ...args]); },
-		persistentAudioDeliveryAvailable: () => true,
-		whenPersistentAudioDeliveryAvailable: async () => undefined,
 	}) } as unknown as DeferredEditorExportModule;
 	const runtime = { options: {}, sourceBuffers: new Map(), taskProgress: null, lifetime, projectGeneration,
 		getProject: () => ({ id: 'same-project' }),
@@ -71,20 +69,4 @@ test('a canceled cold request rejects as cancellation when loading subsequently 
 	await retired;
 	await cancel;
 	assert.deepEqual(f.entries, []);
-});
-
-test('persistent-owned cancellation does not retire a cold direct submission', async () => {
-	const f = fixture();
-	const pending = f.service.handleExportAction('start', { name: 'direct' });
-	const cancel = f.service.handleExportAction('cancel', null, null, 'persistent');
-	f.release(); await Promise.all([pending, cancel]);
-	assert.deepEqual(f.entries, [['start', { name: 'direct' }], ['cancel', null, null, 'persistent']]);
-});
-
-test('direct cancellation preserves an explicit persistent-owned submission', async () => {
-	const f = fixture();
-	const pending = f.service.handleExportAction('start', { name: 'queued' }, null, 'persistent');
-	await f.service.handleExportAction('cancel');
-	f.release(); await pending;
-	assert.deepEqual(f.entries, [['start', { name: 'queued' }, null, 'persistent']]);
 });
