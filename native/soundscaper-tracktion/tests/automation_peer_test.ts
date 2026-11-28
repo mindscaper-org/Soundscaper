@@ -49,7 +49,14 @@ test('Tracktion gain and pan curves render, persist and ripple with track edits'
 			await assert.rejects(peer.request({ ...base, kind: 'setAutomationPoint', revision, index: null, ...gain[0]! }), /already exists/u);
 			const removed = await peer.request({ ...base, kind: 'removeAutomationPoint', revision, index: 1 });
 			assert.equal((await peer.request({ ...base, kind: 'trackAutomation', revision: removed.revision, offset: 0 })).points.length, 1);
-			revision = (await peer.request({ kind: 'undo', revision: removed.revision })).revision;
+			const undone = await peer.request({ kind: 'undo', revision: removed.revision });
+			assert.deepEqual(undone, { revision: removed.revision + 1, itemId: null, timelineUnchanged: true,
+				history: { canUndo: true, canRedo: true } });
+			const redone = await peer.request({ kind: 'redo', revision: undone.revision });
+			assert.deepEqual(redone, { revision: undone.revision + 1, itemId: null, timelineUnchanged: true,
+				history: { canUndo: true, canRedo: false } });
+			const restored = await peer.request({ kind: 'undo', revision: redone.revision });
+			revision = restored.revision;
 			await peer.request({ kind: 'render', revision, asset, start: 0, end: 24_576 });
 			const pcm = waveData(await readFile(join(exchangeDirectory, 'output', `${asset}.wav`)));
 			assert.equal(pcm.readInt16LE(4 * 4_096), 4096);
@@ -59,11 +66,18 @@ test('Tracktion gain and pan curves render, persist and ripple with track edits'
 			const explicitMix = await peer.request({ kind: 'trackMix', trackId, revision });
 			assert.equal(explicitMix.gainDb, 0);
 			assert.equal(explicitMix.pan, 0);
+			const muted = await peer.request({ ...explicitMix, kind: 'setTrackMix', trackId, revision, muted: true });
+			const unmuted = await peer.request({ kind: 'undo', revision: muted.revision });
+			assert.equal(unmuted.timelineUnchanged, true);
+			revision = unmuted.revision;
+			assert.deepEqual(await peer.request({ kind: 'trackMix', trackId, revision }), explicitMix);
 			await peer.request({ kind: 'copyRange', trackId, revision, mode: 'track', start: 0, end: 1_024 });
 			const inserted = await peer.request({ kind: 'pasteRange', trackId, revision, mode: 'insertTracks', start: 2_048 });
 			const expanded = await peer.request({ ...base, kind: 'trackAutomation', revision: inserted.revision, offset: 0 });
 			assert.equal(expanded.points.at(-1)?.frame, 9_216);
-			revision = (await peer.request({ kind: 'undo', revision: inserted.revision })).revision;
+			const undoneRipple = await peer.request({ kind: 'undo', revision: inserted.revision });
+			assert.deepEqual(undoneRipple, { revision: inserted.revision + 1, itemId: null });
+			revision = undoneRipple.revision;
 			await peer.request({ kind: 'deleteRange', trackId, revision, mode: 'track', start: 2_048, end: 4_096 });
 			const shifted = await peer.request({ ...base, kind: 'trackAutomation', revision: revision + 1, offset: 0 });
 			assert.equal(shifted.points.at(-1)?.frame, 6_144);
@@ -127,4 +141,14 @@ test('the peer validates the point index and the revision in automation replies'
 	const clear = { kind: 'clearAutomation', parameter: 'pan', trackId: '1', revision: 3 } as const;
 	assert.deepEqual(inspectTracktionReply({ ok: true, value: { revision: 4, itemId: null } }, clear), { revision: 4, itemId: null });
 	assert.throws(() => inspectTracktionReply({ ok: true, value: changed }, clear), /unsupported field/u);
+});
+
+test('the peer only admits timeline reuse for an applied Undo or Redo with history flags', () => {
+	const undo = { kind: 'undo', revision: 3 } as const;
+	const applied = { revision: 4, itemId: null, timelineUnchanged: true, history: { canUndo: true, canRedo: true } };
+	const read = (value: unknown) => inspectTracktionReply({ ok: true, value }, undo);
+	assert.deepEqual(read(applied), applied);
+	assert.throws(() => read({ ...applied, revision: 3 }), /history timeline acknowledgement/u);
+	assert.throws(() => read({ revision: 4, itemId: null, timelineUnchanged: true }), /history timeline acknowledgement/u);
+	assert.throws(() => inspectTracktionReply({ ok: true, value: applied }, { kind: 'save', revision: 3 }), /unsupported field/u);
 });

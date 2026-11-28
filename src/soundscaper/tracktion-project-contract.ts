@@ -50,6 +50,7 @@ export interface TracktionEditResult {
 	readonly revision: number;
 	readonly itemId: string | null;
 	readonly history?: TracktionEditHistory;
+	readonly timelineUnchanged?: true;
 	readonly insertion?: Readonly<{ track: TracktionTrackView; index: number }>;
 	readonly trimmedClip?: TracktionIndexedClip;
 	readonly splitClips?: Readonly<{ left: TracktionIndexedClip; right: TracktionIndexedClip }>;

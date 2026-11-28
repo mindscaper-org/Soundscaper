@@ -106,11 +106,12 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const discarding = finishesRecording && command.discard;
 	const rangeRemovesClips = (command.kind === 'deleteRange' || command.kind === 'cutRange') && command.trackId !== null;
 	const overlapPaste = command.kind === 'pasteRange' && command.mode === 'overlap';
+	const historyCommand = command.kind === 'undo' || command.kind === 'redo';
 	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
 		: command.kind === 'moveClip' || command.kind === 'duplicateClip' ? 'placedClip'
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
 	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split' || rangeRemovesClips || overlapPaste
-		|| command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
+		|| historyCommand || command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
 	const allowed = permitsHistory ? [...fields, 'history'] : [...fields];
 	if (permitsInsertion) allowed.push('insertion');
@@ -118,6 +119,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (command.kind === 'split') allowed.push('splitClips');
 	if (rangeRemovesClips) allowed.push('removedClipIds');
 	if (overlapPaste) allowed.push('pastedClips');
+	if (historyCommand) allowed.push('timelineUnchanged');
 	if (finishesRecording) allowed.push('transport');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
@@ -138,9 +140,13 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		throw new TypeError('A Tracktion edit returned an invalid created item.');
 	}
 	const history = result.history === undefined ? {} : { history: readEditHistory(result.history) };
+	const { timelineUnchanged } = result;
+	if (timelineUnchanged !== undefined && (timelineUnchanged !== true || !edited || result.history === undefined)) {
+		throw new TypeError('Invalid Tracktion history timeline acknowledgement.');
+	}
 	const transport = result.transport === undefined ? undefined : readTracktionTransport(result.transport, false);
 	if (transport?.recording) throw new TypeError('A finished Tracktion recording is still armed.');
-	const edit = { revision, itemId, ...history, ...(transport && { transport }) };
+	const edit = { revision, itemId, ...history, ...(transport && { transport }), ...(timelineUnchanged === true && { timelineUnchanged }) };
 	if (command.kind === 'setAutomationPoint') {
 		const pointIndex = nonnegativeInteger(result.pointIndex);
 		if (!edited && command.index !== pointIndex) throw new TypeError('Tracktion returned an inconsistent unchanged automation point.');

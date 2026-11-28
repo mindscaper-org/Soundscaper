@@ -38,6 +38,15 @@ EditHistory Session::editHistory() const
 	return {history.canUndo(), history.canRedo()};
 }
 
+bool Session::historyKeepsTimeline(bool redo) const
+{
+	const auto& history = state->edit->getUndoManager();
+	const auto name = redo ? history.getRedoDescription() : history.getUndoDescription();
+	// Session-owned mixer and automation transactions leave the track and clip rows intact.
+	return name == "Adjust track mix" || name == "Add automation point" || name == "Update automation point"
+		|| name == "Remove automation point" || name == "Clear automation";
+}
+
 ProjectPage Session::projectPage(std::size_t offset, std::size_t limit) const
 {
 	const auto& s = *state;

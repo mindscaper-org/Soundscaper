@@ -22,6 +22,7 @@ constexpr auto trackPageSize = 64u;
 constexpr auto clipPageSize = 64u;
 constexpr auto maxJsInteger = 9007199254740991ll;
 using peer_reply::clipReply;
+using peer_reply::editHistoryReply;
 using peer_reply::indexedClipReply;
 using peer_reply::number;
 using peer_reply::record;
@@ -167,12 +168,6 @@ juce::var projectPageReply(const ProjectPage& project, size_t offset)
 		{"canUndo", project.canUndo}, {"canRedo", project.canRedo},
 		{"tracks", juce::var(tracks)}, {"nextOffset", pageCursor(offset + project.tracks.size(), project.total)},
 	});
-}
-
-juce::var editHistoryReply(const Session& session)
-{
-	const auto history = session.editHistory();
-	return record({{"canUndo", history.canUndo}, {"canRedo", history.canRedo}});
 }
 
 juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
@@ -477,9 +472,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	else if (kind == "undo" || kind == "redo" || kind == "save")
 	{
 		requireFields(request, {"revision"});
-		if (kind == "undo") session.undo(revision);
-		else if (kind == "redo") session.redo(revision);
-		else session.save(revision);
+		if (kind != "save") return peer_reply::applyHistoryEdit(session, revision, kind == "redo");
+		session.save(revision);
 	}
 	else if (kind == "render")
 	{

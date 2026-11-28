@@ -58,6 +58,13 @@ export async function readTracktionWorkspaceWithCachedTracks(
 	return { ...workspace, project };
 }
 
+export async function readTracktionWorkspaceAfterHistoryEdit(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, result: TracktionEditResult,
+): Promise<TracktionWorkspace> {
+	const project = result.timelineUnchanged === true ? projectWithEdit(workspace, result) : undefined;
+	return project ? { ...workspace, project } : await readTracktionWorkspace(bridge, workspace, workspace.selectedTrack?.id);
+}
+
 export async function readTracktionWorkspaceAfterClipEdit(
 	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, result: TracktionEditResult,
 	{ trackId = workspace.selectedTrack?.id, removedFromSource }: Readonly<{ trackId?: string; removedFromSource?: string }> = {},

@@ -24,6 +24,25 @@ inline juce::var number(std::int64_t value)
 	return juce::var(static_cast<juce::int64>(value));
 }
 
+inline juce::var editHistoryReply(const Session& session)
+{
+	const auto history = session.editHistory();
+	return record({{"canUndo", history.canUndo}, {"canRedo", history.canRedo}});
+}
+
+inline juce::var applyHistoryEdit(Session& session, Revision revision, bool redo)
+{
+	const auto keepsTimeline = session.historyKeepsTimeline(redo);
+	const auto changed = redo ? session.redo(revision) : session.undo(revision);
+	auto reply = record({{"revision", number(session.revision())}, {"itemId", juce::var()}});
+	if (changed && keepsTimeline)
+	{
+		reply.getDynamicObject()->setProperty("timelineUnchanged", true);
+		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
+	}
+	return reply;
+}
+
 inline juce::var clipReply(const ClipView& clip)
 {
 	return record({

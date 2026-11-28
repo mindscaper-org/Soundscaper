@@ -16,10 +16,10 @@ import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
 async function mountEditor(context: TestContext, {
 	stopOnUndo = false, undoChangesClips = false, clipsPerTrack = 1, recoveredBeforeDiscard = false,
-	desktopAudioSetup = false, delayReadiness = false, trackCount = 33, openedTransport, recordingPlacement = false,
+	desktopAudioSetup = false, delayReadiness = false, trackCount = 33, openedTransport, recordingPlacement = false, historyKeepsTimeline = false,
 }: { stopOnUndo?: boolean; undoChangesClips?: boolean; clipsPerTrack?: number; recoveredBeforeDiscard?: boolean;
 	desktopAudioSetup?: boolean; delayReadiness?: boolean; trackCount?: number; openedTransport?: TracktionTransportObservation;
-	recordingPlacement?: boolean } = {}) {
+	recordingPlacement?: boolean; historyKeepsTimeline?: boolean } = {}) {
 	const dom = installReactTestDom();
 	let pollTransport: (() => void) | undefined;
 	if (desktopAudioSetup) Object.assign(window, {
@@ -123,8 +123,11 @@ async function mountEditor(context: TestContext, {
 				} : result;
 			}
 			case 'save': return { revision, itemId: null };
-			case 'undo': {
+			case 'undo':
+			case 'redo': {
 				if (stopOnUndo) transport = { ...transport, playing: false };
+				if (historyKeepsTimeline) return { revision: ++revision, itemId: null, timelineUnchanged: true,
+					history: { canUndo: true, canRedo: command.kind === 'undo' } };
 				if (undoChangesClips) revision += 1;
 				return { revision, itemId: null };
 			}
@@ -403,6 +406,21 @@ void test('whole mix export sends one request even when other tracks have more c
 	const before = requests.length;
 	await click('Export mix (WAV)');
 	assert.deepEqual(requests.slice(before), [{ kind: 'render', sessionId: 'session', revision: 7 }]);
+});
+
+void test('Undo and Redo reuse selected and recent clip pages when the engine preserves the timeline', async (context) => {
+	const { dom, requests, click } = await mountEditor(context, { clipsPerTrack: 65, historyKeepsTimeline: true });
+	const select = (value: string) => act(async () => { reactProps(dom.one('select')).onChange({ currentTarget: { value } }); });
+	await click('Open projects');
+	await select('2');
+	const before = requests.length;
+	const row = dom.one('li');
+	await click('Undo');
+	await click('Redo');
+	assert.equal(dom.one('li'), row);
+	await select('1');
+	assert.equal(dom.one('li').textContent, 'Clip 1 (0–512)');
+	assert.deepEqual(requests.slice(before).map(({ kind }) => kind), ['undo', 'redo']);
 });
 
 void test('Undo that stops the native graph also stops browser output and updates the controls', async (context) => {

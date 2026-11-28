@@ -139,6 +139,7 @@ public:
 	ProjectPage projectPage(std::size_t offset, std::size_t limit) const;
 	std::optional<TrackInsertion> trackInsertion(TrackId) const;
 	EditHistory editHistory() const;
+	bool historyKeepsTimeline(bool redo) const;
 	ClipPage clipPage(TrackId, std::size_t offset, std::size_t limit) const;
 	std::optional<IndexedClip> indexedClip(TrackId, ClipId) const;
 	Revision revision() const noexcept;
