@@ -207,26 +207,3 @@ export function transcriptToLabelDrafts(
 export function transcriptWords(transcript: AssistanceTranscript): readonly TranscriptWord[] {
 	return Object.freeze(transcript.segments.flatMap((segment) => [...segment.words]));
 }
-
-/** The segments overlapping a half-open frame range, in order. */
-export function transcriptSegmentsInRange(
-	transcript: AssistanceTranscript,
-	startFrame: number,
-	endFrame: number,
-): readonly TranscriptSegment[] {
-	assertFrame(startFrame, 'A range start');
-	assertFrame(endFrame, 'A range end');
-	return Object.freeze(transcript.segments.filter(
-		(segment) => segment.startFrame < endFrame && segment.endFrame > startFrame,
-	));
-}
-
-/**
- * Whether the transcript carries usable word timing. A model that reports only
- * segment boundaries cannot drive filler removal or word-level captions, and
- * callers must degrade rather than fabricate positions.
- */
-export function hasWordTiming(transcript: AssistanceTranscript): boolean {
-	return transcript.segments.length > 0
-		&& transcript.segments.every((segment) => segment.words.length > 0);
-}
