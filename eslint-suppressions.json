@@ -708,11 +708,6 @@
       "count": 1
     }
   },
-  "src/common/editor/ui/inspector/AnalysisPanel.jsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/common/editor/ui/inspector/AudacityEffectHeader.jsx": {
     "no-restricted-syntax": {
       "count": 5

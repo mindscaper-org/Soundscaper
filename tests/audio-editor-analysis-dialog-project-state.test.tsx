@@ -1,18 +1,23 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import React, { act } from 'react';
 
-import { AnalysisPanel } from '../src/common/editor/ui/inspector/AnalysisPanel.jsx';
+import AnalysisDialog from '../src/common/editor/ui/dialogs/AnalysisDialog.jsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
 import { deferred } from './helpers/async-test-control.ts';
 import {
 	installReactTestDom, reactProps, type ReactTestElement,
 } from './helpers/react-test-dom.ts';
 
-test('a late analysis failure cannot publish into a replacement project', async () => {
+test('the retired offline analysis panel is absent', () => {
+	assert.equal(existsSync(new URL('../src/common/editor/ui/inspector/AnalysisPanel.jsx', import.meta.url)), false);
+});
+
+for (const replaceProject of [false, true]) test(`Contrast ${replaceProject ? 'discards a late failure after project replacement' : 'shows a failure for the current project'}`, async () => {
 	const dom = installReactTestDom();
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const priorAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
@@ -27,20 +32,23 @@ test('a late analysis failure cannot publish into a replacement project', async 
 	};
 	const { createRoot } = await import('react-dom/client');
 	const root = createRoot(dom.container as unknown as Element);
-	const renderPanel = (projectId: string) => <AnalysisPanel
+	const renderDialog = (projectId: string) => <AnalysisDialog
 		mode="contrast"
 		controller={controller}
 		snapshot={snapshot(projectId)}
 		copy={ENGLISH_COPY}
-		fileService={undefined}
+		fileService={{ saveFile: () => undefined }}
+		onClose={() => undefined}
 	/>;
 	try {
-		await act(async () => root.render(renderPanel('project-a')));
+		await act(async () => root.render(renderDialog('project-a')));
+		const foreground = () => buttonWithText(dom.container, ENGLISH_COPY.captureContrastForeground);
 		await act(async () => {
-			reactProps(buttonWithText(dom.container, ENGLISH_COPY.captureContrastForeground)).onClick({});
+			reactProps(foreground()).onClick({});
 		});
+		assert.equal(foreground().hasAttribute('disabled'), true, 'the capture has started');
 
-		await act(async () => root.render(renderPanel('project-b')));
+		if (replaceProject) await act(async () => root.render(renderDialog('project-b')));
 		await act(async () => {
 			contrast.reject(new Error('Project A analysis failed.'));
 			await contrast.promise.catch(() => undefined);
@@ -48,8 +56,7 @@ test('a late analysis failure cannot publish into a replacement project', async 
 
 		assert.equal(
 			dom.container.textContent.includes('Project A analysis failed.'),
-			false,
-			'project B must not show project A failure state',
+			!replaceProject,
 		);
 	} finally {
 		await act(async () => root.unmount());
@@ -68,19 +75,15 @@ function snapshot(projectId: string) {
 			title: projectId,
 			revision: 1,
 			sampleRate: 48_000,
-			clips: [{ id: 'shared-clip' }],
-			tracks: [{ id: 'shared-track', type: 'audio' }],
+			clips: [{ id: 'shared-clip', timelineStartFrame: 0, durationFrames: 1_000 }],
+			tracks: [{ id: 'shared-track', type: 'audio', clipIds: ['shared-clip'] }],
+			selection: { startFrame: 0, endFrame: 1_000, trackIds: ['shared-track'], clipIds: [] },
 		},
-		selectedTrackId: 'shared-track',
-		selection: { startFrame: 0, endFrame: 1_000 },
 		importing: false,
 		recording: false,
 		exporting: false,
 		analysisProcessing: false,
 		missingSourceIds: [],
-		analysis: null,
-		analysisReport: null,
-		analysisVisuals: null,
 	};
 }
 
