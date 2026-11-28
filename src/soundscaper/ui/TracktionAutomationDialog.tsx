@@ -13,7 +13,7 @@ interface AutomationDialogProps {
 	readonly parameter: TracktionAutomationParameter;
 	readonly page: TracktionAutomationPage;
 	readonly offset: number;
-	readonly selectedFrame: number | null;
+	readonly selectedPointIndex: number | null;
 	readonly busy: boolean;
 	readonly onPage: (parameter: TracktionAutomationParameter, offset: number) => void;
 	readonly onEdit: (edit: TracktionAutomationEdit) => void;
@@ -47,10 +47,10 @@ export function TracktionAutomationDialog({ track, onDismiss, failure, ...editor
 	</dialog>;
 }
 
-function AutomationPointEditor({ parameter, page, offset, selectedFrame, onPage, onEdit }: AutomationDialogProps) {
+function AutomationPointEditor({ parameter, page, offset, selectedPointIndex, onPage, onEdit }: AutomationDialogProps) {
 	const [selection, setSelection] = useState(() => {
-		const selected = page.points.findIndex(({ frame }) => frame === selectedFrame);
-		return selected < 0 ? 'new' : String(selected);
+		const selected = selectedPointIndex === null ? -1 : selectedPointIndex - offset;
+		return page.points[selected] ? String(selected) : 'new';
 	});
 	const point = page.points[Number(selection)];
 	const index = point ? offset + Number(selection) : null;

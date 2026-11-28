@@ -490,6 +490,35 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await fileCommand('Open projects');
 	await page.getByRole('dialog', { name: 'Local projects' }).getByRole('button', { name: 'Clipboard destination' }).click();
 	await list.getByText('Tracktion web media (40–172)', { exact: true }).waitFor();
+	await editing.click();
+	await button('Track automation').click();
+	const addPoint = automation.getByRole('button', { name: 'Add point' });
+	await addPoint.click();
+	await point.getByRole('option', { name: '0 · 0.000', exact: true }).waitFor({ state: 'attached' });
+	await frameField.fill('1024');
+	await valueField.fill('-12');
+	await addPoint.click();
+	await point.getByRole('option', { name: '1024 · -12.000', exact: true }).waitFor({ state: 'attached' });
+	await automation.getByRole('button', { name: 'Close' }).click();
+	await editing.click();
+	await button('Delete time range').click();
+	await range.getByRole('spinbutton', { name: 'Start frame' }).fill('80');
+	await range.getByRole('spinbutton', { name: 'End frame' }).fill('96');
+	await range.getByRole('combobox', { name: 'Delete mode' }).selectOption('track');
+	await range.getByRole('button', { name: 'Apply' }).click();
+	await range.waitFor({ state: 'detached' });
+	await editing.click();
+	await button('Track automation').click();
+	const splice = point.getByRole('option', { name: /^80 · /u });
+	await splice.nth(1).waitFor({ state: 'attached' });
+	assert.equal(await splice.count(), 2);
+	const rightPoint = await splice.nth(1).getAttribute('value');
+	assert.ok(rightPoint);
+	await point.selectOption(rightPoint);
+	await valueField.fill('-18');
+	await automation.getByRole('button', { name: 'Update point' }).click();
+	await point.getByRole('option', { name: '80 · -18.000', exact: true }).waitFor({ state: 'attached' });
+	assert.equal(await point.inputValue(), rightPoint, 'updating the right side of the gain splice retains its selection');
 }
 
 

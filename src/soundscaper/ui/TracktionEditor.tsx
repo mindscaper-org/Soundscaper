@@ -53,7 +53,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [hasClipboard, setHasClipboard] = useState(false);
 	const [mixer, setMixer] = useState<TracktionTrackMix | null>(null);
 	const [automation, setAutomation] = useState<{
-		parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage; selectedFrame: number | null;
+		parameter: TracktionAutomationParameter; offset: number; page: TracktionAutomationPage; selectedPointIndex: number | null;
 	} | null>(null);
 	const [audioSetup, setAudioSetup] = useState<TracktionAudioHosts | null>(null);
 	const [effects, setEffects] = useState<{ slots: TracktionEffectSlot[]; catalog: readonly TracktionEffectInstallation[] | null } | null>(null);
@@ -314,7 +314,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		const { sessionId, project: { revision }, selectedTrack: { id: trackId } } = workspace;
 		run(async () => {
 			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision, trackId, parameter, offset });
-			setAutomation({ parameter, offset, page, selectedFrame: null });
+			setAutomation({ parameter, offset, page, selectedPointIndex: null });
 		});
 	}
 
@@ -326,17 +326,18 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			const updated = await readTracktionWorkspaceWithCachedTracks(bridge, workspace, result);
 			setWorkspace(updated);
 			const { parameter } = edit;
-			const selectedFrame = edit.kind === 'setAutomationPoint' && edit.index !== null ? edit.frame : null;
+			const selectedPointIndex = edit.kind === 'setAutomationPoint' && edit.index !== null
+				&& updated.project.revision === result.revision && 'pointIndex' in result ? result.pointIndex : null;
 			const removesLastPoint = edit.kind === 'removeAutomationPoint' && automation.page.nextOffset === null && automation.page.points.length === 1;
 			let currentOffset = automation.offset;
-			if (selectedFrame !== null && 'pointIndex' in result) {
-				currentOffset = Math.floor(result.pointIndex / TRACKTION_AUTOMATION_PAGE_SIZE) * TRACKTION_AUTOMATION_PAGE_SIZE;
+			if (selectedPointIndex !== null) {
+				currentOffset = Math.floor(selectedPointIndex / TRACKTION_AUTOMATION_PAGE_SIZE) * TRACKTION_AUTOMATION_PAGE_SIZE;
 			} else if (removesLastPoint) {
 				currentOffset = Math.max(0, automation.offset - TRACKTION_AUTOMATION_PAGE_SIZE);
 			}
 			const offset = edit.kind === 'clearAutomation' || updated.project.revision !== result.revision ? 0 : currentOffset;
 			const page = await bridge.request({ kind: 'trackAutomation', sessionId, revision: updated.project.revision, trackId, parameter, offset });
-			setAutomation({ parameter, offset, page, selectedFrame });
+			setAutomation({ parameter, offset, page, selectedPointIndex });
 		});
 	}
 
