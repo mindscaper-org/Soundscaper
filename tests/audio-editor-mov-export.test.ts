@@ -12,14 +12,10 @@ import { desktopVideoExportCapabilities } from '../src/common/editor/desktop-vid
 import { resolvePlatformVideoDeliveryEncoder } from '../src/common/editor/platform-video-delivery-encoder.ts';
 import { createExportDialogRequest, isVideoExportDialogFormat } from '../src/common/editor/ui/export-dialog-model.js';
 import { getVideoExportFormat } from '../src/common/editor/video-export-formats.ts';
-import { assertVideoKeyframeExportPlanV7 } from '../src/common/editor/video-keyframe-export-plan-v7.ts';
+import { assertVideoKeyframeExportPlanV7, createVideoKeyframeExportPlanV7 } from '../src/common/editor/video-keyframe-export-plan-v7.ts';
 import { assertFiniteVideoKeyframeContainer } from '../src/common/editor/video-keyframe-video-container.ts';
 import { assertFiniteVideoKeyframeContainerFile } from '../src/common/editor/video-keyframe-video-container-stream.ts';
 import { streamVideoKeyframeVideoOutput } from '../src/common/editor/video-keyframe-video-output.ts';
-import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { createSoundscaperProjectRuntimeSelection } from '../src/soundscaper/editor-project-runtime-selection.ts';
-import { createSoundscaperVideoKeyframeExportPlan } from '../src/soundscaper/video-export-plan.ts';
-import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 
 const PLAN = {
 	schemaVersion: 1, format: 'mov', quality: 'high', width: 2, height: 2,
@@ -37,15 +33,24 @@ const MOV = Uint8Array.of(
 	0, 0, 0, 9, 0x6d, 0x64, 0x61, 0x74, 0,
 );
 
-test('MOV is routed as video and creates an exact Soundscaper delivery and save contract', () => {
+test('MOV is routed as video and creates an exact shared delivery and save contract', () => {
 	assert.equal(isVideoExportDialogFormat('video-mov'), true);
 	assert.equal(createExportDialogRequest({ format: 'video-mov', range: 'project' }).format, 'video-mov');
 	const descriptor = getVideoExportFormat('mov');
 	assert.equal(descriptor.extension, 'mov');
 	assert.equal(descriptor.mimeType, 'video/quicktime');
-	const project = createSoundscaperProject(framescaperV20Options() as never);
-	const plan = createSoundscaperVideoKeyframeExportPlan(createSoundscaperProjectRuntimeSelection(), project, {
-		format: 'mov', includeAudio: true, quality: 'high',
+	const range = { startFrame: 0, endFrame: PLAN.durationFrames, durationFrames: PLAN.durationFrames };
+	const plan = createVideoKeyframeExportPlanV7({
+		format: 'mov', includeAudio: true, quality: 'high', sampleRate: PLAN.sampleRate,
+		range,
+		canvas: {
+			width: PLAN.width, height: PLAN.height, frameRate: PLAN.frameRate, fit: 'contain',
+			pixelFormat: 'yuv420p', backgroundColor: '#000000',
+			referenceClipId: 'video-clip', referenceSourceId: 'video-source',
+		},
+		activeClipIds: ['video-clip'], activeSourceIds: ['video-source'],
+		sources: [{ id: 'video-source', kind: 'video', storageKey: 'storage-video-source',
+			mimeType: 'video/mp4', contentSha256: 'a'.repeat(64) }],
 	});
 	assert.equal(plan.container, 'mov');
 	assert.equal(plan.extension, 'mov');
