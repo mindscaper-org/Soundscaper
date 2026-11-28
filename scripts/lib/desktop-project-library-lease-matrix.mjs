@@ -9,6 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import {
 	DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_MODE,
+	DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_TTL_MS,
 } from '../../desktop/project-library-lease-smoke.js';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../../src/framescaper/editor-project-runtime-profile.ts';
 import { createFramescaperProject } from '../../src/framescaper/editor-project.ts';
@@ -35,14 +36,6 @@ export const DESKTOP_PROJECT_LIBRARY_LEASE_WORKFLOWS = Object.freeze(
 	),
 );
 
-// The lease every case runs under. A live holder has to renew inside this
-// window, and a packaged Electron instance on a shared runner can lose a whole
-// second to scheduling — at a one-second lease that expired the lease under its
-// own holder, and `writer-lease-transfer` failed with "lease holder no longer
-// owns the lease". Nothing here tests how short a lease can be, so the window
-// is wide enough that only a genuinely dead holder loses it. The cases that
-// need expiry wait it out explicitly instead of racing it.
-const TTL_MS = 5_000;
 const LEASE_EXPIRY_MARGIN_MS = 500;
 const MAXIMUM_EVIDENCE_CHARACTERS = 2_000;
 /** Both catalogs raise a lease another live instance holds under these exact wordings. */
@@ -64,7 +57,7 @@ export function createDesktopProjectLibraryLeaseMatrixPlan({ action, control, pr
 		mode: DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_MODE,
 		action,
 		control,
-		leaseTtlMs: TTL_MS,
+		leaseTtlMs: DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_TTL_MS,
 		productId,
 		projectId,
 		request,
@@ -321,7 +314,7 @@ function fencingTokens(results) {
 }
 
 function awaitAbandonedLeaseExpiry() {
-	return delay(TTL_MS + LEASE_EXPIRY_MARGIN_MS);
+	return delay(DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_TTL_MS + LEASE_EXPIRY_MARGIN_MS);
 }
 
 function request(document, expectedRevision) { return { document, expectedRevision }; }

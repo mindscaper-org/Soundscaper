@@ -91,6 +91,10 @@ test('current packaged lease smoke exercises both product-family v1 baselines', 
 		Buffer.from(JSON.stringify(plan)).toString('base64url'),
 	);
 	assert.deepEqual(decoded, plan);
+	assert.equal(decoded.leaseTtlMs, 15_000, 'a live writer needs headroom for packaged startup and disk I/O');
+	assert.throws(() => decodeDesktopProjectLibraryLeaseSmokePlan(Buffer.from(JSON.stringify({
+		...plan, leaseTtlMs: 15_001,
+	})).toString('base64url')), /TTL is outside/u);
 	assert.throws(() => decodeDesktopProjectLibraryLeaseSmokePlan(Buffer.from(JSON.stringify({
 		...plan, faultPath: resolve(controlRoot, 'outside'),
 	})).toString('base64url')), /closed object/iu);

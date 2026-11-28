@@ -9,6 +9,8 @@ import { executeDesktopRendererSmoke } from './renderer-smoke-execution.js';
 
 export const DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_MODE = 'project-library-lease-matrix-v1';
 export const DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_PREFIX = 'SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_LEASE ';
+// Leave room for synchronous startup and publication on shared runners.
+export const DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_TTL_MS = 15_000;
 
 const ACTIONS = new Set([
 	'observe-hold', 'commit-hold', 'commit', 'commit-contend', 'verify',
@@ -58,7 +60,7 @@ export function createDesktopProjectLibraryLeaseSmokeSession({
 		},
 		leaseTestControl: Object.freeze({
 			leaseTtlMs: admitted.leaseTtlMs,
-			renewIntervalMs: Math.max(100, Math.floor(admitted.leaseTtlMs / 3)),
+			renewIntervalMs: Math.min(2_000, Math.floor(admitted.leaseTtlMs / 3)),
 		// The baseline journal checkpoint is synchronous, so the phase is recorded with
 			// synchronous writes and the thread then parks until the smoke kills the
 			// process. Parking rather than exiting leaves the journal and the
@@ -195,7 +197,8 @@ function validatePlan(value) {
 	if (typeof record.projectId !== 'string' || !record.projectId) {
 		throw new TypeError('Desktop lease smoke project id is invalid');
 	}
-	if (!Number.isSafeInteger(record.leaseTtlMs) || record.leaseTtlMs < 1_000 || record.leaseTtlMs > 5_000) {
+	if (!Number.isSafeInteger(record.leaseTtlMs) || record.leaseTtlMs < 1_000
+		|| record.leaseTtlMs > DESKTOP_PROJECT_LIBRARY_LEASE_SMOKE_TTL_MS) {
 		throw new RangeError('Desktop lease smoke TTL is outside its closed range');
 	}
 	const control = exactRecord(record.control, ['ready', 'release', 'result', 'start'], 'lease smoke control');
