@@ -32,13 +32,10 @@ test('the shared editor app is a presentation seam with no self-constructing def
 	assert.doesNotMatch(app.text, /export default/u);
 });
 
-test('only the product editor controllers construct the shared controller', () => {
+test('only the maintained Framescaper controller constructs the shared controller', () => {
 	const constructors = SOURCES
 		.filter((source) => /\bcreateAudioEditorController\s*\(\s*null\b/u.test(source.text))
 		.map((source) => source.path)
 		.sort();
-	assert.deepEqual(constructors, [
-		'src/framescaper/editor-controller.ts',
-		'src/soundscaper/editor-controller.ts',
-	]);
+	assert.deepEqual(constructors, ['src/framescaper/editor-controller.ts']);
 });

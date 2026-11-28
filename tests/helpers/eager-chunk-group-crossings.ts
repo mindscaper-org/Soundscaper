@@ -320,12 +320,9 @@ export function isEagerlyLoadedModule(path: string): boolean {
  * through; pass an empty set to see the whole list.
  *
  * An importer with no owner counts as eager when the eager entries reach it statically.
- * Skipping those was how `src/soundscaper/video-export-strategy.ts` could statically import
- * the lazily owned export projection unseen: the strategy is composed while the Soundscaper
- * controller is built, so the whole optional export chunk was a boot dependency, and the
- * guard could not say so because the strategy itself has no owner. Between two unowned
- * modules there is nothing to report - neither has a chunk of its own for the other to drag
- * in, and reachability places them together.
+ * Framescaper, for example, composes its unowned video export strategy at startup.
+ * Between two unowned modules there is no crossing to report because reachability
+ * places them together and neither owns a separate chunk.
  */
 export function eagerImportsOfLazyOwners(
 	roots: readonly string[],

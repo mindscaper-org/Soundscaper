@@ -5,15 +5,17 @@ import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 test('controller composition omits the retired persistent-delivery seam', async () => {
-	const [common, options, soundscaper, framescaper] = await Promise.all([
+	const [common, options, soundscaper, soundscaperDesktop, framescaper] = await Promise.all([
 		readFile(new URL('../src/common/editor/app.js', import.meta.url), 'utf8'),
 		readFile(new URL('../src/common/editor/controller/composition/controller-options.ts', import.meta.url), 'utf8'),
-		readFile(new URL('../src/soundscaper/editor-controller.ts', import.meta.url), 'utf8'),
+		readFile(new URL('../src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx', import.meta.url), 'utf8'),
+		readFile(new URL('../desktop/tracktion-main.ts', import.meta.url), 'utf8'),
 		readFile(new URL('../src/framescaper/editor-controller.ts', import.meta.url), 'utf8'),
 	]);
 	assert.equal(common.includes('bindSoundscaperPersistentDeliveryRuntime'), false);
 	assert.equal(options.includes('bindSoundscaperPersistentDeliveryRuntime'), false);
 	assert.doesNotMatch(soundscaper, /PersistentDelivery|persistentDelivery/u);
+	assert.doesNotMatch(soundscaperDesktop, /PersistentDelivery|persistentDelivery/u);
 	assert.doesNotMatch(framescaper, /PersistentDelivery|persistentDelivery/u);
 });
 

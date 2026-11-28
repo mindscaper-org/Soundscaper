@@ -197,14 +197,15 @@ archive readable.
 ## Family-v1 product isolation
 
 <!-- policy-narrative:framescaper-v18-product-isolation -->
-Soundscaper selects { schemaFamily: 'soundscaper', schemaVersion: 1 } and
-Framescaper selects { schemaFamily: 'framescaper', schemaVersion: 1 }. Their
-direct unversioned bootstraps, controllers, domains, stores, and desktop
-libraries retain the complete frozen behavior without importing predecessor
-product generations. Fresh v1 stores have no migration or copy-forward path and
-never open, enumerate, mutate, or delete pre-release stores. A known other
-family or later family version receives opaque read-only custody; malformed and
-unknown identities reject before traversal.
+Soundscaper family-v1 compatibility selects { schemaFamily: 'soundscaper',
+schemaVersion: 1 } and the Framescaper editor selects { schemaFamily:
+'framescaper', schemaVersion: 1 }. Soundscaper's Tracktion editor uses its own
+Edit format and isolated storage in the browser and on desktop. The retained
+family-v1 domains, stores, and desktop libraries preserve product isolation
+without importing predecessor product generations. Fresh v1 stores have no
+migration or copy-forward path and never open, enumerate, mutate, or delete
+pre-release stores. A known other family or later family version receives opaque
+read-only custody. Malformed and unknown identities reject before traversal.
 <!-- /policy-narrative:framescaper-v18-product-isolation -->
 
 ## Current local-assistance transcript custody

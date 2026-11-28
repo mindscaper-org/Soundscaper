@@ -25,9 +25,9 @@ import {
  * The crossing guard used to skip any module whose own owner was null, which meant it could
  * only see a defect when both ends were named. That is backwards for the product trees,
  * where the composition is unowned by design and the feature slices carry the owners:
- * `src/soundscaper/video-export-strategy.ts` has no owner, is composed while the Soundscaper
- * controller is built, and statically imported the lazily owned export projection - the
- * whole optional export chunk was a boot dependency and the guard reported green.
+ * Framescaper's video export strategy has no chunk owner and is composed when
+ * the controller starts. A static edge from its timeline-image strategy into a
+ * lazy export chunk would bring that chunk into the boot graph.
  *
  * Ownership cannot answer whether an unowned module boots, so this walks the graph the
  * bundler walks, from `src/main.jsx` and the two product bootstraps, following static edges
@@ -46,21 +46,24 @@ test('the eager graph is walked from the page entry and both product bootstraps'
 		'src/main.jsx',
 		'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx',
 		'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx',
-		'src/soundscaper/editor-controller.ts',
+		'src/soundscaper/ui/TracktionEditor.tsx',
+		'src/soundscaper/tracktion-web-bridge.ts',
 		'src/framescaper/editor-controller.ts',
-		'src/soundscaper/video-export-strategy.ts',
+		'src/framescaper/video-export-strategy.ts',
 	]) assert.ok(reachable.has(path), `${path} must be in the eager graph`);
 	for (const path of [
 		'src/common/editor/ui/inspector/ExportDialog.jsx',
 		'src/common/editor/ui/dialogs/MonoConversionConfirmationDialog.tsx',
 		'src/common/editor/ui/dialogs/NyquistDialog.jsx',
-	]) assert.ok(!reachable.has(path), `${path} is reached only through a dynamic import`);
+		'src/soundscaper/editor-controller.ts',
+		'src/soundscaper/video-export-strategy.ts',
+	]) assert.ok(!reachable.has(path), `${path} must stay outside the eager graph`);
 });
 
 test('an unowned importer the eager entries reach counts as eager', () => {
 	// The exact module the guard used to skip, and the exact reason it may not be skipped.
-	assert.equal(chunkGroupForModulePath('src/soundscaper/video-export-strategy.ts'), null);
-	assert.equal(isEagerlyLoadedModule('src/soundscaper/video-export-strategy.ts'), true);
+	assert.equal(chunkGroupForModulePath('src/framescaper/video-export-strategy.ts'), null);
+	assert.equal(isEagerlyLoadedModule('src/framescaper/video-export-strategy.ts'), true);
 	// An unowned module nothing reaches statically is still lazy, and so is a lazily owned one.
 	assert.equal(chunkGroupForModulePath('src/common/editor/ui/inspector/ExportDialog.jsx'), null);
 	assert.equal(isEagerlyLoadedModule('src/common/editor/ui/inspector/ExportDialog.jsx'), false);

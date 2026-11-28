@@ -1,25 +1,19 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { register } from 'node:module';
 import test from 'node:test';
 import React, { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ProjectRecoveryDialog from '../src/common/editor/ui/dialogs/ProjectRecoveryDialog.tsx';
 import { PROJECT_RECOVERY_COPY_BY_LOCALE } from '../src/common/i18n/editor-project-recovery-copy.ts';
 import { RECORDING_RECOVERY_KEY_PREFIX } from '../src/common/editor/storage/recording-recovery-journal-repository.ts';
+import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project-store.ts';
 import { bindSoundscaperProjectRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-
-register(`data:text/javascript,${encodeURIComponent(`export async function resolve(specifier, context, nextResolve) {
-	if (specifier === '@ffmpeg/core?url' || specifier === '@ffmpeg/core/wasm?url') return { url: 'data:text/javascript,export default "mock-ffmpeg-asset"', shortCircuit: true };
-	return nextResolve(specifier, context);
-}`)}`, import.meta.url);
-const { createSoundscaperAudioEditorController } = await import('../src/soundscaper/editor-controller.ts');
-const { createSoundscaperEditorProjectEnvironment } = await import('../src/soundscaper/editor-project-environment.ts');
+import { createSoundscaperCompatibilityController } from './helpers/soundscaper-controller-session.ts';
 
 test('MP59: dismissed pending File Recovery cannot replace a newer workspace', async () => {
 	const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
@@ -27,7 +21,7 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true,
 			persist: async () => true } as unknown as StorageManager,
 	} });
-	const controller = createSoundscaperAudioEditorController(environment);
+	const controller = createSoundscaperCompatibilityController(environment);
 	await controller.ready;
 	const original = createSoundscaperProject({ id: 'recover-pending-original', title: 'Original work' });
 	await environment.store.saveProject(original);
@@ -50,7 +44,7 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const prior = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	let completion: Promise<unknown> | undefined;
-	const recovery = controller.actions.project.recovery;
+	const recovery = bindSoundscaperProjectRecovery(environment.store, project => controller.actions.project.open(project), controller);
 	let receipt: Parameters<typeof recovery.recover>[0] | undefined;
 	let candidateIndex = -1;
 	function Surface() {

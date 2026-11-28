@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { chunkGroupForModulePath } from '../scripts/lib/build-chunk-groups.mjs';
-import { staticRelativeImports } from './helpers/eager-chunk-group-crossings.ts';
+import { isEagerlyLoadedModule, staticRelativeImports } from './helpers/eager-chunk-group-crossings.ts';
 
 test('export format checks stay with the menu-opened export surface', () => {
 	assert.equal(chunkGroupForModulePath('src/common/editor/controller/export/export-format-availability.ts'), 'editor-optional-export');
@@ -51,21 +51,11 @@ test('the loudness normalization render belongs to the export slice that alone u
 	);
 });
 
-test('the detached export projection is eager, because an eagerly composed strategy calls it', () => {
-	// `src/soundscaper/editor-controller.ts` composes the Soundscaper video export
-	// strategy while it builds the controller, and that strategy calls
-	// `createExportRenderProject` synchronously. While the projection belonged to the
-	// lazy export owner, composing a Soundscaper editor made the whole optional export
-	// chunk a static dependency of the boot graph.
-	assert.ok(
-		importsOf('src/soundscaper/editor-controller.ts').includes('./video-export-strategy.ts'),
-		'the product controller must still compose the export strategy eagerly',
-	);
-	assert.ok(
-		importsOf('src/soundscaper/video-export-strategy.ts')
-			.includes('../common/editor/controller/export/export-render-project.ts'),
-		'the strategy must still reach the projection through a static import',
-	);
+test('the detached export projection stays eager for the Framescaper timeline-image strategy', () => {
+	assert.ok(importsOf('src/framescaper/editor-controller.ts').includes('./video-export-strategy.ts'));
+	const strategy = 'src/framescaper/video-export-strategy-timeline-image.ts';
+	assert.equal(isEagerlyLoadedModule(strategy), true);
+	assert.ok(importsOf(strategy).includes('../common/editor/controller/export/export-render-project.ts'));
 	assert.equal(
 		chunkGroupForModulePath('src/common/editor/controller/export/export-render-project.ts'),
 		'editor-controller-core',
