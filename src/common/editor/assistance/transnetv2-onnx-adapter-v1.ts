@@ -41,17 +41,6 @@ export const ASSISTANCE_TRANSNET_V2_CPU_OUTPUT_SHAPE = Object.freeze([
 export type AssistanceTransNetV2InputElementType = 'uint8' | 'float32';
 export type AssistanceTransNetV2OutputValueKind = 'logits' | 'probabilities';
 
-export interface AssistanceTransNetV2DecodedFramesV1 {
-	readonly schemaVersion: 1;
-	readonly pixelFormat: 'rgb24';
-	readonly width: typeof ASSISTANCE_TRANSNET_V2_WIDTH;
-	readonly height: typeof ASSISTANCE_TRANSNET_V2_HEIGHT;
-	readonly rowStrideBytes: typeof ASSISTANCE_TRANSNET_V2_ROW_STRIDE_BYTES;
-	readonly timescale: number;
-	readonly presentationTicks: readonly string[];
-	readonly data: Uint8Array;
-}
-
 export interface AssistanceTransNetV2DecodedFrameSourceV1 {
 	readonly schemaVersion: 1;
 	readonly pixelFormat: 'rgb24';
@@ -91,28 +80,19 @@ export interface AssistanceTransNetV2OnnxAdapterOptionsV1 {
 	readonly signal?: AbortSignal;
 }
 
-interface AssistanceTransNetV2OnnxAdapterRequestV1 {
+interface AssistanceTransNetV2OnnxFrameSourceRequestV1 {
 	readonly schemaVersion: 1;
-	readonly frames: AssistanceTransNetV2DecodedFramesV1;
+	readonly frames: AssistanceTransNetV2DecodedFrameSourceV1;
 	readonly inputElementType: AssistanceTransNetV2InputElementType;
 	readonly outputValueKind: AssistanceTransNetV2OutputValueKind;
 	readonly threshold: number;
 	readonly minimumBoundaryDistanceFrames: number;
 }
 
-interface AssistanceTransNetV2OnnxFrameSourceRequestV1
-	extends Omit<AssistanceTransNetV2OnnxAdapterRequestV1, 'frames'> {
-	readonly frames: AssistanceTransNetV2DecodedFrameSourceV1;
-}
-
 const MAXIMUM_SOURCE_FRAMES = 10_000_000;
 const MAXIMUM_TIMESCALE = 0x7fff_ffff;
 const MAXIMUM_TICK = 0x7fff_ffff_ffff_ffffn;
 const TICK = /^(?:0|[1-9]\d*)$/u;
-const DECODED_FIELDS = Object.freeze([
-	'schemaVersion', 'pixelFormat', 'width', 'height', 'rowStrideBytes',
-	'timescale', 'presentationTicks', 'data',
-] as const);
 const FRAME_SOURCE_FIELDS = Object.freeze([
 	'schemaVersion', 'pixelFormat', 'width', 'height', 'rowStrideBytes',
 	'timescale', 'frameCount', 'presentationTicks', 'readFrame',
@@ -123,54 +103,7 @@ const REQUEST_FIELDS = Object.freeze([
 	'minimumBoundaryDistanceFrames',
 ] as const);
 
-export function validateAssistanceTransNetV2DecodedFramesV1(
-	value: unknown,
-): AssistanceTransNetV2DecodedFramesV1 {
-	const row = exactRecord(value, DECODED_FIELDS, 'TransNetV2 decoded RGB frames');
-	if (row.schemaVersion !== 1 || row.pixelFormat !== 'rgb24'
-		|| row.width !== ASSISTANCE_TRANSNET_V2_WIDTH
-		|| row.height !== ASSISTANCE_TRANSNET_V2_HEIGHT
-		|| row.rowStrideBytes !== ASSISTANCE_TRANSNET_V2_ROW_STRIDE_BYTES) {
-		throw new TypeError('TransNetV2 decoded RGB geometry, format, or stride is invalid.');
-	}
-	const timescale = integer(row.timescale, 1, MAXIMUM_TIMESCALE, 'TransNetV2 timescale');
-	const presentationTicks = timing(row.presentationTicks);
-	if (!(row.data instanceof Uint8Array) || !(row.data.buffer instanceof ArrayBuffer)
-		|| row.data.byteLength !== presentationTicks.length * ASSISTANCE_TRANSNET_V2_FRAME_BYTES) {
-		throw new RangeError('TransNetV2 decoded RGB data length or storage is invalid.');
-	}
-	return Object.freeze({
-		schemaVersion: 1, pixelFormat: 'rgb24',
-		width: ASSISTANCE_TRANSNET_V2_WIDTH, height: ASSISTANCE_TRANSNET_V2_HEIGHT,
-		rowStrideBytes: ASSISTANCE_TRANSNET_V2_ROW_STRIDE_BYTES,
-		timescale, presentationTicks, data: row.data,
-	});
-}
-
-export function createAssistanceTransNetV2CpuInputBatchV1(
-	framesValue: unknown,
-	batchIndexValue: unknown,
-	elementTypeValue: unknown,
-): AssistanceTransNetV2CpuInputBatchV1 {
-	const frames = validateAssistanceTransNetV2DecodedFramesV1(framesValue);
-	const batchCount = assistanceTransNetV2BatchCount(frames.presentationTicks.length);
-	const batchIndex = integer(batchIndexValue, 0, batchCount - 1, 'TransNetV2 batch index');
-	const elementType = inputElementType(elementTypeValue);
-	return createBatch(frames, batchIndex, elementType);
-}
-
-export async function runAssistanceTransNetV2OnnxAdapterV1(
-	value: unknown,
-	options: AssistanceTransNetV2OnnxAdapterOptionsV1,
-): Promise<AssistanceTransNetV2BoundariesV1> {
-	if (!options || typeof options.runBatch !== 'function') {
-		throw new TypeError('The TransNetV2 ONNX batch runner is invalid.');
-	}
-	const request = validateRequest(value);
-	return runFrameSource({ ...request, frames: sourceFromDecoded(request.frames) }, options);
-}
-
-/** Run the same reviewed window authority over bounded, lazily supplied RGB frames. */
+/** Run the reviewed window authority over bounded, lazily supplied RGB frames. */
 export async function runAssistanceTransNetV2FrameSourceOnnxAdapterV1(
 	value: unknown,
 	options: AssistanceTransNetV2OnnxAdapterOptionsV1,
@@ -229,21 +162,6 @@ async function runFrameSource(
 	});
 }
 
-function validateRequest(value: unknown): AssistanceTransNetV2OnnxAdapterRequestV1 {
-	const row = exactRecord(value, REQUEST_FIELDS, 'TransNetV2 ONNX adapter request');
-	if (row.schemaVersion !== 1) throw new TypeError('The TransNetV2 adapter version is unsupported.');
-	const frames = validateAssistanceTransNetV2DecodedFramesV1(row.frames);
-	return Object.freeze({
-		schemaVersion: 1,
-		frames,
-		inputElementType: inputElementType(row.inputElementType),
-		outputValueKind: outputValueKind(row.outputValueKind),
-		threshold: unit(row.threshold, 'TransNetV2 threshold'),
-		minimumBoundaryDistanceFrames: integer(row.minimumBoundaryDistanceFrames, 1,
-			frames.presentationTicks.length, 'TransNetV2 minimum boundary distance'),
-	});
-}
-
 function validateFrameSourceRequest(value: unknown): AssistanceTransNetV2OnnxFrameSourceRequestV1 {
 	const row = exactRecord(value, REQUEST_FIELDS, 'TransNetV2 ONNX frame-source request');
 	if (row.schemaVersion !== 1) throw new TypeError('The TransNetV2 adapter version is unsupported.');
@@ -282,49 +200,6 @@ function validateFrameSource(value: unknown): AssistanceTransNetV2DecodedFrameSo
 		rowStrideBytes: ASSISTANCE_TRANSNET_V2_ROW_STRIDE_BYTES,
 		timescale, frameCount, sourceFrames, presentationTicks,
 		readFrame: row.readFrame as AssistanceTransNetV2DecodedFrameSourceV1['readFrame'],
-	});
-}
-
-function sourceFromDecoded(
-	frames: AssistanceTransNetV2DecodedFramesV1,
-): AssistanceTransNetV2DecodedFrameSourceV1 {
-	return Object.freeze({
-		schemaVersion: 1, pixelFormat: 'rgb24', width: ASSISTANCE_TRANSNET_V2_WIDTH,
-		height: ASSISTANCE_TRANSNET_V2_HEIGHT,
-		rowStrideBytes: ASSISTANCE_TRANSNET_V2_ROW_STRIDE_BYTES,
-		timescale: frames.timescale, frameCount: frames.presentationTicks.length,
-		sourceFrames: Object.freeze(frames.presentationTicks.map((_, index) => index)),
-		presentationTicks: frames.presentationTicks,
-		readFrame(index: number) {
-			const offset = index * ASSISTANCE_TRANSNET_V2_FRAME_BYTES;
-			return frames.data.subarray(offset, offset + ASSISTANCE_TRANSNET_V2_FRAME_BYTES);
-		},
-	});
-}
-
-function createBatch(
-	frames: AssistanceTransNetV2DecodedFramesV1,
-	batchIndex: number,
-	elementType: AssistanceTransNetV2InputElementType,
-): AssistanceTransNetV2CpuInputBatchV1 {
-	const tensorElements = ASSISTANCE_TRANSNET_V2_WINDOW_FRAMES * ASSISTANCE_TRANSNET_V2_FRAME_BYTES;
-	const data = elementType === 'uint8'
-		? new Uint8Array(tensorElements) : new Float32Array(tensorElements);
-	const sourceFrameStart = batchIndex * ASSISTANCE_TRANSNET_V2_WINDOW_STEP_FRAMES;
-	for (let tensorFrame = 0; tensorFrame < ASSISTANCE_TRANSNET_V2_WINDOW_FRAMES; tensorFrame += 1) {
-		const unclamped = sourceFrameStart + tensorFrame - ASSISTANCE_TRANSNET_V2_CONTEXT_FRAMES;
-		const sourceFrame = Math.max(0, Math.min(frames.presentationTicks.length - 1, unclamped));
-		const sourceOffset = sourceFrame * ASSISTANCE_TRANSNET_V2_FRAME_BYTES;
-		data.set(frames.data.subarray(sourceOffset, sourceOffset + ASSISTANCE_TRANSNET_V2_FRAME_BYTES),
-			tensorFrame * ASSISTANCE_TRANSNET_V2_FRAME_BYTES);
-	}
-	return Object.freeze({
-		schemaVersion: 1, batchIndex, sourceFrameStart,
-		authoritativeFrameCount: Math.min(
-			ASSISTANCE_TRANSNET_V2_WINDOW_STEP_FRAMES,
-			frames.presentationTicks.length - sourceFrameStart,
-		),
-		elementType, dims: ASSISTANCE_TRANSNET_V2_CPU_INPUT_SHAPE, data,
 	});
 }
 
