@@ -52,6 +52,23 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await transport.tap();
 	await verifyNarrowTrimDialog(page, nav, file, editing);
 	await verifyNarrowSavedChooser(page, nav, file, name);
+	await verifyNarrowMoveRetry(page, nav, editing);
+}
+
+async function verifyNarrowMoveRetry(page: Page, nav: Locator, editing: Locator): Promise<void> {
+	await editing.tap();
+	await nav.getByRole('button', { name: 'Move clip', exact: true }).tap();
+	const move = page.getByRole('dialog', { name: 'Move clip', exact: true });
+	const start = move.getByRole('spinbutton', { name: 'Start frame', exact: true });
+	await start.fill('1000000000000');
+	await page.keyboard.press('Enter');
+	await move.getByRole('alert').filter({ hasText: 'Timeline frame is outside the Edit' }).waitFor();
+	assert.equal(await start.evaluate((element) => element === element.ownerDocument.activeElement), true, 'the refused edit retains its frame field focus');
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.type('64');
+	await page.keyboard.press('Enter');
+	await move.waitFor({ state: 'detached' });
+	await page.getByText(/TAKE_001 \(64–832\)$/u).waitFor();
 }
 
 async function verifyNarrowTrimDialog(page: Page, nav: Locator, file: Locator, editing: Locator): Promise<void> {

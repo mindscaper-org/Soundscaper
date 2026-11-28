@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
@@ -26,6 +26,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 	readonly onDismiss: () => void;
 }) {
 	const dialog = useTracktionModalDialog();
+	const retryFocus = useRef<HTMLInputElement | null>(null);
 	const [id, setId] = useState(clips[0]?.id);
 	const [validation, setValidation] = useState('');
 	const clip = clips.find((candidate) => candidate.id === id) ?? clips[0];
@@ -36,9 +37,19 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 	const destinationOptions = useMemo(() => placing && tracks.map((track) => (
 		<option key={track.id} value={track.id}>{track.name}</option>)), [placing, tracks]);
 
+	useLayoutEffect(() => {
+		if (busy || !failure) return;
+		const field = retryFocus.current;
+		retryFocus.current = null;
+		const modal = dialog.current;
+		if (!field?.isConnected || !modal?.contains(field)) return;
+		const { activeElement, body } = field.ownerDocument;
+		if (activeElement === body || activeElement === modal) field.focus({ preventScroll: true });
+	}, [busy, dialog, failure]);
 
 	function apply(fields: FormData): void {
 		if (busy || !clip) return;
+		retryFocus.current = dialog.current?.querySelector<HTMLInputElement>('input:focus') ?? null;
 		if (kind === 'deleteClip') {
 			onApply({ kind, clipId: clip.id });
 			return;
