@@ -29,6 +29,11 @@ test('the retired persistent-delivery private transport is absent from the sourc
 	await assert.rejects(access(transport), { code: 'ENOENT' });
 });
 
+test('the retired persistent-delivery worker is absent from the source tree', async () => {
+	const worker = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-worker.ts', import.meta.url);
+	await assert.rejects(access(worker), { code: 'ENOENT' });
+});
+
 test('the retired persistent-delivery adapter and publication guard are absent from the source tree', async () => {
 	const adapter = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-adapter-v1.ts', import.meta.url);
 	const publication = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts', import.meta.url);
