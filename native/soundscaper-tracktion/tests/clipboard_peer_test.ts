@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { chmodSync, watch } from 'node:fs';
 import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
-import type { TracktionClipView } from '../../../src/soundscaper/tracktion-project-contract.ts';
+import type { TracktionClipPage, TracktionClipView } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
@@ -215,6 +216,86 @@ test('Tracktion Cut keeps the Edit and prior clipboard when clipboard storage ca
 				[afterPaste.clips[0], afterPaste.clips[2]]);
 			const undone = await peer.request({ kind: 'undo', revision: retried.revision });
 			assert.deepEqual((await peer.request({ ...clips, revision: undone.revision })).clips, afterPaste.clips);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion Cut rolls back when an otherwise complete clipboard cannot be published', {
+	skip: process.platform !== 'linux' || process.getuid?.() === 0,
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-clipboard-publication-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const clipboardDirectory = join(root, 'clipboard');
+	const selection = join(clipboardDirectory, 'selection.xml');
+	const asset = 'b'.repeat(32);
+	const count = 192;
+	const name = '&'.repeat(128);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture());
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			clipboardDirectory, projectDirectory: join(root, 'project'), stateDirectory: join(root, 'state') });
+		try {
+			const project = { kind: 'project', offset: 0 } as const;
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			const trackId = track.id;
+			async function readClips(revision: number): Promise<TracktionClipView[]> {
+				const clips: TracktionClipView[] = [];
+				for (let offset: number | null = 0; offset !== null;) {
+					const page: TracktionClipPage = await peer.request({ kind: 'clips', trackId, revision, offset });
+					clips.push(...page.clips);
+					offset = page.nextOffset;
+				}
+				return clips;
+			}
+
+			const imported = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name, start: 0 });
+			assert.ok(imported.itemId);
+			await peer.request({ kind: 'save', revision: imported.revision });
+			await peer.request({ kind: 'copyRange', revision: imported.revision, trackId, mode: 'leaveGap', start: 0, end: 64 });
+			const previousClipboard = await readFile(selection);
+			let revision = imported.revision;
+			for (let index = 1; index < count; index += 1) {
+				({ revision } = await peer.request({ kind: 'duplicateClip', revision, trackId, clipId: imported.itemId, start: index * 128 }));
+			}
+			({ revision } = await peer.request({ kind: 'addTrack', revision, name: 'Redo witness' }));
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const before = await peer.request(project);
+			const clips = await readClips(revision);
+			assert.ok(before.canUndo && before.canRedo);
+			assert.equal(clips.length, count);
+			const cut = { kind: 'cutRange', mode: 'leaveGap', trackId, start: 0, end: count * 128 } as const;
+			let staged: string | undefined;
+			const watcher = watch(clipboardDirectory, (event, file) => {
+				if (staged || event !== 'rename' || !file?.startsWith('selection_temp')) return;
+				// The opened file can finish writing with the directory read-only.
+				chmodSync(clipboardDirectory, 0o500);
+				staged = join(clipboardDirectory, file);
+			});
+			try {
+				await assert.rejects(peer.request({ ...cut, revision }), /Cannot publish the Tracktion clipboard/u);
+				assert.ok(staged);
+				const complete = await readFile(staged, 'utf8');
+				assert.ok(complete.trimEnd().endsWith('</SOUNDSCAPERCLIPBOARD>'));
+				assert.equal((complete.match(/<ITEM /gu) ?? []).length, count);
+				assert.deepEqual(await readFile(selection), previousClipboard);
+				assert.deepEqual(await peer.request(project), before);
+				assert.deepEqual(await readClips(revision), clips);
+			} finally {
+				watcher.close();
+				await chmod(clipboardDirectory, 0o700);
+			}
+
+			({ revision } = await peer.request({ kind: 'redo', revision }));
+			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
+			const pasteAt = (count + 1) * 128;
+			({ revision } = await peer.request({ kind: 'pasteRange', mode: 'overlap', trackId, revision, start: pasteAt }));
+			const priorSelection = (await readClips(revision)).at(-1);
+			assert.ok(priorSelection);
+			assert.deepEqual([priorSelection.name, priorSelection.start, priorSelection.end], [name, pasteAt, pasteAt + 64]);
+			({ revision } = await peer.request({ ...cut, revision }));
+			assert.deepEqual(await readClips(revision), [priorSelection]);
 		} finally { await peer.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
 });

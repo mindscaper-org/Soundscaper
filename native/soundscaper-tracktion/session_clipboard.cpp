@@ -115,7 +115,7 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 	const auto publish = [&]
 	{
 		if (!staged.overwriteTargetFileWithTemporary())
-			throw std::runtime_error("Cannot publish the Tracktion clipboard");
+			throw std::invalid_argument("Cannot publish the Tracktion clipboard");
 		snapshot.published = true;
 	};
 	std::vector<ClipId> removedIds;
