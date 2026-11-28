@@ -54,6 +54,7 @@ interface ActiveProject {
 	readonly peer: TracktionProjectPeer;
 	audioPreferencesApplied: boolean;
 	savedRevision: number;
+	savedEdit: string | null;
 }
 
 interface Operation {
@@ -176,7 +177,13 @@ export class TracktionProjectService {
 			return null;
 		}
 		if (command.kind === 'save') {
+			const currentEdit = await readEditVersion(active.directory);
+			this.#assertOwner(owner, signal);
+			if (currentEdit !== null && currentEdit !== active.savedEdit) {
+				throw new Error('The Tracktion project file changed on disk. Open the project again to load the latest version.');
+			}
 			const saved = await active.peer.request(withoutSession(command));
+			active.savedEdit = await readEditVersion(active.directory);
 			active.savedRevision = saved.revision;
 			return saved;
 		}
@@ -225,9 +232,13 @@ export class TracktionProjectService {
 
 		const directory = await selectedProjectDirectory(selection, command.kind);
 		const previous = this.#active;
-		if (previous?.owner === owner && previous.directory === directory && command.kind === 'open') {
+		const selectedEdit = command.kind === 'open' ? await readEditVersion(directory) : null;
+		this.#assertOwner(owner, signal);
+		if (selectedEdit !== null && previous?.owner === owner && previous.directory === directory
+			&& previous.savedEdit === selectedEdit && this.#active === previous) {
 			const current = await describe(previous);
-			if (current.project.revision === previous.savedRevision) return current;
+			if (current.project.revision === previous.savedRevision && selectedEdit === await readEditVersion(directory)
+				&& this.#active === previous) return current;
 		}
 
 		await mkdir(this.#ports.scratchRoot, { recursive: true, mode: 0o700 });
@@ -247,11 +258,16 @@ export class TracktionProjectService {
 				? { ...location, mode: 'create', sampleRate: command.sampleRate }
 				: { ...location, mode: 'open' });
 			candidate = { owner, directory, scratch, exchange, peer, audioPreferencesApplied: false,
-				savedRevision: 0, id: randomBytes(16).toString('hex') };
+				savedRevision: 0, savedEdit: selectedEdit, id: randomBytes(16).toString('hex') };
 			this.#assertOwner(owner, signal);
 			const opened = await describe(candidate);
 			this.#assertOwner(owner, signal);
 			if (command.kind === 'create') await saveNewProject(candidate);
+			const openedEdit = await readEditVersion(directory);
+			if (command.kind === 'open' && openedEdit !== selectedEdit) {
+				throw new Error('The Tracktion project file changed while it was being opened. Open the project again.');
+			}
+			candidate.savedEdit = openedEdit;
 			candidate.savedRevision = opened.project.revision;
 			this.#assertOwner(owner, signal);
 			if (peer.stopped) throw new Error(UTILITY_EXIT_MESSAGE);
@@ -345,6 +361,17 @@ async function describe(active: ActiveProject): Promise<TracktionOpenedProject> 
 		name: basename(active.directory),
 		project: await active.peer.request({ kind: 'project', offset: 0 }),
 	};
+}
+
+async function readEditVersion(directory: string): Promise<string | null> {
+	const metadata = await lstat(join(directory, EDIT_FILE), { bigint: true }).catch((error: unknown) => {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+		throw error;
+	});
+	if (metadata === null) return null;
+	if (!metadata.isFile()) throw new Error('The Tracktion project file is unavailable.');
+	// Permission changes must allow Save to retry against the same file.
+	return [metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs].join(':');
 }
 
 async function selectedProjectDirectory(selection: string, kind: 'create' | 'open'): Promise<string> {

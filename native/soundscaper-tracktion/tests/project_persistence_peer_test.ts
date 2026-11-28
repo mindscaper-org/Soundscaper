@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -110,3 +110,73 @@ test('a short initial Tracktion Save preserves the prior desktop Edit and leaves
 		finally { await rm(root, { recursive: true, force: true }); }
 	}
 });
+
+for (const command of ['open', 'save'] as const) {
+	test(`desktop Tracktion ${command} detects a saved Edit replaced outside the editor`, async () => {
+		const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-external-edit-'));
+		const projectDirectory = join(root, 'current');
+		const mirror = join(root, 'external');
+		const edit = join(projectDirectory, 'project.tracktionedit');
+		const externalEdit = join(mirror, 'project.tracktionedit');
+		const owner = {};
+		const service = new TracktionProjectService({
+			scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+			chooseCreateDirectory: async () => projectDirectory, chooseOpenProject: async () => edit,
+			chooseWave: async () => null, chooseExport: async () => null,
+			startPeer: async (options) => launchTracktionPeer({ ...options, executable }),
+		});
+		try {
+			await mkdir(projectDirectory);
+			const original = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+			assert.ok(original && 'sessionId' in original);
+			const { sessionId } = original;
+			const saved = await service.request(owner, { kind: 'addTrack', sessionId, revision: 0, name: 'Saved track' });
+			assert.ok(saved && 'itemId' in saved);
+			await service.request(owner, { kind: 'save', sessionId, revision: saved.revision });
+			const same = await service.request(owner, { kind: 'open' });
+			assert.ok(same && 'sessionId' in same);
+			assert.equal(same.sessionId, sessionId, 'an unchanged saved file keeps the current Edit and history');
+			assert.equal(same.project.canUndo, true);
+			if (command === 'save') {
+				await service.request(owner, { kind: 'addTrack', sessionId, revision: saved.revision, name: 'Unsaved track' });
+			}
+			const project = { kind: 'project', sessionId, offset: 0 } as const;
+			const before = await service.request(owner, project);
+			assert.ok(before && 'tracks' in before);
+
+			await cp(projectDirectory, mirror, { recursive: true });
+			const exchangeDirectory = join(root, 'external-exchange');
+			await mkdir(exchangeDirectory);
+			const external = launchTracktionPeer({ executable, mode: 'open', projectDirectory: mirror,
+				exchangeDirectory, stateDirectory: join(root, 'external-state') });
+			try {
+				const updated = await external.request({ kind: 'addTrack', revision: 0, name: 'External track' });
+				await external.request({ kind: 'save', revision: updated.revision });
+			} finally { await external.close(); }
+			const replacement = await readFile(externalEdit);
+			await rename(externalEdit, edit);
+			if (command === 'save') {
+				await assert.rejects(service.request(owner, { kind: 'save', sessionId, revision: before.revision }), /changed on disk/u);
+				assert.deepEqual(await readFile(edit), replacement);
+				assert.deepEqual(await service.request(owner, project), before);
+			}
+
+			const refreshed = await service.request(owner, { kind: 'open' });
+			assert.ok(refreshed && 'sessionId' in refreshed);
+			assert.notEqual(refreshed.sessionId, sessionId);
+			assert.deepEqual(refreshed.project.tracks.map(({ name }) => name), ['Track 1', 'Saved track', 'External track']);
+			await assert.rejects(service.request(owner, project), /handle has expired/u);
+			assert.deepEqual(await readFile(edit), replacement);
+			if (command === 'open') {
+				await rename(edit, externalEdit);
+				await service.request(owner, { kind: 'save', sessionId: refreshed.sessionId, revision: refreshed.project.revision });
+				const restored = await service.request(owner, { kind: 'open' });
+				assert.ok(restored && 'sessionId' in restored);
+				assert.equal(restored.sessionId, refreshed.sessionId, 'Save recreates a missing Edit and updates its stored identity');
+			}
+		} finally {
+			try { await service.dispose(); }
+			finally { await rm(root, { recursive: true, force: true }); }
+		}
+	});
+}
