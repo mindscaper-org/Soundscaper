@@ -9,6 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 
 import { unzipSync } from 'fflate';
 
+import { inspectTracktionReply } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { countAlsaFrames, startAlsaCaptureFixture, startAlsaRoutingFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
 import { exerciseInterruptedExport } from './export_peer_fixture.ts';
@@ -357,6 +358,17 @@ test('Tracktion records native input as an undoable project clip', { skip: proce
 	}
 });
 
+test('Tracktion Discard accepts an already reconciled take and validates any supplied transport', () => {
+	const discard = { kind: 'finishRecording', revision: 7, discard: true } as const;
+	const recovered = { revision: 9, itemId: null };
+	assert.deepEqual(inspectTracktionReply({ ok: true, value: recovered }, discard), recovered);
+	const stopped = { playing: false, recording: false, frame: 42 };
+	const ordinary = { revision: 7, itemId: null, transport: stopped };
+	assert.deepEqual(inspectTracktionReply({ ok: true, value: ordinary }, discard), ordinary);
+	assert.throws(() => inspectTracktionReply({ ok: true, value: { ...ordinary, transport: { ...stopped, recording: true } } }, discard), /still armed/u);
+	assert.throws(() => inspectTracktionReply({ ok: true, value: { ...recovered, history: {} } }, discard), /unsupported field/u);
+});
+
 test('Tracktion ends a disk-aborted recording and preserves the existing Edit', { skip: process.platform !== 'linux' }, async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-aborted-take-'));
 	const config = join(root, 'alsa.conf');
@@ -407,6 +419,9 @@ test('Tracktion ends a disk-aborted recording and preserves the existing Edit', 
 			const stopped = await peer.request({ kind: 'finishRecording', revision, discard: false });
 			assert.equal(stopped.revision, revision);
 			assert.equal(stopped.itemId, null);
+			const discarded = await peer.request({ kind: 'finishRecording', revision, discard: true });
+			assert.deepEqual(discarded, { revision, itemId: null });
+			assert.equal((await peer.request(observation)).interruptedTake, undefined);
 			const redone = await peer.request({ kind: 'redo', revision });
 			assert.equal((await peer.request(project)).tracks[1]?.name, 'Redo witness');
 			const undone = await peer.request({ kind: 'undo', revision: redone.revision });

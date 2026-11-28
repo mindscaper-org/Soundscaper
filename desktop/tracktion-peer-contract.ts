@@ -107,7 +107,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
 	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
-	const allowed = permitsHistory ? [...fields, 'history'] : fields;
+	const allowed = permitsHistory ? [...fields, 'history'] : [...fields];
 	if (permitsInsertion) allowed.push('insertion');
 	if (editedClipField) allowed.push(editedClipField);
 	if (finishesRecording) allowed.push('transport');
