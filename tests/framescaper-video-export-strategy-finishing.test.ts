@@ -202,13 +202,18 @@ test('picture ownership reports a generator on a visible track and not a keyed v
 	);
 });
 
-test('Framescaper video export refuses requests to mux authored captions', () => {
+test('the retired native caption delivery adapter is absent from the caption planner', async () => {
+	const captions = await import('../src/framescaper/video-caption-delivery.ts');
+	assert.equal(Object.hasOwn(captions, 'createFramescaperCaptionDeliveryAdapter'), false);
+});
+
+test('Framescaper picture export refuses caption mux and sidecar requests', () => {
 	const built = harness();
 
-	assert.throws(
-		() => built.strategy.createPlan(planRequest(built, { captions: { trackId: 'dialogue', mux: true, burnIn: false, sidecar: null } })),
-		/accepts caption burn-in/u,
-	);
+	for (const delivery of [{ mux: true, sidecar: null }, { mux: false, sidecar: 'srt' }]) {
+		const captions = { trackId: 'dialogue', burnIn: false, ...delivery };
+		assert.throws(() => built.strategy.createPlan(planRequest(built, { captions })), /accepts caption burn-in/u);
+	}
 });
 
 for (const [surface, makeOptions] of [['still and generator', generatorOptions], ['video', baseOptions]] as const) {
