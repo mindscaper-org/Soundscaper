@@ -489,10 +489,6 @@
 		,
 		{ "path": "src/common/imaging/cube-lut-v1.ts", "kind": "persisted-contract", "justification": "cube-lut-v1.ts preserves the versioned digest and geometry contract for shared cube LUT resources." }
 		,
-		{ "path": "src/framescaper/delivery-native-report-closure-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-closure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/framescaper/delivery-native-report-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/framescaper/delivery-native-report-validation-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-validation-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/framescaper/delivery-native-target-execution-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-target-execution-v1.ts validates the V1 native delivery report target identity independently of product schema." }
