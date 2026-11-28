@@ -32,6 +32,12 @@ test('desktop stages the current shot boundary review and detector modes', () =>
 	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shots.js`), false);
 });
 
+test('desktop compilation keeps the shared delivery contract and batch owner', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/soundscaper-delivery-contract-v1.js'));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/delivery-batch.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/soundscaper-persistent-delivery-plan-v1.js'), false);
+});
+
 test('desktop project serialization stages its encoder outside the assistance runtime', () => {
 	const encoder = 'src/common/editor/scape-project-document-encode.js';
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(encoder));

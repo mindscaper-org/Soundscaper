@@ -8,41 +8,16 @@ import {
 	assertSoundscaperDeliveryCurrentV1,
 	createSoundscaperDeliveryDescriptionV1,
 	fingerprintSoundscaperDeliveryPlanV1,
+	parseSoundscaperDeliveryPlanV1,
 	sealSoundscaperDeliveryReportV1,
 	validateSoundscaperDeliveryDescriptionV1,
 	validateSoundscaperDeliveryResultV1,
 } from '../src/common/editor/soundscaper-delivery-contract-v1.ts';
-import {
-	createSoundscaperPersistentAudioDeliveryPlanV1,
-	validateSoundscaperPersistentDeliveryBatchMemberV1,
-} from '../src/common/editor/soundscaper-persistent-delivery-plan-v1.ts';
 
 const PROJECT = Object.freeze({
 	projectId: 'album-project',
 	projectRevision: 17,
 	projectSha256: 'a'.repeat(64),
-});
-
-test('persistent delivery labels and identifiers reject invisible format and separator characters', () => {
-	const settings = { format: 'flac', mode: 'mix', range: 'project' };
-	const exportPlan = { format: 'flac', outputFrames: 48_000, version: 1 };
-	assert.throws(() => createSoundscaperPersistentAudioDeliveryPlanV1({
-		settings, exportPlan,
-		batch: {
-			batchId: 'batch\u200b', memberId: 'member-1', presetId: 'preset-flac',
-			target: { kind: 'project' }, mode: 'mix',
-		},
-	}), /batchId.*invalid/iu);
-	const member = {
-		memberId: 'member-1', label: 'FLAC master', presetId: 'preset-flac',
-		target: { kind: 'region', id: 'region-1' }, mode: 'mix', settings,
-	};
-	assert.throws(() => validateSoundscaperPersistentDeliveryBatchMemberV1({
-		...member, label: 'FLAC\u2028master',
-	}), /label.*invalid/iu);
-	assert.throws(() => validateSoundscaperPersistentDeliveryBatchMemberV1({
-		...member, target: { kind: 'region', id: 'region\u2029hidden' },
-	}), /target id.*invalid/iu);
 });
 
 function deliveryReport() {
@@ -101,6 +76,22 @@ test('a delivery description snapshots one exact canonical plan and project witn
 	assert.equal(Object.isFrozen(value), true);
 	assert.equal(Object.isFrozen(value.projectIdentity), true);
 	assert.equal(Object.isFrozen(JSON.parse(value.planPayload)), false, 'the stored plan is data, not live object identity');
+});
+
+test('a saved delivery description still opens with its original nested plan', () => {
+	const plan = {
+		kind: 'soundscaper-persistent-audio-delivery-plan', version: 1, executor: 'ordinary-audio-export-v1',
+		settings: { format: 'flac', mode: 'mix', range: 'project' },
+		exportPlan: { format: 'flac', outputFrames: 48_000, version: 1 },
+		batch: {
+			batchId: 'batch-1', memberId: 'member-1', presetId: 'preset-flac',
+			target: { kind: 'project' }, mode: 'mix',
+		},
+	};
+	const saved = JSON.parse(JSON.stringify(createSoundscaperDeliveryDescriptionV1({
+		label: 'Album master', projectIdentity: PROJECT, plan, destinationGrantId: 'delivery-grant-01',
+	}))) as unknown;
+	assert.deepEqual(parseSoundscaperDeliveryPlanV1(saved), plan);
 });
 
 test('description validation refuses drifted plans, fingerprints, authority and open fields', () => {
