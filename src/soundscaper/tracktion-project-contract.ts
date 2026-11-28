@@ -176,6 +176,6 @@ export type TracktionProjectReply<Command extends TracktionProjectCommand> =
 export interface TracktionProjectBridge {
 	request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>>;
 	onRecordingInterrupted?(listener: () => void): () => void;
-	onProjectLost?(listener: (sessionId: string, message: string) => void): () => void;
+	onProjectLost?(listener: (sessionId: string, message: string, clipboardRetained?: boolean) => void): () => void;
 	openArchive?(): Promise<TracktionOpenedProject | null>;
 }

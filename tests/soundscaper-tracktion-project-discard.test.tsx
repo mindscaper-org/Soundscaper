@@ -25,7 +25,7 @@ async function mountEditor(context: TestContext, embedded: boolean) {
 	let allowNative = false;
 	window.confirm = (message?: string) => { nativeConfirmations.push(message ?? ''); return allowNative; };
 	const previous = new Map<string, PropertyDescriptor | undefined>();
-	for (const [key, value] of Object.entries({ React, window, document, IS_REACT_ACT_ENVIRONMENT: true })) {
+	for (const [key, value] of Object.entries({ React, window, document, FormData: host.FormData, IS_REACT_ACT_ENVIRONMENT: true })) {
 		previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
 		Object.defineProperty(globalThis, key, { configurable: true, value });
 	}
@@ -52,6 +52,7 @@ async function mountEditor(context: TestContext, embedded: boolean) {
 	const bridge: TracktionProjectBridge = {
 		async request<Command extends TracktionProjectCommand>(command: Command): Promise<TracktionProjectReply<Command>> {
 			requests.push(command.kind);
+			if (command.kind === 'copyRange') return { revision: 7, itemId: null } as TracktionProjectReply<Command>;
 			const value = command.kind === 'create' || command.kind === 'open' ? opened() : command.kind === 'close' ? null
 				: { revision: 7, nextOffset: null, clips: [{ id: '2', name: 'Original take', start: 0, end: 1024, sourceOffset: 0 }] };
 			return value as TracktionProjectReply<Command>;
@@ -60,15 +61,18 @@ async function mountEditor(context: TestContext, embedded: boolean) {
 		onProjectLost(listener) { lost = listener; return () => { lost = undefined; }; },
 	};
 	await act(async () => root.render(<TracktionEditor bridge={bridge} />));
-	async function click(label: string) {
-		const button = [...document.querySelectorAll<HTMLButtonElement>('button')].find((entry) => entry.textContent === label);
-		assert.ok(button, label);
-		await act(async () => { button.click(); });
+	function button(label: string) {
+		const element = [...document.querySelectorAll<HTMLButtonElement>('button')].find((entry) => entry.textContent === label);
+		assert.ok(element, label);
+		return element;
 	}
+	async function click(label: string) { await act(async () => { button(label).click(); }); }
 	await click('New project');
 	requests.length = 0;
-	return { document, requests, click, nativeConfirmations, allowNative: () => { allowNative = true; },
-		async loseProject() { await act(async () => { lost?.('session-1', 'The project worker stopped'); }); } };
+	return { document, requests, button, click, nativeConfirmations, allowNative: () => { allowNative = true; },
+		async loseProject(clipboardRetained?: boolean) {
+			await act(async () => { lost?.(`session-${sequence}`, 'The project worker stopped', clipboardRetained); });
+		} };
 }
 
 for (const [label, command] of [
@@ -116,3 +120,28 @@ test('top-level project replacements keep the synchronous browser confirmation',
 	assert.equal(nativeConfirmations.length, 2);
 	assert.deepEqual(requests, ['open', 'clips']);
 });
+
+for (const retained of [true, undefined]) {
+	test(`Reopening after Tracktion engine loss reflects the ${retained ? 'retained' : 'lost'} clipboard`, async (context) => {
+		const { document, requests, button, click, loseProject, allowNative } = await mountEditor(context, false);
+		await click('Copy');
+		const start = document.querySelector<HTMLInputElement>('dialog input[name="start"]');
+		const end = document.querySelector<HTMLInputElement>('dialog input[name="end"]');
+		assert.ok(start && end);
+		start.value = '0';
+		end.value = '1024';
+		await click('Apply');
+		assert.deepEqual(requests, ['copyRange']);
+		assert.equal(button('Paste').disabled, false);
+
+		allowNative();
+		await click('Close project');
+		assert.equal(button('Paste').disabled, true);
+		await click('Open projects');
+		assert.equal(button('Paste').disabled, false);
+		await loseProject(retained);
+		assert.equal(document.querySelector('h1')?.textContent, 'Soundscaper Tracktion');
+		await click('Open projects');
+		assert.equal(button('Paste').disabled, !retained);
+	});
+}

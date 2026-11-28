@@ -7,7 +7,8 @@ contextBridge.exposeInMainWorld('soundscaperTracktion', Object.freeze({
 	request: (command) => ipcRenderer.invoke('soundscaper-tracktion:project-request', command),
 	onProjectLost: (listener) => {
 		const receive = (_event, sessionId, message) => {
-			if (typeof sessionId === 'string' && typeof message === 'string') listener(sessionId, message);
+			// The main process retains the window's clipboard after a peer exits.
+			if (typeof sessionId === 'string' && typeof message === 'string') listener(sessionId, message, true);
 		};
 		ipcRenderer.on(projectLostChannel, receive);
 		return () => { ipcRenderer.removeListener(projectLostChannel, receive); };
