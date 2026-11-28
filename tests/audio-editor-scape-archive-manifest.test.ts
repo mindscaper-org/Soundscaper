@@ -17,6 +17,12 @@ import { deferred } from './helpers/async-test-control.ts';
 const PROJECT = new TextEncoder().encode('{"schemaVersion":9}');
 const MEDIA = Uint8Array.from({ length: 5_000 }, (_value, index) => index % 253);
 
+test('the unused standalone checksum verifiers are absent from the manifest module', async () => {
+	const manifest = await import('../src/common/editor/archive-manifest.ts');
+	assert.equal(Object.hasOwn(manifest, 'verifyArchiveManifest'), false);
+	assert.equal(Object.hasOwn(manifest, 'compareArchiveManifests'), false);
+});
+
 test('a manifest is built by the real archive reader from the finished ZIP bytes', async () => {
 	const manifest = await createScapeArchiveManifest(await archive(), {
 		projectTitle: 'Cafe Film', signal: new AbortController().signal,
