@@ -110,6 +110,21 @@ export default defineConfig({
 	publicDir: productId === 'soundscaper' && desktopCodecComposition ? false : 'public',
 	plugins: [
 		...(!desktopCodecComposition ? [localDownloadPagePlugin(productId)] : []),
+		{
+			name: 'scape-preview-response-headers',
+			configurePreviewServer(server) {
+				const headers = Object.entries(server.config.preview.headers ?? {});
+				server.middlewares.use((request, response, next) => {
+					// Vite handles matching ETags before its static response header callback.
+					if (request.headers['if-none-match'] !== undefined) {
+						for (const [name, value] of headers) {
+							if (value !== undefined) response.setHeader(name, value);
+						}
+					}
+					next();
+				});
+			},
+		},
 		...(productId === 'soundscaper' && !desktopCodecComposition ? [tracktionWebEngine(import.meta.dirname)] : []),
 		productSubstitutionPlugin({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
