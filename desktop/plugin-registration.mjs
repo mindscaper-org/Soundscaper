@@ -260,13 +260,7 @@ export function registerDesktopPluginDiscovery({
 		isEnabled: () => settings.snapshot().nativePluginDiscoveryEnabled === true,
 		describePayload,
 	});
-	const hosting = nativePluginStateAuthority === null ? null : createDesktopPluginHostingRuntime({
-		registry,
-		quarantine,
-		settings,
-		stateBodies: nativePluginStateAuthority,
-		isFormatActivated: isPluginHostFormatActivated,
-		createHostHelper: createPluginHostHelper ?? ((launch) => createDesktopNativeAddonHelperSupervisor({
+	const createHostHelper = createPluginHostHelper ?? ((launch) => createDesktopNativeAddonHelperSupervisor({
 			desktopRoot,
 			packaged,
 			resourcesPath,
@@ -275,7 +269,10 @@ export function registerDesktopPluginDiscovery({
 			serviceName: `soundscaper-native-plugin-${launch.format}-${launch.binarySha256.slice(0, 12)}`,
 			runtimeContext: () => wine.helperConfiguration(),
 			payloadKind: 'professional',
-		})),
+	}));
+	const hosting = nativePluginStateAuthority === null ? null : createDesktopPluginHostingRuntime({
+		registry, quarantine, settings, stateBodies: nativePluginStateAuthority,
+		isFormatActivated: isPluginHostFormatActivated, createHostHelper,
 		openPersistentPluginSession,
 	});
 	const ara = registerDesktopAra({ handle, ownerFor, registry, settings, consent, quarantine,
@@ -406,6 +403,9 @@ export function registerDesktopPluginDiscovery({
 		supervisorPort: supervisor,
 		registry,
 		quarantine,
+		tracktionEffects: (createRuntime) => createRuntime({ registry, allowances, quarantine, bundled, consent, service,
+			parentWindow, settings, isFormatActive: formatIsActive, openPersistentPluginSession, createHostHelper,
+			settleScanFaults: scannerQuarantine.settle }),
 		settlePluginQuarantineWrites: () => Promise.all([
 			hosting?.settleQuarantineWrites(), vamp.settleQuarantineWrites(), ara.settleQuarantineWrites(),
 		]),

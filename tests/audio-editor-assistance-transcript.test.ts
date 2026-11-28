@@ -18,6 +18,13 @@ import {
 
 const EN_FILLERS = ['um', 'uh', 'like'];
 
+test('the unused transcript range helpers are absent', async () => {
+	const transcript = await import('../src/common/editor/assistance/transcript.ts');
+	for (const name of ['transcriptSegmentsInRange', 'hasWordTiming']) {
+		assert.equal(Reflect.has(transcript, name), false, name);
+	}
+});
+
 function draft(overrides: Partial<TranscriptDraft> = {}): TranscriptDraft {
 	return {
 		sourceId: 'source-1',

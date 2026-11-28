@@ -108,17 +108,17 @@ test('route application localizes the initial-load progressbar before the editor
 	assert.match(app, /setAttribute\(\s*'aria-label',\s*bundledSiteCopyForLocale\(route\.locale\)\.loading,?\s*\)/u);
 });
 
-test('selected product bootstraps construct full bundled English copy internally', async () => {
+test('the Framescaper bootstrap constructs full bundled English copy internally', async () => {
 	const lifecycle = await source('src/common/editor/ui/audio-editor-web-bootstrap.tsx');
 	assert.match(lifecycle, /locale === 'en'\s*\? configuration\.bundledEnglishCopy\(\)/u);
-	for (const path of [
-		'src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx',
-		'src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx',
-	]) {
-		const bootstrap = await source(path);
-		assert.match(bootstrap, /bundledCatalogForLocale/u, path);
-		assert.match(bootstrap, /bundledEnglishCopy:[\s\S]*bundledCatalogForLocale\('en'\)/u, path);
-	}
+	const bootstrap = await source('src/framescaper/ui/FramescaperAudioEditorBootstrap.tsx');
+	assert.match(bootstrap, /bundledEnglishCopy:[\s\S]*bundledCatalogForLocale\('en'\)/u);
+});
+
+test('the Soundscaper site mounts the Tracktion bridge without constructing the retired controller', async () => {
+	const bootstrap = await source('src/soundscaper/ui/SoundscaperAudioEditorBootstrap.tsx');
+	assert.match(bootstrap, /createTracktionWebBridge\(\(\) => new Worker\('/u);
+	assert.doesNotMatch(bootstrap, /createSoundscaperAudioEditorController|BoundAudioEditorApp/u);
 });
 
 test('feature CSS is imported only by its owning editor surface', async () => {

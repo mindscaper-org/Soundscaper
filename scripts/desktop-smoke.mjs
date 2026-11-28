@@ -8,8 +8,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
 	FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
-	SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 	assertDesktopSmokePayload,
+	assertTracktionDesktopSmokePayload,
 	packagedExecutableCandidates,
 	resolveSmokeArchitecture,
 } from './lib/desktop-smoke.mjs';
@@ -18,10 +18,6 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const OUTPUT_ROOT = resolve(ROOT, 'release/desktop');
 const PRODUCT_ID = resolveDesktopProductId(process.env.SCAPE_PRODUCT);
 const PRODUCT_NAME = PRODUCT_ID === 'framescaper' ? 'Framescaper' : 'Soundscaper';
-const APP_SCHEME = PRODUCT_ID === 'framescaper' ? 'framescaper-app' : 'soundscaper-app';
-const SMOKE_EXPECTED_BRIDGE = PRODUCT_ID === 'framescaper'
-	? FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE
-	: SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE;
 const TARGET_ARCH = resolveSmokeArchitecture(process.env.SOUNDSCAPER_SMOKE_ARCH, process.arch);
 
 // How long the packaged application gets to report its artifact. This is a
@@ -83,16 +79,18 @@ async function main() {
 		await rm(profile, { recursive: true, force: true });
 	}
 	if (result.code !== 0) throw new Error(`Packaged desktop smoke exited with code ${result.code}.\n${result.output}`);
-	const line = result.output.split(/\r?\n/u).find((value) => value.startsWith('SOUNDSCAPER_DESKTOP_SMOKE '));
+	const prefix = PRODUCT_ID === 'soundscaper' ? 'SOUNDSCAPER_TRACKTION_DESKTOP_SMOKE ' : 'SOUNDSCAPER_DESKTOP_SMOKE ';
+	const line = result.output.split(/\r?\n/u).find((value) => value.startsWith(prefix));
 	if (!line) throw new Error(`Packaged desktop smoke did not emit its result.\n${result.output}`);
-	const payload = JSON.parse(line.slice('SOUNDSCAPER_DESKTOP_SMOKE '.length));
-	assertDesktopSmokePayload(payload, {
-		arch: TARGET_ARCH,
-		bridge: SMOKE_EXPECTED_BRIDGE,
-		platform: process.platform,
+	const payload = JSON.parse(line.slice(prefix.length));
+	const target = { arch: TARGET_ARCH, platform: process.platform };
+	if (PRODUCT_ID === 'soundscaper') assertTracktionDesktopSmokePayload(payload, target);
+	else assertDesktopSmokePayload(payload, {
+		...target,
+		bridge: FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 		productId: PRODUCT_ID,
 		title: PRODUCT_NAME,
-		url: `${APP_SCHEME}://bundle/`,
+		url: 'framescaper-app://bundle/',
 	});
 	console.log(line);
 }

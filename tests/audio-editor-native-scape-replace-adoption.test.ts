@@ -1,10 +1,16 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createNativeProjectService } from '../src/common/editor/controller/document/native-project-service.ts';
 import { createFixture, nativeFile, project } from './helpers/native-project-service-fixture.ts';
+
+test('the unused sequence archive repository is absent from the source tree', async () => {
+	const repository = new URL('../src/framescaper/editor-project-sequence-archive-repository.ts', import.meta.url);
+	await assert.rejects(access(repository), { code: 'ENOENT' });
+});
 
 test('native Scape replace flushes before publication and adopts the committed same-ID document', async () => {
 	const events: string[] = [];

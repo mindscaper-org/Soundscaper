@@ -16,8 +16,6 @@
 		,
 		{ "path": "desktop/native-media-v14-runtime-contract.ts", "kind": "native-contract", "justification": "native-media-v14-runtime-contract.ts is a native-services carrier or execution-protocol revision independent of project schema." }
 		,
-		{ "path": "desktop/native-media-v15-foundation-projection.ts", "kind": "native-contract", "justification": "native-media-v15-foundation-projection.ts is a native-services carrier or execution-protocol revision independent of project schema." }
-		,
 		{ "path": "desktop/native-queue-capacity-provider-v3.ts", "kind": "native-contract", "justification": "native-queue-capacity-provider-v3.ts is a native-services carrier or execution-protocol revision independent of project schema." }
 		,
 		{ "path": "desktop/native-services-carrier-recovery-v3.ts", "kind": "native-contract", "justification": "native-services-carrier-recovery-v3.ts is a native-services carrier or execution-protocol revision independent of project schema." }
@@ -288,12 +286,6 @@
 		,
 		{ "path": "src/common/editor/automation-write-mode-v21.ts", "kind": "persisted-contract", "justification": "automation-write-mode-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
-		{ "path": "src/common/editor/bounded-json-structure-v1.ts", "kind": "persisted-contract", "justification": "bounded-json-structure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts", "kind": "persisted-contract", "justification": "soundscaper-delivery-publication-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-adapter-v1.ts", "kind": "persisted-contract", "justification": "soundscaper-persistent-delivery-adapter-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/common/editor/controller/shared/isolated-track-render-project-v21.ts", "kind": "persisted-contract", "justification": "isolated-track-render-project-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/controller/track-audio/internal/mix-render/mix-render-snapshot-v21.ts", "kind": "persisted-contract", "justification": "mix-render-snapshot-v21.ts projects production mixer and automation authority for a persisted render-contract revision independent of product schema." }
@@ -362,8 +354,6 @@
 		,
 		{ "path": "src/common/editor/native-media-v14-native-dispatch.ts", "kind": "persisted-contract", "justification": "native-media-v14-native-dispatch.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
-		{ "path": "src/common/editor/native-media-v14-openfx-carrier.ts", "kind": "ipc-contract", "justification": "native-media-v14-openfx-carrier.ts is an independently versioned persisted or cross-process carrier contract." }
-		,
 		{ "path": "src/common/editor/native-media-v14-render-family.ts", "kind": "persisted-contract", "justification": "native-media-v14-render-family.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/native-media-v14-support.ts", "kind": "persisted-contract", "justification": "native-media-v14-support.ts is a persisted domain-component or render-contract revision independent of product schema." }
@@ -394,10 +384,6 @@
 		{ "path": "src/common/editor/quality/project-pdc-reference-v21.ts", "kind": "persisted-contract", "justification": "project-pdc-reference-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/routing-cycle-v21.ts", "kind": "persisted-contract", "justification": "routing-cycle-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/common/editor/soundscaper-delivery-contract-v1.ts", "kind": "ipc-contract", "justification": "soundscaper-delivery-contract-v1.ts is an independently versioned persisted or cross-process carrier contract." }
-		,
-		{ "path": "src/common/editor/soundscaper-persistent-delivery-plan-v1.ts", "kind": "ipc-contract", "justification": "soundscaper-persistent-delivery-plan-v1.ts is the canonical persisted plan payload exchanged across the Soundscaper renderer and desktop delivery boundary." }
 		,
 		{ "path": "src/common/editor/source-characteristics-v14.ts", "kind": "persisted-contract", "justification": "source-characteristics-v14.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
@@ -499,10 +485,6 @@
 		,
 		{ "path": "src/common/imaging/cube-lut-v1.ts", "kind": "persisted-contract", "justification": "cube-lut-v1.ts preserves the versioned digest and geometry contract for shared cube LUT resources." }
 		,
-		{ "path": "src/framescaper/delivery-native-report-closure-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-closure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/framescaper/delivery-native-report-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/framescaper/delivery-native-report-validation-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-report-validation-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/framescaper/delivery-native-target-execution-v1.ts", "kind": "persisted-contract", "justification": "delivery-native-target-execution-v1.ts validates the V1 native delivery report target identity independently of product schema." }
@@ -526,7 +508,5 @@
 		{ "path": "src/framescaper/editor-session-clipboard-v9.ts", "kind": "ipc-contract", "justification": "editor-session-clipboard-v9.ts is a clipboard wire-format revision exchanged independently of project schema." }
 		,
 		{ "path": "src/framescaper/native-render-frame-pack-v1.ts", "kind": "persisted-contract", "justification": "native-render-frame-pack-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/soundscaper/desktop-native-plugin-state-transport-v1.ts", "kind": "persisted-contract", "justification": "desktop-native-plugin-state-transport-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
 	]
 }

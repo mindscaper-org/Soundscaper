@@ -50,13 +50,13 @@ test('family-v1 desktop lease controls are verified without a retained cohort', 
 	assert.match(closure.testActivation.policy, /Optional owner QA.*never.*certifies a release/iu);
 });
 
-test('capability inventory names only current family-v1 desktop owners', async () => {
+test('capability inventory names the current desktop owner for each product', async () => {
 	const capabilities = await json('config/production-capabilities.json');
 	for (const [family, expected] of Object.entries({
 		soundscaper: [
-			'desktop/soundscaper-project-library-contract.ts',
-			'desktop/soundscaper-project-library-main.ts',
-			'src/soundscaper/editor-project.ts',
+			'desktop/tracktion-main.ts',
+			'desktop/tracktion-preload.cjs',
+			'desktop/tracktion-project-ipc.ts',
 		],
 		framescaper: [
 			'desktop/framescaper-project-library-contract.ts',
@@ -73,6 +73,7 @@ test('capability inventory names only current family-v1 desktop owners', async (
 		});
 		const evidence = product.platforms['electron-enhanced'].evidence;
 		for (const path of expected) assert.ok(evidence.includes(path), `${family}: ${path}`);
+		assert.equal(evidence.some((path) => path.startsWith('desktop/soundscaper-project-library-')), false);
 		assert.doesNotMatch(JSON.stringify(evidence),
 			/(?:soundscaper-project-library-v1[01]|project-library-v(?:10|1[2-9]|20)|framescaper-v(?:18|20|27)-artifact)/u);
 	}

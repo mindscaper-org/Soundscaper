@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/** Exact transient audio-only project scope for one selected Framescaper V15 sequence. */
+/** Programme audio authority for the delivered Framescaper sequence. */
 
 import {
 	mixerEndpointKeyV21,
@@ -11,100 +11,6 @@ import type { FramescaperProjectNativeMedia } from './editor-project-native-medi
 
 type DataRecord = Record<string, unknown>;
 
-export interface FramescaperCompanionAudioProjectScopeV15 {
-	/** Detached render input; it never aliases or mutates the persisted project. */
-	readonly project: FramescaperProjectNativeMedia;
-	/** Authored programme tracks owned by the selected sequence, sorted for binding. */
-	readonly sequenceAudioTrackIds: readonly string[];
-	/** Reserved for admitted silent controls; cross-sequence controls currently refuse. */
-	readonly renderDependencyTrackIds: readonly string[];
-}
-
-/**
- * Narrow the ordinary mix planner to one sequence while retaining the selected
- * tracks' exact V21 mixer paths, shared buses, master, output, and automation.
- */
-export function createFramescaperCompanionAudioProjectScopeV15(
-	project: FramescaperProjectNativeMedia,
-	sequenceId: string,
-): FramescaperCompanionAudioProjectScopeV15 {
-	const sequences = records(project.sequences, 'Framescaper sequences');
-	const selected = uniqueRecordById(sequences, sequenceId, 'selected Framescaper sequence');
-	const tracks = records(project.tracks, 'Framescaper tracks');
-	const trackById = uniqueRecordsById(tracks, 'Framescaper track');
-	assertExactSequenceTrackOwnership(sequences, trackById);
-
-	const selectedTrackIds = strings(selected.trackIds, 'selected Framescaper sequence track IDs');
-	const targetTracks = selectedTrackIds.map((trackId) => trackById.get(trackId)!)
-		.filter((track) => track.type === 'audio');
-	const sequenceAudioTrackIds = sortedIds(targetTracks, 'selected sequence audio track');
-	if (sequenceAudioTrackIds.length === 0) {
-		throw new RangeError('Selected Framescaper companion audio sequence has no audio tracks.');
-	}
-
-	const clipById = uniqueRecordsById(records(project.clips, 'Framescaper clips'), 'Framescaper clip');
-	const clipOwners = clipOwnerIds(tracks);
-	const renderClipIds = new Set<string>();
-	for (const track of targetTracks) {
-		const trackId = id(track, 'selected audio track');
-		for (const clipId of strings(track.clipIds, `audio track ${trackId} clip IDs`)) {
-			const clip = clipById.get(clipId);
-			if (!clip || clip.kind !== 'audio') {
-				throw new ReferenceError(`Companion audio track ${trackId} references non-audio clip ${clipId}.`);
-			}
-			if (clipOwners.get(clipId)?.length !== 1) {
-				throw new RangeError(`Companion audio clip ${clipId} requires exactly one track owner.`);
-			}
-			renderClipIds.add(clipId);
-		}
-	}
-	if (renderClipIds.size === 0) {
-		throw new RangeError('Selected Framescaper companion audio sequence has no programme audio clips.');
-	}
-
-	const renderClips = [...renderClipIds].map((clipId) => clipById.get(clipId)!);
-	const sourceIds = new Set(renderClips.map((clip) => idValue(clip.sourceId, 'audio clip source ID')));
-	const sourceById = uniqueRecordsById(records(project.sources, 'Framescaper sources'), 'Framescaper source');
-	for (const sourceId of sourceIds) {
-		const source = sourceById.get(sourceId);
-		if (!source || source.kind !== 'audio') {
-			throw new ReferenceError(`Companion audio source ${sourceId} is not an audio source.`);
-		}
-	}
-
-	const mixer = normalizeMixerGraphV21(project.mixer);
-	const graphScope = selectedMixerGraph(mixer, sequenceAudioTrackIds);
-	assertNoOutOfScopeSoloAuthority(tracks, sequenceAudioTrackIds, mixer, graphScope);
-	const scoped = structuredClone(project) as unknown as DataRecord;
-	scoped.tracks = targetTracks.map((track) => structuredClone(track));
-	scoped.clips = renderClips.map((clip) => structuredClone(clip));
-	scoped.sources = [...sourceIds].map((sourceId) => structuredClone(sourceById.get(sourceId)!));
-	scoped.primarySequenceId = sequenceId;
-	scoped.sequences = [{
-		...structuredClone(selected),
-		trackIds: [...sequenceAudioTrackIds],
-		...(Array.isArray(selected.trackNodes) ? { trackNodes: [] } : {}),
-	}];
-	scoped.projectBin = { ...record(scoped.projectBin, 'Framescaper Project Bin'), clips: [] };
-	scoped.trackFolders = [];
-	scoped.selection = {
-		startFrame: 0, endFrame: 0, trackIds: [], clipIds: [], annotationIds: [], frequencyRange: null,
-	};
-	if (Array.isArray(scoped.timelineAnnotations)) {
-		scoped.timelineAnnotations = records(scoped.timelineAnnotations, 'timeline annotations')
-			.filter((annotation) => annotation.sequenceId === sequenceId);
-	}
-	scoped.mixer = graphScope.graph;
-	scoped.automationLanes = records(scoped.automationLanes, 'automation lanes')
-		.filter((lane) => laneSurvivesScope(lane, graphScope));
-
-	return Object.freeze({
-		project: deepFreeze(scoped) as unknown as FramescaperProjectNativeMedia,
-		sequenceAudioTrackIds: Object.freeze(sequenceAudioTrackIds),
-		renderDependencyTrackIds: Object.freeze([]),
-	});
-}
-
 export interface FramescaperSequenceAudioAuthorityScopeV15 {
 	/** The delivered sequence's clip-bearing audio tracks, sorted for binding. */
 	readonly audioTrackIds: readonly string[];
@@ -113,11 +19,10 @@ export interface FramescaperSequenceAudioAuthorityScopeV15 {
 }
 
 /**
- * The delivered sequence's audio authority for a picture plan: its clip-bearing
- * audio tracks, the mixer neighbourhood they reach, and the automation that
- * survives it. Unlike the companion render scope this never refuses — a
- * cross-scope sidechain or a silent sequence cannot change delivered pixels,
- * so the projection stays consistent instead of failing closed.
+ * Project the delivered sequence's clip-bearing audio tracks, reachable mixer
+ * paths and automation into its picture plan. A silent picture still carries
+ * master and output authority. Cross-sequence sidechains outside those paths
+ * cannot affect the delivered pixels and are omitted.
  */
 export function framescaperSequenceAudioAuthorityScopeV15(
 	project: FramescaperProjectNativeMedia,
@@ -133,7 +38,7 @@ export function framescaperSequenceAudioAuthorityScopeV15(
 		.filter((track): track is DataRecord => track !== undefined && track.type === 'audio'
 			&& strings(track.clipIds, 'audio track clip IDs').some((clipId) => audioClipIds.has(clipId)));
 	const audioTrackIds = sortedIds(programme, 'sequence audio track');
-	const scope = selectedMixerGraph(normalizeMixerGraphV21(project.mixer), audioTrackIds, 'authority');
+	const scope = selectedMixerGraph(normalizeMixerGraphV21(project.mixer), audioTrackIds);
 	return Object.freeze({
 		audioTrackIds: Object.freeze(audioTrackIds),
 		mixer: scope.graph,
@@ -151,17 +56,9 @@ interface SelectedMixerGraphScope {
 function selectedMixerGraph(
 	graph: MixerGraphV21,
 	trackIds: readonly string[],
-	mode: 'render' | 'authority' = 'render',
 ): SelectedMixerGraphScope {
-	// The master strip is global authority: the authority projection seeds it so
-	// its output edges — and the main output's reachability — survive even a
-	// silent scope. The render scope must instead prove the tracks reach main.
-	const reachable = new Set([
-		...trackIds.map((trackId) => `track:${trackId}`),
-		...(mode === 'authority' ? ['master'] : []),
-	]);
+	const reachable = new Set([...trackIds.map((trackId) => `track:${trackId}`), 'master']);
 	const includedEdgeIds = new Set<string>();
-	const includedOutputIds = new Set<string>();
 	let changed = true;
 	while (changed) {
 		changed = false;
@@ -171,9 +68,7 @@ function selectedMixerGraph(
 				includedEdgeIds.add(edge.id);
 				changed = true;
 			}
-			if (edge.destination.kind === 'output') {
-				includedOutputIds.add(edge.destination.id);
-			} else if (edge.destination.kind !== 'effect-sidechain') {
+			if (edge.destination.kind !== 'output' && edge.destination.kind !== 'effect-sidechain') {
 				const destination = mixerEndpointKeyV21(edge.destination);
 				if (!reachable.has(destination)) {
 					reachable.add(destination);
@@ -185,27 +80,13 @@ function selectedMixerGraph(
 	for (const edge of graph.edges) {
 		if (!edge.enabled || edge.kind !== 'sidechain'
 			|| edge.destination.kind !== 'effect-sidechain'
-			|| !reachable.has(stripKey(edge.destination.strip))) continue;
-		if (!reachable.has(mixerEndpointKeyV21(edge.source))) {
-			// The authority projection describes a picture render; a sidechain fed
-			// from outside the scope cannot change its pixels, so it is projected
-			// away rather than refused.
-			if (mode === 'authority') continue;
-			throw new RangeError(
-				`Selected companion audio has a cross-sequence sidechain dependency at edge ${edge.id}.`,
-			);
-		}
+			|| !reachable.has(stripKey(edge.destination.strip))
+			|| !reachable.has(mixerEndpointKeyV21(edge.source))) continue;
 		includedEdgeIds.add(edge.id);
 	}
 	const nodeIds = new Set([...reachable].flatMap((key) => (
 		key.startsWith('mixer-node:') ? [key.slice('mixer-node:'.length)] : []
 	)));
-	const outputs = mode === 'authority'
-		? graph.outputs
-		: graph.outputs.filter((output) => includedOutputIds.has(output.id));
-	if (mode === 'render' && outputs.filter(({ role }) => role === 'main').length !== 1) {
-		throw new RangeError('Selected companion audio mixer paths do not reach exactly one main output.');
-	}
 	const strips = new Set([...reachable].filter((key) => (
 		key === 'master' || key.startsWith('track:') || key.startsWith('mixer-node:')
 	)));
@@ -218,39 +99,10 @@ function selectedMixerGraph(
 			const members = vca.members.filter((member) => strips.has(stripKey(member)));
 			return members.length === 0 ? [] : [{ ...vca, members }];
 		}),
-		outputs,
+		outputs: graph.outputs,
 		edges: graph.edges.filter(({ id }) => includedEdgeIds.has(id)),
 	});
 	return Object.freeze({ graph: scoped, edgeIds: includedEdgeIds, stripKeys: strips });
-}
-
-/**
- * Solo is resolved project-wide by the engine: while any solo exists, a strip
- * is audible only through a soloed path. A soloed strip outside this scope
- * silences the selected tracks during playback and in the ordinary mix
- * export, so honouring the scope while dropping the solo would deliver a
- * companion that sounds different from playback. Refuse it, exactly like the
- * cross-sequence sidechain — the other cross-scope silent control.
- */
-function assertNoOutOfScopeSoloAuthority(
-	tracks: readonly DataRecord[],
-	scopeTrackIds: readonly string[],
-	graph: MixerGraphV21,
-	scope: SelectedMixerGraphScope,
-): void {
-	const inScope = new Set(scopeTrackIds);
-	for (const track of tracks) {
-		if (track.type !== 'audio' || track.solo !== true) continue;
-		const trackId = id(track, 'soloed audio track');
-		if (!inScope.has(trackId)) {
-			throw new RangeError(`Companion audio cannot honour solo on out-of-scope track ${trackId}.`);
-		}
-	}
-	for (const strip of [...graph.groups, ...graph.sends, ...graph.cues]) {
-		if (strip.solo && !scope.stripKeys.has(`mixer-node:${strip.id}`)) {
-			throw new RangeError(`Companion audio cannot honour solo on out-of-scope mixer strip ${strip.id}.`);
-		}
-	}
 }
 
 function laneSurvivesScope(lane: DataRecord, scope: SelectedMixerGraphScope): boolean {
@@ -260,39 +112,9 @@ function laneSurvivesScope(lane: DataRecord, scope: SelectedMixerGraphScope): bo
 	return scope.stripKeys.has(stripKey(record(address.strip, 'automation strip')));
 }
 
-function assertExactSequenceTrackOwnership(
-	sequences: readonly DataRecord[],
-	trackById: ReadonlyMap<string, DataRecord>,
-): void {
-	const ownerByTrackId = new Map<string, string>();
-	for (const sequence of sequences) {
-		const sequenceId = id(sequence, 'Framescaper sequence');
-		for (const trackId of strings(sequence.trackIds, `sequence ${sequenceId} track IDs`)) {
-			if (!trackById.has(trackId)) throw new ReferenceError(`Sequence ${sequenceId} track ${trackId} is missing.`);
-			if (ownerByTrackId.has(trackId)) {
-				throw new RangeError(`Framescaper track ${trackId} has ambiguous sequence ownership.`);
-			}
-			ownerByTrackId.set(trackId, sequenceId);
-		}
-	}
-	for (const trackId of trackById.keys()) if (!ownerByTrackId.has(trackId)) {
-		throw new ReferenceError(`Framescaper track ${trackId} has no sequence owner.`);
-	}
-}
-
 function stripKey(strip: DataRecord | Readonly<{ kind: string; id?: string }>): string {
 	if (strip.kind === 'master') return 'master';
 	return `${String(strip.kind)}:${idValue(strip.id, 'mixer strip ID')}`;
-}
-
-function clipOwnerIds(tracks: readonly DataRecord[]): ReadonlyMap<string, readonly string[]> {
-	const result = new Map<string, string[]>();
-	for (const track of tracks) for (const clipId of strings(track.clipIds, 'track clip IDs')) {
-		const owners = result.get(clipId) ?? [];
-		owners.push(id(track, 'clip owner track'));
-		result.set(clipId, owners);
-	}
-	return result;
 }
 
 function uniqueRecordById(values: readonly DataRecord[], targetId: string, name: string): DataRecord {
@@ -339,11 +161,4 @@ function id(value: DataRecord, name: string): string {
 function idValue(value: unknown, name: string): string {
 	if (typeof value !== 'string' || !value) throw new TypeError(`${name} is invalid.`);
 	return value;
-}
-
-function deepFreeze(value: unknown): unknown {
-	if (value === null || typeof value !== 'object' || Object.isFrozen(value)) return value;
-	for (const child of Array.isArray(value)
-		? value : Object.values(value as DataRecord)) deepFreeze(child);
-	return Object.freeze(value);
 }

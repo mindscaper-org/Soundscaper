@@ -21,6 +21,7 @@ import { authoredWildcardResponseHeaders } from './scripts/lib/static-response-h
 import { enforceStartupGraphBudgets } from './scripts/lib/startup-graph-budget.mjs';
 import { createTranslationCatalogBundlePlugin } from './scripts/lib/translation-catalog-bundle.mjs';
 import { localDownloadPagePlugin } from './scripts/lib/vite-download-page.ts';
+import { tracktionWebEngine } from './scripts/lib/vite-tracktion-web.mjs';
 import layerAudacityDesignSystemCss, {
 	getLayeredDesignSystemFiles,
 	isDesignSystemCssFile,
@@ -83,7 +84,7 @@ function assertDesignSystemCssLayered() {
 		closeBundle() {
 			const expected = [...transformed].sort();
 			const layered = getLayeredDesignSystemFiles();
-			if (!expected.length || JSON.stringify(layered) !== JSON.stringify(expected)) {
+			if ((productId === 'framescaper' && !expected.length) || JSON.stringify(layered) !== JSON.stringify(expected)) {
 				const missing = expected.filter((file) => !layered.includes(file));
 				const unexpected = layered.filter((file) => !transformed.has(file));
 				throw new Error(
@@ -102,10 +103,29 @@ export default defineConfig({
 	// makes the suite exercise the shipped content security policy and the
 	// cross-origin isolation the editor depends on, instead of a configuration no
 	// user ever gets.
-	preview: { headers: authoredWildcardResponseHeaders() },
+	preview: { headers: authoredWildcardResponseHeaders(productId) },
+	...(productId === 'soundscaper' && !desktopCodecComposition
+		? { server: { headers: authoredWildcardResponseHeaders(productId) } }
+		: {}),
 	publicDir: productId === 'soundscaper' && desktopCodecComposition ? false : 'public',
 	plugins: [
 		...(!desktopCodecComposition ? [localDownloadPagePlugin(productId)] : []),
+		{
+			name: 'scape-preview-response-headers',
+			configurePreviewServer(server) {
+				const headers = Object.entries(server.config.preview.headers ?? {});
+				server.middlewares.use((request, response, next) => {
+					// Vite handles matching ETags before its static response header callback.
+					if (request.headers['if-none-match'] !== undefined) {
+						for (const [name, value] of headers) {
+							if (value !== undefined) response.setHeader(name, value);
+						}
+					}
+					next();
+				});
+			},
+		},
+		...(productId === 'soundscaper' && !desktopCodecComposition ? [tracktionWebEngine(import.meta.dirname)] : []),
 		productSubstitutionPlugin({
 			productId, desktopCodecComposition, repositoryRoot: import.meta.dirname,
 		}),

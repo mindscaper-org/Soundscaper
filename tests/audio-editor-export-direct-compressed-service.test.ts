@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createEditorExportService, type ExportServiceRuntime } from '../src/common/editor/controller/export/internal/export-service.ts';
@@ -46,6 +47,11 @@ const SERVICE_CASES: readonly ServiceCase[] = Object.freeze([
 	{ format: 'mp2', extension: 'mp2', mimeType: 'audio/mpeg', options: { bitRate: 384 }, float: true, bitDepth: 24, stagingDither: 'none', applyDither: false },
 	{ format: 'aac-m4a', extension: 'm4a', mimeType: 'audio/mp4', options: { bitRate: 320 }, float: true, bitDepth: 24, stagingDither: 'none', applyDither: false },
 ]);
+
+test('the retired direct MP3 adapter is absent from the source tree', async () => {
+	const adapter = new URL('../src/common/editor/controller/export/internal/direct/direct-mp3-export.ts', import.meta.url);
+	await assert.rejects(access(adapter), { code: 'ENOENT' });
+});
 
 test('export service routes every canonical realtime compressed format with exact staging and ordering', async () => {
 	for (const entry of SERVICE_CASES) {

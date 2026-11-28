@@ -13,7 +13,7 @@ import { unifiedExactPlanFixture } from './helpers/unified-exact-render-plan-fix
 
 for (const id of ['ordinary-project', 'programme:one', 'Programme one', '映像の企画', 'p'.repeat(160)]) {
 	test(`a native programme identity reaches the actual clean display: ${id.slice(0, 24)}`, async () => {
-		const native = createRound7ExternalDisplayNativeFixture();
+		const native = await createRound7ExternalDisplayNativeFixture();
 		try {
 			const project = createFramescaperProject(PROFILE, { id });
 			const plan = createUnifiedExactRenderPlan({ ...unifiedExactPlanFixture(9), project: { id, revision: project.revision } });
@@ -32,7 +32,7 @@ for (const id of ['ordinary-project', 'programme:one', 'Programme one', '映像�
 }
 
 test('external display still refuses a missing project identity or invalid revision before capture', async () => {
-	const native = createRound7ExternalDisplayNativeFixture();
+	const native = await createRound7ExternalDisplayNativeFixture();
 	try {
 		await native.bridge.setExternalDisplay({ displayId: 'display-2' });
 		await framescaperNativeServicesStoreFor(native.bridge).refresh();

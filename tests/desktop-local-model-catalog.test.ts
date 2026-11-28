@@ -16,6 +16,11 @@ const matrixUrl = new URL('../config/production-licensing-matrix.json', import.m
 
 const GIB = 1024 ** 3;
 
+test('the desktop model catalog omits the unused mirror location helper', async () => {
+	const catalog = await import('../desktop/local-model-catalog.ts');
+	assert.equal(Reflect.has(catalog, 'plannedMirrorLocation'), false);
+});
+
 async function readJson(url: URL): Promise<Record<string, unknown>> {
 	return JSON.parse(String(await readFile(url)));
 }

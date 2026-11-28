@@ -2,11 +2,6 @@
 import { clipEffectControlTrackIds } from '../../clip-effect-control-tracks.ts';
 import { autoTuneControlTrackIds } from '../../first-party-effects/auto-tune/project-control.ts';
 
-import {
-	createAddClipCommand,
-	createAddSourceCommand,
-	createAddTrackCommand,
-} from '../../commands/factories.ts';
 import type { AudioEditorCommand } from '../../commands/protocol.ts';
 import { isSoundscaperProductionProject } from '../../project-schema-version.ts';
 import { projectEffectTailFramesV21 } from '../../project-effect-tail-v21.ts';
@@ -24,7 +19,6 @@ import {
 	findControllerTrack,
 	type ControllerEffect,
 	type ControllerProject,
-	type ControllerSource,
 	type ControllerTrack,
 	type MutableControllerProject,
 } from './track-domain-types.ts';
@@ -38,13 +32,6 @@ export interface MixRenderPlan {
 	readonly outputChannelCount: number;
 	readonly outputBytes: number;
 	readonly streamToStorage: boolean;
-}
-
-export interface MixRenderCommit {
-	readonly type: 'mix-render';
-	readonly command: Extract<AudioEditorCommand, { readonly type: 'batch' }>;
-	readonly trackId: string;
-	readonly clipId: string;
 }
 
 export interface MixRenderSnapshotOptions {
@@ -235,94 +222,6 @@ function mixRenderPlannedOutputChannelCount(project: ControllerProject): number 
 		throw new RangeError('A Soundscaper mix render requires between 1 and 32 master channels.');
 	}
 	return channelCount;
-}
-
-export function prepareMixRenderCommit(
-	project: ControllerProject,
-	targetTracks: readonly ControllerTrack[],
-	source: ControllerSource,
-	options: Readonly<{
-		startFrame: number;
-		mixName: string;
-		createId(prefix: string): string;
-	}>,
-): MixRenderCommit {
-	if (!targetTracks.length) throw new TypeError('At least one target track is required.');
-	const targetIds = new Set(targetTracks.map((track) => track.id));
-	const bottomTrack = targetTracks[targetTracks.length - 1]!;
-	const singleTrack = targetTracks.length === 1;
-	const trackId = singleTrack ? bottomTrack.id : options.createId('mixed-track');
-	const clipId = options.createId('mixed-clip');
-	const commands: AudioEditorCommand[] = [createAddSourceCommand(source)];
-	if (singleTrack) {
-		const resetChanges: Record<string, unknown> = {
-			gain: 1, pan: 0, mute: false, solo: false, armed: false,
-		};
-		if (!isSoundscaperProductionProject(project)) resetChanges.envelope = [];
-		commands.push(
-			...v21StripLaneRemovalCommands(project, trackId),
-			...(bottomTrack.clipIds ?? []).map((clipIdToRemove): AudioEditorCommand => ({
-				type: 'clip/remove', clipId: clipIdToRemove,
-			})),
-			...(bottomTrack.effects || []).map((effect): AudioEditorCommand => ({
-				type: 'effect/remove', scope: 'track', trackId, effectId: effect.id,
-			})),
-			{
-				type: 'track/update', trackId,
-				changes: resetChanges,
-			},
-		);
-	} else {
-		const bottomIndex = project.tracks.findIndex((track) => track.id === bottomTrack.id);
-		const insertIndex = project.tracks.slice(0, bottomIndex).filter((track) => !targetIds.has(track.id)).length;
-		const mixedTrack: Record<string, unknown> = {
-			...bottomTrack,
-			id: trackId,
-			name: options.mixName,
-			gain: 1,
-			pan: 0,
-			mute: false,
-			solo: false,
-			armed: false,
-			effects: [],
-			clipIds: [],
-			opaqueExtensions: {},
-		};
-		if (!isSoundscaperProductionProject(project)) mixedTrack.envelope = [];
-		commands.push(
-			...targetTracks.map((track): AudioEditorCommand => ({ type: 'track/remove', trackId: track.id })),
-			{
-				...createAddTrackCommand(mixedTrack),
-				index: insertIndex,
-			},
-		);
-	}
-	commands.push(
-		createAddClipCommand(trackId, {
-			id: clipId,
-			sourceId: source.id,
-			title: options.mixName,
-			timelineStartFrame: options.startFrame,
-			sourceStartFrame: 0,
-			sourceDurationFrames: source.frameCount,
-			durationFrames: source.frameCount,
-		}),
-		{
-			type: 'selection/set',
-			startFrame: project.selection?.startFrame || 0,
-			endFrame: project.selection?.endFrame || 0,
-			trackIds: [trackId],
-			clipIds: [],
-			frequencyRange: null,
-		},
-	);
-	const command: Extract<AudioEditorCommand, { readonly type: 'batch' }> = { type: 'batch', commands };
-	return Object.freeze({
-		type: 'mix-render',
-		command,
-		trackId,
-		clipId,
-	});
 }
 
 function isActiveAutoDuckEffect(effect: ControllerEffect): boolean {

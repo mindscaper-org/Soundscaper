@@ -19,9 +19,6 @@ import {
 import {
 	registerFramescaperNativeServicesMainIpc,
 } from '../desktop/native-services-main-ipc.ts';
-import {
-	createFramescaperNativeServicesMainPreloadBridge,
-} from '../desktop/native-services-main-preload.ts';
 import { FramescaperNativeQueueRepository } from '../desktop/native-services-queue-repository-v3.ts';
 import { FramescaperNativeRootRepository } from '../desktop/native-services-root-repository.ts';
 import { FramescaperNativeScratchRepository } from '../desktop/native-services-scratch-repository.ts';
@@ -42,6 +39,7 @@ import {
 } from '../src/framescaper/editor-domain-runtime-profile.ts';
 import { createFramescaperProjectNativeMedia } from '../src/framescaper/editor-project-native-media.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
+import { loadFramescaperNativeServicesTestBridge } from './helpers/framescaper-native-services-test-bridge.ts';
 
 const GRANT_ID = 'ab'.repeat(16);
 const RULE_ID = 'cd'.repeat(16);
@@ -234,12 +232,10 @@ test('the pathless lifecycle bridge owns roots, watch reconciliation, cleanup, p
 			rollbackClaim: async () => undefined,
 		},
 	});
-	const bridge = createFramescaperNativeServicesMainPreloadBridge({
-		invoke: async (channel: string, request?: unknown): Promise<unknown> => {
-			const handler = handlers.get(channel);
-			if (!handler) throw new Error(`missing ${channel}`);
-			return handler(owner, request);
-		},
+	const bridge = await loadFramescaperNativeServicesTestBridge((channel, request) => {
+		const handler = handlers.get(channel);
+		if (!handler) throw new Error(`missing ${channel}`);
+		return handler(owner, request);
 	});
 	assert.equal(await bridge.abandonRenderInputs({ stageId: JOB_ID }), true);
 	assert.deepEqual(abandonedRenderInputs, [JOB_ID]);
@@ -333,7 +329,7 @@ test('the pathless lifecycle bridge owns roots, watch reconciliation, cleanup, p
 			reservations: planned.reservations, recoveryClass: planned.recoveryClass,
 		},
 		planVersion: 6 as 7,
-	}), /unsupported plan/iu);
+	}), /Invalid Framescaper native queue enqueue plan/u);
 	registration.dispose();
 	database.close();
 });

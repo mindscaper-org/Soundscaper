@@ -24,7 +24,6 @@ import type { ProductNativeRenderInputAuthorityBinding } from './product-native-
 import type { ScapeProjectFileServiceRuntime, ScapeProjectInspection } from '../document/scape-project-file-service.ts';
 import type { SourceRuntimeCompositionDependencies } from '../source/source-runtime-composition-types.ts';
 import type { TrackAudioCompositionDependencies } from '../track-audio/track-audio-composition-types.ts';
-import type { SoundscaperPersistentDeliveryExportRuntime } from '../export/soundscaper-persistent-delivery-runtime-binding.ts';
 
 type CaptureBinding = ReturnType<typeof createFramescaperCaptureAppBinding>;
 type ScapeInspectionRuntime = ScapeProjectFileServiceRuntime<ScapeProjectInspection, unknown>;
@@ -40,7 +39,6 @@ export interface ControllerOptions extends ControllerResourceOptions, Controller
 	readonly copy?: Readonly<Record<string, string>>;
 	readonly now?: () => number;
 	readonly monotonicNow?: () => number;
-	readonly bindSoundscaperPersistentDeliveryRuntime?: (runtime: SoundscaperPersistentDeliveryExportRuntime) => void;
 	readonly projectRuntime?: ControllerProjectRuntimeInput<DocumentProject, DocumentHistory, unknown,
 		DocumentProject | RuntimeProjectProjection<DocumentProject> | CommandProjectView<DocumentProject>>;
 	readonly projectMaintenanceRuntime?: ProjectAdminServiceRuntime['projectMaintenanceRuntime'];

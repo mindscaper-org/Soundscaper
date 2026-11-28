@@ -1,122 +1,93 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { existsSync } from 'node:fs';
+import test, { type TestContext } from 'node:test';
 import React, { act } from 'react';
-import { clipPropertiesTimeFields } from '../src/common/editor/ui/inspector/ClipPropertiesTimeFields.tsx';
+import { createRoot } from 'react-dom/client';
+import { createAudioClip, createAudioSource, createAudioTrack } from '../src/common/editor/project-media-factory.ts';
+import ClipPropertiesPanel from '../src/common/editor/ui/inspector/ClipPropertiesPanel.tsx';
 import { ENGLISH_COPY } from '../src/common/i18n/catalogs.js';
+import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
 
-test('native property time fields preserve exact project samples and the separate source clock', async () => {
-	const f = await fixture();
-	try {
-		for (const [field, value] of [['startFrame', 192_001], ['durationFrame', 96_003], ['sourceInFrame', 44_101],
-			['trimEndFrame', 88_197], ['fadeInFrame', 12_345], ['fadeOutFrame', 1]] as const) {
-			assert.equal(f.input(field).value, String(value), field);
-		}
-		assert.match(f.field('sourceInFrame').textContent, /00h00m01\.000s/u, 'source samples use 44.1kHz rather than project 48kHz');
-		for (const [field, value] of [['startFrame', 12_345], ['durationFrame', 24_001], ['sourceInFrame', 22_051],
-			['trimEndFrame', 11_027], ['fadeInFrame', 2_401], ['fadeOutFrame', 3_001]] as const) {
-			await f.enter(field, value);
-		}
-		assert.deepEqual(f.changes, [
-			['start', 12_345], ['duration', 24_001], ['trim-start', 22_051], ['trim-end', 11_027],
-			['fade-in', 2_401], ['fade-out', 3_001],
-		]);
-		assert.equal(f.dom.container.querySelectorAll('[data-clip-field="durationFrame"]').length, 1);
-		assert.equal(f.dom.container.querySelectorAll('[data-clip-properties-field="length"]').length, 1);
-	} finally { await f.cleanup(); }
+const projectRate = 48_000;
+const sourceRate = 44_100;
+const source = createAudioSource({ id: 'source', sampleRate: sourceRate, frameCount: 220_500, channelCount: 1 });
+const clip = createAudioClip({ id: 'clip', sourceId: source.id, timelineStartFrame: 192_001,
+	durationFrames: 96_003, sourceStartFrame: 44_101, sourceDurationFrames: 88_202, fadeInFrames: 12_345, fadeOutFrames: 1 });
+
+test('the obsolete clip-property time fields adapter is absent', () => {
+	assert.equal(existsSync(new URL('../src/common/editor/ui/inspector/ClipPropertiesTimeFields.tsx', import.meta.url)), false);
 });
 
-test('native duration and fades offer musical duration formats at the clip placement', async () => {
-	const f = await fixture(false, true);
-	try {
-		for (const name of ['durationFrame', 'fadeInFrame', 'fadeOutFrame']) {
-			const field = f.field(name);
-			const button = field.querySelector('.timecode__format-button');
-			assert.ok(button);
-			await act(async () => reactProps(button).onClick({ stopPropagation() {} }));
-			const musical = f.dom.container.querySelectorAll('[role="menuitem"]').find(item => item.textContent === 'beats:bars');
-			assert.ok(musical, 'native format menu retains musical duration entry');
-			await act(async () => reactProps(musical).onClick({ stopPropagation() {} }));
-			await f.enterDigits(name, '0011');
-		}
-		assert.deepEqual(f.changes, [['duration', 96_000], ['fade-in', 96_000], ['fade-out', 96_000]],
-			'one elapsed bar uses the later clip tempo, rather than the four-second bar at project origin');
-	} finally { await f.cleanup(); }
+test('numeric clip properties preserve exact project samples and the separate source clock', async context => {
+	const f = await fixture(context);
+	for (const [name, frames, rate] of [
+		['start', 192_001, projectRate], ['length', 96_003, projectRate], ['trim-start', 44_101, sourceRate],
+		['trim-end', 88_197, sourceRate], ['fade-in', 12_345, projectRate], ['fade-out', 1, projectRate],
+	] as const) {
+		await f.focus(name);
+		assert.equal(Math.round(Number(f.input(name).value) * rate), frames, name);
+	}
+	for (const [name, frames, rate] of [
+		['start', 12_345, projectRate], ['length', 24_001, projectRate], ['trim-start', 22_051, sourceRate],
+		['trim-end', 11_027, sourceRate], ['fade-in', 2_401, projectRate], ['fade-out', 3_001, projectRate],
+		['length', 96_800, projectRate],
+	] as const) await f.enter(name, frames / rate);
+	assert.deepEqual(f.moves, [['clip', 'track', 12_345, { exactFrame: true }]]);
+	assert.deepEqual(f.trims, [
+		['clip', { sourceStartFrame: 44_101, sourceDurationFrames: 22_051, durationFrames: 24_001 }],
+		['clip', { sourceStartFrame: 22_051, sourceDurationFrames: 110_252, durationFrames: 120_003 }],
+		['clip', { sourceStartFrame: 44_101, sourceDurationFrames: 165_372, durationFrames: 179_998 }],
+		['clip', { sourceStartFrame: 44_101, sourceDurationFrames: 88_934, durationFrames: 96_800 }],
+	]);
+	assert.deepEqual(f.updates, [['clip', { fadeInFrames: 2_401 }], ['clip', { fadeOutFrames: 3_001 }]]);
+	assert.equal(f.dom.container.querySelectorAll('[data-clip-properties-field="length"]').length, 1);
+	assert.equal(f.dom.find('.timecode__format-button'), null);
 });
 
-test('disabled native property fields retain values and disable every editing input', async () => {
-	const f = await fixture(true);
-	try {
-		for (const input of f.dom.container.querySelectorAll('input')) assert.notEqual(input.getAttribute('disabled'), null);
-		assert.equal(f.input('durationFrame').value, '96003');
-	} finally { await f.cleanup(); }
+test('locked numeric timing fields keep their values and disable editing', async context => {
+	const f = await fixture(context, true);
+	for (const name of ['start', 'length', 'trim-start', 'trim-end', 'fade-in', 'fade-out'])
+		assert.notEqual(f.input(name).getAttribute('disabled'), null, name);
+	assert.equal(f.input('length').value, '2');
 });
 
-async function fixture(disabled = false, musical = false) {
+async function fixture(context: TestContext, locked = false) {
 	const dom = installReactTestDom();
-	const previousObserver = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
-	Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: class { observe() {} disconnect() {} } });
-	const keys = new Set<EventListenerOrEventListenerObject>();
-	document.addEventListener = (kind: string, listener: EventListenerOrEventListenerObject | null) => { if (kind === 'keydown' && listener) keys.add(listener); };
-	document.removeEventListener = (kind: string, listener: EventListenerOrEventListenerObject | null) => { if (kind === 'keydown' && listener) keys.delete(listener); };
-	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
-	const previousAct = actGlobal.IS_REACT_ACT_ENVIRONMENT;
-	actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
-	const { createRoot } = await import('react-dom/client');
+	const priorReact = Object.getOwnPropertyDescriptor(globalThis, 'React');
+	const globals = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
+	const priorAct = globals.IS_REACT_ACT_ENVIRONMENT;
+	globals.IS_REACT_ACT_ENVIRONMENT = true;
+	Object.defineProperty(globalThis, 'React', { configurable: true, value: React });
 	const root = createRoot(dom.container as unknown as Element);
-	const changes: Array<readonly [string, number]> = [];
-	const project = { sampleRate: 48_000,
-		tempoMap: { mode: 'musical', events: [
-			{ beat: { num: 0, den: 1 }, bpm: { num: 60, den: 1 } },
-			{ beat: { num: 4, den: 1 }, bpm: { num: 120, den: 1 } },
-		] }, signatureMap: { events: [{ bar: 0, numerator: 4, denominator: 4 }] } };
-	const snapshot = { project };
-	const slots = clipPropertiesTimeFields({
-		controller: { subscribe: () => () => undefined, getSnapshot: () => snapshot },
-		clip: { timelineStartFrame: musical ? 192_000 : 192_001, durationFrames: musical ? 144_000 : 96_003, sourceStartFrame: 44_101,
-			sourceDurationFrames: 88_202, fadeInFrames: musical ? 0 : 12_345, fadeOutFrames: musical ? 0 : 1 },
-		source: { sampleRate: 44_100, frameCount: 220_500 }, sampleRate: 48_000,
-		copy: ENGLISH_COPY, disabled,
-		onStart: value => { changes.push(['start', value]); },
-		onDuration: value => { changes.push(['duration', value]); },
-		onTrimStart: value => { changes.push(['trim-start', value]); },
-		onTrimEnd: value => { changes.push(['trim-end', value]); },
-		onFade: (side, value) => { changes.push([`fade-${side}`, value]); },
+	context.after(async () => {
+		await act(async () => root.unmount());
+		globals.IS_REACT_ACT_ENVIRONMENT = priorAct;
+		if (priorReact) Object.defineProperty(globalThis, 'React', priorReact);
+		else Reflect.deleteProperty(globalThis, 'React');
+		dom.restore();
 	});
-	await act(async () => root.render(<>{Object.values(slots)}</>));
-	const field = (name: string) => dom.one(`[data-clip-field="${name}"]`);
-	const input = (name: string) => {
-		const node = field(name).querySelector('input');
-		assert.ok(node);
-		return node;
+	const project = createSoundscaperProject({ id: 'dual-clock', sampleRate: projectRate, sources: [source], clips: [clip],
+		tracks: [createAudioTrack({ id: 'track', clipIds: [clip.id], locked })] });
+	const moves: unknown[][] = [], trims: unknown[][] = [], updates: unknown[][] = [];
+	const controller = { actions: { clip: {
+		move: (...args: unknown[]) => { moves.push(args); },
+		trim: (...args: unknown[]) => { trims.push(args); },
+		update: (...args: unknown[]) => { updates.push(args); },
+	} } };
+	await act(async () => root.render(<ClipPropertiesPanel controller={controller} copy={ENGLISH_COPY} run={operation => operation()}
+		snapshot={{ project, selectedClipId: clip.id, capabilities: { audioEffects: false } }} />));
+	const field = (name: string) => dom.one(`[data-clip-properties-field="${name}"]`);
+	const input = (name: string) => { const node = field(name).querySelector('input'); assert.ok(node); return node; };
+	const focus = async (name: string) => {
+		input(name).focus();
+		await act(async () => reactProps(field(name)).onFocusCapture({ target: input(name) }));
 	};
-	return { dom, changes, field, input,
-		async enterDigits(name: string, digits: string) {
-			const first = field(name).querySelector('.timecode-digit');
-			assert.ok(first);
-			first.focus();
-			await act(async () => reactProps(first).onClick());
-			for (const key of [...digits, 'Enter']) await act(async () => {
-				const event = Object.assign(new Event('keydown', { cancelable: true }), { key });
-				for (const listener of [...keys]) {
-					if (typeof listener === 'function') listener(event); else listener.handleEvent(event);
-				}
-			});
-		},
-		async enter(name: string, value: number) {
-			const node = input(name);
-			await act(async () => reactProps(node).onChange({ currentTarget: { valueAsNumber: value } }));
-			const wrapper = field(name).querySelector('.audio-editor-timecode-input');
-			assert.ok(wrapper);
-			await act(async () => reactProps(wrapper).onBlur({ currentTarget: wrapper, relatedTarget: null }));
-		},
-		async cleanup() {
-			await act(async () => root.unmount());
-			actGlobal.IS_REACT_ACT_ENVIRONMENT = previousAct;
-			if (previousObserver) Object.defineProperty(globalThis, 'MutationObserver', previousObserver);
-			else Reflect.deleteProperty(globalThis, 'MutationObserver');
-			dom.restore();
-		},
+	const enter = async (name: string, seconds: number) => {
+		await focus(name);
+		await act(async () => reactProps(input(name)).onChange({ target: { value: String(seconds) } }));
+		await act(async () => reactProps(field(name)).onBlur({ target: input(name) }));
 	};
+	return { dom, input, focus, enter, moves, trims, updates };
 }

@@ -7,19 +7,14 @@ import {
 	ASSISTANCE_TRANSNET_V2_CPU_INPUT_SHAPE,
 	ASSISTANCE_TRANSNET_V2_FRAME_BYTES,
 	ASSISTANCE_TRANSNET_V2_SOURCE,
-	createAssistanceTransNetV2CpuInputBatchV1,
-	runAssistanceTransNetV2OnnxAdapterV1,
+	runAssistanceTransNetV2FrameSourceOnnxAdapterV1,
+	type AssistanceTransNetV2CpuInputBatchV1,
+	type AssistanceTransNetV2InputElementType,
 } from '../src/common/editor/assistance/transnetv2-onnx-adapter-v1.ts';
 
 const SOURCE_REVISION = '85cef72af9a916bdfd7cc94a670c9cdfbf12d1ed';
 
 function frames(count: number, overrides: Readonly<Record<string, unknown>> = {}) {
-	const data = new Uint8Array(count * ASSISTANCE_TRANSNET_V2_FRAME_BYTES);
-	for (let frame = 0; frame < count; frame += 1) {
-		data.fill(frame % 256,
-			frame * ASSISTANCE_TRANSNET_V2_FRAME_BYTES,
-			(frame + 1) * ASSISTANCE_TRANSNET_V2_FRAME_BYTES);
-	}
 	let tick = 0;
 	const presentationTicks = Array.from({ length: count }, (_, index) => {
 		if (index > 0) tick += index % 2 === 0 ? 41 : 33;
@@ -28,7 +23,9 @@ function frames(count: number, overrides: Readonly<Record<string, unknown>> = {}
 	return {
 		schemaVersion: 1,
 		pixelFormat: 'rgb24', width: 48, height: 27, rowStrideBytes: 144,
-		timescale: 1_000, presentationTicks, data,
+		timescale: 1_000, frameCount: count, presentationTicks,
+		sourceFrames: presentationTicks.map((_, index) => index),
+		readFrame: (index: number) => new Uint8Array(ASSISTANCE_TRANSNET_V2_FRAME_BYTES).fill(index % 256),
 		...overrides,
 	};
 }
@@ -71,9 +68,28 @@ test('the adapter pins upstream RGB geometry, CPU tensor shape, and reviewed sou
 	assert.deepEqual(ASSISTANCE_TRANSNET_V2_CPU_INPUT_SHAPE, [1, 100, 27, 48, 3]);
 });
 
-test('100-frame windows replicate edges and expose only each central 50-frame authority once', () => {
-	const decoded = frames(51);
-	const first = createAssistanceTransNetV2CpuInputBatchV1(decoded, 0, 'uint8');
+test('the retired buffered frame adapters are absent', async () => {
+	const adapter = await import('../src/common/editor/assistance/transnetv2-onnx-adapter-v1.ts');
+	for (const name of ['validateAssistanceTransNetV2DecodedFramesV1', 'createAssistanceTransNetV2CpuInputBatchV1', 'runAssistanceTransNetV2OnnxAdapterV1']) {
+		assert.equal(Reflect.has(adapter, name), false, name);
+	}
+});
+
+async function observeBatches(inputElementType: AssistanceTransNetV2InputElementType) {
+	const batches: AssistanceTransNetV2CpuInputBatchV1[] = [];
+	await runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(51, { inputElementType }), {
+		runBatch: async (batch) => {
+			batches.push(batch);
+			return output('logits');
+		},
+	});
+	assert.equal(batches.length, 2);
+	return batches;
+}
+
+test('100-frame windows replicate edges and expose each central 50-frame authority once', async () => {
+	const [first] = await observeBatches('uint8');
+	assert.ok(first);
 	assert.equal(first.batchIndex, 0);
 	assert.equal(first.sourceFrameStart, 0);
 	assert.equal(first.authoritativeFrameCount, 50);
@@ -88,7 +104,8 @@ test('100-frame windows replicate edges and expose only each central 50-frame au
 	assert.equal(firstByte(first, 75), 50);
 	assert.equal(firstByte(first, 99), 50);
 
-	const second = createAssistanceTransNetV2CpuInputBatchV1(decoded, 1, 'float32');
+	const [, second] = await observeBatches('float32');
+	assert.ok(second);
 	assert.equal(second.sourceFrameStart, 50);
 	assert.equal(second.authoritativeFrameCount, 1);
 	assert.equal(second.elementType, 'float32');
@@ -97,14 +114,12 @@ test('100-frame windows replicate edges and expose only each central 50-frame au
 	assert.equal(firstByte(second, 24), 49);
 	assert.equal(firstByte(second, 25), 50);
 	assert.equal(firstByte(second, 99), 50);
-	assert.throws(() => createAssistanceTransNetV2CpuInputBatchV1(decoded, 2, 'uint8'),
-		/batch.*range|index/iu);
 });
 
 test('the ONNX adapter sigmoids finite logits, ignores overlap context, and preserves exact VFR ticks', async () => {
 	const decoded = frames(73);
 	const calls: Array<Readonly<{ sourceFrameStart: number; authoritativeFrameCount: number }>> = [];
-	const result = await runAssistanceTransNetV2OnnxAdapterV1(request(73, {
+	const result = await runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(73, {
 		frames: decoded,
 	}), {
 		runBatch: async (batch) => {
@@ -135,7 +150,7 @@ test('the ONNX adapter sigmoids finite logits, ignores overlap context, and pres
 });
 
 test('probability outputs are admitted without a second sigmoid and both heads retain authority', async () => {
-	const result = await runAssistanceTransNetV2OnnxAdapterV1(request(4, {
+	const result = await runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(4, {
 		outputValueKind: 'probabilities',
 	}), {
 		runBatch: async () => {
@@ -154,15 +169,16 @@ test('decoded frames and ONNX outputs must match the exact bounded tensor contra
 	for (const malformed of [
 		frames(1, { width: 47 }),
 		frames(1, { rowStrideBytes: 145 }),
-		frames(1, { data: new Uint8Array(10) }),
-		frames(1, { data: new Uint8Array(new SharedArrayBuffer(
+		frames(1, { readFrame: () => new Uint8Array(10) }),
+		frames(1, { readFrame: () => new Uint8Array(new SharedArrayBuffer(
 			ASSISTANCE_TRANSNET_V2_FRAME_BYTES,
 		)) }),
 		frames(2, { presentationTicks: ['0', '0'] }),
 		{ ...frames(1), invented: true },
 	]) {
-		assert.throws(() => createAssistanceTransNetV2CpuInputBatchV1(malformed, 0, 'uint8'),
-			/geometry|stride|length|tick|field|RGB/iu);
+		await assert.rejects(runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(1, { frames: malformed }), {
+			runBatch: async () => assert.fail('Inference started before validation completed.'),
+		}), /geometry|stride|length|tick|field|RGB/iu);
 	}
 	for (const malformedOutput of [
 		{ ...output('logits'), singleFrame: {
@@ -178,16 +194,16 @@ test('decoded frames and ONNX outputs must match the exact bounded tensor contra
 			...output('logits').allFrame, data: new Float32Array(new SharedArrayBuffer(400)),
 		} },
 	]) {
-		await assert.rejects(runAssistanceTransNetV2OnnxAdapterV1(request(1), {
+		await assert.rejects(runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(1), {
 			runBatch: async () => malformedOutput,
 		}), /output|tensor|shape|geometry|type|length/iu);
 	}
-	await assert.rejects(runAssistanceTransNetV2OnnxAdapterV1(request(1, {
+	await assert.rejects(runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(1, {
 		outputValueKind: 'probabilities',
 	}), {
 		runBatch: async () => output('probabilities', { 25: 1.1 }),
 	}), /probability|finite|\[0, 1\]/iu);
-	await assert.rejects(runAssistanceTransNetV2OnnxAdapterV1(request(1), {
+	await assert.rejects(runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(1), {
 		runBatch: async () => output('logits', { 25: Number.NaN }),
 	}), /logit|finite/iu);
 });
@@ -195,7 +211,7 @@ test('decoded frames and ONNX outputs must match the exact bounded tensor contra
 test('cancellation is checked after every bounded batch before another batch receives authority', async () => {
 	const controller = new AbortController();
 	let calls = 0;
-	await assert.rejects(runAssistanceTransNetV2OnnxAdapterV1(request(101), {
+	await assert.rejects(runAssistanceTransNetV2FrameSourceOnnxAdapterV1(request(101), {
 		signal: controller.signal,
 		runBatch: async () => {
 			calls += 1;

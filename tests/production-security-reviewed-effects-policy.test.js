@@ -19,7 +19,6 @@ test('reviewed-effects inventory retains the closed catalog controls and their v
 		'release-pinned-reviewed-effect-catalog',
 		'closed-reviewed-effect-wasm-abi',
 		'terminating-reviewed-effect-offline-worker',
-		'static-reviewed-effect-realtime-host',
 	]);
 	for (const control of risk.currentControls) {
 		assert.ok(control.evidence.some(({ kind }) => kind === 'implementation'));

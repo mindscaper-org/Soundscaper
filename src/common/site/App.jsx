@@ -26,6 +26,7 @@ const PrivacyPolicyRoute = lazyEditorModule(() => import('../editor/ui/PrivacyPo
 export default function App({ route }) {
 	const { desktop, direction, embedded, locale, productId } = route;
 	const copy = useSiteCopy(locale);
+	const WorkspaceRegion = productId === 'soundscaper' ? 'div' : 'main';
 	if (route.privacyPolicy) {
 		return <>
 			<Suspense fallback={<div role="status" aria-live="polite">{copy.loading}</div>}>
@@ -42,7 +43,7 @@ export default function App({ route }) {
 	return (
 		<div className={`website-site-shell${embedded ? ' website-embedded' : ''}${desktop ? ' website-desktop' : ''}`}>
 			{!embedded && <BrandSidebar locale={locale} productId={productId} />}
-			<main>
+			<WorkspaceRegion className="website-main">
 				<section className="website-section website-audio-editor-section website-tool-workspace">
 					<div className="website-container website-audio-editor-container">
 						<Suspense fallback={<EditorStartupProgress copy={copy} locale={locale} />}>
@@ -55,7 +56,7 @@ export default function App({ route }) {
 						</Suspense>
 					</div>
 				</section>
-			</main>
+			</WorkspaceRegion>
 			<StaleBuildDialog copy={copy} />
 		</div>
 	);

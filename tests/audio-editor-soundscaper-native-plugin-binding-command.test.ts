@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict'
+import { access } from 'node:fs/promises'
+import { setImmediate as nextTurn } from 'node:timers/promises'
 import test from 'node:test'
 
 import type { NativePluginRackEffect } from '../src/common/editor/native-plugin-effect.ts'
-import { createSoundscaperNativePluginActions } from '../src/soundscaper/editor-native-plugin-actions.ts'
 import {
 	createSoundscaperProjectHistory,
 	executeSoundscaperProjectCommand,
@@ -12,11 +13,18 @@ import {
 	undoSoundscaperProjectCommand,
 } from '../src/soundscaper/editor-project-history.ts'
 import type { SoundscaperNativePluginBindingCommand } from '../src/soundscaper/editor-project-commands.ts'
+import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts'
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts'
 import { createSoundscaperNativePluginProjectBinding } from '../src/common/editor/ui/soundscaper-native-plugin-project-binding.ts'
 import type { AudioEditorCommand } from '../src/common/editor/commands/protocol.ts'
+import { createMemoryEngine } from './helpers/audio-editor-controller-harness.js'
+import { controllerSession } from './helpers/soundscaper-controller-session.ts'
 
 const NOW = '2026-08-24T00:00:00.000Z'
+
+test('the retired native plug-in controller adapter is absent', async () => {
+	await assert.rejects(access(new URL('../src/soundscaper/editor-native-plugin-actions.ts', import.meta.url)), { code: 'ENOENT' })
+})
 
 test('native plug-in authoring publishes the rack slot and state in one undoable V29 revision', () => {
 	const initial = project()
@@ -38,33 +46,25 @@ test('native plug-in authoring publishes the rack slot and state in one undoable
 	assert.deepEqual(redone.present.nativePluginStates, [state()])
 })
 
-test('the product binding action dispatches exactly one playback-visible canonical commit', () => {
-	let history = createSoundscaperProjectHistory(project())
-	const calls: Array<Readonly<{ command: unknown; options: unknown }>> = []
-	const controller = {
-		get project() { return history.present },
-		actions: { edit: { commit: (
-			command: unknown,
-			_selection: Readonly<Record<string, never>>,
-			options: Readonly<{ skipPlaybackEngine?: boolean }>,
-		) => {
-			calls.push({ command, options })
-			history = executeSoundscaperProjectCommand(history, command as never, { now: NOW })
-			return history.present
-		} } },
-	}
-	const actions = createSoundscaperNativePluginActions(controller)
-	const result = actions.commitBinding({
-		operation: 'author', trackId: 'track-1',
-		effect: effect() as unknown as Readonly<Record<string, unknown>>, state: state(),
+test('the canonical binding commits once and publishes its rack to playback', async context => {
+	const engine = { ...createMemoryEngine(), appliedProjects: [] as unknown[] }
+	const { controller, store } = await controllerSession(context, {
+		engine: engine as unknown as NonNullable<Parameters<typeof controllerSession>[1]>['engine'],
 	})
+	const initial = project()
+	await store.saveProject(initial)
+	await controller.actions.project.openById(initial.id)
+	await nextTurn()
+	engine.appliedProjects.length = 0
 
-	assert.equal(calls.length, 1)
-	assert.deepEqual(calls[0]?.options, {}, 'rack publication must reach the playback engine')
-	assert.equal(result.project, history.present)
-	assert.equal(result.effectId, 'native-effect-1')
-	assert.deepEqual(nativeEffects(history.present), [effect()])
-	assert.deepEqual(history.present.nativePluginStates, [state()])
+	const result = controller.actions.edit.commit(binding('author'))
+	assert.ok(validateSoundscaperProject(result))
+	assert.equal(result.revision, initial.revision + 1)
+	assert.deepEqual(nativeEffects(result), [effect()])
+	assert.deepEqual(result.nativePluginStates, [state()])
+	await nextTurn()
+	assert.equal(engine.appliedProjects.length, 1)
+	assert.deepEqual(nativeEffects(engine.appliedProjects[0] as ReturnType<typeof project>), [effect()])
 })
 
 test('undoing a hosted plug-in bypass restores the rack and saved state in one step', () => {
@@ -74,23 +74,38 @@ test('undoing a hosted plug-in bypass restores the rack and saved state in one s
 		history = executeSoundscaperProjectCommand(history, command as AudioEditorCommand, { now: NOW })
 		return history.present
 	}
-	const editing = { get project() { return history.present }, actions: { edit: { commit } } }
-	const nativePlugins = createSoundscaperNativePluginActions(editing)
+	let savedBypasses = 0
 	const projectBinding = createSoundscaperNativePluginProjectBinding({
 		get project() { return history.present },
 		getSnapshot: () => ({ selectedTrackId: 'track-1' }),
-		actions: { nativePlugins, effects: {
-			update(_scope, trackId, effectId, changes) {
-				return commit({ type: 'effect/update', scope: 'track', trackId, effectId, changes })
+		actions: {
+			nativePlugins: {
+				commitBinding() { return assert.fail('Bypass must not bind another plug-in') },
+				upsert() { return assert.fail('Bypass must use its continuity port') },
+				setBypassed(instanceId, bypassed) {
+					const saved = history.present.nativePluginStates.find(row => row.instanceId === instanceId)
+					assert.ok(saved)
+					const result = commit({ type: 'native-plugin-state/upsert',
+						state: { ...saved, bypassed, continuity: bypassed ? 'bypass' : 'live' } })
+					savedBypasses++
+					return result
+				},
 			},
-		} },
+			effects: {
+				update(_scope, trackId, effectId, changes) {
+					return commit({ type: 'effect/update', scope: 'track', trackId, effectId, changes })
+				},
+			},
+		},
 	})
 	// This is the sequence used by the renderer after its control reply. The
 	// persisted state update must join the corresponding rack bypass.
-	editing.actions.edit.commit({ type: 'effect/update', scope: 'track', trackId: 'track-1',
+	commit({ type: 'effect/update', scope: 'track', trackId: 'track-1',
 		effectId: 'native-effect-1', changes: { bypassed: true } })
 	projectBinding.setBypassed('native-instance-1', true)
+	assert.equal(savedBypasses, 1)
 	assert.equal(history.present.nativePluginStates[0]?.bypassed, true)
+	assert.equal(history.present.nativePluginStates[0]?.continuity, 'bypass')
 	assert.equal(history.undoStack.length, original.undoStack.length + 1)
 	const undone = undoSoundscaperProjectCommand(history)
 	assert.deepEqual(nativeEffects(undone.present), [effect()])
@@ -103,16 +118,8 @@ test('saving unchanged opaque plug-in state leaves a multi-effect project clean'
 		effect: effect({ id: 'native-effect-2', params: { instanceId: 'native-instance-2', latencyFrames: 128 } }),
 		state: state({ instanceId: 'native-instance-2' }),
 	}), { now: NOW })
-	const previous = history
-	const nativePlugins = createSoundscaperNativePluginActions({
-		get project() { return history.present },
-		actions: { edit: { commit(command) {
-			history = executeSoundscaperProjectCommand(history, command as AudioEditorCommand, { now: NOW })
-			return history.present
-		} } },
-	})
-	nativePlugins.upsert(state())
-	assert.equal(history, previous)
+	const saved = executeSoundscaperProjectCommand(history, { type: 'native-plugin-state/upsert', state: state() }, { now: NOW })
+	assert.equal(saved, history)
 })
 
 test('a late native state failure cannot publish the otherwise valid rack mutation', () => {

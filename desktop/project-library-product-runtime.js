@@ -6,86 +6,46 @@ const START_FIELDS = Object.freeze([
 	'productId', 'appDataPath', 'processId', 'instanceId', 'onLeaseLost', 'leaseTestControl',
 ]);
 const BRIDGE_FIELDS = Object.freeze([
-	'desktopRoot', 'handle', 'ownerFor', 'removeHandler', 'session',
+	'handle', 'ownerFor', 'removeHandler',
 ]);
-const EXACT_PRELOAD_BY_PRODUCT = Object.freeze({
-	soundscaper: 'soundscaper-project-library-sandbox-preload.cjs',
-});
 
-/** Selects exactly one main-owned library generation from the packaged product profile. */
+/** Start the project library for the Framescaper desktop main process. */
 export async function startDesktopProjectLibraryProductRuntime(value) {
-	const hasWarning = value !== null && typeof value === 'object' && Object.hasOwn(value, 'confirmFileSizeWarning');
-	const options = closedRecord(value, hasWarning ? [...START_FIELDS, 'confirmFileSizeWarning'] : START_FIELDS,
-		'desktop project-library product runtime');
-	if (options.confirmFileSizeWarning !== undefined && typeof options.confirmFileSizeWarning !== 'function') {
-		throw new TypeError('Desktop project-library size confirmation must be a function');
-	}
-	const productId = product(options.productId);
+	const options = closedRecord(value, START_FIELDS, 'desktop project-library product runtime');
+	if (options.productId !== 'framescaper') throw new TypeError('The desktop project library requires Framescaper.');
 	const appDataPath = absolutePath(options.appDataPath, 'appData');
 	const owner = Object.freeze({
-		product: productId,
+		product: options.productId,
 		processId: positiveSafeInteger(options.processId, 'process id'),
 		instanceId: opaqueId(options.instanceId, 'instance id'),
 	});
 	if (typeof options.onLeaseLost !== 'function') {
 		throw new TypeError('Desktop project-library startup seams are invalid');
 	}
-	if (productId === 'framescaper') {
-		const [{ createFramescaperDesktopProjectLibraryHandshake },
-			{ FramescaperDesktopProjectLibraryMain },
-			{ registerFramescaperDesktopProjectLibraryMainIpc }] = await Promise.all([
-			import('./project-library-runtime/desktop/framescaper-project-library-contract.js'),
-			import('./project-library-runtime/desktop/framescaper-project-library-main.js'),
-			import('./project-library-runtime/desktop/framescaper-project-library-main-ipc.js'),
-		]);
-		return startLoadedDesktopProjectLibraryProductRuntime({
-			productId,
-			productName: 'Framescaper',
-			generation: '1.0',
-			appDataPath,
-			owner,
-			onLeaseLost: options.onLeaseLost,
-			leaseTestControl: options.leaseTestControl,
-			createHandshake: createFramescaperDesktopProjectLibraryHandshake,
-			startHost: (startOptions) => FramescaperDesktopProjectLibraryMain.start(startOptions),
-			registerIpc: registerFramescaperDesktopProjectLibraryMainIpc,
-		});
-	}
-	if (productId === 'soundscaper') {
-		const [{ createSoundscaperDesktopProjectLibraryHandshake },
-			{ SoundscaperDesktopProjectLibraryMain },
-			{ registerSoundscaperDesktopProjectLibraryMainIpc }] = await Promise.all([
-			import('./project-library-runtime/desktop/soundscaper-project-library-contract.js'),
-			import('./project-library-runtime/desktop/soundscaper-project-library-main.js'),
-			import('./project-library-runtime/desktop/soundscaper-project-library-main-ipc.js'),
-		]);
-		return startLoadedDesktopProjectLibraryProductRuntime({
-			confirmFileSizeWarning: options.confirmFileSizeWarning,
-			productId,
-			productName: 'Soundscaper',
-			generation: '1.0',
-			appDataPath,
-			owner,
-			onLeaseLost: options.onLeaseLost,
-			leaseTestControl: options.leaseTestControl,
-			createHandshake: createSoundscaperDesktopProjectLibraryHandshake,
-			startHost: (startOptions) => SoundscaperDesktopProjectLibraryMain.start(startOptions),
-			registerIpc: registerSoundscaperDesktopProjectLibraryMainIpc,
-		});
-	}
-	throw new RangeError(`Unsupported desktop project-library product ${productId}`);
+	const [{ createFramescaperDesktopProjectLibraryHandshake },
+		{ FramescaperDesktopProjectLibraryMain },
+		{ registerFramescaperDesktopProjectLibraryMainIpc }] = await Promise.all([
+		import('./project-library-runtime/desktop/framescaper-project-library-contract.js'),
+		import('./project-library-runtime/desktop/framescaper-project-library-main.js'),
+		import('./project-library-runtime/desktop/framescaper-project-library-main-ipc.js'),
+	]);
+	return startLoadedDesktopProjectLibraryProductRuntime({
+		appDataPath,
+		owner,
+		onLeaseLost: options.onLeaseLost,
+		leaseTestControl: options.leaseTestControl,
+		createHandshake: createFramescaperDesktopProjectLibraryHandshake,
+		startHost: (startOptions) => FramescaperDesktopProjectLibraryMain.start(startOptions),
+		registerIpc: registerFramescaperDesktopProjectLibraryMainIpc,
+	});
 }
 
-/** Bind one already authenticated product module set to the common desktop runtime owner. */
+/** Bind the loaded library modules to the desktop runtime owner. */
 export async function startLoadedDesktopProjectLibraryProductRuntime({
-	productId,
-	productName,
-	generation,
 	appDataPath,
 	owner,
 	onLeaseLost,
 	leaseTestControl,
-	confirmFileSizeWarning,
 	createHandshake,
 	startHost,
 	registerIpc,
@@ -96,10 +56,8 @@ export async function startLoadedDesktopProjectLibraryProductRuntime({
 		handshake: createHandshake(),
 		onLeaseLost,
 		testControl: projectLibraryTestControl(leaseTestControl),
-		...(productId === 'soundscaper' && confirmFileSizeWarning !== undefined ? { confirmFileSizeWarning } : {}),
 	});
 	return new DesktopProjectLibraryProductRuntime({
-		productId,
 		host,
 		register: (bridge) => registerIpc({
 			handle: bridge.handle,
@@ -108,7 +66,7 @@ export async function startLoadedDesktopProjectLibraryProductRuntime({
 			main: host,
 		}),
 		smokeEvidence: (projectId) => createExactSmokeEvidence(
-			host, projectId, productName, generation,
+			host, projectId, 'Framescaper', '1.0',
 		),
 	});
 }
@@ -168,12 +126,10 @@ class DesktopProjectLibraryProductRuntime {
 	#closePromise = null;
 	#closed = false;
 	#host;
-	#productId;
 	#register;
 	#smokeEvidence;
 
-	constructor({ productId, host, register, smokeEvidence }) {
-		this.#productId = productId;
+	constructor({ host, register, smokeEvidence }) {
 		this.#host = host;
 		this.#register = register;
 		this.#smokeEvidence = smokeEvidence;
@@ -188,8 +144,7 @@ class DesktopProjectLibraryProductRuntime {
 	}
 
 	nativeServicesAuthority() {
-		if (this.#productId !== 'framescaper'
-			|| typeof this.#host.nativeProjectState !== 'function'
+		if (typeof this.#host.nativeProjectState !== 'function'
 			|| typeof this.#host.nativeProjectRecord !== 'function'
 			|| typeof this.#host.readNativeProjectBundle !== 'function'
 			|| typeof this.#host.readNativeBody !== 'function'
@@ -212,36 +167,6 @@ class DesktopProjectLibraryProductRuntime {
 		});
 	}
 
-	nativePluginStateAuthority() {
-		if (this.#productId !== 'soundscaper'
-			|| typeof this.#host.persistNativePluginState !== 'function'
-			|| typeof this.#host.readNativePluginState !== 'function') return null;
-		return Object.freeze({
-			persist: (bytes) => this.#host.persistNativePluginState(bytes),
-			read: (bodyId) => this.#host.readNativePluginState(bodyId),
-		});
-	}
-
-	soundscaperDeliveryProjectAuthority() {
-		if (this.#productId !== 'soundscaper') return null;
-		return Object.freeze({
-			readProjectAuthority: async (projectId) => {
-				const session = this.#host.openSession(this.#host.localHandshake);
-				try {
-					const bundle = await session.readProjectBundle(projectId);
-					return bundle ? Object.freeze({
-						projectIdentity: Object.freeze({
-							projectId: bundle.project.projectId,
-							projectRevision: bundle.project.projectRevision,
-							projectSha256: bundle.project.sha256,
-						}),
-						projectName: bundle.project.name,
-					}) : null;
-				} finally { await session.close(); }
-			},
-		});
-	}
-
 	registerRendererBridge(value) {
 		if (this.#closed) throw new Error('Desktop project-library product runtime is closed');
 		if (this.#bridge) throw new Error('Desktop project-library renderer bridge is already registered');
@@ -250,29 +175,7 @@ class DesktopProjectLibraryProductRuntime {
 			|| typeof options.removeHandler !== 'function') {
 			throw new TypeError('Desktop project-library renderer bridge seams are invalid');
 		}
-		let preloadId = null;
-		const preloadFile = EXACT_PRELOAD_BY_PRODUCT[this.#productId];
-		if (preloadFile) {
-			if (!options.session || typeof options.session.registerPreloadScript !== 'function'
-				|| typeof options.session.unregisterPreloadScript !== 'function') {
-				throw new TypeError(`${this.#productId} requires an exact project-library session preload owner`);
-			}
-			preloadId = options.session.registerPreloadScript({
-				type: 'frame',
-				filePath: resolve(absolutePath(options.desktopRoot, 'desktop root'), preloadFile),
-			});
-		}
-		let registration;
-		try {
-			registration = this.#register(options);
-		} catch (error) {
-			if (preloadId !== null) options.session.unregisterPreloadScript(preloadId);
-			throw error;
-		}
-		const bridge = new DesktopProjectLibraryRendererBridge(
-			registration,
-			preloadId === null ? null : { id: preloadId, session: options.session },
-		);
+		const bridge = new DesktopProjectLibraryRendererBridge(this.#register(options));
 		this.#bridge = bridge;
 		return bridge;
 	}
@@ -296,31 +199,19 @@ class DesktopProjectLibraryProductRuntime {
 
 class DesktopProjectLibraryRendererBridge {
 	#disposePromise = null;
-	#preload;
 	#registration;
 
-	constructor(registration, preload) {
+	constructor(registration) {
 		this.#registration = registration;
-		this.#preload = preload;
 	}
 
 	dispose() {
-		this.#disposePromise ??= this.#dispose();
+		this.#disposePromise ??= Promise.resolve().then(() => this.#registration.dispose());
 		return this.#disposePromise;
 	}
 
 	revokeOwner(owner) {
 		return this.#registration.revokeOwner(owner);
-	}
-
-	async #dispose() {
-		const failures = [];
-		if (this.#preload) {
-			try { this.#preload.session.unregisterPreloadScript(this.#preload.id); }
-			catch (error) { failures.push(error); }
-		}
-		try { await this.#registration.dispose(); } catch (error) { failures.push(error); }
-		throwFailures(failures, 'Desktop project-library renderer bridge cleanup failed');
 	}
 }
 
@@ -348,13 +239,6 @@ function closedRecord(value, fields, label) {
 		result[field] = descriptor.value;
 	}
 	return result;
-}
-
-function product(value) {
-	if (value !== 'soundscaper' && value !== 'framescaper') {
-		throw new TypeError('Desktop project-library product is unsupported');
-	}
-	return value;
 }
 
 function absolutePath(value, label) {

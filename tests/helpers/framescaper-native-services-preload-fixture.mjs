@@ -6,7 +6,14 @@ import vm from 'node:vm';
 import { MessageChannel } from 'node:worker_threads';
 import { readDesktopPreloadSource } from './desktop-preload-source.mjs';
 
-export async function loadPreload(results) {
+/**
+ * @param {unknown[]} results
+ * @param {{
+ *  invoke: (channel: string, value: unknown) => unknown,
+ *  postMessage: (channel: string, value: unknown, ports: readonly import('node:worker_threads').MessagePort[]) => void,
+ * }} [ipc]
+ */
+export async function loadPreload(results, ipc) {
 	let bridge;
 	const invocations = [];
 	const dataPlaneChunks = [];
@@ -29,13 +36,20 @@ export async function loadPreload(results) {
 		AggregateError, Array, ArrayBuffer, JSON, Number, Object, Promise, RangeError, String,
 		TypeError, Uint8Array, URL, Blob, MessageChannel: PreloadMessageChannel, setTimeout, clearTimeout,
 		crypto: webcrypto, structuredClone,
+		process: { argv: ['--soundscaper-product=framescaper'] },
 		require: () => ({
 			contextBridge: { exposeInMainWorld(name, value) { if (name === 'framescaperDesktop') bridge = value.v1; } },
 			ipcRenderer: {
-				invoke(channel, value) { invocations.push([channel, value]); return Promise.resolve(results.shift()); },
+				async invoke(channel, value) {
+					invocations.push([channel, value]);
+					return ipc ? ipc.invoke(channel, value) : results.shift();
+				},
 				postMessage(channel, value, ports) {
 					invocations.push([channel, value]);
 					const port = ports[0];
+					if (channel.endsWith(':image-sequence:import-port')
+						|| channel.endsWith(':render-inputs:port')) bulkPeers.add(port);
+					if (ipc) { ipc.postMessage(channel, value, ports); return; }
 					if (channel.endsWith(':display:frame-port')) {
 						assert.equal(ports.length, 2);
 						assert.deepEqual(Object.keys(value), ['frame']);
@@ -48,8 +62,6 @@ export async function loadPreload(results) {
 						});
 						return;
 					}
-					if (channel.endsWith(':image-sequence:import-port')
-						|| channel.endsWith(':render-inputs:port')) bulkPeers.add(port);
 					port.on('message', (message) => {
 						if (message.type === 'chunk') {
 							dataPlaneChunks.push({ sequence: message.sequence, offset: message.offset,

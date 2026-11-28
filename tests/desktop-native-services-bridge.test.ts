@@ -16,9 +16,6 @@ import {
 	FRAMESCAPER_NATIVE_SERVICES_MAIN_CHANNELS,
 	registerFramescaperNativeServicesMainIpc,
 } from '../desktop/native-services-main-ipc.ts';
-import {
-	createFramescaperNativeServicesMainPreloadBridge,
-} from '../desktop/native-services-main-preload.ts';
 import { FramescaperNativeQueueRepository } from '../desktop/native-services-queue-repository-v3.ts';
 import { FramescaperNativeRootRepository } from '../desktop/native-services-root-repository.ts';
 import { FramescaperNativeWatchRepository } from '../desktop/native-services-watch-repository.ts';
@@ -43,6 +40,7 @@ import {
 } from '../src/framescaper/editor-domain-runtime-profile.ts';
 import { createFramescaperProjectNativeMedia } from '../src/framescaper/editor-project-native-media.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
+import { loadFramescaperNativeServicesTestBridge } from './helpers/framescaper-native-services-test-bridge.ts';
 
 const PROFILE = FRAMESCAPER_NATIVE_MEDIA_PROJECT_RUNTIME_PROFILE;
 const PROJECT = createFramescaperProjectNativeMedia(PROFILE, framescaperV20Options());
@@ -187,12 +185,10 @@ test('the authenticated pathless bridge reports blocked state and permits safe q
 			},
 		}),
 	});
-	const bridge = createFramescaperNativeServicesMainPreloadBridge({
-		invoke: async (channel: string, value?: unknown) => {
-			const handler = handlers.get(channel);
-			if (!handler) throw new Error('missing handler');
-			return handler(owner, value);
-		},
+	const bridge = await loadFramescaperNativeServicesTestBridge((channel, value) => {
+		const handler = handlers.get(channel);
+		if (!handler) throw new Error('missing handler');
+		return handler(owner, value);
 	});
 
 	const snapshot = await bridge.snapshot();
@@ -212,7 +208,7 @@ test('the authenticated pathless bridge reports blocked state and permits safe q
 	assert.equal((await bridge.preferences()).hardwareDecodeEnabled, true);
 	await assert.rejects(
 		() => bridge.setPreference({ preference: 'unknown', enabled: true } as never),
-		/unsupported preference/u,
+		/Unsupported Framescaper native-service preference/u,
 	);
 	await assert.rejects(
 		() => bridge.reorder({ jobId: '1a'.repeat(20), index: 0 }),
@@ -267,12 +263,12 @@ test('the authenticated pathless bridge reports blocked state and permits safe q
 	assert.deepEqual(proxyOutputCalls.map((call) => call[0]), [owner, owner, owner]);
 	await assert.rejects(
 		() => bridge.control({ jobId: '1a'.repeat(20), action: 'resume', extra: true } as never),
-		/unsupported fields/u,
+		/Invalid native queue control request fields/u,
 	);
 	await assert.rejects(
 		() => bridge.claimWatchImport({ schemaFamily: 'framescaper', schemaVersion: 1,
 			projectId: 'project-1', projectRevision: 1, path: '/tmp/x' } as never),
-		/missing or unsupported fields/iu,
+		/Invalid watch import claim request fields/u,
 	);
 	await assert.rejects(
 		async () => handlers.get(FRAMESCAPER_NATIVE_SERVICES_MAIN_CHANNELS.snapshot)?.({}, undefined),
@@ -341,26 +337,26 @@ test('direct queue reorder requires a writable owning project after capability a
 });
 
 test('the preload boundary rejects a hostile native capability response', async () => {
-	const bridge = createFramescaperNativeServicesMainPreloadBridge({
-		invoke: async () => ({
-			snapshotVersion: 1, masterEnabled: false, buildFingerprint: null,
-			entries: [{ domain: 'queue', id: 'persistent-render-queue', state: 'available',
-				reason: 'ready', userEnabled: false, buildFingerprint: null, detail: null,
-				secretPath: '/tmp/payload' }],
-		}),
+	const valid = createNativeMediaCapabilitySnapshotV1({
+		masterEnabled: true,
+		entries: Object.values(NATIVE_MEDIA_CAPABILITY_IDS).map((id) => ({
+			...id, buildSupported: true, probeSucceeded: true, selfTestPassed: true, userEnabled: true,
+		})),
 	});
-	await assert.rejects(() => bridge.capabilities(), /unsupported fields|exact|keys/iu);
+	const bridge = await loadFramescaperNativeServicesTestBridge(() => ({
+		...valid,
+		entries: valid.entries.map((entry, index) => index === 0 ? { ...entry, secretPath: '/tmp/payload' } : entry),
+	}));
+	await assert.rejects(() => bridge.capabilities(), /Invalid native capability entry fields/u);
 });
 
 test('the OpenFX preload rejects path-bearing scanner output', async () => {
-	const bridge = createFramescaperNativeServicesMainPreloadBridge({
-		invoke: async () => ({
-			pluginHandle: '8b'.repeat(20), pluginId: 'net.example.Blur', vendor: 'Example',
-			version: { major: 1, minor: 0 }, binarySha256: '9c'.repeat(32),
-			supportedContexts: ['filter'], parameters: [], components: ['RGBA'],
-			pixelDepths: ['byte'], threading: 'fully-safe', state: 'consented',
-			quarantined: false, path: '/private/plugin.ofx',
-		}),
-	});
+	const bridge = await loadFramescaperNativeServicesTestBridge(() => ({
+		pluginHandle: '8b'.repeat(20), pluginId: 'net.example.Blur', vendor: 'Example',
+		version: { major: 1, minor: 0 }, binarySha256: '9c'.repeat(32),
+		supportedContexts: ['filter'], parameters: [], components: ['RGBA'],
+		pixelDepths: ['byte'], threading: 'fully-safe', state: 'consented',
+		quarantined: false, path: '/private/plugin.ofx',
+	}));
 	await assert.rejects(() => bridge.scanOpenFxPlugin(), /unsupported fields|projection/iu);
 });

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import { PLATFORM_TRANSFER_HARD_LIMITS } from '../src/common/editor/platform/bounded-transfer.ts';
@@ -24,6 +25,13 @@ const INVENTORY: NativeAudioInventoryReport = Object.freeze({
 function adapt(devices: readonly unknown[]): ReturnType<typeof adaptNativeAudioInventory> {
 	return adaptNativeAudioInventory({ backend: 'alsa', status: 'available', detail: '', devices });
 }
+
+test('the retired renderer-only native audio session and its private modules are absent', () => {
+	const directory = new URL('../src/common/editor/controller/recording/internal/native-audio/', import.meta.url);
+	for (const file of ['native-audio-session.ts', 'native-audio-open-contract.ts', 'native-audio-calibration.ts']) {
+		assert.equal(existsSync(new URL(file, directory)), false, file);
+	}
+});
 
 test('a device id and channel map are pure functions of what main published', () => {
 	assert.equal(nativeAudioDeviceId('alsa', 'audio-input', 'hw:0,0'), INPUT_ID);

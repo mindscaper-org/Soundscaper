@@ -25,8 +25,11 @@ import {
 	liveFixture, openFxPlugin, queueRecord,
 } from './helpers/framescaper-native-live-openfx-fixture.ts';
 
-test('OpenFX staging retains the independent carrier IPC contract and retires only the legacy transformer', () => {
-	assert.ok(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.includes('src/common/editor/native-media-v14-openfx-carrier.js'));
+test('OpenFX staging inventories the current frame execution and carrier authority', () => {
+	assert.ok(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.includes('desktop/framescaper-openfx-frame-execution.js'));
+	assert.ok(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.includes('desktop/native-services-live-render-input-staging.js'));
+	assert.ok(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.includes('src/common/editor/native-media-v14-render-family.js'));
+	assert.equal(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.includes('src/common/editor/native-media-v14-openfx-carrier.js'), false);
 	assert.equal(DESKTOP_5B_TRANSITIVE_RUNTIME_FILES.some((path) => path.includes('openfx-live-frame-transform')), false);
 });
 

@@ -28,7 +28,6 @@
 		"desktop/plugin-instance-state.ts": 589,
 		"desktop/project-library-exact-generation-main.ts": 578,
 		"desktop/save-targets.js": 567,
-		"desktop/soundscaper-delivery-service.ts": 594,
 		"desktop/soundscaper-project-library-catalog.ts": 558,
 		"desktop/soundscaper-project-library-publication-persistence.ts": 591,
 		"native/framescaper-media-host/src/ffmpeg_selected_v20_adapter.cpp": 577,
@@ -104,7 +103,6 @@
 		"src/framescaper/editor-project-unified-render-core.ts": 561,
 		"src/framescaper/editor-selected-timeline-image-image-preview.ts": 553,
 		"src/framescaper/selected-finishing-exact-frame-execution.ts": 559,
-		"src/soundscaper/desktop-project-library-renderer.ts": 582,
 		"src/soundscaper/editor-automation-session.ts": 556,
 		"tests/audio-editor-app-helpers.test.ts": 571,
 		"tests/audio-editor-assistance-workflow-contract.test.ts": 556,
@@ -132,7 +130,6 @@
 		"tests/audio-editor-local-assistance-guided.test.tsx": 597,
 		"tests/audio-editor-local-assistance-selected-video.test.ts": 598,
 		"tests/audio-editor-native-realtime-transport.test.ts": 592,
-		"tests/audio-editor-native-realtime-worklet.test.js": 597,
 		"tests/audio-editor-pcm-sink.test.js": 598,
 		"tests/audio-editor-product-video-export-strategy.test.ts": 563,
 		"tests/audio-editor-project-graph-v21.test.ts": 599,
@@ -176,7 +173,6 @@
 		"tests/desktop-os-audio-codec-runtime.test.ts": 595,
 		"tests/desktop-plugin-host-isolation.test.ts": 573,
 		"tests/desktop-preload-assistance-operation.test.js": 573,
-		"tests/desktop-soundscaper-delivery-service.test.ts": 592,
 		"tests/desktop-video-timing-probe-smoke.test.js": 585,
 		"tests/editor-assistance-owned-video-highlight-transform-registry-v1.test.ts": 572,
 		"tests/external-ffmpeg-video-operation-service.test.ts": 593,
@@ -189,7 +185,6 @@
 		"tests/local-model-mirror.test.js": 553,
 		"tests/offline-ffmpeg-runtime-cache.test.ts": 553,
 		"tests/offline-file-handler-launch.test.ts": 570,
-		"tests/offline-service-worker.test.js": 554,
 		"tests/project-transfer-bundle.test.ts": 598,
 		"tests/project-transfer-conversion-report-custody.test.ts": 598,
 		"tests/project-transfer-handshake.test.ts": 600,
@@ -198,7 +193,7 @@
 	},
 	"allow": {
 		"src/common/editor/app.js": {
-			"maxLines": 679,
+			"maxLines": 676,
 			"reason": "Legacy JavaScript composition root retained while its typed services and ports complete staged migration."
 		},
 		"src/common/editor/nyquist/plugins/catalog.js": {

@@ -41,7 +41,6 @@ const DeliveryQueueDialog = lazyEditorModule(() => import('../inspector/Delivery
 const LabelExportDialog = lazyEditorModule(() => import('../inspector/LabelExportDialog.jsx'));
 const SelectionEffectsDialog = lazyEditorModule(() => import('../inspector/SelectionEffectsDialog.jsx'));
 const MixRenderDialog = lazyEditorModule(() => import('../dialogs/MixRenderDialog.tsx'));
-const MacroFileBatchDialog = lazyEditorModule(() => import('../dialogs/MacroFileBatchDialog.tsx'));
 const EditorDialog = lazyEditorModule(() => import('../dialogs/EditorDialog.jsx'));
 const GeneratorDialog = lazyEditorModule(() => import('../dialogs/GeneratorDialog.jsx'));
 const NyquistDialog = lazyEditorModule(() => import('../dialogs/NyquistDialog.jsx'));
@@ -66,7 +65,6 @@ function LazyInspectorFallback({ copy }) {
 }
 
 export default function AudioEditorWorkspaceOverlays({ model }) {
-	const [batchMacro, setBatchMacro] = React.useState(null);
 	const {
 		activeSurface, surfaceRequestId, clipExportRequest,
 		applicationMenus,
@@ -353,15 +351,11 @@ export default function AudioEditorWorkspaceOverlays({ model }) {
 							fileService={fileService}
 							draft={macroDraft}
 							onDraftChange={setMacroDraft}
-							onApplyToFiles={(macro) => { setBatchMacro(macro); setActiveSurface('macro-files'); }}
 							onClose={() => setActiveSurface(null)}
 						/>
 					</React.Suspense>
 				</div>
 			)}
-			{capabilities.audioMacros && fileService.isDesktop && activeSurface === 'macro-files' &&
-				<MacroFileBatchDialog controller={controller} snapshot={snapshot} copy={copy} fileService={fileService} initialMacro={batchMacro}
-					onClose={() => { setBatchMacro(null); setActiveSurface(null); }} />}
 			{capabilities.audioSpectralEditing && activeSurface === 'spectral-selection' && (
 				<div data-editor-surface="spectral-selection">
 					<SpectralSelectionDialog

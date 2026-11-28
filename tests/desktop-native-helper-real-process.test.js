@@ -22,7 +22,7 @@ import { describeNativeAddonAvailability } from '../desktop/native-addon-payload
 import {
 	SYNTHETIC_ENGINE_MODES,
 	SYNTHETIC_LOOPBACK_DEVICE_HANDLE,
-} from '../desktop/native-helper-process.js';
+} from '../desktop/native-audio-device-job.js';
 import { validateHelperAudioDeviceOpenResult } from '../desktop/native-helper-results.ts';
 import {
 	DESKTOP_RUNTIME_PACKAGE_IMPORTS,
@@ -68,7 +68,7 @@ test('the native helper runs the verified addon across a real Electron utility p
 	}, null, '\t')}\n`);
 
 	const plan = {
-		helperModulePath: join(applicationRoot, 'desktop/native-helper-process.js'),
+		helperModulePath: join(applicationRoot, 'desktop/native-audio-helper-process.js'),
 		addonPath: availability.descriptor.path,
 		addonSha256: availability.descriptor.sha256,
 		firstJobId: randomBytes(20).toString('hex'),

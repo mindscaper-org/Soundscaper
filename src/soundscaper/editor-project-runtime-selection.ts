@@ -5,7 +5,6 @@ import type {
 	ControllerProjectRuntime,
 	ControllerRuntimeHistory,
 	ControllerRuntimeProject,
-	ControllerTrackDuplicateRequest,
 } from '../common/editor/controller/document/project-runtime.ts';
 import { AUDIO_EDITOR_HISTORY_LIMIT } from '../common/editor/history.js';
 import { acquireProjectLock } from '../common/editor/project-lock.js';
@@ -52,9 +51,6 @@ import {
 import { SOUNDSCAPER_PROJECT_RUNTIME_PROFILE } from './editor-project-runtime-profile.ts';
 import { createSoundscaperProjectStore } from './editor-project-store.ts';
 import { validateSoundscaperProject } from './editor-project-validation.ts';
-import {
-	prepareCurrentSoundscaperTrackDuplicateCarrierV8,
-} from './editor-session-clipboard.ts';
 
 interface SoundscaperOpaqueCustodyHistory {
 	readonly limit: number;
@@ -87,7 +83,6 @@ export interface SoundscaperProjectRuntimeSelection {
 	readonly projectForCommandConsumers: (project: unknown) => ReturnType<typeof projectForConsumers>;
 	readonly projectForRuntimeConsumers: (project: unknown) => ReturnType<typeof projectForConsumers>;
 	readonly prepareEditClipboardDescriptor: ControllerProjectRuntime['prepareEditClipboardDescriptor'];
-	readonly prepareTrackDuplicateCarrier: ControllerProjectRuntime['prepareTrackDuplicateCarrier'];
 	readonly applyCommand: (
 		project: unknown,
 		command: SoundscaperProjectCommand,
@@ -129,9 +124,6 @@ export function createSoundscaperProjectRuntimeSelection(): Readonly<Soundscaper
 				soundscaperProjectForCommandConsumers(project),
 				{ descriptor },
 			).descriptor
-		),
-		prepareTrackDuplicateCarrier: (project: unknown, request: ControllerTrackDuplicateRequest) => (
-			prepareCurrentSoundscaperTrackDuplicateCarrierV8(project, request)
 		),
 		createHistory: (project: unknown) => createHistory(project),
 		applyCommand: (project: unknown, command: SoundscaperProjectCommand, options = {}) => (

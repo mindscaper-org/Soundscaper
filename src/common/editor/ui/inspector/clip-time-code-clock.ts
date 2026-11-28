@@ -14,13 +14,6 @@ export function clipPropertiesFrameRate(project: unknown, clipId: string | null 
 	return audioEditorProjectFrameRate(sequence ? { ...owner, primarySequenceId: sequence.id } : project);
 }
 
-/** Audio source offsets share the local display clock; video offsets own a source rate. */
-export function clipPropertiesSourceFrameRate(source: unknown, fallback: number): number {
-	const rate = record(record(source).frameRate);
-	const num = Number(rate.num), den = Number(rate.den);
-	return Number.isFinite(num) && Number.isFinite(den) && num > 0 && den > 0 ? num / den : fallback;
-}
-
 function record(value: unknown): Readonly<Record<string, unknown>> {
 	return value !== null && typeof value === 'object' && !Array.isArray(value)
 		? value as Readonly<Record<string, unknown>> : {};

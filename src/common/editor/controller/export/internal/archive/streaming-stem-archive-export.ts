@@ -44,7 +44,7 @@ export async function streamStemArchiveExport({
 	abortSignal: RuntimeValue, confirmFileSizeWarning?: FileSizeWarningConfirmation,
 	admitOutputBytes: number,
 	conformExport: (
-		plan: RuntimeValue, encoded: RuntimeValue, start: number, end: number,
+		plan: RuntimeValue, encoded: RuntimeValue,
 	) => Promise<readonly DeliveryConformanceFinding[]>,
 	copy: RuntimeValue,
 	createStreamingStemArchive: RuntimeValue,
@@ -77,9 +77,7 @@ export async function streamStemArchiveExport({
 				end: (index + 1) / plan.outputs.length,
 			});
 			try {
-				findings.push(...await conformExport(
-					outputPlan, encoded, index / plan.outputs.length, (index + 1) / plan.outputs.length,
-				));
+				findings.push(...await conformExport(outputPlan, encoded));
 				await archive.add(output.fileName, encoded.blob || encoded.bytes, abortSignal);
 			} finally {
 				await encoded.cleanup?.();

@@ -13,6 +13,12 @@ import {
 	selectAudioWarpRenderPath,
 } from '../src/common/editor/audio-warp-runtime.ts';
 
+test('the unused sampled frame parity probe is absent from the audio warp runtime', async () => {
+	const warp = await import('../src/common/editor/audio-warp-runtime.ts');
+	assert.equal(Object.hasOwn(warp, 'evaluateAudioWarpRenderParity'), false);
+	assert.equal(Object.hasOwn(warp, 'AUDIO_WARP_RENDER_PARITY_ERROR_FRAMES'), false);
+});
+
 const SAMPLE_PROJECT = Object.freeze({
 	sampleRate: 48_000,
 	tempoMap: {

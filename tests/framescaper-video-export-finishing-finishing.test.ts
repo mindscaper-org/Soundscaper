@@ -1,10 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-/*
- * The export-owned RGBA postprocessor and the digest-bound auxiliary asset loader it depends on.
- * The loader is driven against fabricated finishing nodes so every refusal is observable.
- */
-
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseCubeLutV1 } from '../src/common/imaging/cube-lut-v1.ts';
@@ -13,6 +8,11 @@ import { createGrayVideoFrameV1 } from '../src/common/editor/video-motion-proces
 import {
 	loadFramescaperVideoExportFinishingAssetsFinishing,
 } from '../src/framescaper/video-export-finishing-finishing.ts';
+
+test('the retired export-only RGBA postprocessor is absent from the finishing asset module', async () => {
+	const finishing = await import('../src/framescaper/video-export-finishing-finishing.ts');
+	assert.equal(Object.hasOwn(finishing, 'createFramescaperVideoExportFinishingFinishing'), false);
+});
 
 type Data = Record<string, unknown>;
 const SOURCE_SHA = '12'.repeat(32);

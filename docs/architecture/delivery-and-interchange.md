@@ -448,11 +448,10 @@ satisfy a lenient oracle. See
 
 ## Archive, consolidate, and trim
 
-An archive checksum manifest comes from reading the finished archive, not from
-copying the writer's own digest list. Verification checks every member, names
-failures, distinguishes size from digest mismatches, and reports missing and
-unlisted members. A streamed or unreadable archive records why evidence could
-not be gathered without retroactively failing an already committed save.
+The checksum manifest reader computes each member's byte length and SHA-256
+directly from the finished archive. A streamed or unreadable archive records
+why evidence could not be gathered without retroactively failing an already
+committed save.
 
 Consolidation copies reachable linked originals into managed storage, verifies
 the source while streaming and the copy by reading it back, then drops the link

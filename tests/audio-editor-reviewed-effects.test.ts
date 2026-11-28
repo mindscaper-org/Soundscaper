@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -20,10 +21,6 @@ import {
 	REVIEWED_EFFECT_WORKER_PREPARE,
 	REVIEWED_EFFECT_WORKER_REQUEST,
 } from '../src/common/editor/reviewed-effects/offline-worker-runtime.ts';
-import {
-	createReviewedEffectRealtimeNode,
-} from '../src/common/editor/reviewed-effects/realtime-worklet-host.ts';
-import { ReviewedEffectWorkletProcessor } from '../src/common/editor/reviewed-effects/realtime-worklet.js';
 import {
 	ReviewedEffectWasmRuntime,
 	loadReviewedEffectPackage,
@@ -46,7 +43,7 @@ test('release catalog is immutable, exact-versioned, and revocation is fail-clos
 	const catalog = listReviewedEffectCatalog();
 	assert.ok(Object.isFrozen(catalog));
 	assert.ok(catalog.every((entry) => Object.isFrozen(entry) && Object.isFrozen(entry.manifest)));
-	assert.equal(resolveReviewedEffectCatalogEntry(utilityGainReference).realtimeApproved, true);
+	assert.equal(resolveReviewedEffectCatalogEntry(utilityGainReference).manifest.id, utilityGainReference.id);
 	assertCode(() => resolveReviewedEffectCatalogEntry({
 		id: utilityGainReference.id,
 		version: '0.9.0',
@@ -194,16 +191,24 @@ test('closed worker runtime processes Utility Gain without package JavaScript', 
 	});
 	assert.equal(malformed.type, 'error');
 	if (malformed.type === 'error') assert.equal(malformed.error.code, 'WORKER_PROTOCOL');
+
+	const unapproved = await createReviewedEffectWorkerRuntime().execute({
+		type: REVIEWED_EFFECT_WORKER_PREPARE,
+		requestId: 'unapproved-package',
+		package: { id: 'org.example.unreviewed', version: '1.0.0' },
+	});
+	assert.equal(unapproved.type, 'error');
+	if (unapproved.type === 'error') assert.equal(unapproved.error.code, 'PACKAGE_NOT_FOUND');
 });
 
 test('dedicated-worker-capable port returns bounded offline processing and terminates', async () => {
 	const port = runtimeWorkerPort();
 	const output = await processReviewedEffectOffline(utilityGainReference, {
 		sampleRate: 44_100,
-		channels: [Float32Array.of(0.25, -0.5)],
-		parameters: { gain: 4 },
+		channels: [Float32Array.of(0.5, -1, 0.25)],
+		parameters: { gain: 2 },
 	}, { workerFactory: () => port });
-	assert.deepEqual([...output[0]!], [1, -2]);
+	assert.deepEqual([...output[0]!], [1, -2, 0.5]);
 	assert.equal(port.terminateCount, 1);
 });
 
@@ -326,70 +331,10 @@ test('offline client terminates on cancellation and rejects catalog-mismatched o
 	assert.equal(mismatchPort.terminateCount, 1);
 });
 
-test('static realtime worklet hosts only approved pure-WASM packages', async () => {
-	const loadedPackage = await loadReviewedEffectPackage(utilityGainReference);
-	const processor = new ReviewedEffectWorkletProcessor({
-		processorOptions: {
-			packageKey: loadedPackage.key,
-			abiVersion: 1,
-			wasmModule: loadedPackage.module,
-			channelCount: 1,
-			parameterValues: [2],
-		},
-	});
-	const output = new Float32Array(3);
-	assert.equal(processor.process(
-		[[Float32Array.of(0.5, -1, 0.25)]],
-		[[output]],
-	), true);
-	assert.deepEqual([...output], [1, -2, 0.5]);
-	assert.throws(() => new ReviewedEffectWorkletProcessor({
-		processorOptions: {
-			packageKey: 'org.example.unreviewed@1.0.0',
-			abiVersion: 1,
-			wasmModule: loadedPackage.module,
-			channelCount: 1,
-			parameterValues: [1],
-		},
-	}), /not realtime-approved/u);
-});
-
-test('realtime host uses its static source and prevalidated catalog module', async () => {
-	const previousNode = globalThis.AudioWorkletNode;
-	let addedModule = '';
-	let capturedOptions: AudioWorkletNodeOptions | undefined;
-	class MockAudioWorkletNode {
-		readonly port = { postMessage: () => undefined };
-		constructor(_context: BaseAudioContext, _name: string, options?: AudioWorkletNodeOptions) {
-			capturedOptions = options;
-		}
-	}
-	Object.defineProperty(globalThis, 'AudioWorkletNode', {
-		configurable: true,
-		writable: true,
-		value: MockAudioWorkletNode,
-	});
-	const context = {
-		audioWorklet: {
-			addModule: async (url: string) => { addedModule = url; },
-		},
-	} as unknown as BaseAudioContext;
-	try {
-		await createReviewedEffectRealtimeNode(context, utilityGainReference, {
-			channelCount: 2,
-			parameters: { gain: 0.5 },
-		});
-		assert.match(addedModule, /realtime-worklet\.js/u);
-		assert.ok(capturedOptions?.processorOptions?.wasmModule instanceof WebAssembly.Module);
-		assert.equal(capturedOptions?.processorOptions?.packageKey, 'org.soundscaper.utility-gain@1.0.0');
-		assert.equal(capturedOptions?.channelCount, 2);
-	} finally {
-		if (previousNode === undefined) Reflect.deleteProperty(globalThis, 'AudioWorkletNode');
-		else Object.defineProperty(globalThis, 'AudioWorkletNode', {
-			configurable: true,
-			writable: true,
-			value: previousNode,
-		});
+test('the retired reviewed-effect worklet modules are absent', () => {
+	const directory = new URL('../src/common/editor/reviewed-effects/', import.meta.url);
+	for (const file of ['realtime-worklet-host.ts', 'realtime-worklet.js']) {
+		assert.equal(existsSync(new URL(file, directory)), false, file);
 	}
 });
 

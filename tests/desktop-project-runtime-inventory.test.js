@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
 
 import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
@@ -18,6 +19,35 @@ test('the shared desktop project inventory is sorted, unique and fully staged', 
 
 test('the native label clipboard descriptor is admitted to the desktop project runtime', () => {
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes('src/common/editor/commands/label-clipboard-codec.js'));
+});
+
+test('desktop compilation retains the MCP service and omits the unused registration adapter', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-service.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-main-registration.js'), false);
+});
+
+test('desktop compilation retains the real Framescaper native IPC and display preload', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-services-main-ipc.js'));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/framescaper-external-display-preload.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/native-services-main-preload.js'), false);
+	assert.equal(existsSync(new URL('../desktop/native-services-main-preload.ts', import.meta.url)), false);
+});
+
+test('desktop stages the current shot boundary review and detector modes', () => {
+	const directory = 'src/common/editor/assistance/';
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shot-boundaries-v1.js`));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shot-detection-mode.js`));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shots.js`), false);
+});
+
+test('desktop compilation keeps ordinary delivery batches without the retired Soundscaper delivery wire', () => {
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/delivery-batch.js'));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/native-media-plan-canonical-form.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/delivery-report.js'), false);
+	for (const name of ['soundscaper-delivery-contract-v1', 'bounded-json-structure-v1', 'soundscaper-persistent-delivery-plan-v1']) {
+		assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`src/common/editor/${name}.js`), false, name);
+		assert.equal(existsSync(new URL(`../src/common/editor/${name}.ts`, import.meta.url)), false, name);
+	}
 });
 
 test('desktop project serialization stages its encoder outside the assistance runtime', () => {
@@ -59,9 +89,9 @@ test('desktop project recovery declares its application closure independently of
 		'desktop/soundscaper-project-recovery-reader.js',
 		'src/common/i18n/editor-project-recovery-copy.js',
 		'src/common/i18n/editor-recording-recovery-copy.js',
-		'src/soundscaper/desktop-project-recovery-bridge.js',
 	];
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(shared), shared);
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/soundscaper/desktop-project-recovery-bridge.js'), false);
 	for (const member of soundscaper) assert.ok(DESKTOP_SOUNDSCAPER_RUNTIME_FILES.includes(member), member);
 	for (const member of [shared, ...soundscaper]) {
 		assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(member), member);

@@ -7,6 +7,7 @@ import {
 	computeAudioTrackFreezeDigestsV1,
 	type AudioTrackFreezeV1,
 } from '../src/common/editor/audio-track-freeze-v21.ts';
+import { createExportRenderProject } from '../src/common/editor/controller/export/export-render-project.ts';
 import {
 	projectForAudioRenderedFallbackExport,
 } from '../src/common/editor/controller/export/internal/audio/audio-rendered-fallback-export.ts';
@@ -22,23 +23,10 @@ import {
 	createSoundscaperAudioTrackFreezePlaybackService,
 } from '../src/soundscaper/editor-audio-track-freeze-playback.ts';
 import { createSoundscaperPlaybackProjectService } from '../src/soundscaper/editor-project-playback.ts';
-import {
-	createSoundscaperProjectRuntimeSelection,
-} from '../src/soundscaper/editor-project-runtime-selection.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { createSoundscaperVideoExportStrategy } from '../src/soundscaper/video-export-strategy.ts';
 
-/**
- * A fresh freeze is a substitution, not a compatibility fallback.
- *
- * The freeze wrapper publishes the derived render's source as a required root of
- * the delivery projection while leaving the rendered-fallback metadata null: the
- * render reads that source from the project like any other. The delivery
- * assertions read a retained root as evidence that a projector had lost its
- * fallback metadata and refused it, so every export of a project with one frozen
- * track failed — audio at the admission, video before the strategy — and the keyed
- * video strategy refused the same projection again. Neither message named freeze.
- */
+// A verified freeze substitutes its derived source in the delivery projection
+// and keeps compatibility fallback metadata null.
 
 const NOW = '2026-09-05T12:00:00.000Z';
 const CONTENT_SHA256 = 'a'.repeat(64);
@@ -59,20 +47,10 @@ test('a fresh freeze delivers its render to export instead of reading as a lost 
 	assert.deepEqual(video.requiredVideoSourceIds, []);
 });
 
-test('the Soundscaper keyed video strategy exports the frozen render playback renders', () => {
+test('the shared video render projection consumes the frozen source playback renders', () => {
 	const { project, playback } = frozenFixture();
-	const strategy = createSoundscaperVideoExportStrategy(
-		createSoundscaperProjectRuntimeSelection(),
-		{
-			encodeOffline: async () => { throw new Error('The projection must not encode.'); },
-			encodeOfflineToSink: async () => { throw new Error('The projection must not encode.'); },
-		},
-	);
-
-	const exportProject = strategy.createExportProject({
-		canonicalProject: project,
-		delivery: projectForVideoRenderedFallbackExport(project, playback),
-	});
+	const delivery = projectForVideoRenderedFallbackExport(project, playback);
+	const exportProject = createExportRenderProject(delivery.project);
 
 	const tracks = exportProject.tracks as readonly Readonly<Record<string, unknown>>[];
 	const track = tracks.find(({ id }) => id === 'voice');

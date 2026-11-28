@@ -8,11 +8,12 @@ import {
 	normalizeLocalAssistanceShotDetector,
 	type LocalAssistanceShotDetector,
 } from './shot-detection-mode.ts';
-import { MAX_SHOTS } from './shots.ts';
 import {
 	VIDEO_TIMING_ASSET_MAXIMUM_FRAMES,
 	VIDEO_TIMING_ASSET_MAXIMUM_TIMESCALE,
 } from '../video-timing-asset-reference.ts';
+
+export const ASSISTANCE_SHOT_BOUNDARIES_MAXIMUM_COUNT = 100_000;
 
 export interface AssistanceShotBoundaryReviewV1 {
 	readonly sourceFrame: number;
@@ -50,7 +51,7 @@ export function reviewAssistanceShotBoundariesV1(value: unknown): AssistanceShot
 		1, VIDEO_TIMING_ASSET_MAXIMUM_FRAMES, 'shot source-frame count');
 	const candidates = readClosedDomainArray(
 		readClosedDomainField(row, 'boundaries', 'shot-boundaries result'),
-		'shot-boundaries inventory', 0, Math.min(MAX_SHOTS, sourceFrameCount),
+		'shot-boundaries inventory', 0, Math.min(ASSISTANCE_SHOT_BOUNDARIES_MAXIMUM_COUNT, sourceFrameCount),
 	);
 	let priorFrame = -1;
 	let priorTick = -1n;

@@ -1,24 +1,21 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import assert from 'node:assert/strict';
-import { register } from 'node:module';
 import test from 'node:test';
 import { acceptNativePluginPortOffer, createNativePluginEffectNode, registerNativePluginRuntimeIdentity, releaseNativePluginRuntime } from '../src/common/editor/native-plugin-realtime-node.js';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
-import { registerNativePluginStateQuiescence } from '../src/common/editor/native-plugin-state-quiescence.ts';
+import { quiesceNativePluginState, registerNativePluginStateQuiescence } from '../src/common/editor/native-plugin-state-quiescence.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
-register(`data:text/javascript,${encodeURIComponent(`export async function resolve(specifier, context, nextResolve) {
-	if (specifier === '@ffmpeg/core?url' || specifier === '@ffmpeg/core/wasm?url') return { url: 'data:text/javascript,export default "mock-ffmpeg-asset"', shortCircuit: true };
-	return nextResolve(specifier, context);
-}`)}`, import.meta.url);
-const { createSoundscaperAudioEditorController } = await import('../src/soundscaper/editor-controller.ts');
-const { createSoundscaperEditorProjectEnvironment } = await import('../src/soundscaper/editor-project-environment.ts');
+import { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } from './helpers/soundscaper-controller-session.ts';
+
 for (const changed of [false, true]) test(`MP60: File Duplicate completes after ${changed ? 'changed' : 'unchanged'} live native state capture`, async () => {
-	const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
+	const environment = await openSoundscaperCompatibilityFixture({
 		indexedDB: createInstrumentedIndexedDB(), preferOpfs: false,
 		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true, persist: async () => true } as unknown as StorageManager,
-	} });
-	const controller = createSoundscaperAudioEditorController(environment);
+	});
+	const controller: ReturnType<typeof createSoundscaperCompatibilityController> = createSoundscaperCompatibilityController(environment, {
+		prepareProjectSnapshot: purpose => quiesceNativePluginState(controller, purpose),
+	});
 	await controller.ready;
 	const state = { instanceId: 'duplicate-native-instance', format: 'clap', stablePluginId: 'org.example.effect',
 		binarySha256: 'b'.repeat(64), stateBody: body('c'), enabled: true, bypassed: false, continuity: 'live', latencySamples: 0 };
@@ -39,14 +36,16 @@ for (const changed of [false, true]) test(`MP60: File Duplicate completes after 
 	const unregister = registerNativePluginStateQuiescence(controller, { capture() {
 		if (!capturing) return;
 		capturing = false;
-		if (changed) controller.actions.nativePlugins.upsert({ ...state, stateBody: body('d') });
+		if (changed) controller.actions.edit.commit({
+			type: 'native-plugin-state/upsert', state: { ...state, stateBody: body('d') },
+		}, {}, { skipPlaybackEngine: true });
 	} });
 	try {
 		const original = createSoundscaperProject({ id: 'duplicate-live-native', title: 'Live native', tracks: [{
 			id: 'voice', type: 'audio', effects: [{ id: 'native-slot', type: 'native-plugin', enabled: true,
 				params: { instanceId: state.instanceId, latencyFrames: 0 }, context: { format: 'clap', stablePluginId: state.stablePluginId, binarySha256: state.binarySha256 } }],
 		}], nativePluginStates: [state] });
-		await environment.controllerStore.saveProject(original);
+		await environment.store.saveProject(original);
 		await controller.actions.project.openById(original.id);
 		assert.equal(controller.getSnapshot().readOnly, false, 'the hosted native project is editable');
 		await controller.actions.project.rename('Live native changed');

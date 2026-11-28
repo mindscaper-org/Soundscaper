@@ -67,12 +67,10 @@ module.exports = {
 		{ from: '.desktop-build/licenses', to: 'licenses' },
 		{ from: 'LICENSES', to: 'licenses/LICENSES' },
 	],
-	fileAssociations: [
+	fileAssociations: framescaper ? [
 		{
-			// Each build claims its own suffix plus the legacy one. Neither app
-			// claims `.liscape`, which Lightscaper will register for itself.
-			ext: framescaper ? 'fscape' : 'sscape',
-			name: framescaper ? 'Framescaper Project' : 'Soundscaper Project',
+			ext: 'fscape',
+			name: 'Framescaper Project',
 			description: `${productName} project`,
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			role: 'Editor',
@@ -84,15 +82,7 @@ module.exports = {
 			mimeType: 'application/vnd.soundscaper.scape+zip',
 			role: 'Editor',
 		},
-		...(!framescaper ? [{
-			ext: ['aup3', 'aup4'],
-			// Named for what it is: 'Soundscaper Project' now belongs to `.sscape`.
-			name: 'Audacity Project',
-			description: 'Audacity project',
-			mimeType: 'application/x-audacity-project',
-			role: 'Editor',
-		}] : []),
-	],
+	] : [],
 	win: {
 		...signing.win,
 		// The standalone helper is authenticated against the staged executable bytes.

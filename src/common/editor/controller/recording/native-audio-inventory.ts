@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 /**
- * Adapts a native backend's device inventory into the rows the editor already
- * holds. Split from native-audio-session.ts because the ceiling on one module
- * is 600 lines and the session owns lifecycle, not identity: this file owns the
- * stable device id, the channel topology derived from it, and the admission
- * that keeps a raw path from ever reaching renderer state through a handle.
+ * Adapts a native backend's device inventory into editor rows. It derives
+ * stable device IDs and channel topology from the published inventory and
+ * rejects raw paths before they can reach renderer state as handles.
  *
  * Nothing here mints a device model of its own. An input becomes a
  * `state.recordingDevices` row and an output an `state.audioOutputDevices` row,

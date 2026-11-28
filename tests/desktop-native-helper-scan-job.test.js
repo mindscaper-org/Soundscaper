@@ -258,7 +258,7 @@ test('the helper announces scanning and routes a scan job to the scan runner', {
 });
 
 test('a real scan of the fixture root classifies every benign candidate', { skip: !built }, async (context) => {
-	const { loadVerifiedNativeAddon } = await import('../desktop/native-helper-process.js');
+	const { loadVerifiedNativeAddon } = await import('../desktop/native-helper-addon.js');
 	const addonPath = join(ROOT, 'native/soundscaper-helper-addon/prebuilt', hostTarget.id, manifest.payloadName);
 	const bytes = await readFile(addonPath);
 	const scan = createNativePluginScanJobRunner({

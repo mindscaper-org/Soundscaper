@@ -17,8 +17,10 @@ export function offlineShellFunctionSources() {
 		cacheIsComplete,
 		completeReuseCacheNames,
 		verifiedShellResponse,
+		reuseVerifiedAsset,
 		installVerifiedAsset,
 		installAssetBatches,
+		reuseTracktionEngine,
 		installOfflineShell,
 		activateOfflineShell,
 		pathWithinShellScope,
@@ -218,19 +220,26 @@ async function verifiedShellResponse(response, descriptor, cryptoImpl) {
 	return new Response(bytes, { status: 200, statusText: response.statusText, headers });
 }
 
-async function installVerifiedAsset({ cacheStorage, candidate, descriptor, fetchImpl, cryptoImpl, reuseNames }) {
+async function reuseVerifiedAsset({ cacheStorage, candidate, descriptor, cryptoImpl, reuseNames }) {
 	for (const cacheName of reuseNames) {
 		const response = await (await cacheStorage.open(cacheName)).match(descriptor.url);
 		if (!response) continue;
 		try {
 			await candidate.put(descriptor.url, await verifiedShellResponse(response, descriptor, cryptoImpl));
-			return;
+			return true;
 		} catch {
-			// A corrupt reusable entry is ignored; the immutable network response is still verified below.
+			// Keep looking when the old bytes differ or the new cache cannot accept them.
 		}
 	}
+	return false;
+}
+
+async function installVerifiedAsset(options) {
+	if (await reuseVerifiedAsset(options)) return;
+	const { candidate, descriptor, fetchImpl, cryptoImpl, productId } = options;
+	const reloadWorklet = productId === 'soundscaper' && descriptor.url === '/tracktion/tracktion-audio-worklet.js';
 	const response = await fetchImpl(descriptor.url, {
-		cache: 'default',
+		cache: reloadWorklet ? 'reload' : 'default',
 		credentials: 'same-origin',
 		redirect: 'error',
 	});
@@ -250,6 +259,38 @@ async function installAssetBatches(options, descriptors) {
 			offset += 1;
 		}
 		await Promise.all(batch.map((descriptor) => installVerifiedAsset({ ...options, descriptor })));
+	}
+}
+
+async function reuseTracktionEngine(options, descriptors, installUrls) {
+	const urls = ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm'];
+	if (urls.some((url) => !descriptors.has(url))) return;
+	const retained = [];
+	try {
+		for (const cacheName of options.reuseNames) {
+			const previous = await options.cacheStorage.open(cacheName);
+			const files = await Promise.all(urls.map((url) => previous.match(url)));
+			// A complete predecessor shows that this browser already initialized the engine.
+			if (!files.every(Boolean)) continue;
+			let signal;
+			for (const [index, url] of urls.entries()) {
+				if (installUrls.includes(url)) continue;
+				const descriptor = descriptors.get(url);
+				let response = await verifiedShellResponse(files[index], descriptor, options.cryptoImpl).catch(() => undefined);
+				if (!response) {
+					// A slow or unavailable optional engine must not block the shell update indefinitely.
+					signal ??= AbortSignal.timeout(10_000);
+					const fetched = await options.fetchImpl(url, { cache: 'reload', credentials: 'same-origin', redirect: 'error', signal });
+					response = await verifiedShellResponse(fetched, descriptor, options.cryptoImpl);
+				}
+				await options.candidate.put(url, response);
+				retained.push(url);
+			}
+			return;
+		}
+	} catch {
+		// Keep the required shell available even if the optional engine cannot be published as a group.
+		await Promise.all(retained.map((url) => options.candidate.delete(url).catch(() => false)));
 	}
 }
 
@@ -280,13 +321,18 @@ export async function installOfflineShell({
 	const candidate = await cacheStorage.open(cacheName);
 	const byUrl = new Map(configuration.assets.map((asset) => [asset.url, asset]));
 	try {
-		await installAssetBatches({
+		const options = {
 			cacheStorage,
 			candidate,
 			fetchImpl,
 			cryptoImpl,
 			reuseNames,
-		}, configuration.installUrls.map((url) => byUrl.get(url)));
+			productId: configuration.productId,
+		};
+		await installAssetBatches(options, configuration.installUrls.map((url) => byUrl.get(url)));
+		if (configuration.productId === 'soundscaper' && reuseNames.length > 0) {
+			await reuseTracktionEngine(options, byUrl, configuration.installUrls);
+		}
 		const completion = JSON.stringify({
 			schemaVersion: 2,
 			productId: configuration.productId,
@@ -315,7 +361,24 @@ export async function activateOfflineShell({ configuration, cacheStorage, client
 	if (!await cacheIsComplete(cacheStorage, activeName, configuration, cryptoImpl)) {
 		throw new Error('Offline shell cache is not complete.');
 	}
-	await clients.claim();
+	const takeover = clients.claim();
+	if (configuration.productId === 'soundscaper') {
+		// Firefox can assign the controller to the page before its Tracktion
+		// workers acknowledge the claim. Let the verified shell serve requests
+		// while a delayed takeover keeps the previous release's caches intact.
+		let deadline;
+		try {
+			const claimed = await Promise.race([
+				takeover.then(() => true),
+				new Promise((resolve) => { deadline = setTimeout(() => resolve(false), 1_000); }),
+			]);
+			if (!claimed) return;
+		} finally {
+			clearTimeout(deadline);
+		}
+	} else {
+		await takeover;
+	}
 	for (const cacheName of await cacheStorage.keys()) {
 		const sameProduct = cacheName.startsWith(`soundscaper-application-shell-v2-${configuration.productId}-`);
 		const legacy = configuration.productId === 'soundscaper'
@@ -394,7 +457,7 @@ async function matchOfflineNavigationFallback(cache, pathname, configuration, de
 	return null;
 }
 
-async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl }) {
+async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl, networkCache }) {
 	const cached = await cache.match(descriptor.url, { ignoreSearch: true });
 	if (cached) {
 		try {
@@ -403,8 +466,8 @@ async function cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImp
 			await cache.delete(descriptor.url, { ignoreSearch: true }).catch(() => false);
 		}
 	}
-	const response = await fetchImpl(descriptor.url, {
-		cache: 'default',
+	const response = await fetchImpl(networkUrl, {
+		cache: networkCache,
 		credentials: 'same-origin',
 		redirect: 'error',
 	});
@@ -435,7 +498,17 @@ export async function handleApplicationShellFetch({
 	const cache = await cacheStorage.open(shellCacheName(configuration.productId, configuration.releaseId));
 	if (descriptor) {
 		try {
-			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl });
+			const retryWorklet = configuration.productId === 'soundscaper'
+				&& requestUrl.pathname === '/tracktion/tracktion-audio-worklet.js'
+				&& /^\?retry=[0-9a-f-]{36}$/u.test(requestUrl.search);
+			// Let the retry reach the network independently of a stalled request.
+			// Verification and Cache Storage still use the canonical descriptor.
+			const networkUrl = retryWorklet ? descriptor.url + requestUrl.search : descriptor.url;
+			// Unversioned engine assets can leave a stale response in the HTTP cache.
+			const reloadEngineAsset = configuration.productId === 'soundscaper'
+				&& ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm'].includes(descriptor.url);
+			const networkCache = reloadEngineAsset ? 'reload' : 'default';
+			return await cacheVerifiedAssetOnUse({ cache, descriptor, fetchImpl, cryptoImpl, networkUrl, networkCache });
 		} catch (error) {
 			if (request.mode === 'navigate') {
 				const fallback = await matchOfflineNavigationFallback(

@@ -1061,7 +1061,7 @@ An active chunk cannot be preempted inside its filesystem write, and parent-dire
 but its current authority is product-isolated:
 
 <!-- policy-narrative:fenced-family-v1-project-catalog-publication -->
-The direct unversioned Soundscaper and Framescaper desktop libraries authenticate their exact family-v1 handshakes before use, persist library schema 1 and SQLite user_version 1 beneath distinct Soundscaper/project-library/v1 and Framescaper/project-library/v1 roots in XDG_DATA_HOME on Linux and platform appData elsewhere, preserve SSCP and FSCP application IDs, repeat schemaFamily and schemaVersion in catalog rows, and expose disjoint product:v1:project-library:* channels. Main-owned publication, immutable-body custody, bounded pathless DTOs, recovery, duplicate, delete, lease fencing, and shutdown draining remain product-scoped. Startup relocates current family-v1 production libraries from their former kw.media folders without changing their schemas. Seeded pre-release roots and databases remain byte-for-byte untouched and invisible; there is no pre-release migration or copy-forward marker. Maintained managed-media publication accepts safe-integer body lengths and asks for explicit user confirmation above 64 GiB of aggregate body inventory before any source body read or bridge request. Exact body size and digest, four-MiB chunks, owner and write-fence checks, and actual storage-space admission remain enforced. Manual media-inventory approval is scoped to one renderer and project. Unchanged or smaller automatic reads and saves may reuse the admitted bound; growth beyond it requires a fresh manual decision.
+The direct unversioned Soundscaper and Framescaper desktop libraries authenticate their exact family-v1 handshakes before use, persist library schema 1 and SQLite user_version 1 beneath distinct Soundscaper/project-library/v1 and Framescaper/project-library/v1 roots in XDG_DATA_HOME on Linux and platform appData elsewhere, preserve SSCP and FSCP application IDs, repeat schemaFamily and schemaVersion in catalog rows, and keep separate catalogs. Framescaper exposes its live project-library IPC. The Soundscaper desktop editor uses its Tracktion project bridge. Main-owned publication, immutable-body custody, bounded pathless DTOs, recovery, duplicate, delete, lease fencing, and shutdown draining remain product-scoped. Startup relocates current family-v1 production libraries from their former kw.media folders without changing their schemas. Seeded pre-release roots and databases remain byte-for-byte untouched and invisible; there is no pre-release migration or copy-forward marker. Maintained managed-media publication accepts safe-integer body lengths and asks for explicit user confirmation above 64 GiB of aggregate body inventory before any source body read or bridge request. Exact body size and digest, four-MiB chunks, owner and write-fence checks, and actual storage-space admission remain enforced. Manual media-inventory approval is scoped to one renderer and project. Unchanged or smaller automatic reads and saves may reuse the admitted bound; growth beyond it requires a fresh manual decision.
 <!-- /policy-narrative:fenced-family-v1-project-catalog-publication -->
 
 **Historical pre-freeze provenance.** The following shared-library description
@@ -1489,13 +1489,48 @@ envelope is validated before storage and does not launch as a desktop script.
 
 Four exposures are recorded rather than designed around. There is no JavaScript heap ceiling: Nyquist caps its WebAssembly memory because it owns that memory, a JavaScript engine offers no equivalent, and containment for a program that allocates without bound is the deadline plus `terminate()` — Chromium and Firefox kill the worker, WebKit may take the tab with it. Dynamic `import()` is a syntactic form rather than a property and cannot be removed; production `script-src 'self'` confines it to this origin and whatever it resolves lands in the same reduced realm, so no authority is gained, but without a policy in front of it the fetch is a real network side effect. A blob-URL worker inherits the creating document's policy and cannot be given a tighter one, so on the web the worker keeps `connect-src 'self'` plus the first-party CDN; there is no same-origin write endpoint in this repository, so exfiltration is narrow rather than absent, and the desktop policy is `'self' blob:` and closes it. And the prelude is capability reduction, not a security boundary.
 
-`reviewed-web-effect-packages` is **enforced for the closed release-bundled catalog only**. The loader accepts an exact package id and version, and the immutable catalog currently approves only repository-owned Utility Gain 1.0.0 while retaining a fail-closed revoked 0.9.0 witness. It supplies an isolated copy of catalog-owned bytes and verifies the release-pinned SHA-256 before compilation. The reference schema accepts no arbitrary package URL, user trust override, package JavaScript, network, or same-origin storage authority.
+`reviewed-web-effect-packages` applies to the closed release-bundled catalog.
 
-The pure-WASM ABI is closed to planar Float32 PCM, exact exports and process signature, zero imports, one bounded unshared 32-bit memory, immutable ABI/latency/tail metadata, and declared parameter, module, channel, block, input, output, memory, and timeout limits. Admission rejects malformed signatures, imports, tables, start functions, metadata drift, and excess memory before processing; the runtime rejects malformed or non-finite PCM, parameters, status, memory, and output.
+<!-- policy-narrative:release-pinned-reviewed-effect-catalog -->
+The current loader accepts only an exact id and version from an immutable
+release catalog. The catalog returns isolated copies of repository-owned bytes,
+fails closed for absent and explicitly revoked revisions, and verifies the
+catalog's lowercase SHA-256 over the copied artifact before compilation. Package
+references are closed data containing no URL, caller-supplied bytes, signature
+key, or trust override; the only approved package is Utility Gain 1.0.0, while
+its 0.9.0 witness is revoked. This current claim does not authorize remote
+fetching, user installation, a marketplace, or an externally authored package.
+<!-- /policy-narrative:release-pinned-reviewed-effect-catalog -->
 
-Offline processing uses a fresh dedicated module worker and a closed request/response protocol for each admitted block. Completion, malformed response, worker error, the catalog deadline, and cancellation all terminate the worker; returned package identity, shape, byte count, and finite samples are checked again before delivery. The static first-party AudioWorklet host is a separate exact allowlist: both its main-thread catalog and its worklet-local policy name Utility Gain, and it receives a prevalidated `WebAssembly.Module`, never package JavaScript. The worklet rechecks imports, exports, package identity, channels, block size, memory, parameters, and finite output and silences a failed block.
+<!-- policy-narrative:closed-reviewed-effect-wasm-abi -->
+Admission validates a closed planar-f32 manifest and binary ABI before
+execution: zero imports, exact exports and process signature, no tables or start
+function, one bounded, unshared 32-bit memory, exact ABI-version, latency and
+tail metadata, bounded parameters, module bytes, channels, block frames, input,
+output, and memory pages. Runtime processing validates finite equal-shape PCM
+and parameter ranges before entering WebAssembly, checks status and memory after
+return, and rejects non-finite output. Focused tests cover malformed function
+signatures, forbidden imports, excess memory, declared latency or tail drift,
+malformed manifests, oversized or non-finite PCM, and Utility Gain reference
+vectors.
+<!-- /policy-narrative:closed-reviewed-effect-wasm-abi -->
 
-Focused automated evidence covers malformed ABI, forbidden import, memory and output oversize, declared latency/tail drift, digest mismatch, revocation, catalog mismatch, timeout, cancellation, worker termination, and Utility Gain offline and realtime reference vectors. The worker seam and worklet constructor evidence do not qualify actual browser scheduling, hostile realtime CPU behavior, devices, process RSS, or an operating-system sandbox. There is no package digital-signature or external signing-authority channel: trust for this exact repository-owned package is the checked-in release source plus the pinned digest. Externally authored or non-repository-owned Web effect packages remain disabled behind the separate licensing/provenance gate, and this control does not authorize another package, remote fetching, user installation, or a marketplace.
+<!-- policy-narrative:terminating-reviewed-effect-offline-worker -->
+Offline processing uses static first-party code in one dedicated module worker
+per admitted block and a closed request and response protocol. The client copies
+and transfers bounded input, binds output to the exact request and catalog
+package key, revalidates channel shape, output bytes, and finite samples, and on
+result, error, malformed response, processing timeout, or abort removes
+listeners and terminates the worker. The Utility Gain deadline is 250 ms.
+Focused worker-port evidence covers success, timeout, cancellation, catalog
+mismatch, oversized output, malformed requests, and termination; it does not
+claim an operating-system sandbox or browser scheduler timing.
+<!-- /policy-narrative:terminating-reviewed-effect-offline-worker -->
+
+Checked-in release source and the pinned digest establish trust in Utility Gain.
+Externally authored and other non-repository-owned Web effect packages remain
+disabled by the licensing and provenance gate. Process RSS and physical audio
+devices require separate qualification.
 
 Selected F31 delegates through its immutable V28 foundation and binds one exact V14 render plan to an authenticated evaluated-RGBA carrier before the persistent native render service may consume it; this implemented route does not qualify or activate any empty five-target payload row.
 

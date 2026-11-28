@@ -10,10 +10,10 @@ import {
 	FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 	SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE,
 	assertDesktopSmokePayload,
+	assertTracktionDesktopSmokePayload,
 	packagedExecutableCandidates,
 	resolveSmokeArchitecture,
 } from '../scripts/lib/desktop-smoke.mjs';
-import { soundscaperPreloadSource } from '../scripts/lib/desktop-product-package-files.mjs';
 import { FRAMESCAPER_BASELINE_ARTIFACT_LIBRARY_IDENTITY } from '../desktop/framescaper-baseline-artifact-smoke.js';
 
 const EXPECTED_BRIDGE = SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE;
@@ -157,106 +157,46 @@ test('desktop smoke bridge inventory equals the sandbox preload surface', async 
 	].sort());
 });
 
-test('desktop smoke accepts the exact product-isolated Soundscaper preload surface', async () => {
-	assert.equal(Object.isFrozen(SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE), true);
-	assert.deepEqual(SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE, [
-		'abortWrite',
-		'applyNativeTierControl', 'ara',
-		'beginWrite',
-		'bindNativeAudioSession',
-		'blender',
-		'calibrateNativeAudioSession',
-		'cancelAssistanceModelInstall',
-		'cancelDesktopAudioCodecOperation',
-		'cancelNativeVampAnalyzer',
-		'captureExternalMedia',
-		'checkForUpdates',
-		'chooseBatchSaveDirectory', 'chooseExternalFfmpeg',
-		'chooseFiles',
-		'chooseLinkedAudioOriginal',
-		'chooseSaveTarget',
-		'chooseSesxMediaFolder', 'chooseTemporaryDataFolder',
-		'clearExternalFfmpeg',
-		'clearNativePluginQuarantine',
-		'closeNativeAudioSession',
-		'closeNativePluginInstance',
-		'closeNativePluginVendorUi',
-		'collectAssistanceModelGarbage',
-		'configureNativeVampAnalyzer', 'confirmProjectSave', 'cpuProfiler',
-		'describeNativeAudioBackend',
-		'editText',
-		'finishNativeVampAnalyzer',
-		'finishWrite',
-		'getDesktopAudioCodecCapabilities',
-		'getEnvironment',
-		'getExternalFfmpegStatus',
-		'installAssistanceModel',
-		'installExternalFfmpeg',
-		'installPreseededAssistanceModel',
-		'instantiateNativePlugin',
-		'listAssistanceModelNotices',
-		'listAssistanceModels',
-		'listNativePlugins',
-		'listNativeVampAnalyzers',
-		'loadLinkedAudioOriginal',
-		'localAssistance',
-		'nativeAudioHelperAvailability',
-		'nativeAudioSessionStatus',
-		'nativePluginAvailability', 'nativePluginScanProgress',
-		'onAssistanceInstallProgress',
-		'onCloseRequested',
-		'onMcpRequest',
-		'onMenuCommand',
-		'onOpenProject',
-		'onWindowStateChanged',
-		'openAudiocomAuthorization', 'openAudiocomLink', 'openExternal',
-		'openFreesoundAuthorization',
-		'openNativeAudioSession',
-		'openNativePluginVendorUi',
-		'patchFinalPrefix',
-		'persistNativePluginState',
-		'persistentDelivery',
-		'planBatchSaveOutputs', 'prepareBatchSaveTarget', 'prepareOriginalOverwrite',
-		'pushNativeVampAnalyzerPcm',
-		'readMcpStatus',
-		'readNativeTierControls',
-		'reconcileAssistanceModels',
-		'reconcileLinkedOriginals',
-		'releaseBatchSaveDirectory', 'releaseLinkedOriginal',
-		'releaseOriginalFile',
-		'releaseRead',
-		'releaseSaveTarget',
-		'releaseSesxSession',
-		'relocateAssistanceModels', 'rememberProjectFile',
-		'removeAssistanceModel',
-		'reportNativeAudioSessionLoss',
-		'reportNativeAudioSessionTransfer',
-		'rescanExternalFfmpeg',
-		'resolveExternalMedia',
-		'resolveSesxMedia',
-		'respondMcpRequest',
-		'respondToClose',
-		'restoreNativePluginState', 'restoreProjectFile',
-		'runDesktopAudioCodecOperation', 'runDesktopAudioCodecStreamCommand',
-		'runNativePluginOffline',
-		'runWindowAction',
-		'scanNativePlugins',
-		'selectNativePluginInstallation',
-		'setLocale',
-		'setNativeAudioHelperEnabled',
-		'setNativePluginBypassed',
-		'setNativePluginConsent',
-		'setNativePluginInstallationAllowed',
-		'signalReady',
-		'startMcp',
-		'startNativeVampAnalyzer',
-		'stopMcp', 'temporaryDataStatus', 'updatePreferences',
-		'writeChunk',
-	]);
-	const source = await readFile(resolve(ROOT, 'desktop', 'preload.mjs'), 'utf8');
-	const { bridge, framescaperBridge } = evaluatePreload(await readDesktopPreloadSource(soundscaperPreloadSource(source)));
-	assert.deepEqual(Object.keys(bridge).sort(), SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE);
-	assert.equal(framescaperBridge, undefined);
+test('Soundscaper exposes one Tracktion project request bridge', async () => {
+	const exposed = new Map();
+	const calls = [];
+	const listeners = new Map();
+	const source = await readFile(resolve(ROOT, 'desktop/tracktion-preload.cjs'), 'utf8');
+	vm.runInNewContext(source, {
+		require(module) {
+			assert.equal(module, 'electron');
+			return {
+				contextBridge: { exposeInMainWorld: (name, bridge) => exposed.set(name, bridge) },
+				ipcRenderer: {
+					invoke(channel, command) {
+						calls.push([channel, command]);
+						return Promise.resolve('reply');
+					},
+					on: (channel, receive) => listeners.set(channel, receive),
+					removeListener(channel, receive) {
+						assert.equal(listeners.get(channel), receive);
+						listeners.delete(channel);
+					},
+				},
+			};
+		},
+	});
+	assert.deepEqual([...exposed.keys()], ['soundscaperTracktion']);
+	const bridge = exposed.get('soundscaperTracktion');
+	assert.equal(Object.isFrozen(bridge), true);
+	assert.deepEqual(Object.keys(bridge), ['request', 'onProjectLost']);
+	const command = { type: 'project-status' };
+	assert.equal(await bridge.request(command), 'reply');
+	assert.deepEqual(calls, [['soundscaper-tracktion:project-request', command]]);
+	const notifications = [];
+	const unsubscribe = bridge.onProjectLost((...args) => notifications.push(args));
+	const lost = listeners.get('soundscaper-tracktion:project-lost');
+	assert.equal(typeof lost, 'function');
+	lost({ sender: 'not exposed to the document' }, null, 'stopped');
+	lost({ sender: 'not exposed to the document' }, 'session', 'stopped');
+	assert.deepEqual(notifications, [['session', 'stopped']]);
+	unsubscribe();
+	assert.equal(listeners.size, 0);
 });
 
 test('desktop smoke resolves an explicit package architecture independently of the Node host', () => {
@@ -420,15 +360,22 @@ test('desktop smoke validates the closed Framescaper baseline UI, preload, and m
 	);
 });
 
-test('packaged desktop smoke isolates both Chromium and shared library data', async () => {
+test('packaged desktop smoke isolates Chromium and project files', async () => {
 	const source = await readFile(resolve(ROOT, 'scripts/desktop-smoke.mjs'), 'utf8');
-	assert.match(source, /bridge: SMOKE_EXPECTED_BRIDGE/u);
-	assert.match(source,
-		/PRODUCT_ID === 'framescaper'[\s\S]*FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE[\s\S]*SOUNDSCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE/u);
-	assert.doesNotMatch(source, /const EXPECTED_BRIDGE/u);
+	assert.match(source, /bridge: FRAMESCAPER_DESKTOP_SMOKE_EXPECTED_BRIDGE/u);
+	assert.match(source, /assertTracktionDesktopSmokePayload\(payload/u);
 	assert.match(source, /--user-data-dir=\$\{profile\}/u);
 	assert.match(source, /--soundscaper-smoke-app-data=\$\{[^}]+\}/u);
 	assert.match(source, /productId:\s*PRODUCT_ID/u);
+});
+
+test('Tracktion package smoke requires a native Edit and the requested target', () => {
+	const expected = { platform: 'linux', arch: 'arm64' };
+	const result = { ...expected, url: 'soundscaper-tracktion-app://bundle/index.html',
+		title: 'Soundscaper Tracktion', savedNativeEdit: true };
+	assert.doesNotThrow(() => assertTracktionDesktopSmokePayload(result, expected));
+	assert.throws(() => assertTracktionDesktopSmokePayload({ ...result, arch: 'x64' }, expected), /unexpected target/u);
+	assert.throws(() => assertTracktionDesktopSmokePayload({ ...result, savedNativeEdit: false }, expected), /native Edit/u);
 });
 
 function evaluatePreload(source, argv = ['electron']) {

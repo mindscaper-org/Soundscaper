@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createEditorExportService } from '../src/common/editor/controller/export/internal/export-service.ts';
+import { deferred } from './helpers/async-test-control.ts';
 import { createFixture } from './helpers/export-service-fixture.ts';
 
-test('persistent delivery waits for an unowned video export to become idle', async () => {
+test('direct Cancel aborts a video export owned by the shared export state', async () => {
 	const fixture = createFixture();
 	let aborted = false;
 	const exportAbort = {
@@ -16,19 +17,32 @@ test('persistent delivery waits for an unowned video export to become idle', asy
 	fixture.state.exportAbort = exportAbort;
 	const service = createEditorExportService(fixture.runtime);
 
-	assert.equal(service.persistentAudioDeliveryAvailable(), false);
-	let notified = false;
-	const idle = service.whenPersistentAudioDeliveryAvailable().then(() => { notified = true; });
-	await Promise.resolve();
-	assert.equal(notified, false);
-
-	await service.cancelPersistentAudioDelivery();
-	assert.equal(aborted, false);
-	assert.equal(fixture.state.exportAbort, exportAbort);
-
 	await service.handleExportAction('cancel');
-	await idle;
 	assert.equal(aborted, true);
 	assert.equal(fixture.state.exportAbort, null);
-	assert.equal(service.persistentAudioDeliveryAvailable(), true);
+});
+
+test('cancelling an audio export retains its preparation owner until it settles', async () => {
+	const fixture = createFixture();
+	const entered = deferred<void>();
+	const preparation = deferred<void>();
+	let preparations = 0;
+	const service = createEditorExportService({
+		...fixture.runtime,
+		prepareProjectForExport: async () => {
+			preparations += 1;
+			entered.resolve();
+			await preparation.promise;
+		},
+	});
+	const cancelled = service.handleExportAction('start', { format: 'wav' });
+	await entered.promise;
+	await service.handleExportAction('start', { format: 'wav' });
+	await service.handleExportAction('cancel');
+	await service.handleExportAction('start', { format: 'wav' });
+	assert.equal(preparations, 1);
+	preparation.resolve();
+	assert.equal(await cancelled, undefined);
+	await service.handleExportAction('start', { format: 'wav' });
+	assert.equal(preparations, 2);
 });

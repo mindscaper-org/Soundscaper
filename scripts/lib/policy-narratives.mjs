@@ -63,6 +63,9 @@ export const POLICY_NARRATIVE_BINDINGS = Object.freeze([
 		['audiocom-proxy-boundary', 'bounded-audiocom-oauth-media-proxy'],
 		['macro-program-untrusted-code-runtime', 'macro-program-sandbox-and-dispatch-table'],
 		['macro-program-untrusted-code-runtime', 'macro-program-byte-bound-consent'],
+		['reviewed-web-effect-packages', 'release-pinned-reviewed-effect-catalog'],
+		['reviewed-web-effect-packages', 'closed-reviewed-effect-wasm-abi'],
+		['reviewed-web-effect-packages', 'terminating-reviewed-effect-offline-worker'],
 	].map(([riskId, controlId]) => Object.freeze({
 		marker: controlId,
 		register: 'config/production-security-matrix.json',

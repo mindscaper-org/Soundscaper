@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import test from 'node:test';
 import ts from 'typescript';
 
@@ -14,17 +16,13 @@ import {
 	soundscaperAssistanceRegistrationSource,
 	soundscaperConstantsSource,
 	soundscaperDesktopCodecSource,
-	soundscaperDesktopSmokeSource,
-	soundscaperMainSource,
-	soundscaperNativeTierSource,
-	soundscaperPreloadSource,
-	soundscaperProductIsolationModuleSource,
-	soundscaperProjectRuntimeSource,
 	soundscaperProtocolSource,
 } from '../scripts/lib/desktop-product-package-files.mjs';
 import {
 	desktopProductRuntimeTransform,
+	stageSoundscaperDesktopEntrySources,
 } from '../scripts/lib/desktop-product-runtime-staging.mjs';
+import { stageTracktionDesktopApplication } from '../scripts/lib/tracktion-desktop-staging.mjs';
 import {
 	soundscaperAssistanceOnnxRuntimeWorkerSource,
 	soundscaperAssistanceRuntimeFamilyHelperSource,
@@ -106,6 +104,24 @@ test('normal product staging excludes the retired native realtime helper', () =>
 			product, 'native-helper-realtime-job.js',
 		), false);
 	}
+});
+
+test('Soundscaper stages Tracktion without the old desktop project and audio hosts', async (context) => {
+	const staged = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-host-'));
+	context.after(() => rm(staged, { recursive: true, force: true }));
+	await stageSoundscaperDesktopEntrySources(resolve('desktop'), staged);
+	for (const name of [
+		'desktop-smoke.js', 'file-capabilities.js', 'main-file-capability-ipc.mjs',
+		'native-tier-registration.mjs', 'project-library-product-runtime.js',
+		'renderer-ownership-cleanup.js', 'renderer-save-owner.js', 'soundscaper-delivery-registration.mjs',
+		'soundscaper-project-library-sandbox-preload.cjs',
+	]) {
+		assert.equal(desktopProductSourceIncluded('soundscaper', name), false, name);
+		assert.equal(desktopProductSourceIncluded('framescaper', name), true, name);
+		await assert.rejects(readFile(join(staged, name)), { code: 'ENOENT' }, name);
+	}
+	assert.match(await readFile(join(staged, 'main.mjs'), 'utf8'), /soundscaper_tracktion_peer/u);
+	await assert.rejects(readFile(join(staged, 'soundscaper-product-isolation.mjs')), { code: 'ENOENT' });
 });
 
 test('Soundscaper config closure excludes both Framescaper native payload authorities', () => {
@@ -324,49 +340,37 @@ test('Stable Soundscaper excludes the legacy development native-addon fixture', 
 	assert.equal(desktopLegacyNativeAddonIncluded('framescaper', stable), true);
 });
 
-test('Soundscaper staged entry sources have no callable Framescaper product surface', async () => {
-	const [codec, constants, main, nativeTier, preload, projectRuntime, protocol] = await Promise.all([
+test('Soundscaper staged entry sources have no callable Framescaper product surface', async (context) => {
+	const staged = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-entry-'));
+	context.after(() => rm(staged, { recursive: true, force: true }));
+	await stageTracktionDesktopApplication(resolve('desktop'), staged);
+	const [codec, constants, stagedMain, preload, protocol] = await Promise.all([
 		readFile('desktop/desktop-codec-main-integration.mjs', 'utf8'),
 		readFile('desktop/constants.js', 'utf8'),
-		readFile('desktop/main.mjs', 'utf8'),
-		readFile('desktop/native-tier-registration.mjs', 'utf8'),
-		readFile('desktop/preload.mjs', 'utf8'),
-		readFile('desktop/project-library-product-runtime.js', 'utf8'),
+		readFile(join(staged, 'main.mjs'), 'utf8'),
+		readFile('desktop/tracktion-preload.cjs', 'utf8'),
 		readFile('desktop/protocol.js', 'utf8'),
 	]);
 	const stagedCodec = soundscaperDesktopCodecSource(codec);
 	const stagedConstants = soundscaperConstantsSource(constants);
-	const stagedMain = soundscaperMainSource(main);
-	assert.match(stagedMain, /registerDesktopMcpMain/u);
-	assert.match(stagedMain, /cleanup: async \(\) => \{ retireRendererCloseRequest\(webContents\); await desktopMcp\?\.revoke\(\); await rendererOwnershipCleanup\.drain\(webContents\); \}/u);
-	assert.match(stagedMain, /if \(revokedOwner\) \{ void desktopMcp\?\.revoke\(\); rendererOwnershipCleanup\.start\(revokedOwner\); \}/u);
-	assert.match(stagedMain, /function revokeRendererSaveOwner\(webContents\) \{\n\tretireRendererCloseRequest\(webContents\);\n\tvoid desktopMcp\?\.revoke\(\);\n\trendererOwnershipCleanup\.revoke\(webContents\);/u);
-	assert.doesNotMatch(main, /registerDesktopMcpMain|desktopMcp/u);
-	const stagedNativeTier = soundscaperNativeTierSource(nativeTier);
-	const stagedPreload = soundscaperPreloadSource(preload);
-	const stagedProjectRuntime = soundscaperProjectRuntimeSource(projectRuntime);
+	assert.match(stagedMain, /soundscaper-tracktion-app/u);
+	assert.match(stagedMain, /soundscaper_tracktion_peer/u);
+	assert.doesNotMatch(stagedMain, /registerDesktopNativeTier|registerProjectSavingIpc/u);
+	assert.equal(desktopProductSourceIncluded('soundscaper', 'main.mjs'), false);
+	assert.equal(desktopProductSourceIncluded('framescaper', 'main.mjs'), true);
 	const stagedProtocol = soundscaperProtocolSource(protocol);
 	assert.doesNotMatch(stagedMain, /from '\.\/framescaper-|createFramescaper|startFramescaper/u);
-	assert.match(stagedMain, /desktopCapturer/u);
-	assert.doesNotMatch(stagedPreload,
-		/framescaperDesktop|framescaper:v1:|FRAMESCAPER_WEB_VCR_|chooseLinkedVideo|DesktopVideo/u);
-	assert.doesNotMatch(stagedProjectRuntime,
-		/project-library-runtime\/desktop\/framescaper-|FramescaperDesktopProjectLibrary/u);
 	assert.doesNotMatch(stagedConstants,
 		/framescaper:v1:|FRAMESCAPER_WEB_VCR_|chooseLinkedVideo|desktopVideoCodec/u);
 	assert.doesNotMatch(stagedCodec, /registerDesktopVideoCodecs|registerVideoCodecs/u);
-	assert.doesNotMatch(stagedNativeTier, /registerDesktopHelperProbe/u);
 	assert.doesNotMatch(stagedProtocol, /FRAMESCAPER_CAPTURE_POLICY|productId === 'framescaper'/u);
 	assert.match(stagedProtocol, /display-capture=\(self\)/u);
-	assert.match(soundscaperProductIsolationModuleSource(),
-		/project-library-runtime\/desktop\/soundscaper-capture-session-security\.js/u);
-	assert.doesNotMatch(soundscaperProductIsolationModuleSource(), /framescaper/iu);
 	assert.doesNotThrow(() => assertDesktopProductPackageIsolation(
 		'soundscaper',
-		['desktop/main.mjs', 'desktop/preload.mjs'],
+		['desktop/main.mjs', 'desktop/tracktion-preload.cjs'],
 		new Map([
 			['desktop/main.mjs', stagedMain],
-			['desktop/preload.mjs', stagedPreload],
+			['desktop/tracktion-preload.cjs', preload],
 		]),
 	));
 });
@@ -374,14 +378,9 @@ test('Soundscaper staged entry sources have no callable Framescaper product surf
 test('Soundscaper staged entry transforms accept Windows CRLF checkouts', async () => {
 	const entries = [
 		['desktop/assistance-registration.mjs', soundscaperAssistanceRegistrationSource],
-		['desktop/main.mjs', soundscaperMainSource],
-		['desktop/native-tier-registration.mjs', soundscaperNativeTierSource],
 		['desktop/constants.js', soundscaperConstantsSource],
 		['desktop/desktop-codec-main-integration.mjs', soundscaperDesktopCodecSource],
-		['desktop/project-library-product-runtime.js', soundscaperProjectRuntimeSource],
 		['desktop/protocol.js', soundscaperProtocolSource],
-		['desktop/desktop-smoke.js', soundscaperDesktopSmokeSource],
-		['desktop/preload.mjs', soundscaperPreloadSource],
 	];
 	for (const [path, transform] of entries) {
 		const source = (await readFile(path, 'utf8')).replaceAll('\r\n', '\n').replaceAll('\n', '\r\n');
@@ -390,20 +389,15 @@ test('Soundscaper staged entry transforms accept Windows CRLF checkouts', async 
 });
 
 test('Soundscaper omits the Framescaper keyed-video preload and encoder service from its application roots', async () => {
-	const preload = await readFile('desktop/preload.mjs', 'utf8');
+	const preload = await readFile('desktop/tracktion-preload.cjs', 'utf8');
 	const registration = await readFile('desktop/assistance-registration.mjs', 'utf8');
-	assert.ok(preload.includes('createAssistanceKeyedVideoPreloadBridge'));
 	assert.ok(registration.includes('createAssistanceKeyedVideoService'));
-	const stagedPreload = soundscaperPreloadSource(preload);
 	const stagedRegistration = soundscaperAssistanceRegistrationSource(registration);
-	assert.equal(stagedPreload.includes('assistance-keyed-video-preload.js'), false);
-	assert.equal(stagedPreload.includes('createAssistanceKeyedVideoPreloadBridge'), false);
-	assert.equal(stagedPreload.includes('videoKeying:'), false);
+	assert.doesNotMatch(preload, /createAssistanceKeyedVideoPreloadBridge|videoKeying/u);
 	assert.equal(stagedRegistration.includes('assistance-keyed-video-service.js'), false);
 	assert.equal(stagedRegistration.includes('createAssistanceKeyedVideoService'), false);
 	assert.equal(stagedRegistration.includes('createKeyedVideo:'), false);
 	assert.equal(stagedRegistration.includes('createAssistanceNativeKeyedVideoEncoder'), false);
-	assert.ok(stagedPreload.includes('localAssistance: Object.freeze({ models:'));
 	assert.ok(stagedRegistration.includes('registerAssistanceOperationIpc'));
 });
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -13,9 +14,6 @@ import {
 import {
 	createFramescaperCaptureActiveTimeClock,
 } from '../src/common/editor/controller/capture/internal/framescaper-capture-active-time-clock.ts';
-import {
-	createIdempotentCaptureLease,
-} from '../src/common/editor/controller/capture/internal/framescaper-capture-lease.ts';
 
 const AVAILABLE = createCaptureRuntimeAvailability({
 	status: 'available',
@@ -207,40 +205,9 @@ test('active-time clock removes pause spans without allowing time to move backwa
 	assert.throws(() => clock.resume(500), /already stopped/u);
 });
 
-test('capture lease cleanup is exactly once across concurrent and repeated disposal', async () => {
-	let calls = 0;
-	let resolveDisposal = (): void => {
-		assert.fail('Capture lease disposal resolver was not installed.');
-	};
-	const lease = createIdempotentCaptureLease(() => {
-		calls += 1;
-		return new Promise<void>((resolve) => {
-			resolveDisposal = resolve;
-		});
-	});
-	const first = lease.dispose();
-	const second = lease.dispose();
-	assert.equal(first, second);
-	assert.equal(lease.disposalStarted, true);
-	assert.equal(lease.disposed, false);
-	assert.equal(calls, 1);
-	resolveDisposal();
-	await first;
-	assert.equal(lease.disposed, true);
-	assert.equal(lease.dispose(), first);
-	assert.equal(calls, 1);
-
-	const disposalFailure = new Error('release failed');
-	let failedCalls = 0;
-	const failedLease = createIdempotentCaptureLease(() => {
-		failedCalls += 1;
-		throw disposalFailure;
-	});
-	const failed = failedLease.dispose();
-	await assert.rejects(failed, disposalFailure);
-	assert.equal(failedLease.dispose(), failed);
-	assert.equal(failedLease.disposed, false);
-	assert.equal(failedCalls, 1);
+test('the unused capture lease helper is absent from the source tree', async () => {
+	const lease = new URL('../src/common/editor/controller/capture/internal/framescaper-capture-lease.ts', import.meta.url);
+	await assert.rejects(access(lease), { code: 'ENOENT' });
 });
 
 function previewingMachine(

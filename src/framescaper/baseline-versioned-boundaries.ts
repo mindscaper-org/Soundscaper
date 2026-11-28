@@ -28,10 +28,6 @@ export const FRAMESCAPER_BASELINE_ENTRY_MODULES = Object.freeze([
  * denotes an independently serialized clipboard, delivery, or native carrier.
  */
 export const FRAMESCAPER_BASELINE_VERSIONED_BOUNDARIES = Object.freeze([
-	boundary('./delivery-native-report-closure-v1.ts', 'contract',
-		'Native delivery report closure uses persisted protocol version 1.'),
-	boundary('./delivery-native-report-v1.ts', 'contract',
-		'Native delivery report document uses persisted protocol version 1.'),
 	boundary('./delivery-native-report-validation-v1.ts', 'contract',
 		'Native delivery report validator is bound to persisted protocol version 1.'),
 	boundary('./editor-session-clipboard-v8.ts', 'contract',

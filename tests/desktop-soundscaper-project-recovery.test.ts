@@ -11,10 +11,7 @@ import { initializeSoundscaperDesktopProjectLibraryDatabase } from '../desktop/s
 import { readSoundscaperDesktopProjectRecoveryCandidates, listSoundscaperDesktopProjectRecoverySummaries } from '../desktop/soundscaper-project-recovery-reader.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { SoundscaperDesktopProjectLibraryMain } from '../desktop/soundscaper-project-library-main.ts';
-import { registerSoundscaperDesktopProjectLibraryMainIpc } from '../desktop/soundscaper-project-library-main-ipc.ts';
 import { createSoundscaperDesktopProjectLibraryHandshake } from '../desktop/soundscaper-project-library-contract.ts';
-import { SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS } from '../desktop/soundscaper-project-library-main-channels.ts';
-import { SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS } from '../src/soundscaper/desktop-project-recovery-bridge.ts';
 
 test('desktop recovery reads retained SQLite snapshots independently of missing or corrupt project files', (context) => {
 	const database = new DatabaseSync(':memory:');
@@ -99,27 +96,18 @@ test('desktop recovery lists only the latest document of each project and inspec
 	]);
 });
 
-test('read-only desktop recovery requires the admitted renderer owner and closes with its IPC registration', async (context) => {
-	const appDataPath = await mkdtemp(join(tmpdir(), 'soundscaper-recovery-ipc-'));
+test('the retained desktop reader closes with its owning library', async (context) => {
+	const appDataPath = await mkdtemp(join(tmpdir(), 'soundscaper-recovery-library-'));
+	context.after(() => rm(appDataPath, { recursive: true, force: true }));
 	const handshake = createSoundscaperDesktopProjectLibraryHandshake();
 	const main = await SoundscaperDesktopProjectLibraryMain.start({
-		appDataPath, handshake, owner: { product: 'soundscaper', processId: 919, instanceId: 'recovery-ipc' },
+		appDataPath, handshake, owner: { product: 'soundscaper', processId: 919, instanceId: 'recovery-library' },
 		onLeaseLost: () => undefined, testControl: null,
 	});
-	const handlers = new Map<string, (event: unknown, request?: unknown) => unknown>();
-	const owner = {};
-	const registration = registerSoundscaperDesktopProjectLibraryMainIpc({
-		main, ownerFor: () => owner,
-		handle: (channel: string, handler: (event: unknown, request?: unknown) => unknown) => { handlers.set(channel, handler); },
-		removeHandler: (channel: string) => { handlers.delete(channel); },
-	});
-	context.after(async () => { await registration.dispose(); await main.close(); await rm(appDataPath, { recursive: true, force: true }); });
-	assert.throws(() => handlers.get(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.list)!({}), /handshake/iu);
-	assert.throws(() => handlers.get(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.read)!({}, 'absent'), /handshake/iu);
-	await handlers.get(SOUNDSCAPER_DESKTOP_PROJECT_LIBRARY_MAIN_CHANNELS.handshake)!({}, handshake);
-	assert.deepEqual(await handlers.get(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.list)!({}), []);
-	assert.deepEqual(await handlers.get(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.read)!({}, 'absent'), []);
-	await registration.dispose();
-	assert.equal(handlers.has(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.read), false);
-	assert.equal(handlers.has(SOUNDSCAPER_PROJECT_RECOVERY_CHANNELS.list), false);
+	try {
+		assert.deepEqual(main.listProjectRecoverySummaries(), []);
+		assert.deepEqual(main.readProjectRecoveryCandidates('absent'), []);
+	} finally { await main.close(); }
+	assert.throws(() => main.listProjectRecoverySummaries(), /closed/iu);
+	assert.throws(() => main.readProjectRecoveryCandidates('absent'), /closed/iu);
 });

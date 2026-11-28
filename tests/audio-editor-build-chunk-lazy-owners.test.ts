@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -143,8 +143,6 @@ test('the export and delivery split keeps its implementation behind the export o
 	for (const path of [
 		'src/common/editor/controller/export/internal/bw64-render-project.ts',
 		'src/common/editor/controller/export/internal/mastering-sequence-export-render.ts',
-		'src/common/editor/controller/export/internal/delivery/persistent-audio-delivery-execution.ts',
-		'src/common/editor/controller/export/internal/delivery/persistent-export-progress.ts',
 		'src/common/editor/controller/export/internal/archive/streaming-stem-archive-export.ts',
 		'src/common/editor/controller/export/video-export-original-loader.ts',
 		'src/common/editor/controller/export/internal/video/video-export-staged-audio.ts',
@@ -222,7 +220,6 @@ test('Vamp analyzer UI, session, domain, and execution share one isolated lazy o
 		'src/common/editor/vamp-analysis.ts',
 		'src/common/editor/vamp-analysis-labels.ts',
 		'src/common/editor/controller/analysis/vamp-analysis-action-facade.ts',
-		'src/common/editor/controller/analysis/internal/deferred-vamp-analysis-action.ts',
 		'src/common/editor/controller/analysis/internal/vamp-analysis-action.ts',
 		'src/common/editor/ui/dialogs/VampAnalyzerDialog.tsx',
 		'src/common/editor/ui/workspace/SoundscaperVampAnalyzerSurface.tsx',
@@ -359,6 +356,10 @@ test('optional export execution has an isolated lazy owner', () => {
 });
 
 test('stateful local assistance implementations share one dedicated lazy owner', () => {
+	for (const name of ['shot-detection.ts', 'scene-scores.ts', 'transcript-labels.ts']) {
+		const retiredModule = new URL(`../src/common/editor/assistance/${name}`, import.meta.url);
+		assert.equal(existsSync(retiredModule), false, `${name} is absent from the source tree`);
+	}
 	for (const path of [
 		'src/common/editor/controller/assistance/internal/local-assistance-runtime.ts',
 		'src/common/editor/controller/assistance/internal/audio/local-assistance-audio-preparation.ts',
@@ -398,9 +399,7 @@ test('stateful local assistance implementations share one dedicated lazy owner',
 		'src/common/editor/assistance/proposal-session.ts',
 		'src/common/editor/assistance/reaction-proposals.ts',
 		'src/common/editor/assistance/reframe-planner-v1.ts',
-		'src/common/editor/assistance/scene-scores.ts',
 		'src/common/editor/assistance/semantic-search-index-v1.ts',
-		'src/common/editor/assistance/shot-detection.ts',
 		'src/common/editor/assistance/shot-detection-mode.ts',
 		'src/common/editor/assistance/speaker-attribution.ts',
 		'src/common/editor/assistance/subject-tracker-v1.ts',
@@ -410,7 +409,6 @@ test('stateful local assistance implementations share one dedicated lazy owner',
 		'src/common/editor/assistance/transcript-cleanup-presets.ts',
 		'src/common/editor/assistance/transcript-indexing-v1.ts',
 		'src/common/editor/assistance/transcript-ingest.ts',
-		'src/common/editor/assistance/transcript-labels.ts',
 		'src/common/editor/assistance/vad-silence.ts',
 		'src/common/editor/assistance/wav2vec2-english-tokenizer-v1.ts',
 		'src/common/editor/assistance/visual-indexing-v1.ts',

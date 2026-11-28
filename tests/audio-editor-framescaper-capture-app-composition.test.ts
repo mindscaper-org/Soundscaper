@@ -235,7 +235,10 @@ test('composition disposal releases a desktop grant exactly once', async () => {
 	harness.value.actions.selectDisplaySource('a'.repeat(32));
 	await harness.value.actions.requestPreview(['display']);
 
-	await harness.value.dispose();
+	const disposal = harness.value.dispose();
+	assert.equal(harness.value.dispose(), disposal);
+	await disposal;
+	assert.equal(harness.value.dispose(), disposal);
 	assert.equal(harness.desktopEvents.filter((event) => event === 'teardown:1').length, 1);
 	await assert.rejects(harness.value.actions.requestPreview(['display']), /disposed/iu);
 });

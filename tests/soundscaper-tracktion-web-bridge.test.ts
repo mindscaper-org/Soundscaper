@@ -1,0 +1,543 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import assert from 'node:assert/strict';
+import { test, type TestContext } from 'node:test';
+
+import { wavFixture } from '../native/soundscaper-tracktion/tests/wave_fixture.ts';
+import type { TracktionProjectPage, TracktionTransportObservation } from '../src/soundscaper/tracktion-project-contract.ts';
+import { createTracktionWebBridge } from '../src/soundscaper/tracktion-web-bridge.ts';
+import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
+import { deferred } from './helpers/async-test-control.ts';
+import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { browserFixture, installGlobals } from './helpers/tracktion-web-dialog-fixture.ts';
+
+type Request = Readonly<{ id: number; request: Readonly<{ kind: string; project?: string; name?: string }> }>;
+
+const project = {
+	revision: 3, sampleRate: 48_000, canUndo: false, canRedo: false, nextOffset: null,
+	tracks: [{ id: '3', name: 'Audio track', clipCount: 2 }],
+} satisfies TracktionProjectPage;
+const savedId = '4'.repeat(32);
+
+class ProjectWorker extends EventTarget {
+	readonly requests: string[] = [];
+	readonly importedNames: string[] = [];
+	readonly refusals = new Map<string, string>();
+	terminated = false;
+	releaseOnClose = false;
+	openingTransport: TracktionTransportObservation | undefined;
+
+	postMessage({ id, request }: Request): void {
+		assert.equal(this.terminated, false);
+		this.requests.push(request.kind);
+		const refusal = this.refusals.get(request.kind);
+		if (refusal) {
+			queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, error: 'request', detail: refusal } })));
+			return;
+		}
+		if (request.kind === 'save') return;
+		if (request.kind === 'open') assert.equal(request.project, savedId);
+		if (request.kind === 'importFile') {
+			assert.ok(request.name !== undefined);
+			this.importedNames.push(request.name);
+		}
+		const releaseEngine = request.kind === 'close' && this.releaseOnClose;
+		const recording = request.kind === 'startRecording';
+		const playing = request.kind === 'play' || request.kind === 'seek' || recording;
+		const transport = playing || request.kind === 'prepareOutput' || request.kind === 'stop';
+		const value = transport ? { ready: true, playing, recording, frame: 0 }
+			: request.kind === 'finishRecording' ? { revision: project.revision, itemId: null } : project;
+		const warmed = request.kind === 'create' ? this.openingTransport : undefined;
+		queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', { data: { id, value, releaseEngine, transport: warmed } })));
+	}
+
+	terminate(): void { this.terminated = true; }
+}
+
+test('the browser bridge returns the transport already read by the project worker', async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	worker.openingTransport = { playing: false, recording: false, frame: 0 };
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.deepEqual(opened?.transport, worker.openingTransport);
+	assert.deepEqual(worker.requests, ['create']);
+});
+
+for (const suspensionFails of [false, true]) test(`Stop retains its transport reply and Play reuses audio when suspension fails ${suspensionFails}`, async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const suspendRequested = deferred<void>();
+	const finishSuspend = deferred<void>();
+	let loaded = 0;
+	let disconnected = 0;
+	let connected = 0;
+	const contexts: PlaybackContext[] = [];
+	class PlaybackContext {
+		readonly sampleRate = 48_000;
+		readonly destination = {};
+		readonly audioWorklet = { addModule: () => { loaded += 1; return Promise.resolve(); } };
+		state: AudioContextState = 'suspended';
+		constructor() { contexts.push(this); }
+		resume(): Promise<void> { this.state = 'running'; return Promise.resolve(); }
+		async suspend(): Promise<void> {
+			suspendRequested.resolve();
+			await finishSuspend.promise;
+			this.state = 'suspended';
+		}
+	}
+	class PlaybackNode {
+		readonly port = { close() {} };
+		connect(): void { connected += 1; }
+		disconnect(): void { disconnected += 1; }
+	}
+	installGlobals(context, { AudioContext: PlaybackContext, AudioWorkletNode: PlaybackNode });
+	const { sessionId } = opened;
+	await bridge.request({ kind: 'prepareOutput', sessionId });
+	await bridge.request({ kind: 'play', sessionId, frame: 0 });
+	assert.equal(contexts[0]?.state, 'running');
+	const stopped = bridge.request({ kind: 'stop', sessionId });
+	await Promise.race([suspendRequested.promise, stopped.then(() => assert.fail('Stop completed before suspending audio'))]);
+	assert.equal(disconnected, 1);
+	if (suspensionFails) finishSuspend.reject(new Error('The browser could not suspend its audio context'));
+	else finishSuspend.resolve();
+	assert.equal((await stopped).playing, false);
+	assert.equal(contexts[0]?.state, suspensionFails ? 'running' : 'suspended');
+	await bridge.request({ kind: 'prepareOutput', sessionId });
+	await bridge.request({ kind: 'play', sessionId, frame: 0 });
+	assert.equal(contexts[0]?.state, 'running');
+	assert.equal(contexts.length, 1);
+	assert.equal(loaded, 1);
+	assert.equal(connected, 2);
+});
+
+test('a refused Play suspends idle browser audio and leaves active playback and capture alone', async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const contexts: PlaybackContext[] = [];
+	let suspended = 0;
+	let disconnected = 0;
+	let stoppedTracks = 0;
+	const microphone = Object.assign(new EventTarget(), { readyState: 'live', stop() { stoppedTracks += 1; } });
+	class PlaybackContext {
+		readonly sampleRate = 48_000;
+		readonly destination = {};
+		readonly audioWorklet = { addModule: () => Promise.resolve() };
+		state: AudioContextState = 'suspended';
+		constructor() { contexts.push(this); }
+		resume(): Promise<void> { this.state = 'running'; return Promise.resolve(); }
+		suspend(): Promise<void> {
+			suspended += 1;
+			this.state = 'suspended';
+			return Promise.resolve();
+		}
+		createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+	}
+	class PlaybackNode extends EventTarget {
+		readonly port = { close() {} };
+		connect(): void {}
+		disconnect(): void { disconnected += 1; }
+	}
+	installGlobals(context, {
+		AudioContext: PlaybackContext, AudioWorkletNode: PlaybackNode,
+		navigator: { mediaDevices: { getUserMedia: () => Promise.resolve({ getTracks: () => [microphone], getAudioTracks: () => [microphone] }) } },
+	});
+	const { sessionId } = opened;
+	const play = { kind: 'play', sessionId, frame: 0 } as const;
+	const prepare = { kind: 'prepareOutput', sessionId } as const;
+	const reason = 'This Tracktion Edit has an effect that requires offline rendering';
+	await bridge.request(prepare);
+	const [audioContext] = contexts;
+	assert.ok(audioContext);
+	assert.equal(audioContext.state, 'running');
+	worker.refusals.set('play', reason);
+	await assert.rejects(bridge.request(play), { message: reason });
+	assert.equal(audioContext.state, 'suspended');
+	assert.equal(suspended, 1);
+	assert.deepEqual(worker.requests, ['create', 'prepareOutput', 'play']);
+
+	worker.refusals.delete('play');
+	await bridge.request(prepare);
+	assert.equal((await bridge.request(play)).playing, true);
+	assert.equal(contexts.length, 1);
+	worker.refusals.set('seek', 'Cannot seek while the edit is changing');
+	await assert.rejects(bridge.request({ kind: 'seek', sessionId, frame: 512 }), { message: 'Cannot seek while the edit is changing' });
+	assert.equal(audioContext.state, 'running');
+	assert.equal(suspended, 1);
+	assert.equal(disconnected, 0);
+
+	await bridge.request({ kind: 'stop', sessionId });
+	await bridge.request({ kind: 'startRecording', sessionId, revision: project.revision, trackId: '3', frame: 0 });
+	worker.refusals.set('play', 'Finish or discard the Tracktion recording first');
+	await assert.rejects(bridge.request(play), { message: 'Finish or discard the Tracktion recording first' });
+	assert.equal(audioContext.state, 'running');
+	assert.equal(suspended, 2);
+	assert.equal(disconnected, 1);
+	assert.equal(stoppedTracks, 0);
+	await bridge.request({ kind: 'finishRecording', sessionId, revision: project.revision, discard: true });
+	assert.equal(stoppedTracks, 1);
+});
+
+test('WAV imports preserve nonempty native names within the UTF-8 byte limit', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	let file: File;
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const unicodePrefix = '界'.repeat(170);
+	const existingName = `${'a'.repeat(200)}🔊`;
+	for (const name of ['.wav', `${unicodePrefix}🔊 and take.wav`, `${existingName}.WAV`]) {
+		file = new File([Uint8Array.of(1, 2, 3)], name, { type: 'audio/wav' });
+		await bridge.request({ kind: 'import', sessionId: opened.sessionId, revision: project.revision, trackId: '3', start: 0 });
+	}
+	assert.deepEqual(worker.importedNames, ['.wav', unicodePrefix, existingName]);
+});
+
+test('opening an archive does not split a Unicode character at the project name limit', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	assert.ok(bridge.openArchive);
+	const names: string[] = [];
+	const post = worker.postMessage.bind(worker);
+	context.mock.method(worker, 'postMessage', (message: Request) => {
+		if (message.request.kind === 'openArchive') {
+			assert.ok(message.request.name);
+			names.push(message.request.name);
+		}
+		post(message);
+	});
+	let file: File;
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const fits = `${'a'.repeat(126)}🥁`;
+	const beforePair = 'b'.repeat(127);
+	const cases = [[fits, fits], [`${beforePair}🥁`, beforePair], ['', 'Untitled project']];
+	for (const [stem, expected] of cases) {
+		file = new File([Uint8Array.of(1, 2, 3)], `${stem}.zip`, { type: 'application/zip' });
+		assert.equal((await bridge.openArchive())?.name, expected);
+	}
+	assert.deepEqual(names, cases.map(([, expected]) => expected));
+});
+
+test('RF64 imports preserve original bytes and refuse a missing payload before transfer', async (context) => {
+	const { window } = browserFixture(context);
+	const worker = new ProjectWorker();
+	const uploaded: ArrayBuffer[] = [];
+	const post = worker.postMessage.bind(worker);
+	context.mock.method(worker, 'postMessage', (message: Request & { readonly input?: ArrayBuffer }) => {
+		if (message.request.kind === 'importFile') {
+			assert.ok(message.input);
+			uploaded.push(message.input);
+		}
+		post(message);
+	});
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	const wave = wavFixture();
+	const pcm = wave.subarray(44);
+	function rf64(chunkLength: number, dataSize: bigint, finiteRiffSize = false): File {
+		const bytes = Buffer.alloc(wave.length + 36);
+		const riffSize = bytes.length - 8;
+		bytes.write('RF64', 0);
+		bytes.writeUInt32LE(finiteRiffSize ? riffSize : 0xffff_ffff, 4);
+		bytes.write('WAVEds64', 8);
+		bytes.writeUInt32LE(28, 16);
+		bytes.writeBigUInt64LE(BigInt(finiteRiffSize ? riffSize + 4 : riffSize), 20);
+		bytes.writeBigUInt64LE(dataSize, 28);
+		wave.copy(bytes, 48, 12);
+		bytes.writeUInt32LE(chunkLength, 76);
+		return new File([bytes], 'recording.wav', { type: 'audio/wav' });
+	}
+	let file = rf64(0xffff_ffff, BigInt(pcm.length + 4));
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		Object.defineProperty(this, 'files', { value: [file] });
+		this.dispatchEvent(new window.Event('change'));
+	});
+	const command = { kind: 'import', sessionId: opened.sessionId, revision: project.revision, trackId: '3', start: 0 } as const;
+	await assert.rejects(bridge.request(command), /RF64 WAV audio data is truncated/u);
+	assert.deepEqual(uploaded, []);
+
+	const sources = [rf64(pcm.length, BigInt(pcm.length + 4), true), rf64(0xffff_ffff, BigInt(pcm.length))];
+	for (const source of sources) {
+		file = source;
+		await bridge.request(command);
+	}
+	assert.deepEqual(uploaded, await Promise.all(sources.map((source) => source.arrayBuffer())));
+});
+
+for (const releaseEngine of [true, false]) test(`closing a Tracktion project follows its worker retirement decision ${releaseEngine}`, async (context) => {
+	browserFixture(context);
+	const workers: ProjectWorker[] = [];
+	const bridge = createTracktionWebBridge(() => {
+		const worker = new ProjectWorker();
+		worker.releaseOnClose = releaseEngine;
+		workers.push(worker);
+		return worker as unknown as Worker;
+	});
+	bridge.onProjectLost?.(() => assert.fail('Explicit Close must not report an unexpected project loss'));
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened);
+	assert.equal(await bridge.request({ kind: 'close', sessionId: opened.sessionId }), null);
+	assert.equal(workers[0]?.terminated, releaseEngine);
+	await assert.rejects(bridge.request({ kind: 'project', sessionId: opened.sessionId, offset: 0 }), /expired/u);
+	const next = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(next);
+	assert.equal(workers.length, releaseEngine ? 2 : 1);
+	assert.deepEqual(await bridge.request({ kind: 'project', sessionId: next.sessionId, offset: 0 }), project);
+});
+
+for (const choice of ['cancel', 'blank', 'named', 'overlong'] as const) test(`an embedded New project uses a local name dialog (${choice})`, async (context) => {
+	const { chooser, window } = browserFixture(context, true);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'create', sampleRate: 48_000 });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The embedded name dialog never opened'))]);
+	assert.equal(dialog.getAttribute('aria-label'), 'New project');
+	const name = dialog.querySelector('input');
+	assert.ok(name?.autofocus);
+	assert.equal(name.closest('label')?.textContent, 'Project name');
+	assert.deepEqual(worker.requests, []);
+	const maximumName = `${'a'.repeat(126)}🎧`;
+	name.value = choice === 'blank' ? '   ' : choice === 'overlong' ? `${maximumName}x` : '  Embedded project  ';
+	const buttonText = choice === 'cancel' ? 'Cancel' : 'New project';
+	const submit = [...dialog.querySelectorAll('button')].find((button) => button.textContent === buttonText);
+	assert.ok(submit);
+	if (choice === 'overlong') {
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(name.value, `${maximumName}x`);
+		assert.equal(name.getAttribute('aria-invalid'), 'true');
+		assert.equal(submit.disabled, true);
+		submit.click();
+		assert.deepEqual(worker.requests, []);
+		name.value = maximumName;
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(submit.disabled, false);
+	}
+	if (choice === 'named' || choice === 'overlong') name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
+	else submit.click();
+	const opened = await opening;
+	assert.equal(opened?.name, choice === 'named' ? 'Embedded project' : choice === 'overlong' ? maximumName : undefined);
+	assert.deepEqual(worker.requests, choice === 'named' || choice === 'overlong' ? ['create'] : []);
+	assert.equal(dialog.isConnected, false);
+});
+
+for (const choice of ['cancel', 'edit'] as const) test(`an overlong native title remains an editable draft (${choice})`, async (context) => {
+	const maximumName = `${'b'.repeat(126)}🎧`;
+	const value = ` ${maximumName}x `;
+	const { chooser, window } = browserFixture(context, false, () => value);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'create', sampleRate: 48_000 });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The name correction dialog never opened'))]);
+	const name = dialog.querySelector('input');
+	assert.equal(name?.value, value);
+	assert.equal(name.getAttribute('aria-invalid'), 'true');
+	const guidance = window.document.getElementById(name.getAttribute('aria-describedby') ?? '');
+	assert.ok(guidance && !guidance.hidden);
+	assert.match(guidance.textContent ?? '', /128/u);
+	assert.deepEqual(worker.requests, []);
+	const buttons = [...dialog.querySelectorAll('button')];
+	const button = buttons.find((item) => item.textContent === (choice === 'cancel' ? 'Cancel' : 'New project'));
+	assert.ok(button);
+	if (choice === 'edit') {
+		assert.equal(button.disabled, true);
+		name.value = ` ${maximumName} `;
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(button.disabled, false);
+		assert.equal(guidance.hidden, true);
+	}
+	button.click();
+	assert.equal((await opening)?.name, choice === 'edit' ? maximumName : undefined);
+	assert.deepEqual(worker.requests, choice === 'edit' ? ['create'] : []);
+	assert.equal(dialog.isConnected, false);
+});
+
+for (const choice of ['cancel action', 'cancel picker', 'pick archive'] as const) test(`expired archive activation waits for a new gesture (${choice})`, async (context) => {
+	const { chooser, window } = browserFixture(context);
+	const userActivation = { isActive: false };
+	installGlobals(context, { navigator: { userActivation } });
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opened = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(opened && bridge.openArchive);
+	const clicked = deferred<void>();
+	context.mock.method(window.HTMLInputElement.prototype, 'click', function (this: HTMLInputElement): void {
+		clicked.resolve();
+		if (!userActivation.isActive) return;
+		if (choice === 'pick archive') Object.defineProperty(this, 'files', { value: [new File(['archive'], 'Retry.zip')] });
+		this.dispatchEvent(new window.Event(choice === 'pick archive' ? 'change' : 'cancel'));
+	});
+	const opening = bridge.openArchive();
+	const dialog = await Promise.race([chooser, clicked.promise.then(() => assert.fail('A picker without activation was opened'))]);
+	assert.equal(dialog.getAttribute('aria-label'), 'Open project archive (ZIP)');
+	assert.equal(window.document.querySelector('input[type=file]'), null);
+	const button = [...dialog.querySelectorAll('button')].find((item) =>
+		item.textContent === (choice === 'cancel action' ? 'Cancel' : 'Open project archive (ZIP)'));
+	assert.ok(button);
+	userActivation.isActive = true;
+	button.click();
+	userActivation.isActive = false;
+	const selected = await opening;
+	assert.equal(dialog.isConnected, false);
+	assert.equal(window.document.querySelector('input[type=file]'), null);
+	assert.equal(selected?.name, choice === 'pick archive' ? 'Retry' : undefined);
+	assert.deepEqual(worker.requests, choice === 'pick archive' ? ['create', 'openArchive'] : ['create']);
+	if (!selected) assert.deepEqual(await bridge.request({ kind: 'project', sessionId: opened.sessionId, offset: 0 }), project);
+});
+
+async function seedSavedProject(context: TestContext, entries: Readonly<Record<string, unknown>> = {
+	[savedId]: { name: 'Saved project', generation: 2, updated: 321 },
+}): Promise<void> {
+	const storage = createInstrumentedIndexedDB();
+	installGlobals(context, { indexedDB: storage });
+	const db = await openTracktionProjectDatabase();
+	for (const [id, metadata] of Object.entries(entries)) storage.seedRecord(db.name, tracktionProjectStores[1], metadata, id);
+	db.close();
+}
+
+for (const selected of [false, true]) test(`the project chooser starts the Tracktion worker only after a saved project is selected ${selected}`, async (context) => {
+	const { chooser } = browserFixture(context);
+	await seedSavedProject(context);
+	const workers: ProjectWorker[] = [];
+	const bridge = createTracktionWebBridge(() => {
+		const worker = new ProjectWorker();
+		workers.push(worker);
+		return worker as unknown as Worker;
+	});
+	const opening = bridge.request({ kind: 'open' });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The saved project chooser never opened'))]);
+	assert.equal(workers.length, 0);
+	assert.match(dialog.textContent, /Saved project/u);
+	const button = [...dialog.querySelectorAll('button')].find((entry) => entry.textContent === (selected ? 'Saved project' : 'Cancel'));
+	assert.ok(button);
+	button.click();
+	const opened = await opening;
+	if (!selected) {
+		assert.equal(opened, null);
+		assert.equal(workers.length, 0);
+		return;
+	}
+	assert.equal(opened?.name, 'Saved project');
+	assert.deepEqual(opened?.project, project);
+	assert.deepEqual(workers[0]?.requests, ['open']);
+});
+
+test('same-name saved Edits have distinguishable chooser labels and keep their own identity', async (context) => {
+	const { chooser, window } = browserFixture(context);
+	window.document.documentElement.lang = 'en-GB';
+	const date = Date.UTC(2026, 10, 27, 12);
+	const record = (name: string, updated: number) => ({ name, generation: 2, updated });
+	await seedSavedProject(context, {
+		[savedId]: record('Same name', date),
+		['5'.repeat(32)]: record('Same name', date - 24 * 60 * 60 * 1000),
+		['6'.repeat(32)]: record('Same name', date),
+		['7'.repeat(32)]: 2,
+		['8'.repeat(32)]: 3,
+		['9'.repeat(32)]: record('Unique name', date),
+		['a'.repeat(32)]: record('Cancel', date),
+	});
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'open' });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The saved project chooser never opened'))]);
+	const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button')];
+	assert.equal(new Set(buttons.map((button) => button.textContent)).size, buttons.length);
+	const latest = buttons.find((button) => button.value === savedId);
+	const formatted = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'medium' }).format(date);
+	assert.ok(latest);
+	assert.ok(latest.textContent?.includes(formatted));
+	assert.equal(buttons.find((button) => button.value === '9'.repeat(32))?.textContent, 'Unique name');
+	assert.equal(buttons.at(-1)?.textContent, 'Cancel');
+	assert.deepEqual(worker.requests, []);
+
+	dialog.returnValue = latest.value;
+	dialog.dispatchEvent(new window.Event('close'));
+	assert.equal((await opening)?.name, 'Same name');
+	assert.deepEqual(worker.requests, ['open']);
+});
+
+for (const cause of ['error', 'timeout', 'abort'] as const) test(`the browser can reopen a saved Tracktion project after worker ${cause}`, async (context) => {
+	const { window, deadlines, chooser } = browserFixture(context);
+	await seedSavedProject(context);
+	const workers: ProjectWorker[] = [];
+	const bridge = createTracktionWebBridge(() => {
+		const worker = new ProjectWorker();
+		workers.push(worker);
+		return worker as unknown as Worker;
+	});
+	const working = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(working);
+	const [first] = workers;
+	assert.ok(first);
+	const losses: { sessionId: string; message: string }[] = [];
+	bridge.onProjectLost?.((sessionId, message) => { losses.push({ sessionId, message }); });
+	const reason = cause === 'timeout' ? 'The Tracktion browser worker did not respond' : 'Tracktion ran out of memory';
+	const saving = assert.rejects(bridge.request({ kind: 'save', sessionId: working.sessionId, revision: project.revision }), { message: reason });
+	if (cause === 'error') first.dispatchEvent(Object.assign(new Event('error'), { message: reason }));
+	else if (cause === 'abort') first.dispatchEvent(new MessageEvent('message', { data: { fatal: reason } }));
+	else {
+		const [deadline] = deadlines.values();
+		assert.ok(deadline);
+		deadline();
+	}
+	assert.equal(first.terminated, true);
+	await saving;
+	assert.equal(deadlines.size, 0);
+
+	const reopening = bridge.request({ kind: 'open' });
+	const dialog = await Promise.race([chooser, reopening.then(() => assert.fail('The saved project chooser never opened'))]);
+	assert.equal(dialog.open, true);
+	dialog.returnValue = savedId;
+	dialog.dispatchEvent(new window.Event('close'));
+	const reopened = await reopening;
+	assert.ok(reopened);
+	assert.equal(reopened.name, 'Saved project');
+	assert.deepEqual(reopened.project, project);
+	assert.deepEqual(workers[1]?.requests, ['open']);
+	assert.deepEqual(losses, [{ sessionId: working.sessionId, message: reason }]);
+	await assert.rejects(bridge.request({ kind: 'project', sessionId: working.sessionId, offset: 0 }), /expired/u);
+
+	// A queued late event cannot invalidate the replacement project.
+	first.dispatchEvent(Object.assign(new Event('error'), { message: 'The previous worker stopped' }));
+	assert.deepEqual(await bridge.request({ kind: 'project', sessionId: reopened.sessionId, offset: 0 }), project);
+});
+
+test('losing the browser worker closes an AudioContext that is still preparing playback', async (context) => {
+	browserFixture(context);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const working = await bridge.request({ kind: 'create', sampleRate: 48_000 });
+	assert.ok(working);
+	const worklet = deferred<void>();
+	let closed = 0;
+	class PendingAudioContext {
+		readonly sampleRate = 48_000;
+		readonly audioWorklet = { addModule: () => worklet.promise };
+		resume(): Promise<void> { return Promise.resolve(); }
+		close(): Promise<void> {
+			closed += 1;
+			worklet.reject(new Error('The audio context closed'));
+			return Promise.resolve();
+		}
+	}
+	installGlobals(context, { AudioContext: PendingAudioContext });
+	const preparing = assert.rejects(bridge.request({ kind: 'prepareOutput', sessionId: working.sessionId }), /worker stopped/u);
+	worker.dispatchEvent(Object.assign(new Event('error'), { message: 'The browser worker stopped' }));
+	await preparing;
+	assert.equal(closed, 1);
+});

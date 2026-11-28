@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 
-import { createNativeDeviceJobRunner, NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE } from '../desktop/native-helper-process.js';
+import { createNativeDeviceJobRunner, NATIVE_AUDIO_INVENTORY_DEVICE_HANDLE } from '../desktop/native-audio-device-job.js';
 import {
 	MAXIMUM_NATIVE_AUDIO_DEVICES,
 	validateHelperAudioDeviceInventoryResult,

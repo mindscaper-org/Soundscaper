@@ -11,7 +11,7 @@
  */
 
 import { registerDesktopHelperProbe } from './helper-registration.mjs';
-import { registerDesktopNativeAudioHelper } from './native-helper-registration.mjs';
+import { registerDesktopNativeAudioHelper } from './native-audio-helper-registration.mjs';
 import { registerDesktopPluginDiscovery } from './plugin-registration.mjs';
 import { createSoundscaperNativeActivationPolicy } from './soundscaper-native-activation-policy.mjs';
 
@@ -33,7 +33,6 @@ const REQUIRED_SEAMS = Object.freeze({
 	userDataPath: 'string',
 	parentWindow: 'function',
 	productId: 'string',
-	nativePluginStateAuthority: 'function',
 });
 
 export function registerDesktopNativeTier(options) {
@@ -107,6 +106,9 @@ function requireNativeTierSeams(options) {
 		if (options[seam] === null || typeof options[seam] !== kind) {
 			throw new TypeError(`The native tier requires a ${kind} ${seam} seam from main.`);
 		}
+	}
+	if (options.productId === 'soundscaper' && typeof options.nativePluginStateAuthority !== 'function') {
+		throw new TypeError('The Soundscaper native tier requires native plug-in state authority.');
 	}
 	return options;
 }

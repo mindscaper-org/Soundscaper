@@ -19,11 +19,6 @@
       "count": 1
     }
   },
-  "desktop/desktop-audio-external-ffmpeg-contract-adapter.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "desktop/framescaper-capture-desktop-port.ts": {
     "no-control-regex": {
       "count": 1
@@ -101,21 +96,6 @@
   },
   "desktop/project-library-exact-generation-storage.ts": {
     "preserve-caught-error": {
-      "count": 1
-    }
-  },
-  "desktop/soundscaper-delivery-main-ipc.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
-  "desktop/soundscaper-delivery-root.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
-  "desktop/soundscaper-delivery-worker-port.ts": {
-    "no-control-regex": {
       "count": 1
     }
   },
@@ -367,18 +347,8 @@
       "count": 1
     }
   },
-  "src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts": {
-    "no-control-regex": {
-      "count": 1
-    }
-  },
   "src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-private-transport.ts": {
     "no-control-regex": {
-      "count": 1
-    }
-  },
-  "src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-ui-service.ts": {
-    "no-useless-assignment": {
       "count": 1
     }
   },
@@ -738,11 +708,6 @@
       "count": 1
     }
   },
-  "src/common/editor/ui/inspector/AnalysisPanel.jsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "src/common/editor/ui/inspector/AudacityEffectHeader.jsx": {
     "no-restricted-syntax": {
       "count": 5
@@ -1030,21 +995,6 @@
       "count": 1
     }
   },
-  "src/soundscaper/desktop-project-library-freeze-media.ts": {
-    "preserve-caught-error": {
-      "count": 2
-    }
-  },
-  "src/soundscaper/desktop-project-library-renderer-catalog.ts": {
-    "no-useless-catch": {
-      "count": 1
-    }
-  },
-  "src/soundscaper/desktop-project-library-renderer.ts": {
-    "preserve-caught-error": {
-      "count": 1
-    }
-  },
   "src/soundscaper/editor-project-environment.ts": {
     "preserve-caught-error": {
       "count": 1
@@ -1107,11 +1057,6 @@
   },
   "tests/desktop-assistance-staging-registry.test.ts": {
     "require-yield": {
-      "count": 1
-    }
-  },
-  "tests/desktop-soundscaper-delivery-adversarial.test.ts": {
-    "no-useless-assignment": {
       "count": 1
     }
   },

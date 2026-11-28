@@ -17,6 +17,8 @@ import { DESKTOP_YABRIDGE_RUNTIME_FILES } from './desktop-yabridge-runtime-files
 /** Closed compiler output inventory shared by staging and fixture authentication. */
 export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	...DESKTOP_YABRIDGE_RUNTIME_FILES,
+	'desktop/tracktion-offline-effects.js', 'desktop/tracktion-plugin-library.js',
+	'desktop/tracktion-professional-effect-host.js', 'src/soundscaper/tracktion-effect-contract.js',
 	'src/common/media/indexeddb.js',
 	'src/common/media/bytes.js',
 	'src/common/scape/archive-limits.js',
@@ -30,7 +32,7 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/desktop-database.js', 'desktop/desktop-database-contention.js', 'desktop/local-storage-safety.js', 'desktop/local-storage-volume.js',
 	'desktop/desktop-storage-bootstrap.js', 'desktop/desktop-browser-cache.js',
 	'desktop/desktop-project-library-migration.js', 'desktop/desktop-projects-directory.js',
-	'desktop/application-lifecycle.js', 'desktop/main-trusted-ipc.js', 'desktop/save-size-warning-dialog.js', 'src/common/editor/controller/shared/file-size-warning.js', 'desktop/mcp-main-registration.js', 'desktop/mcp-service.js', 'desktop/original-file-overwrite.js',
+	'desktop/application-lifecycle.js', 'desktop/main-trusted-ipc.js', 'desktop/save-size-warning-dialog.js', 'src/common/editor/controller/shared/file-size-warning.js', 'desktop/mcp-service.js', 'desktop/original-file-overwrite.js',
 	'desktop/cpu-profile-accumulator.js',
 	'desktop/cpu-profile-preload.js',
 	'desktop/cpu-profile-service.js',
@@ -117,7 +119,6 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/external-display-frame-port.js',
 	'desktop/framescaper-external-display-preload.js',
 	'desktop/native-media-capability-report.js',
-	'desktop/native-media-execution.js',
 	'desktop/native-media-file-auth.js',
 	'desktop/native-media-helper-job.js',
 	'desktop/native-media-helper-pool.js',
@@ -131,7 +132,6 @@ export const DESKTOP_EXPECTED_RUNTIME_FILES = Object.freeze([
 	'desktop/native-services-external-display-port.js',
 	'desktop/native-services-lease-coordinator.js',
 	'desktop/native-services-main-ipc.js',
-	'desktop/native-services-main-preload.js',
 	'desktop/native-services-node-ports.js',
 	'desktop/native-services-publication.js',
 	'desktop/native-services-root-repository.js',

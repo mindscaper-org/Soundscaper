@@ -243,13 +243,14 @@ class FakeObjectStore {
 		this.indexNames = { contains: (name) => data.indexes.has(name) };
 	}
 
-	put(value) {
+	put(value, primaryKey) {
 		return fakeRequest(this.transaction, () => {
 			const failure = this.transaction.database.takeRequestFailure('put', this.data.name);
 			if (failure) throw failure;
 			const stored = clone(value);
-			this.data.records.set(stored[this.data.keyPath], stored);
-			return cloneKey(stored[this.data.keyPath]);
+			const key = primaryKey ?? stored[this.data.keyPath];
+			this.data.records.set(key, stored);
+			return cloneKey(key);
 		});
 	}
 

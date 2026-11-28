@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { register } from 'node:module';
 import test from 'node:test';
 import React, { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -13,28 +12,22 @@ import { createSoundscaperProjectStore } from '../src/soundscaper/editor-project
 import { bindSoundscaperProjectRecovery } from '../src/soundscaper/editor-project-recovery-binding.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 import { installReactTestDom, reactProps } from './helpers/react-test-dom.ts';
-
-register(`data:text/javascript,${encodeURIComponent(`export async function resolve(specifier, context, nextResolve) {
-	if (specifier === '@ffmpeg/core?url' || specifier === '@ffmpeg/core/wasm?url') return { url: 'data:text/javascript,export default "mock-ffmpeg-asset"', shortCircuit: true };
-	return nextResolve(specifier, context);
-}`)}`, import.meta.url);
-const { createSoundscaperAudioEditorController } = await import('../src/soundscaper/editor-controller.ts');
-const { createSoundscaperEditorProjectEnvironment } = await import('../src/soundscaper/editor-project-environment.ts');
+import { createSoundscaperCompatibilityController, openSoundscaperCompatibilityFixture } from './helpers/soundscaper-controller-session.ts';
 
 test('MP59: dismissed pending File Recovery cannot replace a newer workspace', async () => {
-	const environment = await createSoundscaperEditorProjectEnvironment({ storeOptions: {
+	const environment = await openSoundscaperCompatibilityFixture({
 		indexedDB: createInstrumentedIndexedDB(), preferOpfs: false,
 		storageManager: { estimate: async () => ({ usage: 0, quota: 1024 ** 3 }), persisted: async () => true,
 			persist: async () => true } as unknown as StorageManager,
-	} });
-	const controller = createSoundscaperAudioEditorController(environment);
+	});
+	const controller = createSoundscaperCompatibilityController(environment);
 	await controller.ready;
 	const original = createSoundscaperProject({ id: 'recover-pending-original', title: 'Original work' });
-	await environment.controllerStore.saveProject(original);
+	await environment.store.saveProject(original);
 	let release = (): void => undefined, entered = (): void => undefined;
 	const gate = new Promise<void>(resolve => { release = resolve; });
 	const started = new Promise<void>(resolve => { entered = resolve; });
-	const repository = environment.controllerStore.analysisRepository;
+	const repository = environment.store.analysisRepository;
 	const get = repository.get.bind(repository);
 	const originKey = `${RECORDING_RECOVERY_KEY_PREFIX}${encodeURIComponent(original.id)}`;
 	repository.get = async (key: string) => {
@@ -50,7 +43,7 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 	const actGlobal = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
 	const prior = actGlobal.IS_REACT_ACT_ENVIRONMENT; actGlobal.IS_REACT_ACT_ENVIRONMENT = true;
 	let completion: Promise<unknown> | undefined;
-	const recovery = controller.actions.project.recovery;
+	const recovery = bindSoundscaperProjectRecovery(environment.store, project => controller.actions.project.open(project), controller);
 	let receipt: Parameters<typeof recovery.recover>[0] | undefined;
 	let candidateIndex = -1;
 	function Surface() {
@@ -81,10 +74,10 @@ test('MP59: dismissed pending File Recovery cannot replace a newer workspace', a
 		assert.equal(controller.project?.id, newer.id, 'old recovery must not activate over File New');
 		assert.ok(completion); await assert.rejects(completion, { code: 'PROJECT_CHANGED' });
 		assert.ok(receipt);
-		const beforeRetry = await environment.controllerStore.listProjects();
+		const beforeRetry = await environment.store.listProjects();
 		const retried = await recovery.recover(receipt, candidateIndex);
 		assert.equal(controller.project?.id, retried.project.id);
-		assert.equal((await environment.controllerStore.listProjects()).length, beforeRetry.length, 'retry reuses the published copy');
+		assert.equal((await environment.store.listProjects()).length, beforeRetry.length, 'retry reuses the published copy');
 	} finally {
 		release(); await completion?.catch(() => undefined);
 		await act(async () => root.unmount()); actGlobal.IS_REACT_ACT_ENVIRONMENT = prior; dom.restore();

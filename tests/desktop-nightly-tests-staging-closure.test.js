@@ -91,6 +91,10 @@ test('nightly payload production modules have a closed local-import graph', () =
 	assert.ok(result.visited.has('desktop/desktop-video-h264-encoder.ts'));
 	assert.ok(result.visited.has('desktop/ara-preload.ts'));
 	assert.ok(result.visited.has('desktop/blender-preload.ts'));
+	assert.ok(result.visited.has('desktop/framescaper-external-display-preload.ts'));
+	assert.equal(result.visited.has('desktop/native-services-main-preload.ts'), false);
+	assert.ok(result.visited.has('tests/helpers/framescaper-native-services-preload-fixture.mjs'));
+	assert.ok(result.visited.has('tests/helpers/framescaper-native-services-test-bridge.ts'));
 	assert.ok(result.visited.has('desktop/assistance-keyed-video-preload.ts'));
 	assert.ok(result.visited.has('desktop/desktop-audio-codec-operation-contract.ts'));
 	assert.ok(result.visited.has('desktop/desktop-audio-codec-capability-contract.ts'));

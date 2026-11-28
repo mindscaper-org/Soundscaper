@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
+import { DESKTOP_EXPECTED_RUNTIME_FILES } from '../scripts/lib/desktop-project-library-runtime.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -22,9 +23,9 @@ test('Electron main keeps verification in main while the actual OpenFX native ch
 	assert.match(isolated, /isEnforcedNativeChildLaunch/u);
 });
 
-test('the retired utility-process entry cannot receive structured-cloned execution authority', async () => {
-	const source = await readFile(join(ROOT, 'desktop/openfx-helper-process.js'), 'utf8');
-	assert.match(source, /Retired fail-closed entry/iu);
-	assert.match(source, /throw new Error/iu);
-	assert.doesNotMatch(source, /parentPort|createOpenFxHelperWorker|child_process|utilityProcess/iu);
+test('the retired utility-process entry is absent from source and desktop staging', async () => {
+	const retired = 'desktop/openfx-helper-process.js';
+	await assert.rejects(access(join(ROOT, retired)), { code: 'ENOENT' });
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(retired), false);
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/openfx-isolated-native-child.js'));
 });

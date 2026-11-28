@@ -4,7 +4,6 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 
 import {
-	resolveNativeMediaImageSequence,
 	type NativeMediaImageSequenceRateV1,
 	type NativeMediaImageSequenceV1,
 } from './native-media-image-sequence.ts';
@@ -12,7 +11,6 @@ import {
 	evaluateNativeMediaProfileAdmission,
 } from './native-media-professional-profiles.ts';
 import {
-	createNativeMediaImageSequenceSourcePackV25,
 	NATIVE_MEDIA_IMAGE_SEQUENCE_MAXIMUM_FRAME_BYTES,
 	NATIVE_MEDIA_IMAGE_SEQUENCE_MAXIMUM_PACK_BYTES,
 } from './native-media-image-sequence-pack-v25.ts';
@@ -327,52 +325,6 @@ export function nativeMediaImageSequenceDecodeRequestV25(
 export function nativeMediaImageSequenceArchiveRootsV25(sourceValue: unknown): readonly string[] {
 	const source = normalizeNativeMediaImageSequenceSourceV25(sourceValue);
 	return Object.freeze([source.inventory.storageKey, source.sourcePack.storageKey]);
-}
-
-/** Controller action exposed to the existing File > Import menu integration. */
-export async function runFramescaperImageSequenceImportV25(
-	ports: FramescaperImageSequenceImportPorts,
-): Promise<NativeMediaImageSequenceSourceV25 | null> {
-	const selected = await ports.select();
-	if (selected === null) return null;
-	const selection = resolveNativeMediaImageSequence({
-		fileNames: selected.fileNames,
-		frameRate: selected.frameRate,
-	});
-	const inventory = createNativeMediaImageSequenceInventoryV25(selection, selected.entries);
-	const writer = await ports.createSourcePackWriter();
-	let inventoryPublished = false;
-	try {
-		const sourcePack = await createNativeMediaImageSequenceSourcePackV25({
-			inventory: inventory.reference,
-			entries: selected.entries,
-			frameRate: selection.frameRate,
-			frameChunks: selected.frameChunks,
-			write: (chunk) => writer.write(chunk),
-		});
-		const source = createNativeMediaImageSequenceSourceV25({
-			id: selected.id,
-			name: selected.name,
-			selection,
-			inventory: inventory.reference,
-			sourcePack,
-			characteristics: selected.characteristics,
-		});
-		await writer.commit(sourcePack);
-		await ports.publishInventory(inventory.bytes, inventory.reference);
-		inventoryPublished = true;
-		await ports.commitSource(source);
-		return source;
-	}
-	catch (error) {
-		if (inventoryPublished && ports.cleanupInventory) {
-			try { await ports.cleanupInventory(inventory.reference); }
-			catch {}
-		}
-		try { await writer.discard(); }
-		catch {}
-		throw error;
-	}
 }
 
 function normalizeInventoryEntry(value: unknown, index: number): NativeMediaImageSequenceInventoryEntryV25 {

@@ -61,13 +61,17 @@ const PRODUCT_POLICIES = Object.freeze({
 	framescaper: Object.freeze({ standard: CAMERA_CAPTURE_POLICY, embedded: SEALED_CAPTURE_POLICY }),
 });
 
-/** The cross-origin isolation every product deployment shares byte for byte. */
 const ISOLATION_HEADERS = Object.freeze({
 	'cross-origin-opener-policy': 'same-origin',
-	'cross-origin-embedder-policy': 'credentialless',
 	'referrer-policy': 'strict-origin-when-cross-origin',
 	'x-content-type-options': 'nosniff',
 });
+
+/** WebKit needs require-corp to expose shared memory to the Tracktion worker. */
+export function productEmbedderPolicy(productId) {
+	if (!PRODUCT_IDS.includes(productId)) throw new Error('Unknown web product for cross-origin isolation.');
+	return productId === 'soundscaper' ? 'require-corp' : 'credentialless';
+}
 
 export const ISOLATION_PATTERN = '/*';
 export const DOCUMENT_RULES_MARKER = '# @product-document-rules@';
@@ -256,17 +260,18 @@ function buildSite(productId, environment) {
 
 /**
  * Substitutes this build's document and worker rules into the shared checked-in
- * `_headers`, which carries the cross-origin isolation block every product
- * deployment shares. The isolation block is never moved, host-scoped or
- * duplicated: the rules composed here only ever add disjoint route patterns.
+ * `_headers`. Both products keep one wildcard isolation rule. The Tracktion
+ * site uses require-corp so every supported browser can open shared memory.
  */
 export function composeProductHeaders(shared, routing) {
 	if (typeof shared !== 'string' || !shared.endsWith('\n')) {
 		throw new Error('Cloudflare header template is not a newline-terminated document.');
 	}
 	assertSharedTemplate(shared);
+	const embedderPolicy = productEmbedderPolicy(routing.productId);
+	const isolated = shared.replace(/^(\tCross-Origin-Embedder-Policy: )credentialless(?=\r?$)/mu, `$1${embedderPolicy}`);
 	const composed = replaceMarker(
-		replaceMarker(shared, DOCUMENT_RULES_MARKER, documentRules(routing.plans, routing.handbook)),
+		replaceMarker(isolated, DOCUMENT_RULES_MARKER, documentRules(routing.plans, routing.handbook)),
 		WORKER_RULES_MARKER,
 		workerRules(routing.workers),
 	);
@@ -352,7 +357,9 @@ export function auditComposedHeaders(text, routing) {
 	if (isolation.length !== 1 || rules[0] !== isolation[0]) {
 		throw new Error('Cloudflare headers must open with exactly one shared cross-origin isolation rule.');
 	}
-	for (const [name, value] of Object.entries(ISOLATION_HEADERS)) {
+	for (const [name, value] of Object.entries({
+		...ISOLATION_HEADERS, 'cross-origin-embedder-policy': productEmbedderPolicy(routing.productId),
+	})) {
 		const directive = isolation[0].directives.find((entry) => entry.name === name);
 		if (!directive || directive.detached || directive.value !== value) {
 			throw new Error(`Cloudflare isolation rule must set ${name}: ${value}.`);

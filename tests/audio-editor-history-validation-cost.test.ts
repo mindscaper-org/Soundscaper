@@ -89,8 +89,11 @@ test('reading a stored history still validates every entry in it', () => {
 	assert.equal(counts.validated, entries + 1, 'the present document and every entry');
 
 	counts.validated = 0;
-	cloneEditorProjectHistory(history, revisionFor(counts));
+	const copy = cloneEditorProjectHistory(history, revisionFor(counts));
 	assert.equal(counts.validated, entries + 1, 'cloning validates what it is copying');
+	assert.deepEqual(copy, history);
+	assert.notStrictEqual(copy, history);
+	assert.notStrictEqual(copy.present, history.present);
 
 	counts.validated = 0;
 	createEditorProjectHistory(document(0), revisionFor(counts), 200);

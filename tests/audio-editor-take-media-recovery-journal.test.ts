@@ -30,6 +30,11 @@ function staged(): TakeMediaPublicationJournal {
 	return createTakeMediaPublicationJournal({ journalId: 'journal-7', binding: binding() });
 }
 
+test('the journal keeps publication state without exposing the retired standalone recovery planner', async () => {
+	const journal = await import('../src/common/editor/take-media-recovery-journal.ts');
+	assert.equal(Object.hasOwn(journal, 'planTakeMediaRecovery'), false);
+});
+
 test('publication journals capture one immutable generation, identity, size, and digest contract', () => {
 	const journal = staged();
 	assert.deepEqual(journal, {

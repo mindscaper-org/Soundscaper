@@ -90,13 +90,12 @@ test('desktop runtime compilation emits importable JavaScript with rewritten ext
 		/new URL\(["']\.\/native-plugin-realtime-worklet\.js["'],\s*import\.meta\.url\)/u,
 		'the separately emitted module must retain the packaged worklet URL');
 	const soundMain = await import(`${pathToFileURL(join(outputRoot, 'desktop/soundscaper-project-library-main.js')).href}?test=${Date.now()}`);
-	const soundIpc = await import(`${pathToFileURL(join(outputRoot, 'desktop/soundscaper-project-library-main-ipc.js')).href}?test=${Date.now()}`);
 	const frameMain = await import(`${pathToFileURL(join(outputRoot, 'desktop/framescaper-project-library-main.js')).href}?test=${Date.now()}`);
 	const frameIpc = await import(`${pathToFileURL(join(outputRoot, 'desktop/framescaper-project-library-main-ipc.js')).href}?test=${Date.now()}`);
 	const exactMain = await import(`${pathToFileURL(join(outputRoot, 'desktop/project-library-exact-generation-main.js')).href}?test=${Date.now()}`);
 	const exactIpc = await import(`${pathToFileURL(join(outputRoot, 'desktop/project-library-exact-generation-main-ipc.js')).href}?test=${Date.now()}`);
 	assert.equal(typeof soundMain.SoundscaperDesktopProjectLibraryMain?.start, 'function');
-	assert.equal(typeof soundIpc.registerSoundscaperDesktopProjectLibraryMainIpc, 'function');
+	assert.equal(result.files.includes('desktop/soundscaper-project-library-main-ipc.js'), false);
 	assert.equal(typeof frameMain.FramescaperDesktopProjectLibraryMain?.start, 'function');
 	assert.equal(typeof frameIpc.registerFramescaperDesktopProjectLibraryMainIpc, 'function');
 	assert.equal(typeof exactMain.FramescaperDesktopProjectLibraryExactGenerationMain?.start, 'function');

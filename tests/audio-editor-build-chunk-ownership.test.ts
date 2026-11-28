@@ -228,7 +228,9 @@ test('assistance domain modules default to the lazy owner, with a named eager ex
 	// `local-assistance-semantic-search-bridge.ts` is the one lazy exception: it keeps its
 	// own dedicated lazy owner so indexed search stays apart from the rest of assistance,
 	// so it is named here and asserted lazy rather than eager.
-	const exceptions = assistanceDomainModules()
+	const modules = assistanceDomainModules();
+	assert.equal(modules.includes('src/common/editor/assistance/shots.ts'), false);
+	const exceptions = modules
 		.filter((path) => { const owner = chunkGroupForModulePath(path); return owner !== 'editor-optional-assistance' && owner !== 'editor-assistance-model-preflight'; });
 	assert.deepEqual(exceptions, [
 		'src/common/editor/assistance/assistance-asset-command-v1.ts',
@@ -236,7 +238,6 @@ test('assistance domain modules default to the lazy owner, with a named eager ex
 		'src/common/editor/assistance/local-assistance-semantic-search-bridge.ts',
 		'src/common/editor/assistance/operation.ts',
 		'src/common/editor/assistance/session-snapshot-asset-inventory.ts',
-		'src/common/editor/assistance/shots.ts',
 		'src/common/editor/assistance/transcript-scape-asset-extension-v1.ts',
 		'src/common/editor/assistance/transcript.ts',
 		'src/common/editor/assistance/tts-script-body-publication-v1.ts',
@@ -276,7 +277,6 @@ test('moved controller domains preserve their optional chunk owners', () => {
 		],
 		'editor-vamp-analyzer': [
 			'src/common/editor/controller/analysis/vamp-analysis-action-facade.ts',
-			'src/common/editor/controller/analysis/internal/deferred-vamp-analysis-action.ts',
 			'src/common/editor/controller/analysis/internal/vamp-analysis-action.ts',
 		],
 		'editor-optional-export': [

@@ -10,10 +10,8 @@ import {
 	HOST_PROBE_BLOCKS,
 	createNativePluginHostJobRunner,
 } from '../desktop/native-helper-host-job.js';
-import {
-	createNativeHelperWorker,
-	loadVerifiedNativeAddon,
-} from '../desktop/native-helper-process.js';
+import { loadVerifiedNativeAddon } from '../desktop/native-helper-addon.js';
+import { createNativeHelperWorker } from '../desktop/native-helper-process.js';
 import {
 	FIXTURE_PLUGIN_SUFFIX,
 	fixturePluginDirectory,

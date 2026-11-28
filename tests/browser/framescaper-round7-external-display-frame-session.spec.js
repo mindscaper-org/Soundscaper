@@ -10,7 +10,7 @@ import { createRound7ExternalDisplayNativeFixture } from '../helpers/round7-exte
 test('ordinary External display switching refuses a retired actual preview MessagePort frame', async ({ page }) => {
 	test.setTimeout(60_000);
 	const errors = collectClientErrors(page);
-	const native = createRound7ExternalDisplayNativeFixture();
+	const native = await createRound7ExternalDisplayNativeFixture();
 	try {
 		await page.exposeBinding('__round7DisplayNative', async (_context, method, request) => {
 			if (method === 'presentExternalDisplay') request = { ...request, rgba: Uint8Array.from(request.rgba) };

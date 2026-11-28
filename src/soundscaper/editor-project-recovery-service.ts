@@ -5,9 +5,7 @@ import { sameProjectSnapshot } from '../common/editor/storage/project-snapshot-e
 import type { ProjectDocument } from '../common/editor/storage/project-repository.ts';
 import type { ProjectRecoveryCandidate } from '../common/editor/storage/project-recovery-repository.ts';
 import { ProjectCommittedMaintenanceError } from '../common/editor/storage/project-committed-maintenance-error.ts';
-import { ProjectDuplicationIndeterminateError } from '../common/editor/storage/project-duplication.ts';
 import { isCurrentProjectSchemaIdentity, SOUNDSCAPER_PROJECT_SCHEMA_FAMILY } from '../common/editor/project-schema-identity.ts';
-import { SoundscaperDesktopProjectLibraryCommittedError, SoundscaperDesktopProjectLibraryIndeterminateError } from './desktop-project-library-renderer-catalog.ts';
 import { cloneSoundscaperProject, validateSoundscaperProject } from './editor-project.ts';
 import { repairSoundscaperProject, type SoundscaperProjectRepair } from './editor-project-recovery-repair.ts';
 import { readSoundscaperRecoveryAvailableMediaSources } from './editor-project-recovery-media.ts';
@@ -23,12 +21,6 @@ export type { SoundscaperProjectRecoveryInspection, SoundscaperProjectRecoveryRe
 interface InspectionAuthority {
 	readonly store: SoundscaperProjectRecoveryStore;
 	readonly rows: readonly ProjectRecoveryCandidate[];
-	readonly publications: Map<number, PendingPublication>;
-}
-interface PendingPublication {
-	readonly expected: ProjectDocument;
-	readonly sourceRevision: number | null;
-	readonly changes: SoundscaperProjectRepair['changes'];
 }
 const INSPECTIONS = new WeakMap<SoundscaperProjectRecoveryInspection, InspectionAuthority>();
 
@@ -57,7 +49,7 @@ export async function inspectSoundscaperProjectRecovery(
 	const inspection: SoundscaperProjectRecoveryInspection = Object.freeze({
 		projectId, title: typeof title === 'string' ? title : 'Damaged project', candidates: Object.freeze(candidates),
 	});
-	INSPECTIONS.set(inspection, { store, rows, publications: new Map() });
+	INSPECTIONS.set(inspection, { store, rows });
 	return inspection;
 }
 
@@ -71,8 +63,6 @@ export async function createSoundscaperProjectRecoveryCopy(
 	const row = authority.rows[candidateIndex];
 	const candidate = inspection.candidates[candidateIndex];
 	if (!row || !candidate || candidate.status === 'unrecoverable') throw new Error('This recovery candidate cannot be restored.');
-	const pending = authority.publications.get(candidateIndex);
-	if (pending) return complete(inspection, await verifyPublication(store, pending.expected), pending.sourceRevision, pending.changes);
 	const current = (await store.readProjectRecoveryCandidates(inspection.projectId)).find(({ key }) => key === row.key);
 	if (!current || !sameProjectSnapshot(row, current)) throw new Error('The saved recovery candidate changed; inspect the project again.');
 	const repaired = await prepare(store, current);
@@ -90,9 +80,7 @@ export async function createSoundscaperProjectRecoveryCopy(
 		},
 		createProjectIfAbsent: async (copy) => {
 			try {
-				// A stale imported ADM fence may require nonzero independent history.
-				// Desktop's ordinary fresh-project entry point accepts revision zero;
-				// its exact archive publication already supports this saved revision.
+				// Preserve nonzero independent ADM history through archive publication.
 				return await (copy.revision !== 0 && store.createScapeProjectIfAbsent
 					? store.createScapeProjectIfAbsent(copy) : store.createProjectIfAbsent(copy));
 			}
@@ -101,28 +89,13 @@ export async function createSoundscaperProjectRecoveryCopy(
 					validateSoundscaperProject(error.committedProject);
 					return error.committedProject;
 				}
-				if (!(error instanceof SoundscaperDesktopProjectLibraryCommittedError
-					|| error instanceof SoundscaperDesktopProjectLibraryIndeterminateError)
-					|| error.operation !== 'publication' || error.projectId !== copy.id) throw error;
-				authority.publications.set(candidateIndex, { expected: copy, sourceRevision: row.revision, changes: repaired.changes });
-				// A main publication can outlive renderer reconciliation. Retain exact aliases
-				// and the copy ID until its authoritative saved snapshot can be verified.
-				try { return await verifyPublication(store, copy); }
-				catch (verificationError) { throw new ProjectDuplicationIndeterminateError(copy.id, new AggregateError([error, verificationError])); }
+				throw error;
 			}
 		},
 	}, { sourceProjectId: inspection.projectId, copyProjectId, title, timestamp });
 	return complete(inspection, created, row.revision, repaired.changes);
 }
 
-async function verifyPublication(store: SoundscaperProjectRecoveryStore, expected: ProjectDocument): Promise<ProjectDocument> {
-	const latest = (await store.readProjectRecoveryCandidates(expected.id)).find(({ kind }) => kind === 'current');
-	if (!latest || latest.diagnostic || !sameProjectSnapshot(latest.project, expected)) {
-		throw new Error('The recovered copy publication cannot yet be verified; retry the same recovery.');
-	}
-	validateSoundscaperProject(latest.project);
-	return latest.project as ProjectDocument;
-}
 function complete(inspection: SoundscaperProjectRecoveryInspection, created: ProjectDocument, sourceRevision: number | null,
 	changes: SoundscaperProjectRepair['changes']): SoundscaperProjectRecoveryResult {
 	validateSoundscaperProject(created);

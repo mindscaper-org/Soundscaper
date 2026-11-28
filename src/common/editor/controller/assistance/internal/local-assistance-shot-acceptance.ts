@@ -11,7 +11,7 @@ import {
 	validateAssistanceSelectionFence,
 	type AssistanceSelectionFence,
 } from '../../../assistance/proposal-session.ts';
-import { MAX_SHOTS } from '../../../assistance/shots.ts';
+import { ASSISTANCE_SHOT_BOUNDARIES_MAXIMUM_COUNT } from '../../../assistance/shot-boundaries-v1.ts';
 import {
 	LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_ID,
 	LOCAL_ASSISTANCE_TRANSNET_V2_MODEL_TASK,
@@ -237,7 +237,7 @@ function normalizeReview(value: unknown): ShotReview {
 	const sourceFrameCount = boundedInteger(review.sourceFrameCount, 1,
 		VIDEO_TIMING_ASSET_MAXIMUM_FRAMES, 'shot source-frame count');
 	if (!Array.isArray(review.boundaries)
-		|| review.boundaries.length > Math.min(MAX_SHOTS, sourceFrameCount)) {
+		|| review.boundaries.length > Math.min(ASSISTANCE_SHOT_BOUNDARIES_MAXIMUM_COUNT, sourceFrameCount)) {
 		throw new RangeError('The reviewed shot result exceeds its boundary bound.');
 	}
 	let priorFrame = -1;

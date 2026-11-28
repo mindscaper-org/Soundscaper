@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -22,6 +23,11 @@ function grant() {
 		sources: [{ type: 'stream', binding: { streamId: SOURCE } }],
 	};
 }
+
+test('the retired native-media transfer sequence is absent from the source tree', async () => {
+	const sequence = new URL('../src/common/editor/native-media-transfer-sequence.ts', import.meta.url);
+	await assert.rejects(access(sequence), { code: 'ENOENT' });
+});
 
 test('native transfer admission refuses reusing one physical port for two streams', () => {
 	const shared = port();

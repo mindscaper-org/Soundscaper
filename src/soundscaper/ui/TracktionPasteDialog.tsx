@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+
+import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
+import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
+import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
+import type { TracktionPasteCommand } from '../tracktion-project-contract.ts';
+import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
+
+const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
+const modes = { overlap: copy.paste, insertTracks: copy.pasteInsert, insertAll: copy.pasteSync };
+
+export function TracktionPasteDialog({ trackId, position, busy, failure, onApply, onDismiss }: {
+	readonly trackId: string;
+	readonly position: number;
+	readonly busy: boolean;
+	readonly failure: string;
+	readonly onApply: (edit: TracktionPasteCommand) => void;
+	readonly onDismiss: () => void;
+}) {
+	const dialog = useTracktionModalDialog();
+
+	function apply(fields: FormData): void {
+		if (busy) return;
+		onApply({ kind: 'pasteRange', trackId, start: Number(fields.get('start')), mode: fields.get('mode') as TracktionPasteCommand['mode'] });
+	}
+
+	return <dialog ref={dialog} aria-label={copy.paste} onCancel={(event) => {
+		event.preventDefault();
+		if (!busy) onDismiss();
+	}}>
+		<h2>{copy.paste}</h2>
+		<TracktionEditForm onApply={apply}>
+			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" defaultValue={position} required disabled={busy} /></label></p>
+			<p><label>{copy.tracktionPasteMode} <select name="mode" defaultValue="overlap" disabled={busy}>
+				{Object.entries(modes).map(([mode, label]) => <option key={mode} value={mode}>{label}</option>)}
+			</select></label></p>
+			{failure && <p role="alert">{failure}</p>}
+			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
+			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
+		</TracktionEditForm>
+	</dialog>;
+}

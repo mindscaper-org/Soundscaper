@@ -215,15 +215,6 @@ export function validateSoundscaperDesktopProjectLibraryPublicationResult(
 	return validateSoundscaperDesktopProjectLibraryTransferBundle(value, expectedProjectId);
 }
 
-export function validateSoundscaperDesktopProjectLibraryPublicationAbortResult(
-	value: unknown,
-): boolean {
-	if (typeof value !== 'boolean') {
-		throw new TypeError('Soundscaper desktop baseline publication abort result must be a boolean');
-	}
-	return value;
-}
-
 function validateExpectedProject(
 	value: unknown,
 ): Readonly<SoundscaperDesktopProjectLibraryPublicationExpectedProject> | null {

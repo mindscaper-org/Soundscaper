@@ -3,7 +3,6 @@
 import type { AudioEditorCommand } from '../common/editor/commands/protocol.ts';
 import { AUDIO_EDITOR_HISTORY_LIMIT } from '../common/editor/history.js';
 import {
-	cloneEditorProjectHistory,
 	collapseEditorProjectHistory,
 	createEditorProjectHistory,
 	executeEditorProjectCommand,
@@ -106,13 +105,6 @@ export function validateSoundscaperProductionHistory(
 ): history is SoundscaperProductionHistoryState {
 	validateEditorProjectHistory(history, mechanics(revision));
 	return true;
-}
-
-export function cloneSoundscaperProductionHistory(
-	history: SoundscaperProductionHistoryState | unknown,
-	revision: SoundscaperProductionHistoryRevision,
-): SoundscaperProductionHistoryState {
-	return asProduction(cloneEditorProjectHistory(history, mechanics(revision)));
 }
 
 export function executeSoundscaperProductionCommand(

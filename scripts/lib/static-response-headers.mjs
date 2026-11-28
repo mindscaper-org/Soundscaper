@@ -3,6 +3,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { productEmbedderPolicy } from './product-web-routing.mjs';
+
 const repositoryRoot = resolve(import.meta.dirname, '..', '..');
 const authoredHeadersFile = resolve(repositoryRoot, 'public', '_headers');
 
@@ -48,7 +50,10 @@ export function parseWildcardResponseHeaders(text) {
 	return headers;
 }
 
-/** The wildcard rule as authored in `public/_headers`. */
-export function authoredWildcardResponseHeaders() {
-	return parseWildcardResponseHeaders(readFileSync(authoredHeadersFile, 'utf8'));
+/** @param {'soundscaper' | 'framescaper'} productId */
+export function authoredWildcardResponseHeaders(productId) {
+	return {
+		...parseWildcardResponseHeaders(readFileSync(authoredHeadersFile, 'utf8')),
+		'Cross-Origin-Embedder-Policy': productEmbedderPolicy(productId),
+	};
 }

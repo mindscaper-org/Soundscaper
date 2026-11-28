@@ -217,6 +217,34 @@ test('an authored keyframe range plans the keyed V7 route with its own canvas an
 	assert.deepEqual(withAudio.inputs.map(({ kind }) => kind), ['video-source', 'staged-audio-mix']);
 });
 
+test('buffered and sink encoders share the exact active pair and keep the canonical edits writable', async () => {
+	const project = keyedProject();
+	const before = structuredClone(project);
+	const calls: Data[] = [];
+	const built = harness(project, encoders({
+		encodeOffline: async (request: Data) => { calls.push(request); return encodedBytes(); },
+		encodeOfflineToSink: async (request: Data, output: unknown) => {
+			calls.push(request); return encodedSink({ output });
+		},
+	}));
+	const plan = keyedPlan(built, { includeAudio: true });
+	assert.deepEqual(plan.activeClipIds, ['video-clip']);
+	assert.deepEqual(plan.activeSourceIds, ['video-source']);
+	assert.equal((plan.canvas as Data).referenceClipId, 'video-clip');
+	assert.equal((plan.canvas as Data).referenceSourceId, 'video-source');
+	const request = encodeRequest(built, plan, { audioMix: new Blob(['mix'], { type: 'audio/wav' }) });
+
+	const buffered = await built.strategy.encode(request);
+	assert.deepEqual([buffered.videoEncoder, buffered.extension, buffered.mimeType], ['ffmpeg', '.mp4', 'video/mp4']);
+	const sink = Object.freeze({ kind: 'sink' });
+	assert.equal((await built.strategy.encodeToSink(request, sink as never)).output, sink);
+	assert.equal(calls.length, 2);
+	assert.equal(calls.every(call => call.project === built.exportProject), true);
+	assert.deepEqual(project, before);
+	assert.equal(Object.isFrozen((project.sources as Data[])[0]), false);
+	assert.equal(Object.isFrozen(project.tempoMap), false);
+});
+
 test('a stated delivery quality, layout and format reach the built plan', () => {
 	const built = harness();
 

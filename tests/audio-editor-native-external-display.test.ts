@@ -10,6 +10,12 @@ import {
 	type ExternalDisplayDescriptorV1,
 } from '../src/common/editor/native-external-display.ts';
 
+test('the retired renderer-side display session store and restore entry are absent', async () => {
+	const display = await import('../src/common/editor/native-external-display.ts');
+	assert.equal(Reflect.has(display, 'createExternalDisplaySessionStore'), false);
+	assert.equal(Reflect.has(display, 'restoreExternalDisplaySession'), false);
+});
+
 test('the bounded frame contract admits the registered UHD clean-display cohort', () => {
 	const uhdRgbaBytes = 3_840 * 2_160 * 4;
 	assert.ok(NATIVE_EXTERNAL_DISPLAY_MAXIMUM_RGBA_BYTES >= uhdRgbaBytes);

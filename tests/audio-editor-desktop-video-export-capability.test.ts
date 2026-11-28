@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
@@ -16,6 +17,11 @@ const EXPLICIT_CAPABILITIES = Object.freeze({
 		mp4: Object.freeze({ available: true, provider: 'operating-system' }),
 		webm: Object.freeze({ available: true, provider: 'external-ffmpeg' }),
 	}),
+});
+
+test('the unused desktop video capability hook is absent from the source tree', async () => {
+	const hook = new URL('../src/common/editor/ui/use-desktop-video-export-capabilities.ts', import.meta.url);
+	await assert.rejects(access(hook), { code: 'ENOENT' });
 });
 
 test('desktop video export admits only explicit per-format execution capabilities', () => {

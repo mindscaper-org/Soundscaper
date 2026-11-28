@@ -13,7 +13,6 @@ import {
 	admitAudioRenderedFallbackExport,
 	audioRenderedFallbackRenderSources,
 } from './audio/audio-rendered-fallback-export.ts';
-import { createPersistentExportProgressReporter } from './delivery/persistent-export-progress.ts';
 import {
 	admitAudioExportDelivery,
 	type AudioExportAdmission,
@@ -29,7 +28,6 @@ import {
 import { commitDirectPcmDestination, type DirectPcmDestination } from './direct/direct-pcm-export.ts';
 import { commitPreparedDirectStemArchiveDestination, directStemArchiveTemporaryBytes, prepareDirectStemArchiveDestination } from './direct/direct-stem-archive-export.ts';
 import { createEditorVideoExportAction } from './video/video-export-service.ts';
-import { createExportOperationAvailability } from './export-operation-availability.ts';
 import { beginExportTask, handleExportFailure } from './export-task-lifecycle.ts';
 import { createExportSnapshotRenderer } from '../export-snapshot-renderer.ts';
 import type { EditorExportState } from '../export-state.ts';
@@ -46,11 +44,6 @@ import {
 	conformDeliveredExport,
 	conformedDeliveryReport,
 } from './delivery/delivery-conformance-action.ts';
-import {
-	assertExactPersistentExportPlan,
-	canonicalPersistentJsonRecord,
-	exactPersistentAudioDeliveryExecution,
-} from './delivery/persistent-audio-delivery-execution.ts';
 export interface ExportServiceRuntime {
 	readonly state: EditorExportState;
 	// Legacy JavaScript ports are narrowed as their owning services migrate.
@@ -59,13 +52,8 @@ export interface ExportServiceRuntime {
 }
 type RuntimeValue = ExportServiceRuntime[string];
 
-const PERSISTENT_EXPORT_BUSY = Object.freeze({ busy: true as const });
-
 export function createEditorExportService(runtime: ExportServiceRuntime) {
-	let audioExportPreparing = false;
-	let exportOwner: 'direct' | 'persistent' | null = null;
-	const persistentProgressReporter = createPersistentExportProgressReporter();
-	const reportPersistentProgress = persistentProgressReporter.report;
+	let audioExportActive = false;
 	const {
 		abortError, applyMediaChannelMapping, audioBufferChannels,
 		copy, createAiffStreamEncoder, createCacheAwareRenderEngine, createExportPlan,
@@ -79,35 +67,14 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		stemProject, store, throwIfAborted, toggleExport,
 		updateExportProgress, taskProgress, verifyProjectFallbackIntegrity,
 	} = runtime;
-	const persistentAvailability = createExportOperationAvailability(
-		() => !state.exportAbort && !audioExportPreparing && exportOwner === null,
-	);
-	const persistentAudioDeliveryAvailable = persistentAvailability.available;
-	const releaseExportOwner = (owner: 'direct' | 'persistent') => {
-		if (exportOwner !== owner) return;
-		exportOwner = null;
-		persistentAvailability.notifyIfAvailable();
-	};
-	const whenPersistentAudioDeliveryAvailable = persistentAvailability.whenAvailable;
-	const reportExportProgress = (value: RuntimeValue) => {
-		updateExportProgress(value);
-		reportPersistentProgress(value);
-	};
 	const suppliedExportSnapshotRenderer = runtime.exportSnapshotRenderer;
 	const { renderSnapshot, withRenderProgress } = suppliedExportSnapshotRenderer
 		?? createExportSnapshotRenderer({
 			options, sourceBuffers, taskProgress,
 			createCacheAwareRenderEngine, prepareCommittedTimePitchCaches,
-			throwIfAborted, updateExportProgress: reportExportProgress,
+			throwIfAborted, updateExportProgress,
 		});
-	if (typeof runtime.setPersistentExportProgressObserver === 'function') {
-		runtime.setPersistentExportProgressObserver(reportPersistentProgress);
-	} else suppliedExportSnapshotRenderer?.observeExportProgress?.(reportPersistentProgress);
-	const videoExportAction = createEditorVideoExportAction(runtime, renderSnapshot);
-	const exportVideo = async (request: RuntimeValue = {}) => {
-		try { return await videoExportAction(request); }
-		finally { persistentAvailability.notifyIfAvailable(); }
-	};
+	const exportVideo = createEditorVideoExportAction(runtime, renderSnapshot);
 	const renderRealtimeEncoded = createRealtimeEncodedAudioExport({
 		applyMediaChannelMapping, copy, createAiffStreamEncoder, createCacheAwareRenderEngine,
 		createStableId, createStreamingWindowedSincResampler, createTemporaryFileSink,
@@ -117,43 +84,32 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 	async function handleExportAction(
 		action: RuntimeValue,
 		requestedSettings: RuntimeValue = null,
-		expectedPersistentExportPlan: RuntimeValue = null,
-		executionOwner: 'direct' | 'persistent' = 'direct',
 	) {
 		if (action === 'cancel') {
-			if (exportOwner !== null && exportOwner !== executionOwner) return;
-			if (exportOwner === null && executionOwner === 'persistent' && state.exportAbort) return;
 			state.exportGeneration += 1;
 			state.exportAbort?.abort();
 			state.exportAbort = null;
 			toggleExport(false);
 			publishDocumentSnapshot();
-			persistentAvailability.notifyIfAvailable();
 			return;
 		}
 		if (isVideoExportRequestFormat(requestedSettings?.format)) {
 			return exportVideo(requestedSettings);
 		}
-		if (state.exportAbort || audioExportPreparing || exportOwner !== null) {
-			return executionOwner === 'persistent' ? PERSISTENT_EXPORT_BUSY : undefined;
-		}
+		if (state.exportAbort || audioExportActive) return;
+		audioExportActive = true;
+		try { return await exportAudio(requestedSettings); }
+		finally { audioExportActive = false; }
+	}
+
+	async function exportAudio(requestedSettings: RuntimeValue) {
 		const preparationGeneration = state.exportGeneration;
 		const preparationProject = typeof runtime.prepareProjectForExport === 'function' ? projectGeneration.capture() : null;
-		audioExportPreparing = true;
-		exportOwner = executionOwner;
-		try {
-			if (typeof runtime.prepareProjectForExport === 'function') {
-				await runtime.prepareProjectForExport('audio-export');
-			}
-		} catch (error) {
-			releaseExportOwner(executionOwner);
-			throw error;
-		} finally {
-			audioExportPreparing = false;
+		if (typeof runtime.prepareProjectForExport === 'function') {
+			await runtime.prepareProjectForExport('audio-export');
 		}
 		if (state.exportAbort || state.exportGeneration !== preparationGeneration || state.disposed
 			|| (preparationProject && !isCurrentAssertion(() => projectGeneration.assertCurrent(preparationProject)))) {
-			releaseExportOwner(executionOwner);
 			return;
 		}
 		let admission: AudioExportAdmission;
@@ -162,13 +118,11 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			admission = admitAudioExportDelivery(runtime, requestedSettings);
 		} catch (error) {
 			handleError(error);
-			releaseExportOwner(executionOwner);
 			return;
 		}
 		const { canonicalProject, delivery, deliveredProject, settings } = admission;
-		if (!admission.hasMaterial) { releaseExportOwner(executionOwner); return; }
+		if (!admission.hasMaterial) return;
 		if (admission.localSourcesMissing) {
-			releaseExportOwner(executionOwner);
 			throw createLocalizedError(Error, copy, 'localSourcesMissing');
 		}
 		const exportOperation = beginExportTask({
@@ -177,7 +131,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 		});
 		const { generation, abort, assertCurrent: assertExportCurrent } = exportOperation;
 		const progressTask = taskProgress?.begin?.('export', copy.rendering, 0, { key: 'rendering' }) || NO_TASK_PROGRESS;
-		setAudioExportCancellation(progressTask, () => { void handleExportAction('cancel', null, null, executionOwner); });
+		setAudioExportCancellation(progressTask, () => { void handleExportAction('cancel'); });
 		let exportProject = createExportRenderProject(deliveredProject, exportReplacementTrackIds(delivery));
 		let exportRenderSources: ExportRenderSources;
 		let pendingCleanup = null;
@@ -211,9 +165,6 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				livePcmBytes: undefined,
 				productName,
 			});
-			if (expectedPersistentExportPlan !== null) {
-				assertExactPersistentExportPlan(plan, expectedPersistentExportPlan);
-			}
 			await assertDesktopAudioExportCapability(ffmpeg, plan);
 			if (typeof ffmpeg.preflightEncodeFile === 'function') {
 				await ffmpeg.preflightEncodeFile(plan.format, {
@@ -319,7 +270,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				// Conformance runs on every delivery, from the bytes that delivery
 				// produced, before anything is published — it is not a verification
 				// mode somebody has to remember to run.
-				const conformance = await conformPersistentExport(plan, encoded);
+				const conformance = await conformDeliveredExport(plan, encoded);
 				assertExportCurrent();
 				state.deliveryReport = conformedDeliveryReport({
 					plan, sampleRate: exportProject.sampleRate, conformance,
@@ -337,13 +288,13 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				const streamed = await executeDirectStemRenderArchive({
 					destination: pendingDirectDestination as DirectPcmDestination, plan, snapshot: exportProject, settings, renderSources: exportRenderSources,
 					signal: abort.signal, assertCurrent: assertExportCurrent, getPerformanceOptimizationMode: runtime.getPerformanceOptimizationMode,
-					preflightStorage, stemProject, presentation: { task: progressTask, assertCurrent: assertExportCurrent, reportProgress: reportExportProgress, setStatus },
-					resources: { suppliedSnapshotRenderer: suppliedExportSnapshotRenderer, snapshot: { options, sourceBuffers, taskProgress, createCacheAwareRenderEngine, prepareCommittedTimePitchCaches, throwIfAborted, updateExportProgress: reportExportProgress },
+				preflightStorage, stemProject, presentation: { task: progressTask, assertCurrent: assertExportCurrent, reportProgress: updateExportProgress, setStatus },
+				resources: { suppliedSnapshotRenderer: suppliedExportSnapshotRenderer, snapshot: { options, sourceBuffers, taskProgress, createCacheAwareRenderEngine, prepareCommittedTimePitchCaches, throwIfAborted, updateExportProgress },
 						realtime: { ...runtime, withRenderProgress }, normalizeProjectSampleRate,
 						encoding: { applyMediaChannelMapping, audioBufferChannels, copy, createAiffStreamEncoder, createWavStreamEncoder, encodeAiff, encodeWav, ffmpeg, resampleBuffer, setStatus, throwIfAborted, confirmFileSizeWarning: options.confirmFileSizeWarning } },
 					renderSequential: (snapshot, output, index) => renderAndEncode(snapshot, plan, settings, abort.signal, exportRenderSources, output,
 						{ start: index / plan.outputs.length, end: (index + 1) / plan.outputs.length }, null, null, assertExportCurrent),
-					conformSequential: conformPersistentExport,
+					conformSequential: conformDeliveredExport,
 				});
 				directOutput = streamed.result; stemConformance = streamed.conformance;
 				fileName = plan.archive.fileName;
@@ -351,14 +302,14 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 				const archived = await streamStemArchiveExport({
 					abortSignal: abort.signal,
 					admitOutputBytes: browserMaximumOutputBytes, confirmFileSizeWarning: options.confirmFileSizeWarning,
-					conformExport: conformPersistentExport,
+					conformExport: conformDeliveredExport,
 					copy,
 					createStreamingStemArchive,
 					exportProject,
 					exportRenderSources,
 					plan,
 					renderAndEncode,
-					reportProgress: reportExportProgress,
+					reportProgress: updateExportProgress,
 					settings,
 					stemProject,
 					throwIfAborted,
@@ -453,52 +404,7 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 			});
 		} finally {
 			exportOperation.finish(progressTask);
-			releaseExportOwner(executionOwner);
 		}
-	}
-
-	async function derivePersistentAudioDeliveryPlan(requestedSettings: RuntimeValue = {}) {
-		if (isVideoExportRequestFormat(requestedSettings?.format)) {
-			throw new TypeError('Persistent audio delivery does not accept a video export plan.');
-		}
-		const admission = admitAudioExportDelivery(runtime, requestedSettings);
-		if (!admission.hasMaterial) throw new Error('Persistent delivery requires audible project material.');
-		if (admission.localSourcesMissing) throw createLocalizedError(Error, copy, 'localSourcesMissing');
-		const { settings } = admission;
-		const exportProject = createExportRenderProject(admission.deliveredProject, exportReplacementTrackIds(admission.delivery));
-		const exportPlan = createExportPlan(exportProject, {
-			...settings,
-			inputChannelCount: exportProject.masterChannels,
-			mobile: state.mobile,
-			livePcmBytes: undefined,
-			productName,
-		});
-		await assertDesktopAudioExportCapability(ffmpeg, exportPlan);
-		return Object.freeze({
-			settings: canonicalPersistentJsonRecord(settings, 'normalized persistent export settings'),
-			exportPlan: canonicalPersistentJsonRecord(exportPlan, 'exact persistent export plan'),
-		});
-	}
-
-	async function executePersistentAudioDeliveryPlan(value: RuntimeValue) {
-		const request = exactPersistentAudioDeliveryExecution(value);
-		if (state.exportAbort || audioExportPreparing || exportOwner !== null) return PERSISTENT_EXPORT_BUSY;
-		const progress = request.onProgress ?? null;
-		persistentProgressReporter.observe(progress);
-		try {
-			return await handleExportAction(
-				'start', { ...request.settings, saveTarget: request.destination }, request.exportPlan, 'persistent',
-			);
-		} finally { persistentProgressReporter.release(progress); }
-	}
-	const cancelPersistentAudioDelivery = () => handleExportAction('cancel', null, null, 'persistent');
-	async function conformPersistentExport(
-		plan: RuntimeValue, encoded: RuntimeValue, start = 0, end = 1,
-	): Promise<readonly DeliveryConformanceFinding[]> {
-		reportPersistentProgress(start + (end - start) * 0.92);
-		const findings = await conformDeliveredExport(plan, encoded);
-		reportPersistentProgress(start + (end - start) * 0.98);
-		return findings;
 	}
 
 	async function renderAndEncode(
@@ -536,11 +442,6 @@ export function createEditorExportService(runtime: ExportServiceRuntime) {
 
 
 	return Object.freeze({
-		derivePersistentAudioDeliveryPlan,
-		executePersistentAudioDeliveryPlan,
-		cancelPersistentAudioDelivery,
-		persistentAudioDeliveryAvailable,
-		whenPersistentAudioDeliveryAvailable,
 		exportVideo,
 		handleExportAction,
 		renderSnapshot,

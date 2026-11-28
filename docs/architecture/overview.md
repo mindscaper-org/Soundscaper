@@ -207,9 +207,30 @@ dynamic imports.
 Disabled implementations retain their owning module's type contract through
 explicit type-only imports. The ordinary source check still checks the default
 graph, and export-parity tests guard substitution coverage.
-Each browser project environment loads its desktop library bridge only when the
-preload global is present; ordinary browser startup keeps that renderer code out
-of its static graph.
+The Soundscaper editor uses the Tracktion project request contract in
+`src/soundscaper/tracktion-project-contract.ts`. The browser worker owns the
+WASM Edit and commits project revisions with their media in IndexedDB. The
+renderer reads the saved names for the project chooser and starts the worker
+after a project is selected. The browser stores immutable WAVs in separate
+records and publishes changes to the Edit, media references, and generation in
+one IndexedDB transaction. Older saved projects with embedded WAVs move to the
+same layout on their next save.
+
+On desktop, the Electron main process owns file selection and publication. The
+Tracktion utility process supervises the native peer, which owns the Edit, audio
+transport, and render. Soundscaper staging includes the Tracktion preload
+and utility entry. Its desktop plug-in processes handle scanning, effects, and
+analyzers. The separate audio-device helper is available in the Framescaper
+desktop composition, which also owns the existing project-library bridge.
+
+Browser Tracktion ZIP import and export share a 65 MiB file size limit and a
+64 MiB uncompressed limit for the Edit, metadata, and referenced media. Export
+checks those entries before compression and checks the ZIP before publishing.
+Individual browser WAV imports are limited to 16 MiB. The browser engine starts
+with 128 MiB of shared WebAssembly memory and can grow up to 512 MiB.
+Closing a browser project releases the worker when its heap grew and its audio
+clipboard is empty. A worker carrying copied audio stays available for paste
+into the next project.
 
 Soundscaper named session snapshots live in `metadata.sessionSnapshots` as bounded
 editing states, without project identity or media bodies. The enclosing document

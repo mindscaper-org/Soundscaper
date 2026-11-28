@@ -1,0 +1,30 @@
+{
+	"tracktion": {
+		"commit": "be4a6a0c94cc59ebe6f7a0a02373567cb2c01cfb",
+		"license": "GPL-3.0-or-later",
+		"archive": {
+			"url": "https://codeload.github.com/Tracktion/tracktion_engine/tar.gz/be4a6a0c94cc59ebe6f7a0a02373567cb2c01cfb",
+			"byteLength": 28294914,
+			"sha256": "3723685646a8b622c73aaa3737a771d1d0a174c54ea1a68bc7c0551150d3aec5"
+		},
+		"tree": {
+			"algorithm": "framescaper-portable-source-tree-sha256-v1",
+			"fileCount": 1545,
+			"sha256": "30d3683c31d72866df15b86ec101839f946be63582d78d67a7204c37466dd82a"
+		}
+	},
+	"juce": {
+		"commit": "7ff644f65d7daa1428c34b9738ebb5c449dc9172",
+		"license": "AGPL-3.0-only",
+		"archive": {
+			"url": "https://codeload.github.com/juce-framework/JUCE/tar.gz/7ff644f65d7daa1428c34b9738ebb5c449dc9172",
+			"byteLength": 24970009,
+			"sha256": "019212d788fcf7cd0a89721face344f5f0cd43e62e6bccd7bbf6096a4c12c73c"
+		},
+		"tree": {
+			"algorithm": "framescaper-portable-source-tree-sha256-v1",
+			"fileCount": 5349,
+			"sha256": "30b81671fdfc5c969e9ae720ceb23c479fbd8666f4fd4e7c6363885ec276d155"
+		}
+	}
+}

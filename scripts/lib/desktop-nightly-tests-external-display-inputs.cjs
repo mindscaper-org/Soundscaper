@@ -81,7 +81,6 @@ module.exports = Object.freeze([
 	'desktop/native-services-live-render-input-staging.ts',
 	'desktop/native-services-live-render-replay-spool.ts',
 	'desktop/native-services-main-ipc.ts',
-	'desktop/native-services-main-preload.ts',
 	'desktop/native-services-operation-authority.ts',
 	'desktop/native-services-proxy-output-broker.ts',
 	'desktop/native-services-publication.ts',
@@ -127,5 +126,7 @@ module.exports = Object.freeze([
 	'desktop/plugin-candidate-authentication.mjs',
 	'desktop/plugin-candidate-snapshot.mjs',
 	'desktop/plugin-scan-results.ts',
+	'tests/helpers/framescaper-native-services-preload-fixture.mjs',
+	'tests/helpers/framescaper-native-services-test-bridge.ts',
 	'tests/helpers/round7-external-display-native-fixture.ts',
 ]);

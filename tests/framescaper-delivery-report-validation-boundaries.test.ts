@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
 	snapshotDeliveryReport,
 } from '../src/framescaper/delivery-native-report-validation-v1.ts';
+
+test('the retired native receipt builder and closure are absent', async () => {
+	for (const name of ['delivery-native-report-v1.ts', 'delivery-native-report-closure-v1.ts']) {
+		await assert.rejects(access(new URL(`../src/framescaper/${name}`, import.meta.url)), { code: 'ENOENT' });
+	}
+});
 
 function report() {
 	return {

@@ -21,6 +21,7 @@ export function createPluginRegistryAllowanceStore({
 }) {
 	let records = readState(filePath, legacyFilePath);
 	return Object.freeze({
+		allowedInstallationIds: () => Object.freeze([...records.values()].filter(({ allowed }) => allowed).map(({ installationId }) => installationId)),
 		observe(observation, admission) {
 			if (admission?.status !== 'recorded') return;
 			const previous = records.get(admission.installationId);

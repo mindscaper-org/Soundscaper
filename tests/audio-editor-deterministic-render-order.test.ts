@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import {
-	createUnifiedExactLinearPremultipliedFrameV13,
-} from '../src/common/editor/unified-exact-linear-rgba-v13.ts';
 import { createAup4ExportPlan } from '../src/common/editor/aup4-export.js';
 import type {
 	UnifiedExactRenderFinishingNode,
@@ -34,9 +31,9 @@ import {
 } from '../src/framescaper/editor-project-playback-retime.ts';
 import { createFramescaperPlaybackProjectService } from '../src/framescaper/editor-project-playback.ts';
 import { createFramescaperProjectRetime } from '../src/framescaper/editor-project-retime.ts';
-import { applyVideoPresentationLinear } from '../src/framescaper/video-export-visual-linear-finishing.ts';
 import { createFramescaperProject } from '../src/framescaper/editor-project.ts';
 import { FRAMESCAPER_PROJECT_RUNTIME_PROFILE } from '../src/framescaper/editor-project-runtime-profile.ts';
+import { combinedMask, mediaPresentation } from '../src/framescaper/selected-finishing-exact-frame-support.ts';
 import { createFramescaperVideoExportStrategy } from '../src/framescaper/video-export-strategy.ts';
 import { framescaperV20Options } from './helpers/framescaper-model-fixture.ts';
 import { renderAuthority } from './helpers/framescaper-unified-render-project-fixture.ts';
@@ -45,9 +42,9 @@ const DETERMINISTIC_ORDER_MODULES = Object.freeze([
 	'../src/framescaper/editor-project-unified-render-plan-finishing.ts',
 	'../src/framescaper/editor-project-unified-render-plan-native-media.ts',
 	'../src/framescaper/editor-project-sequence-claim-cleanup-repository.ts',
+	'../src/framescaper/selected-finishing-exact-frame-support.ts',
 	'../src/framescaper/video-export-strategy-finishing.ts',
 	'../src/framescaper/video-export-visual-execution-finishing.ts',
-	'../src/framescaper/video-export-visual-linear-finishing.ts',
 	'../src/framescaper/editor-project-playback-retime.ts',
 	'../src/common/editor/assistance/disfluency.ts',
 	'../src/common/editor/assistance/highlight-ranking-v1.ts',
@@ -181,29 +178,36 @@ test('retime playback and finishing export source closure use code-unit order', 
 	assert.deepEqual(strategy.captureTimingSourceIds!(plan), ['Z-source', 'alpha-source']);
 });
 
-test('presentation mask resolution uses code-unit order for deterministic refusal', () => {
-	const finishing = {
+test('the retired linear video export finishing adapter is absent', async () => {
+	await assert.rejects(
+		access(new URL('../src/framescaper/video-export-visual-linear-finishing.ts', import.meta.url)),
+		{ code: 'ENOENT' },
+	);
+});
+
+test('selected finishing resolves presentation masks in code-unit order for deterministic refusal', () => {
+	const profile = FRAMESCAPER_FINISHING_PROJECT_RUNTIME_PROFILE;
+	const project = createFramescaperProjectFinishing(profile, twoVideoSourceOptions());
+	const plan = createFramescaperProjectUnifiedExactRenderPlanFinishing(
+		profile, project, { ...renderAuthority(project, 10), visualFreshnessByModelId: new Map() },
+	);
+	const finishing: UnifiedExactRenderFinishingNode = {
+		...finishingNode(plan),
 		visualPresentations: [{
+			schemaVersion: 1,
+			id: 'video-presentation',
 			enabled: true,
-			owner: { kind: 'clip', id: 'clip' },
+			owner: { kind: 'clip', id: 'video-clip' },
 			opacity: 1,
 			blendMode: 'normal',
+			grade: null,
+			processorStackId: null,
 			maskMatteIds: ['alpha-mask', 'Z-mask'],
 		}],
 	};
-	assert.throws(() => applyVideoPresentationLinear(
-		['clip'],
-		createUnifiedExactLinearPremultipliedFrameV13(1, 1),
-		1,
-		1,
-		finishing as never,
-		new Map([['clip', 'source']]),
-		new Map(),
-		new Map(),
-		{ backgroundColor: '#000000ff' },
-		'srgb',
-		new Set(),
-	), /Z-mask/u);
+	const { maskIds } = mediaPresentation(finishing, 'video-clip', 'alpha-source');
+	assert.deepEqual(maskIds, ['Z-mask', 'alpha-mask']);
+	assert.throws(() => combinedMask(maskIds, new Map(), 1, 1, new Map()), /Z-mask/u);
 });
 
 test('AUP4 overlap lanes use code-unit order and equal clips remain drop-ins', () => {
@@ -284,9 +288,13 @@ function twoVideoSourceOptions(): Record<string, unknown> {
 function finishingAudioTrackIds(
 	plan: UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14,
 ): readonly string[] {
+	return finishingNode(plan).audioContext.audioTracks.map(({ id }) => id);
+}
+
+function finishingNode(plan: UnifiedExactRenderPlanV13 | UnifiedExactRenderPlanV14): UnifiedExactRenderFinishingNode {
 	const finishing = plan.nodes.find(
 		(node): node is UnifiedExactRenderFinishingNode => node.kind === 'finishing',
 	);
 	assert.ok(finishing);
-	return finishing.audioContext.audioTracks.map(({ id }) => id);
+	return finishing;
 }
