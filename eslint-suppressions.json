@@ -352,11 +352,6 @@
       "count": 1
     }
   },
-  "src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-ui-service.ts": {
-    "no-useless-assignment": {
-      "count": 1
-    }
-  },
   "src/common/editor/controller/export/internal/direct/direct-audio-render-plan.ts": {
     "no-extra-boolean-cast": {
       "count": 1

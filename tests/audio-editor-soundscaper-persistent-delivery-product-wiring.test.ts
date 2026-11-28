@@ -34,6 +34,11 @@ test('the retired persistent-delivery worker is absent from the source tree', as
 	await assert.rejects(access(worker), { code: 'ENOENT' });
 });
 
+test('the retired persistent-delivery queue mirror is absent from the source tree', async () => {
+	const mirror = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-ui-service.ts', import.meta.url);
+	await assert.rejects(access(mirror), { code: 'ENOENT' });
+});
+
 test('the retired persistent-delivery adapter and publication guard are absent from the source tree', async () => {
 	const adapter = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-persistent-delivery-adapter-v1.ts', import.meta.url);
 	const publication = new URL('../src/common/editor/controller/export/internal/delivery/soundscaper-delivery-publication-v1.ts', import.meta.url);
