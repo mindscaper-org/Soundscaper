@@ -39,7 +39,7 @@ async function fixture(context) {
 		assert.equal(flag, '--build-browser-core');
 		await appendFile('compilations', 'compiled\\n');
 		const body = await readFile('${platformSource}');
-		for (const name of ['edit-core.js', 'edit-core.worker.js', 'edit-core.wasm']) {
+		for (const name of ['edit-core.js', 'edit-core.wasm']) {
 			await writeFile(join(destination, name), body);
 		}
 	`);
@@ -68,11 +68,28 @@ test('changes to copied Tracktion platform code invalidate the WASM digest', asy
 	assert.equal(await readFile(join(root, 'compilations'), 'utf8'), 'compiled\ncompiled\n');
 });
 
+test('Tracktion can reuse a complete legacy core cache with or without the unused worker placeholder', async (context) => {
+	const { root, put } = await fixture(context);
+	const stamp = await tracktionEngineInputDigest(root);
+	const directory = join('.native-build/tracktion-wasm-core', stamp);
+	const placeholder = join(directory, 'edit-core.worker.js');
+	await put(join(directory, 'edit-core.js'), 'cached script');
+	await put(join(directory, 'edit-core.wasm'), 'cached module');
+	await put(placeholder, 'throw new Error("Dummy worker.js file should never be used");');
+	const legacy = await prepareTracktionWasmCore(root);
+	assert.deepEqual([...legacy.keys()], ['edit-core.js', 'edit-core.wasm']);
+	assert.equal(legacy.get('edit-core.js')?.body.toString('utf8'), 'cached script');
+	assert.equal(legacy.get('edit-core.wasm')?.body.toString('utf8'), 'cached module');
+	await rm(join(root, placeholder));
+	assert.deepEqual(await prepareTracktionWasmCore(root), legacy);
+	await assert.rejects(readFile(join(root, 'compilations')), { code: 'ENOENT' });
+});
+
 test('an incomplete cached core is rebuilt and published as a complete set', async (context) => {
 	const { root } = await fixture(context);
 	const stamp = await tracktionEngineInputDigest(root);
 	const expected = await prepareTracktionWasmCore(root);
-	await rm(join(root, '.native-build/tracktion-wasm-core', stamp, 'edit-core.worker.js'));
+	await rm(join(root, '.native-build/tracktion-wasm-core', stamp, 'edit-core.wasm'));
 	assert.deepEqual(await prepareTracktionWasmCore(root), expected);
 	assert.deepEqual(await prepareTracktionWasmCore(root), expected);
 	assert.equal(await readFile(join(root, 'compilations'), 'utf8'), 'compiled\ncompiled\n');

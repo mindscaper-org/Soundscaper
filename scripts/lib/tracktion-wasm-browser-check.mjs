@@ -26,7 +26,7 @@ export async function verifyTracktionWasmInBrowsers(output) {
 	assets.set('/editor', assets.get('/index.html'));
 	assets.set('/', { body: '<!doctype html><meta charset="utf-8"><title>Tracktion WASM test</title>', type: 'text/html' });
 	assets.set('/worker.js', { body: worker, type: 'text/javascript' });
-	for (const name of ['edit-test.js', 'edit-test.worker.js', 'edit-test.wasm']) {
+	for (const name of ['edit-test.js', 'edit-test.wasm']) {
 		assets.set(`/${name}`, await loadAsset(output, name));
 	}
 	const server = createTracktionWebServer(assets);

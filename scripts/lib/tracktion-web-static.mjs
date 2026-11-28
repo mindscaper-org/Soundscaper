@@ -7,7 +7,7 @@ import { extname, join } from 'node:path';
 const contentTypes = {
 	'.css': 'text/css', '.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm',
 };
-export const tracktionCoreFiles = Object.freeze(['edit-core.js', 'edit-core.worker.js', 'edit-core.wasm']);
+export const tracktionCoreFiles = Object.freeze(['edit-core.js', 'edit-core.wasm']);
 export const tracktionWorkerFiles = Object.freeze(['tracktion-project-worker.js', 'tracktion-audio-worklet.js']);
 export const tracktionEngineFiles = Object.freeze([...tracktionCoreFiles, ...tracktionWorkerFiles]);
 const editorFiles = ['index.html', 'editor.js', 'editor.css', ...tracktionEngineFiles];
