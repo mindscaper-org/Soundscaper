@@ -204,7 +204,7 @@ juce::ValueTree Session::State::newProject(int rate)
 juce::ValueTree Session::State::openProject() const
 {
 	if (directory.isSymbolicLink() || editFile.isSymbolicLink() || !editFile.existsAsFile()
-	    || editFile.getSize() > 16 * 1024 * 1024)
+	    || editFile.getSize() > maximumProjectEditBytes)
 		throw std::invalid_argument("The Tracktion Edit is missing or too large");
 	const auto xml = juce::parseXML(editFile);
 	if (xml == nullptr || !xml->hasTagName("EDIT") || !xml->hasAttribute(projectSampleRate.toString()))
@@ -540,7 +540,7 @@ void Session::save(Revision expected)
 {
 	state->checkRevision(expected);
 	te::EditFileOperations files(*state->edit);
-	if (!files.writeToFile(state->editFile, false))
+	if (!files.writeToFile(state->editFile, false, requireReopenableEditSize))
 		throw std::invalid_argument("Cannot save the Tracktion Edit");
 }
 

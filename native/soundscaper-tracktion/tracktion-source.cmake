@@ -30,6 +30,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_NodeRenderContext.cpp" EXCLUDE
 		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
 		PATTERN "tracktion_EditFileOperations.cpp" EXCLUDE
+		PATTERN "tracktion_EditFileOperations.h" EXCLUDE
 		PATTERN "tracktion_InputDevice.h" EXCLUDE
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
@@ -95,11 +96,20 @@ function(soundscaper_prepare_tracktion_source source destination)
 		"return newFile.getRelativePathFrom (editFile);"
 		"return newFile.getRelativePathFrom (editFile.getParentDirectory()).replaceCharacter (juce::File::getSeparatorChar(), '/');")
 
-	# JUCE's buffered XML writer can miss a positive short write. Preserve
-	# Tracktion's save bookkeeping and verify every byte before replacing the Edit.
+	# Check host admission before staging XML, then verify every byte before
+	# replacing the Edit. JUCE's buffered XML writer can miss a short write.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"
-		"modules/tracktion_engine/model/edit/tracktion_EditFileOperations.cpp"
-		"35d860cf315935251fd132ee094d0cdac3bdee26cb5063f872890c85b6778305"
+		"modules/tracktion_engine/model/edit/tracktion_EditFileOperations.h"
+		"80a60b815aa6a02bbfe38c8d1a6507508cb24e86bbdb058551b730968f7c01f9"
+		"    bool writeToFile (const juce::File&, bool writeQuickBinaryVersion);"
+		"    bool writeToFile (const juce::File&, bool writeQuickBinaryVersion,\n                      const std::function<void (juce::int64)>& checkXmlSize = {});")
+	set(edit_file "modules/tracktion_engine/model/edit/tracktion_EditFileOperations.cpp")
+	soundscaper_read_tracktion_source("${source}" "${edit_file}"
+		"35d860cf315935251fd132ee094d0cdac3bdee26cb5063f872890c85b6778305" code)
+	string(REPLACE "bool EditFileOperations::writeToFile (const juce::File& file, bool writeQuickBinaryVersion)"
+		"bool EditFileOperations::writeToFile (const juce::File& file, bool writeQuickBinaryVersion,\n                                      const std::function<void (juce::int64)>& checkXmlSize)"
+		code "${code}")
+	string(REPLACE
 		[=[
             if (auto xml = edit.state.createXml())
                 ok = xml->writeTo (file);
@@ -110,17 +120,21 @@ function(soundscaper_prepare_tracktion_source source destination)
             {
                 juce::MemoryOutputStream bytes;
                 xml->writeTo (bytes, {});
+                const auto byteCount = static_cast<juce::int64> (bytes.getDataSize());
+                if (checkXmlSize)
+                    checkXmlSize (byteCount);
                 juce::TemporaryFile staging (file);
                 const auto& path = staging.getFile();
                 {
                     juce::FileOutputStream out (path, 0);
                     ok = out.openedOk() && out.write (bytes.getData(), bytes.getDataSize());
                     out.flush();
-                    ok = ok && out.getStatus().wasOk() && path.getSize() == static_cast<juce::int64> (bytes.getDataSize());
+                    ok = ok && out.getStatus().wasOk() && path.getSize() == byteCount;
                 }
                 ok = ok && staging.overwriteTargetFileWithTemporary();
             }
-]=])
+]=] code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${edit_file}" CONTENT "${code}" @ONLY)
 
 	# Completing the render loop after a failed audio write must report failure.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"

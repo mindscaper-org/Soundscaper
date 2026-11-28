@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -9,10 +9,79 @@ import { test } from 'node:test';
 import { TracktionRejectedCommand } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
+import type { TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
+import { wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion persistence tests through CTest.');
+
+test('Tracktion preserves a reopenable Edit when Save or ZIP exceeds the Edit limit', {
+	skip: process.env.SOUNDSCAPER_TRACKTION_TEST_PROJECT_SIZE !== '1',
+}, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-oversized-save-'));
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const edit = join(projectDirectory, 'project.tracktionedit');
+	const launch = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'settings') };
+	const project = { kind: 'project', offset: 0 } as const;
+	const output = join(exchangeDirectory, 'output');
+	const limit = 16 * 1024 * 1024;
+	const archive = { kind: 'archive', asset: 'b'.repeat(32) } as const;
+	try {
+		const asset = 'a'.repeat(32);
+		const input = join(exchangeDirectory, 'input');
+		await Promise.all([mkdir(input, { recursive: true }), mkdir(output, { recursive: true })]);
+		await writeFile(join(input, `${asset}.wav`), wavFixture());
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		let savedTracks: TracktionProjectPage['tracks'];
+		try {
+			const [track] = (await peer.request(project)).tracks;
+			assert.ok(track);
+			const audio = await peer.request({ kind: 'importFile', trackId: track.id, revision: 0, asset, name: '&'.repeat(128), start: 0 });
+			assert.ok(audio.itemId);
+			let revision = audio.revision;
+			for (let index = 1; index < 1500; index += 1) {
+				({ revision } = await peer.request({ kind: 'duplicateClip', revision, trackId: track.id, clipId: audio.itemId, start: index * 64 }));
+			}
+			await peer.request({ kind: 'save', revision });
+			let previous = await readFile(edit);
+			let rejected = false;
+			for (let index = 0; index < 30; index += 1) {
+				({ revision } = await peer.request({ kind: 'duplicateTrack', revision, trackId: track.id }));
+				const before = await peer.request(project);
+				let refusal: unknown;
+				await peer.request({ kind: 'save', revision }).catch((error: unknown) => { refusal = error; });
+				const attempted = await readFile(edit);
+				assert.ok(attempted.length <= limit, `Save published an Edit of ${attempted.length} bytes that Open cannot read.`);
+				if (!refusal) {
+					previous = attempted;
+					continue;
+				}
+				assert.ok(refusal instanceof TracktionRejectedCommand);
+				assert.match(refusal.message, /Tracktion Edit exceeds the 16 MiB limit/u);
+				assert.deepEqual(attempted, previous);
+				await assert.rejects(peer.request({ ...archive, revision }), /Tracktion Edit exceeds the 16 MiB limit/u);
+				assert.deepEqual(await readdir(output), []);
+				assert.deepEqual(await peer.request(project), before);
+				rejected = true;
+				break;
+			}
+			assert.ok(rejected, 'The fixture exceeded the Edit size limit.');
+			({ revision } = await peer.request({ kind: 'undo', revision }));
+			const restored = await peer.request(project);
+			assert.equal(restored.canRedo, true);
+			savedTracks = restored.tracks;
+			await peer.request({ kind: 'save', revision });
+			await peer.request({ ...archive, revision });
+			assert.ok((await readFile(join(output, `${archive.asset}.zip`))).length > 0);
+		} finally { await peer.close(); }
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			assert.deepEqual((await reopened.request(project)).tracks, savedTracks);
+		} finally { await reopened.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test('a short Tracktion Save preserves the existing file and the unsaved Edit', { skip: process.platform !== 'linux' }, async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-short-save-'));

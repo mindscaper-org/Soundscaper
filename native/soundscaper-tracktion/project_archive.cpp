@@ -96,7 +96,7 @@ void Session::archive(Revision expected, const juce::File& output, ProjectArchiv
 	};
 	const juce::TemporaryFile snapshot(".tracktionedit");
 	te::EditFileOperations files(*s.edit);
-	if (!files.writeToFile(snapshot.getFile(), false))
+	if (!files.writeToFile(snapshot.getFile(), false, requireReopenableEditSize))
 		throw std::invalid_argument("Cannot stage the Tracktion archive Edit");
 	static constexpr char archiveInfo[] = "{\"archive_type\":1}";
 	accountEntry(snapshot.getFile().getSize());

@@ -8,12 +8,19 @@
 
 #include <array>
 #include <functional>
+#include <stdexcept>
 
 namespace soundscaper::tracktion_backend
 {
 namespace te = tracktion::engine;
 
 inline constexpr auto mediaDirectory = "media";
+inline constexpr juce::int64 maximumProjectEditBytes = 16 * 1024 * 1024;
+inline void requireReopenableEditSize(juce::int64 size)
+{
+	if (size > maximumProjectEditBytes)
+		throw std::invalid_argument("The Tracktion Edit exceeds the 16 MiB limit");
+}
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
 void copyOwnedWave(const juce::File& source, const juce::File& destination, const char* failure);
 ClipView summarizeClip(const te::Clip&, int sampleRate);
