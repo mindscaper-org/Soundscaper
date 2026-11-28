@@ -2,6 +2,7 @@
 
 #include "project_archive.h"
 #include "session_state.h"
+#include "staged_file_output.h"
 
 #include <set>
 #include <stdexcept>
@@ -122,15 +123,13 @@ void Session::archive(Revision expected, const juce::File& output, ProjectArchiv
 
 	juce::TemporaryFile staging(output);
 	{
-		auto stream = staging.getFile().createOutputStream();
-		if (!stream || !archive.writeToStream(*stream, nullptr))
-			throw std::runtime_error("Cannot write the Tracktion archive");
-		stream->flush();
-		if (stream->getStatus().failed())
-			throw std::runtime_error("Cannot finish the Tracktion archive");
+		StagedFileOutput stream(staging.getFile(), limits.zipBytes);
+		const auto written = stream.ready() && archive.writeToStream(stream, nullptr);
+		if (stream.exceededSizeLimit())
+			throw std::invalid_argument("The project exceeds the ZIP file size limit of " + describeLimit(limits.zipBytes));
+		if (!written || !stream.complete())
+			throw std::invalid_argument("Cannot write a complete Tracktion archive");
 	}
-	if (staging.getFile().getSize() > limits.zipBytes)
-		throw std::invalid_argument("The project exceeds the ZIP file size limit of " + describeLimit(limits.zipBytes));
 	if (!staging.overwriteTargetFileWithTemporary())
 		throw std::runtime_error("Cannot publish the Tracktion archive");
 }

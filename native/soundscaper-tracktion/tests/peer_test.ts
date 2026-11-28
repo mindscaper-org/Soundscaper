@@ -7,12 +7,10 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { unzipSync } from 'fflate';
-
 import { inspectTracktionReply } from '../../../desktop/tracktion-peer-contract.ts';
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { countAlsaFrames, startAlsaCaptureFixture, startAlsaRoutingFixture, writeAlsaOutputFixture } from './alsa_fixture.ts';
-import { exerciseInterruptedExport } from './export_peer_fixture.ts';
+import './archive_peer_test.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import './paging_peer_test.ts';
 import './pipewire_capture_peer_test.ts';
@@ -22,14 +20,6 @@ const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the peer test through CTest.');
 
 const asset = '0123456789abcdef'.repeat(2);
-
-test('desktop Tracktion ZIP export refuses unavailable project media and retries with the exact entries', async () => {
-	const { reference, retried, source, mediaPath } = await exerciseInterruptedExport(executable, 'archive');
-	const entries = unzipSync(retried);
-	assert.deepEqual(entries, unzipSync(reference));
-	assert.deepEqual(Object.keys(entries).sort(), [mediaPath, 'project.tracktionedit', 'project_info.json']);
-	assert.deepEqual(entries[mediaPath], Uint8Array.from(source));
-});
 
 test('a Tracktion Save refused by the filesystem preserves the Edit and can be retried', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-retry-save-'));
