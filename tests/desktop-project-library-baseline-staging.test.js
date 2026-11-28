@@ -44,9 +44,9 @@ test('desktop staging contains only unversioned v1 project-library authorities',
 	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
 		'src/common/editor/video-drawable-interval.js',
 	));
-	assert.ok(DESKTOP_PROJECT_LIBRARY_BASELINE_RUNTIME_FILES.includes(
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(
 		'src/framescaper/desktop-project-library-publication-identity.js',
-	));
+	), false);
 });
 
 test('desktop staging omits the retired Soundscaper desktop delivery modules', () => {
