@@ -10,7 +10,6 @@ import {
 	VIDEO_TIMING_ASSET_ENCODING, VIDEO_TIMING_ASSET_MIME_TYPE,
 } from '../src/common/editor/video-timing-asset.ts';
 import {
-	acquireFramescaperDesktopCoreBodies as acquireBodies,
 	FRAMESCAPER_DESKTOP_CORE_MAXIMUM_BODY_CHUNK_BYTES as MAXIMUM_CHUNK_BYTES,
 	prepareFramescaperDesktopCorePublicationBodies as prepareBodies,
 	uploadFramescaperDesktopCorePublicationBodies as uploadBodies,
@@ -18,6 +17,7 @@ import {
 	type FramescaperDesktopCoreBodyDescriptor, type FramescaperDesktopCoreBodyStore,
 	type FramescaperDesktopCorePreparedBody,
 } from '../src/framescaper/desktop-project-library-core-body-transfer.ts';
+import { acquireFramescaperDesktopBodies as acquireBodies } from '../src/framescaper/desktop-project-library-body-transfer.ts';
 import type { FramescaperProject } from '../src/framescaper/editor-project.ts';
 
 type Data = Record<string, unknown>;
@@ -70,12 +70,15 @@ function videoSource(overrides: Data = {}): Data {
 	return {
 		kind: 'video', id: 'video-source', name: 'take one',
 		storageKey: ORIGINAL_KEY, mimeType: 'video/mp4', contentSha256: ORIGINAL_SHA256,
-		timingAsset: SOURCE_TIMING.reference, proxyAttachment: attachment(),
+		imageSequence: null, timingAsset: SOURCE_TIMING.reference, proxyAttachment: attachment(),
 		...overrides,
 	};
 }
 
-function projectOf(...sources: Data[]): FramescaperProject { return { sources } as unknown as FramescaperProject; }
+function projectOf(...sources: Data[]): FramescaperProject {
+	return { sources, videoFreezeFallbacks: [], videoFinishingPresets: [], videoProcessorStacks: [],
+		videoMotionAnalyses: [], videoVisualPresentations: [], assistanceAssets: [] } as unknown as FramescaperProject;
+}
 
 function assetOf(sourceId: string, mimeType: string, bytes: Uint8Array): [string, StoredAsset] {
 	return [sourceId, { bytes, metadata: { sourceId, mimeType, size: bytes.byteLength, sha256: digestOf(bytes) } }];
@@ -171,10 +174,8 @@ async function acquisitionSetup(options: StoreOptions & Readonly<{
 	};
 }
 
-function acquire(setup: Awaited<ReturnType<typeof acquisitionSetup>>): Promise<void> {
-	return acquireBodies(
-		projectOf(videoSource()), PROJECT_SHA256, setup.descriptors, setup.bridge, setup.store,
-	);
+function acquire({ descriptors, bridge, store }: Awaited<ReturnType<typeof acquisitionSetup>>, signal?: AbortSignal): Promise<void> {
+	return acquireBodies(projectOf(videoSource()), PROJECT_SHA256, descriptors, bridge, store, signal);
 }
 
 test('preflight describes the original, its timing asset, the proxy and the proxy timing in project order', async () => {
@@ -536,7 +537,7 @@ test('a rollback failure is reported as an aggregate error around the original r
 
 test('preflight, upload and acquisition all stop at an already aborted signal', async () => {
 	const assets = retainedAssets();
-	const descriptors = (await preparedFixture()).map((body) => body.descriptor);
+	const setup = await acquisitionSetup({ retained: assets });
 	const prepared = uploadFixture(ORIGINAL_BYTES);
 	const controller = new AbortController();
 	const aborted = { name: 'AbortError' };
@@ -545,6 +546,5 @@ test('preflight, upload and acquisition all stop at an already aborted signal', 
 		assetStore(assets), controller.signal), aborted);
 	await assert.rejects(uploadBodies('publication-9', [prepared], acknowledgingBridge([]),
 		uploadStore(prepared), controller.signal), aborted);
-	await assert.rejects(acquireBodies(projectOf(videoSource()), PROJECT_SHA256, descriptors,
-		chunkBridge(assets), assetStore(assets), controller.signal), aborted);
+	await assert.rejects(acquire(setup, controller.signal), aborted);
 });

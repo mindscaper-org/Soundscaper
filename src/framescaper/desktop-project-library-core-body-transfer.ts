@@ -8,10 +8,7 @@ import {
 	canonicalMediaContentBlob,
 	digestMediaContent,
 } from '../common/media/content-digest.ts';
-import type {
-	OwnedMediaAssetPublication,
-	OwnedMediaAssetWriter,
-} from '../common/editor/storage/media-asset-write-contract.ts';
+import type { OwnedMediaAssetWriter } from '../common/editor/storage/media-asset-write-contract.ts';
 import { normalizeVideoProxyAttachmentV18 } from '../common/editor/video-proxy-attachment-v18.ts';
 import {
 	normalizeVideoTimingAssetReference,
@@ -21,8 +18,6 @@ import {
 	type VideoTimingAssetReference,
 } from '../common/editor/video-timing-asset.ts';
 import type { FramescaperProject } from './editor-project.ts';
-import { matchesFramescaperDesktopPublicationIdentity } from
-	'./desktop-project-library-publication-identity.ts';
 
 export const FRAMESCAPER_DESKTOP_CORE_MAXIMUM_BODY_CHUNK_BYTES = 4 * 1024 * 1024;
 
@@ -58,9 +53,6 @@ export interface FramescaperDesktopCoreBodyStore {
 }
 
 export interface FramescaperDesktopCoreBodyBridge {
-	readBodyChunk(request: Readonly<{
-		body: Readonly<FramescaperDesktopCoreBodyDescriptor>; offset: number; length: number;
-	}>): Promise<unknown>;
 	writePublicationChunk(request: Readonly<{
 		publicationId: string; bodyIndex: number; offset: number; bytes: Uint8Array;
 	}>): Promise<unknown>;
@@ -202,80 +194,6 @@ export function validateFramescaperDesktopCoreBodies(
 		throw new Error('Framescaper desktop desktop core body inventory order changed.');
 	}
 	return Object.freeze(expected);
-}
-
-/** Verify every desktop body and atomically retain only missing local media. */
-export async function acquireFramescaperDesktopCoreBodies(
-	project: FramescaperProject,
-	projectSha256: string,
-	bodiesValue: unknown,
-	bridge: Pick<FramescaperDesktopCoreBodyBridge, 'readBodyChunk'>,
-	store: FramescaperDesktopCoreBodyStore,
-	signal?: AbortSignal,
-): Promise<void> {
-	const bodies = validateFramescaperDesktopCoreBodies(project, projectSha256, bodiesValue);
-	const references = new Map(bodyReferences(project, projectSha256).map((reference) => [bodyKey(reference), reference]));
-	const missing = new Set<string>();
-	for (const body of bodies) {
-		throwIfScapeAborted(signal);
-		const reference = references.get(bodyKey(body))!;
-		const metadata = await store.getMediaAssetMetadata(body.storageKey);
-		if (metadata == null) { missing.add(bodyKey(body)); continue; }
-		trustedMetadata(reference, metadata, body.byteLength);
-		await loadVerifiedBlob(store, reference, trustedMetadata(reference, metadata, body.byteLength), signal);
-	}
-	const publications: OwnedMediaAssetPublication[] = [];
-	let activeWriter: OwnedMediaAssetWriter | null = null;
-	try {
-		for (const body of bodies) {
-			throwIfScapeAborted(signal);
-			if (!missing.has(bodyKey(body))) continue;
-			const reference = references.get(bodyKey(body))!;
-			activeWriter = await store.beginMediaAssetWrite(
-				body.storageKey,
-				{ kind: body.kind, encoding: body.encoding, mimeType: body.mimeType, name: reference.name },
-				{ expectedBytes: body.byteLength, expectedSha256: body.sha256, signal },
-			);
-			const digest = sha256.create();
-			const timingChunks: Uint8Array[] | null = reference.timing ? [] : null;
-			for (let offset = 0; offset < body.byteLength;) {
-				throwIfScapeAborted(signal);
-				const length = Math.min(FRAMESCAPER_DESKTOP_CORE_MAXIMUM_BODY_CHUNK_BYTES, body.byteLength - offset);
-				const value = await bridge.readBodyChunk({ body, offset, length });
-				if (!(value instanceof Uint8Array) || value.byteLength !== length) {
-					throw new Error('Framescaper desktop desktop core body read returned an inexact chunk.');
-				}
-				const bytes = value.slice();
-				digest.update(bytes);
-				timingChunks?.push(bytes);
-				if (activeWriter) await activeWriter.write(bytes, { signal });
-				offset += length;
-			}
-			if (bytesToHex(digest.digest()) !== body.sha256) {
-				throw new Error(`Framescaper desktop desktop core ${body.kind} body failed its SHA-256 binding.`);
-			}
-			if (reference.timing && timingChunks) {
-				validateVideoTimingAssetBytes(reference.timing, concatenate(timingChunks, body.byteLength));
-			}
-			if (activeWriter) {
-				const publication = await activeWriter.commitOwned({ signal });
-				// The body is committed the moment commitOwned resolves, and abort() is a no-op on a
-				// committed writer: enrol the publication for rollback before anything can refuse it.
-				activeWriter = null;
-				publications.push(publication);
-				assertPublication(publication, body);
-			}
-		}
-	} catch (error) {
-		const cleanup: unknown[] = [];
-		if (activeWriter) try { await activeWriter.abort(); } catch (cause) { cleanup.push(cause); }
-		for (const publication of publications.reverse()) {
-			try { await publication.discardIfCurrent(); } catch (cause) { cleanup.push(cause); }
-		}
-		if (cleanup.length) throw new AggregateError(
-			[error, ...cleanup], 'V12 body acquisition rollback failed.', { cause: error });
-		throw error;
-	}
 }
 
 function bodyReferences(project: FramescaperProject, projectSha256: string): readonly BodyReference[] {
@@ -437,12 +355,6 @@ function descriptorReference(body: FramescaperDesktopCoreBodyDescriptor): BodyRe
 	};
 }
 
-function assertPublication(publication: OwnedMediaAssetPublication, body: FramescaperDesktopCoreBodyDescriptor): void {
-	if (!matchesFramescaperDesktopPublicationIdentity(publication, body)) {
-		throw new Error(`Managed desktop core ${body.kind} publication changed its descriptor.`);
-	}
-}
-
 function metadataIdentity(metadata: TrustedMetadata): string {
 	return JSON.stringify(metadata);
 }
@@ -451,14 +363,6 @@ function proxyBindingId(storageKey: string, bodySha256: string, byteLength: numb
 	return `p${bytesToHex(sha256(new TextEncoder().encode(JSON.stringify([
 		'framescaper-v12-video-proxy-v1', storageKey, bodySha256, byteLength, mimeType,
 	]))))}`;
-}
-
-function concatenate(chunks: readonly Uint8Array[], byteLength: number): Uint8Array {
-	const output = new Uint8Array(byteLength);
-	let offset = 0;
-	for (const chunk of chunks) { output.set(chunk, offset); offset += chunk.byteLength; }
-	if (offset !== byteLength) throw new Error('Framescaper desktop desktop core timing body ended early.');
-	return output;
 }
 
 function bodyKey(value: Pick<BodyReference, 'kind' | 'storageKey'>): string {

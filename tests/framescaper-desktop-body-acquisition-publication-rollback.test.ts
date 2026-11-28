@@ -10,7 +10,6 @@ import test from 'node:test';
 
 import type { OwnedMediaAssetWriter } from '../src/common/editor/storage/media-asset-write-contract.ts';
 import { acquireFramescaperDesktopBodies } from '../src/framescaper/desktop-project-library-body-transfer.ts';
-import { acquireFramescaperDesktopCoreBodies } from '../src/framescaper/desktop-project-library-core-body-transfer.ts';
 import type { FramescaperProject } from '../src/framescaper/editor-project.ts';
 
 type Data = Record<string, unknown>;
@@ -115,18 +114,9 @@ function acquisitionStore(log: StoreLog, failingKey: string) {
 	return { store, retained };
 }
 
-test('core acquisition discards the publication whose descriptor assertion failed', async () => {
-	const [first, second] = [descriptorOf(FIRST_BYTES), descriptorOf(SECOND_BYTES)];
-	const log = emptyLog();
-	const { store, retained } = acquisitionStore(log, second.storageKey as string);
-	await assert.rejects(acquireFramescaperDesktopCoreBodies(
-		projectOf(FIRST_BYTES, SECOND_BYTES), PROJECT_SHA256, [first, second],
-		chunkBridge([FIRST_BYTES, SECOND_BYTES]), store,
-	), /video-original publication changed its descriptor/u);
-	assert.deepEqual(log.committed, [first.storageKey, second.storageKey]);
-	assert.deepEqual(log.discarded, [second.storageKey, first.storageKey]);
-	assert.deepEqual(log.aborted, []);
-	assert.deepEqual([...retained], []);
+test('the retired core-only media acquisition implementation is absent', async () => {
+	const core = await import('../src/framescaper/desktop-project-library-core-body-transfer.ts');
+	assert.equal(Object.hasOwn(core, 'acquireFramescaperDesktopCoreBodies'), false);
 });
 
 test('baseline acquisition discards the publication whose descriptor assertion failed', async () => {
