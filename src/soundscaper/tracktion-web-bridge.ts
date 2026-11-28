@@ -285,6 +285,7 @@ async function chooseProject(): Promise<TracktionLocalProject | null> {
 	const { listTracktionProjects } = await import('./tracktion-web-project-library.ts');
 	const projects = await listTracktionProjects();
 	const dialog = document.createElement('dialog');
+	dialog.className = 'tracktion-project-chooser';
 	const heading = document.createElement('h2');
 	heading.textContent = copy.projectsTitle;
 	dialog.setAttribute('aria-label', copy.projectsTitle);

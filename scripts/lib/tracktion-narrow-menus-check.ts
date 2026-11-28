@@ -33,7 +33,7 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await chooser.getByRole('button', { name: 'Cancel', exact: true }).tap();
 	await chooser.waitFor({ state: 'detached' });
 	await file.tap();
-	const name = 'Narrow Soundscaper project';
+	const name = `FieldRecordingSession_${'locationNotes_'.repeat(7)}T001`;
 	await Promise.all([page.waitForEvent('dialog').then((dialog) => dialog.accept(name)), create.tap()]);
 	await assertFitsWidth(page.getByRole('heading', { name, exact: true }), 'The created project');
 	await transport.tap();
@@ -42,6 +42,7 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await assertFitsWidth(file, 'File with the transport menu open');
 	await transport.tap();
 	await verifyNarrowTrimDialog(page, nav, file, editing);
+	await verifyNarrowSavedChooser(page, nav, file, name);
 }
 
 async function verifyNarrowTrimDialog(page: Page, nav: Locator, file: Locator, editing: Locator): Promise<void> {
@@ -71,4 +72,29 @@ async function verifyNarrowTrimDialog(page: Page, nav: Locator, file: Locator, e
 	await trim.waitFor({ state: 'detached' });
 	await page.getByText(`${second} (784–1520)`, { exact: true }).waitFor();
 	await page.getByText(`${first} (0–768)`, { exact: true }).waitFor();
+}
+
+async function verifyNarrowSavedChooser(page: Page, nav: Locator, file: Locator, title: string): Promise<void> {
+	await file.tap();
+	await nav.getByRole('button', { name: 'Save project', exact: true }).tap();
+	await page.getByRole('status').filter({ hasText: 'All changes saved locally' }).waitFor();
+	await file.tap();
+	await nav.getByRole('button', { name: 'Close project', exact: true }).tap();
+	await page.getByRole('heading', { name: 'Soundscaper Tracktion', exact: true }).waitFor();
+	await file.tap();
+	await nav.getByRole('button', { name: 'Open projects', exact: true }).tap();
+	const chooser = page.getByRole('dialog', { name: 'Local projects', exact: true });
+	const choice = chooser.getByRole('button', { name: title, exact: true });
+	await assertFitsWidth(choice, 'The saved project with a long name');
+	assert.equal(await chooser.evaluate((element) => element.scrollWidth - element.clientWidth), 0);
+	assert.equal(await choice.evaluate((element) => {
+		const { left, right } = element.getBoundingClientRect();
+		const content = element.ownerDocument.createRange();
+		content.selectNodeContents(element);
+		const lines = [...content.getClientRects()];
+		return lines.length > 1 && lines.every((line) => line.left >= left && line.right <= right);
+	}), true, 'The complete saved project name wraps within its button');
+	await choice.tap();
+	await page.getByRole('heading', { name: title, exact: true }).waitFor();
+	await page.getByText(/TAKE_002 \(784–1520\)$/u).waitFor();
 }

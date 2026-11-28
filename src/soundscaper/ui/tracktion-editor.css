@@ -43,6 +43,11 @@
 	max-inline-size: 100%;
 }
 
+.tracktion-project-chooser button {
+	max-inline-size: 100%;
+	overflow-wrap: anywhere;
+}
+
 .tracktion-editor main {
 	padding: 1rem;
 }
