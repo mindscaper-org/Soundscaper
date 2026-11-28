@@ -263,19 +263,34 @@ async function installAssetBatches(options, descriptors) {
 }
 
 async function reuseTracktionEngine(options, descriptors, installUrls) {
-	const copy = async (url) => {
-		const descriptor = descriptors.get(url);
-		return descriptor !== undefined && await reuseVerifiedAsset({ ...options, descriptor }).catch(() => false);
-	};
+	const urls = ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm'];
+	if (urls.some((url) => !descriptors.has(url))) return;
 	const retained = [];
-	for (const url of ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm']) {
-		if (installUrls.includes(url)) continue;
-		if (!await copy(url)) {
-			// These files only support offline startup when the complete engine matches the new release.
-			await Promise.all(retained.map((path) => options.candidate.delete(path).catch(() => false)));
+	try {
+		for (const cacheName of options.reuseNames) {
+			const previous = await options.cacheStorage.open(cacheName);
+			const files = await Promise.all(urls.map((url) => previous.match(url)));
+			// A complete predecessor shows that this browser already initialized the engine.
+			if (!files.every(Boolean)) continue;
+			let signal;
+			for (const [index, url] of urls.entries()) {
+				if (installUrls.includes(url)) continue;
+				const descriptor = descriptors.get(url);
+				let response = await verifiedShellResponse(files[index], descriptor, options.cryptoImpl).catch(() => undefined);
+				if (!response) {
+					// A slow or unavailable optional engine must not block the shell update indefinitely.
+					signal ??= AbortSignal.timeout(10_000);
+					const fetched = await options.fetchImpl(url, { cache: 'reload', credentials: 'same-origin', redirect: 'error', signal });
+					response = await verifiedShellResponse(fetched, descriptor, options.cryptoImpl);
+				}
+				await options.candidate.put(url, response);
+				retained.push(url);
+			}
 			return;
 		}
-		retained.push(url);
+	} catch {
+		// Keep the required shell available even if the optional engine cannot be published as a group.
+		await Promise.all(retained.map((url) => options.candidate.delete(url).catch(() => false)));
 	}
 }
 

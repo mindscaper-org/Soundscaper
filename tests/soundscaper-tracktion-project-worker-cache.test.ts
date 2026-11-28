@@ -12,9 +12,11 @@ const corePath = '/tracktion/edit-core.js';
 const contents = 'verified engine';
 const stale = 'previous engine';
 
-for (const outcome of ['unchanged', 'changed WASM', 'missing WASM', 'cache write failure'] as const) {
+for (const outcome of ['unchanged', 'changed WASM', 'stale response', 'offline', 'missing WASM', 'cache write failure'] as const) {
 	test(`an offline shell update preserves a reusable Tracktion engine as a group (${outcome})`, async (context) => {
 		const wasmPath = '/tracktion/edit-core.wasm';
+		const changed = outcome === 'changed WASM' || outcome === 'stale response' || outcome === 'offline';
+		const complete = outcome === 'unchanged' || outcome === 'changed WASM';
 		const unrelated = '/assets/deferred.js';
 		const bodies = new Map([
 			[workerPath, 'worker code'], [corePath, 'core code'], [wasmPath, 'older WASM'],
@@ -22,9 +24,14 @@ for (const outcome of ['unchanged', 'changed WASM', 'missing WASM', 'cache write
 		]);
 		const previous = shellConfiguration('4', Array.from(bodies, ([url, body]) => asset(url, body)));
 		const configuration = shellConfiguration('5', Array.from(bodies, ([url, body]) =>
-			asset(url, url === wasmPath && outcome === 'changed WASM' ? 'newer WASM' : body)));
+			asset(url, url === wasmPath && changed ? 'newer WASM' : body)));
 		const cacheStorage = new MemoryCacheStorage();
-		const previousName = await installOfflineShell({ configuration: previous, cacheStorage, fetchImpl: async (url: string) => shellResponse(url) });
+		const previousName = await installOfflineShell({ configuration: previous, cacheStorage, fetchImpl: async (url: string) => {
+			assert.ok(previous.installUrls.includes(url));
+			return shellResponse(url);
+		} });
+		const oldCache = await cacheStorage.open(previousName);
+		for (const path of [workerPath, corePath, wasmPath]) assert.equal(await oldCache.match(path), undefined);
 		for (const [url, body] of bodies) {
 			if (url === wasmPath && outcome === 'missing WASM') continue;
 			const reply = await handleOfflineShellFetch({
@@ -33,21 +40,39 @@ for (const outcome of ['unchanged', 'changed WASM', 'missing WASM', 'cache write
 			});
 			assert.equal(await reply.text(), body);
 		}
-		const oldCache = await cacheStorage.open(previousName);
 		const nextName = shellCacheName(configuration.releaseId);
 		let quotaInjected = false;
 		if (outcome === 'cache write failure') {
-			const match = oldCache.match.bind(oldCache);
-			context.mock.method(oldCache, 'match', async (key: string) => {
-				if (key === wasmPath) {
-					quotaInjected = true;
-					cacheStorage.failNextPutFor(nextName, new DOMException('Quota exceeded', 'QuotaExceededError'));
+			const open = cacheStorage.open.bind(cacheStorage);
+			let wrapped: Awaited<ReturnType<typeof open>> | undefined;
+			context.mock.method(cacheStorage, 'open', async (name: string) => {
+				const cache = await open(name);
+				if (name === nextName && cache !== wrapped) {
+					wrapped = cache;
+					const put = cache.put.bind(cache);
+					context.mock.method(cache, 'put', async (key: string, value: Response) => {
+						if (key === wasmPath) {
+							quotaInjected = true;
+							throw new DOMException('Quota exceeded', 'QuotaExceededError');
+						}
+						await put(key, value);
+					});
 				}
-				return await match(key);
+				return cache;
 			});
 		}
-		const offline = () => Promise.reject(new Error('There must be no engine download during install or offline use'));
-		assert.equal(await installOfflineShell({ configuration, cacheStorage, fetchImpl: offline }), nextName);
+		const fetched: string[] = [];
+		const offline = () => Promise.reject(new Error('The network is unavailable'));
+		const fetchImpl = async (url: string, options: RequestInit) => {
+			fetched.push(url);
+			assert.equal(url, wasmPath);
+			assert.equal(options.cache, 'reload');
+			assert.ok(options.signal instanceof AbortSignal);
+			if (outcome === 'offline') return await offline();
+			return response(outcome === 'changed WASM' ? 'newer WASM' : 'older WASM');
+		};
+		assert.equal(await installOfflineShell({ configuration, cacheStorage, fetchImpl }), nextName);
+		assert.deepEqual(fetched, changed ? [wasmPath] : []);
 		assert.equal(quotaInjected, outcome === 'cache write failure');
 		await activateOfflineShell({ configuration, cacheStorage, clients: { claim: async () => undefined } });
 		assert.deepEqual(await cacheStorage.keys(), [nextName]);
@@ -56,12 +81,13 @@ for (const outcome of ['unchanged', 'changed WASM', 'missing WASM', 'cache write
 		assert.equal(await nextCache.match(unrelated), undefined);
 		for (const path of [workerPath, corePath, wasmPath]) {
 			const saved = await nextCache.match(path);
-			assert.equal(await saved?.text(), outcome === 'unchanged' ? bodies.get(path) : undefined, path);
-			if (outcome !== 'unchanged') continue;
+			const expected = changed && path === wasmPath ? 'newer WASM' : bodies.get(path);
+			assert.equal(await saved?.text(), complete ? expected : undefined, path);
+			if (!complete) continue;
 			const reply = await handleOfflineShellFetch({
 				configuration, cacheStorage, origin, request: new Request(new URL(path, origin)), fetchImpl: offline,
 			});
-			assert.equal(await reply.text(), bodies.get(path));
+			assert.equal(await reply.text(), expected);
 		}
 	});
 }
