@@ -42,17 +42,14 @@ test('Tools > Macros mirrors the Macro Manager library without disabled placehol
 	}
 });
 
-test('Apply to files is a desktop-only command reachable through the macro palette menu', () => {
-	const opened: string[] = [];
-	const desktop = controller(async () => true);
-	Object.assign(desktop.actions.macros, { applyToFiles: async () => [] });
-	const menus = createWorkspaceApplicationMenus(workspaceInput({ controller: desktop, fileService: { isDesktop: true }, desktopHostRuntime: { snapshot: {} },
-		openSurface: (surface: string) => { opened.push(surface); },
-	})) as readonly MenuItem[];
-	menuItem(menus, 'macro-apply-files').onClick?.();
-	assert.deepEqual(opened, ['macro-files']);
-	const web = createWorkspaceApplicationMenus(workspaceInput({ controller: desktop })) as readonly MenuItem[];
-	assert.equal(findMenuItem(web, 'macro-apply-files'), null);
+test('the ordinary Macros submenu contains only the saved definitions on both hosts', () => {
+	for (const isDesktop of [false, true]) {
+		const menus = createWorkspaceApplicationMenus(workspaceInput({
+			fileService: { isDesktop }, ...(isDesktop ? { desktopHostRuntime: { snapshot: {} } } : {}),
+		})) as readonly MenuItem[];
+		assert.equal(findMenuItem(menus, 'macro-apply-files'), null);
+		assert.deepEqual(menuItem(menus, 'macro-library').items?.map(({ label }) => label), ['Restoration', 'Fade ends']);
+	}
 });
 
 test('a saved macro menu item runs the same library record exposed by Macro Manager', async () => {

@@ -13,7 +13,6 @@ import { WorkspacePanelOverlayPortal } from './WorkspacePanelOverlayPortal.tsx';
 import MacrosPalettePanel from './MacrosPalettePanel.tsx';
 
 const MacroManager = lazyEditorModule(() => import('../inspector/AudioEditorMacroManagerDialog.jsx'));
-const MacroFileBatchDialog = lazyEditorModule(() => import('../dialogs/MacroFileBatchDialog.tsx'));
 
 export default function MacrosPaletteWorkspacePanel(props) {
 	return <PaletteSession key={editorProjectEditSessionKey(props.controller, props.snapshot.project?.id)} {...props} />;
@@ -23,7 +22,6 @@ function PaletteSession({ controller, snapshot, copy, locale, fileService, run }
 	const host = useRef(null);
 	const [manager, setManager] = useState(null);
 	const [draft, setDraft] = useState(null);
-	const [batch, setBatch] = useState(null);
 	const macros = snapshot.macros?.library || [];
 	const scripts = snapshot.macros?.scripts || [];
 	const blocked = !snapshot.project || selectAudioEditorEditBlock(snapshot).blocked;
@@ -62,10 +60,7 @@ function PaletteSession({ controller, snapshot, copy, locale, fileService, run }
 			<Suspense fallback={<p role="status">{copy.loading}</p>}>
 				{manager && <MacroManager isOpen productId={snapshot.productId} controller={controller} snapshot={snapshot}
 					copy={copy} locale={locale} fileService={fileService} draft={draft} onDraftChange={setDraft}
-					initialScriptId={manager.scriptId} onClose={() => setManager(null)}
-					onApplyToFiles={(macro) => { setManager(null); setBatch(macro); }} />}
-				{batch && <MacroFileBatchDialog controller={controller} snapshot={snapshot} copy={copy} fileService={fileService}
-					initialMacro={batch} onClose={() => setBatch(null)} />}
+					initialScriptId={manager.scriptId} onClose={() => setManager(null)} />}
 			</Suspense>
 		</WorkspacePanelOverlayPortal>
 	</div>;
