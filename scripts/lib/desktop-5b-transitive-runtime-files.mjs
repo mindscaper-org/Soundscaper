@@ -112,7 +112,6 @@ export const DESKTOP_5B_TRANSITIVE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/native-media-plan-envelope-v2.js',
 	'src/common/editor/native-media-plan-video-timing.js',
 	'src/common/editor/native-media-v14-native-dispatch.js',
-	'src/common/editor/native-media-v14-openfx-carrier.js',
 	'src/common/editor/native-media-v14-render-family.js',
 	'src/common/editor/native-media-v14-support.js',
 	'src/common/editor/native-rgba-frame-pack-v1-contract.js',

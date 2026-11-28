@@ -356,8 +356,6 @@
 		,
 		{ "path": "src/common/editor/native-media-v14-native-dispatch.ts", "kind": "persisted-contract", "justification": "native-media-v14-native-dispatch.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
-		{ "path": "src/common/editor/native-media-v14-openfx-carrier.ts", "kind": "ipc-contract", "justification": "native-media-v14-openfx-carrier.ts is an independently versioned persisted or cross-process carrier contract." }
-		,
 		{ "path": "src/common/editor/native-media-v14-render-family.ts", "kind": "persisted-contract", "justification": "native-media-v14-render-family.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/native-media-v14-support.ts", "kind": "persisted-contract", "justification": "native-media-v14-support.ts is a persisted domain-component or render-contract revision independent of product schema." }
