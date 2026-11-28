@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
-	FRAMESCAPER_RETIME_HISTORY_MAXIMUM_TRAVERSAL_DEPTH,
-	FRAMESCAPER_RETIME_HISTORY_MAXIMUM_TRAVERSAL_NODES,
-	admitFramescaperProjectHistoryRetimeStructure as admit,
-} from '../src/framescaper/editor-project-retime-history-admission.ts';
+	FRAMESCAPER_RETIME_COMMAND_MAXIMUM_TRAVERSAL_DEPTH,
+	FRAMESCAPER_RETIME_COMMAND_MAXIMUM_TRAVERSAL_NODES,
+	admitFramescaperProjectCommandRetimeStructure as admit,
+} from '../src/framescaper/editor-project-retime-command-admission.ts';
 
 function chain(depth: number): Record<string, unknown> {
 	const root: Record<string, unknown> = {};
@@ -20,14 +21,21 @@ function chain(depth: number): Record<string, unknown> {
 	return root;
 }
 
-test('ordinary JSON-compatible history structures are admitted', () => {
+test('the retired retime history admission helper is absent', async () => {
+	await assert.rejects(
+		access(new URL('../src/framescaper/editor-project-retime-history-admission.ts', import.meta.url)),
+		{ code: 'ENOENT' },
+	);
+});
+
+test('ordinary JSON-compatible retime command structures are admitted', () => {
 	assert.doesNotThrow(() => admit({ entries: [{ id: 'a', at: 1, ok: true, note: null }] }));
 	assert.doesNotThrow(() => admit(null));
 	assert.doesNotThrow(() => admit('a bare string'));
 	assert.doesNotThrow(() => admit({ empty: [] }));
 });
 
-test('binary history payloads are limited to Uint8Array and ArrayBuffer', () => {
+test('binary retime command payloads are limited to Uint8Array and ArrayBuffer', () => {
 	assert.doesNotThrow(() => admit({ body: new Uint8Array([1, 2, 3]) }));
 	assert.doesNotThrow(() => admit({ body: new ArrayBuffer(4) }));
 	assert.throws(() => admit({ body: new Float32Array(2) }), TypeError);
@@ -46,7 +54,7 @@ test('values that cannot survive a JSON round trip are refused', () => {
 	}
 });
 
-test('only ordinary plain objects and arrays carry history state', () => {
+test('only ordinary plain objects and arrays carry retime command values', () => {
 	assert.doesNotThrow(() => admit({ a: Object.create(null) as object }));
 	assert.throws(() => admit({ a: new Date(0) }), TypeError);
 	assert.throws(() => admit({ a: new Map() }), TypeError);
@@ -76,7 +84,7 @@ test('symbol keys and accessor or non-enumerable properties are refused', () => 
 	);
 });
 
-test('a cyclic history is refused while a repeated sibling reference is admitted', () => {
+test('a cyclic command value is refused while a repeated sibling reference is admitted', () => {
 	const cyclic: Record<string, unknown> = {};
 	cyclic.self = cyclic;
 	assert.throws(() => admit(cyclic), TypeError);
@@ -89,16 +97,16 @@ test('a cyclic history is refused while a repeated sibling reference is admitted
 });
 
 test('the traversal depth bound is enforced at its documented limit', () => {
-	assert.doesNotThrow(() => admit(chain(FRAMESCAPER_RETIME_HISTORY_MAXIMUM_TRAVERSAL_DEPTH - 1)));
+	assert.doesNotThrow(() => admit(chain(FRAMESCAPER_RETIME_COMMAND_MAXIMUM_TRAVERSAL_DEPTH - 1)));
 	assert.throws(
-		() => admit(chain(FRAMESCAPER_RETIME_HISTORY_MAXIMUM_TRAVERSAL_DEPTH + 1)),
+		() => admit(chain(FRAMESCAPER_RETIME_COMMAND_MAXIMUM_TRAVERSAL_DEPTH + 1)),
 		RangeError,
 	);
 });
 
 test('the aggregate node bound is enforced at its documented limit', () => {
 	assert.throws(
-		() => admit(Array.from({ length: FRAMESCAPER_RETIME_HISTORY_MAXIMUM_TRAVERSAL_NODES + 1 }, () => 1)),
+		() => admit(Array.from({ length: FRAMESCAPER_RETIME_COMMAND_MAXIMUM_TRAVERSAL_NODES + 1 }, () => 1)),
 		RangeError,
 	);
 });
