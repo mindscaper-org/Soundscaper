@@ -46,3 +46,25 @@
 .tracktion-editor main li {
 	font-variant-numeric: tabular-nums;
 }
+
+@media (max-width: 480px) {
+	.tracktion-editor {
+		flex-direction: column;
+		overflow: auto;
+		overflow-wrap: anywhere;
+	}
+
+	.tracktion-editor nav {
+		flex: none;
+		flex-direction: column;
+	}
+
+	.tracktion-editor details {
+		width: auto;
+	}
+
+	.tracktion-editor details > div {
+		position: static;
+		min-width: 0;
+	}
+}

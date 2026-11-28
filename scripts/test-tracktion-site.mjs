@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { chromium, firefox, webkit } from 'playwright-core';
 
+import { verifyTracktionNarrowMenus } from './lib/tracktion-narrow-menus-check.ts';
 import { verifyTracktionWebEditor } from './lib/tracktion-web-editor-check.ts';
 
 const site = new URL(process.argv[2] ?? 'http://127.0.0.1:4321/en/');
@@ -26,6 +27,9 @@ for (const browserType of [chromium, firefox, webkit]) {
 		assert.deepEqual(engineRequests, [], 'browsing the local project list must not load the native engine');
 		await verifyTracktionWebEditor(page, site.origin, site.pathname);
 		assert.ok(engineRequests.some((url) => url.endsWith('/tracktion/edit-core.wasm')), 'the regular site must run the Tracktion WASM core');
+		await page.close();
+		const narrow = await browser.newPage({ viewport: { width: 320, height: 650 }, hasTouch: true, isMobile: browserType !== firefox });
+		await verifyTracktionNarrowMenus(narrow, site);
 		console.log(`${browserType.name()} passed the regular Soundscaper site workflow.`);
 	} finally {
 		await browser.close();
