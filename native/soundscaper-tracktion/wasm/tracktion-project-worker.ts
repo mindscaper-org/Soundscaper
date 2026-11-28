@@ -48,9 +48,24 @@ let initialMemoryBytes = 0;
 let hasClipboard = false;
 
 const ready = new Promise<void>((resolve) => {
+	const startup = new AbortController();
+	function abort(reason: unknown): void {
+		if (failed) return;
+		startup.abort();
+		failed = new Error(String(reason));
+		scope.postMessage({ fatal: failed.message });
+		completion?.resolve({ error: 'host', detail: failed.message });
+		resolve();
+	}
+	// Emscripten's streaming fetch can reject before it calls Module.onAbort.
+	globalThis.addEventListener('unhandledrejection', (event) => {
+		event.preventDefault();
+		abort(event.reason);
+	}, { signal: startup.signal });
 	scope.Module = {
 		mainScriptUrlOrBlob: core,
 		tracktionReady() {
+			startup.abort();
 			initialMemoryBytes = (scope.Module as WasmRuntime).HEAPU8.byteLength;
 			resolve();
 		},
@@ -66,12 +81,7 @@ const ready = new Promise<void>((resolve) => {
 				if (pointer !== 0) runtime._free(pointer);
 			}
 		},
-		onAbort(reason) {
-			failed = new Error(String(reason));
-			scope.postMessage({ fatal: failed.message });
-			completion?.resolve({ error: 'host', detail: failed.message });
-			resolve();
-		},
+		onAbort: abort,
 	};
 });
 
