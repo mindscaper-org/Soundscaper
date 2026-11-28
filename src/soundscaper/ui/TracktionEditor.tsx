@@ -25,6 +25,7 @@ import {
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
 import { TracktionAutomationDialog } from './TracktionAutomationDialog.tsx';
 import { TracktionClipEditDialog } from './TracktionClipEditDialog.tsx';
+import { TracktionDiscardChangesDialog, tracktionDiscardChangesMessage } from './TracktionDiscardChangesDialog.tsx';
 import { TracktionEffectsDialog, tracktionEffectsTitle } from './TracktionEffectsDialog.tsx';
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
 import { TracktionPasteDialog } from './TracktionPasteDialog.tsx';
@@ -34,6 +35,7 @@ const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const trackCopy = TRACK_COPY_BY_LOCALE.en;
 const transportCopy = TRANSPORT_COPY_BY_LOCALE.en;
+type ProjectReplacement = Readonly<{ kind: 'open' | 'create' | 'archive' | 'close'; sessionId: string; revision: number }>;
 
 export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSetup = false, desktopEffects = false }: {
 	readonly bridge: TracktionProjectBridge;
@@ -47,6 +49,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const [busy, setBusy] = useState(false);
 	const [status, setStatus] = useState('');
 	const [failure, setFailure] = useState('');
+	const [replacement, setReplacement] = useState<ProjectReplacement | null>(null);
 	const [clipEdit, setClipEdit] = useState<TracktionClipCommand['kind'] | null>(null);
 	const [rangeEdit, setRangeEdit] = useState<TracktionRangeCommand['kind'] | null>(null);
 	const [pasteFrame, setPasteFrame] = useState<number | null>(null);
@@ -90,6 +93,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		setSavedRevision(null);
 		setTransport(null);
 		setHasClipboard(false);
+		setReplacement(null);
 		setClipEdit(null);
 		setRangeEdit(null);
 		setPasteFrame(null);
@@ -154,18 +158,31 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) menu.open = false;
 	}
 
-	function confirmReplacement(): boolean {
-		return !dirty || window.confirm('Close the current project and discard unsaved changes?');
-	}
-
 	function readTransport(sessionId: string): Promise<TracktionTransportObservation> {
 		return desktopAudioSetup ? bridge.request({ kind: 'transportObservation', sessionId })
 			: bridge.request({ kind: 'transportStatus', sessionId });
 	}
 
-	function open(kind: 'open' | 'create' | 'archive'): void {
-		if (!confirmReplacement()) return;
+	function replace(kind: ProjectReplacement['kind'], confirmed = false): void {
+		if (pending.current || (replacement && !confirmed)) return;
+		if (dirty && !confirmed) {
+			if (window.self !== window.top) {
+				closeMenus();
+				menuBar.current?.querySelector('summary')?.focus();
+				setReplacement({ kind, sessionId: workspace.sessionId, revision: workspace.project.revision });
+				return;
+			}
+			if (!window.confirm(tracktionDiscardChangesMessage)) return;
+		}
 		run(async () => {
+			if (kind === 'close') {
+				if (!workspace) return;
+				await bridge.request({ kind, sessionId: workspace.sessionId });
+				setWorkspace(null);
+				setTransport(null);
+				setSavedRevision(null);
+				return;
+			}
 			const opened = kind === 'archive' ? await bridge.openArchive?.()
 				: await bridge.request(kind === 'create' ? { kind, sampleRate: 48_000 } : { kind });
 			if (!opened) return;
@@ -173,16 +190,6 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			setTransport(opened.transport ?? await readTransport(opened.sessionId));
 			setWorkspace(next);
 			if (opened.sessionId !== workspace?.sessionId) setSavedRevision(opened.initiallyUnsaved ? null : next.project.revision);
-		});
-	}
-
-	function close(): void {
-		if (!workspace || !confirmReplacement()) return;
-		run(async () => {
-			await bridge.request({ kind: 'close', sessionId: workspace.sessionId });
-			setWorkspace(null);
-			setTransport(null);
-			setSavedRevision(null);
 		});
 	}
 
@@ -437,14 +444,14 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			<details>
 				<summary>File</summary>
 				<div>
-					<button type="button" disabled={busy || recording} onClick={() => open('create')}>{copy.newProject}</button>
-					<button type="button" disabled={busy || recording} onClick={() => open('open')}>{copy.openProject}</button>
-					{bridge.openArchive && <button type="button" disabled={busy || recording} onClick={() => open('archive')}>{copy.openTracktionArchive}</button>}
+					<button type="button" disabled={busy || recording} onClick={() => replace('create')}>{copy.newProject}</button>
+					<button type="button" disabled={busy || recording} onClick={() => replace('open')}>{copy.openProject}</button>
+					{bridge.openArchive && <button type="button" disabled={busy || recording} onClick={() => replace('archive')}>{copy.openTracktionArchive}</button>}
 					<button type="button" disabled={busy || recording || !workspace?.selectedTrack} onClick={importWave}>{copy.importAudio}</button>
 					<button type="button" disabled={busy || recording || !workspace} onClick={save}>{copy.saveProject}</button>
 					<button type="button" disabled={busy || recording || !workspace?.tracks.some((track) => track.clipCount > 0)} onClick={() => exportProject('render')}>{copy.exportTracktionMix}</button>
 					<button type="button" disabled={busy || recording || !workspace} onClick={() => exportProject('archive')}>{copy.exportTracktionArchive}</button>
-					<button type="button" disabled={busy || recording || !workspace} onClick={close}>{copy.closeProject}</button>
+					<button type="button" disabled={busy || recording || !workspace} onClick={() => replace('close')}>{copy.closeProject}</button>
 				</div>
 			</details>
 			<details>
@@ -495,6 +502,10 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				</div>
 			</details>
 		</nav>
+		{replacement && <TracktionDiscardChangesDialog onCancel={() => setReplacement(null)} onDiscard={() => {
+			setReplacement(null);
+			if (workspace?.sessionId === replacement.sessionId && workspace.project.revision === replacement.revision) replace(replacement.kind, true);
+		}} />}
 		{audioSetup && workspace && <TracktionAudioSetupDialog inventory={audioSetup} bridge={bridge} sessionId={workspace.sessionId}
 			sampleRate={workspace.project.sampleRate} onDismiss={() => setAudioSetup(null)} />}
 		{clipEdit && workspace?.selectedTrack && <TracktionClipEditDialog kind={clipEdit}
