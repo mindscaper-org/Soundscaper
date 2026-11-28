@@ -37,6 +37,13 @@ inline juce::var indexedClipReply(const IndexedClip& clip)
 	return record({{"clip", clipReply(clip.clip)}, {"index", number(static_cast<std::int64_t>(clip.index))}});
 }
 
+inline juce::var indexedClipsReply(const std::vector<IndexedClip>& clips)
+{
+	juce::Array<juce::var> result;
+	for (const auto& clip : clips) result.add(indexedClipReply(clip));
+	return juce::var(result);
+}
+
 inline juce::var clipIdsReply(const std::vector<ClipId>& ids)
 {
 	juce::Array<juce::var> result;

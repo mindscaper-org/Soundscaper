@@ -295,6 +295,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	std::optional<IndexedClip> editedClip;
 	std::optional<SplitClips> splitClips;
 	std::vector<ClipId> removedClipIds;
+	std::vector<IndexedClip> pastedClips;
 	auto stoppedRecording = false;
 	if (kind == "startRecording")
 	{
@@ -471,7 +472,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		else if (mode == "insertTracks") selected = RangePasteMode::insertTracks;
 		else if (mode == "insertAll") selected = RangePasteMode::insertAll;
 		else throw std::invalid_argument("Unknown Tracktion paste mode");
-		session.pasteRange(revision, selected, itemId(request, "trackId"), integer("start"), clipboard);
+		pastedClips = session.pasteRange(revision, selected, itemId(request, "trackId"), integer("start"), clipboard);
 	}
 	else if (kind == "undo" || kind == "redo" || kind == "save")
 	{
@@ -517,7 +518,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
 	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
-	if (insertedTrack || editedClip || splitClips || !removedClipIds.empty()
+	if (insertedTrack || editedClip || splitClips || !removedClipIds.empty() || !pastedClips.empty()
 	    || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
 	if (insertedTrack)
@@ -537,6 +538,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		}));
 	if (stoppedRecording) reply.getDynamicObject()->setProperty("transport", transportObservation(session));
 	if (!removedClipIds.empty()) reply.getDynamicObject()->setProperty("removedClipIds", peer_reply::clipIdsReply(removedClipIds));
+	if (!pastedClips.empty()) reply.getDynamicObject()->setProperty("pastedClips", peer_reply::indexedClipsReply(pastedClips));
 	return reply;
 }
 }

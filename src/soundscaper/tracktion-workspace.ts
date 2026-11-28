@@ -114,7 +114,8 @@ function workspaceWithClipRows(
 }
 
 function applyClipPlacements(clips: readonly TracktionClipView[], result: TracktionEditResult): readonly TracktionClipView[] | undefined {
-	const { splitClips, importedClip, recordedClip, trimmedClip, placedClip, removedClipIds, itemId } = result;
+	const { splitClips, importedClip, recordedClip, trimmedClip, placedClip, removedClipIds, pastedClips, itemId } = result;
+	if (pastedClips) return insertPastedClips(clips, pastedClips);
 	if (removedClipIds) {
 		const removed = new Set(removedClipIds);
 		const remaining = clips.filter(({ id }) => !removed.has(id));
@@ -137,6 +138,19 @@ function applyClipPlacements(clips: readonly TracktionClipView[], result: Trackt
 	const placement = inserted ?? trimmedClip ?? placedClip;
 	if (!placement || inserted && inserted.clip.id !== itemId) return undefined;
 	return placeEditedClip(clips, placement, inserted !== undefined);
+}
+
+function insertPastedClips(clips: readonly TracktionClipView[], placements: readonly TracktionIndexedClip[]) {
+	const ids = new Set(clips.map(({ id }) => id));
+	const updated = clips.slice();
+	let previous = -1;
+	for (const { clip, index } of placements) {
+		if (!Number.isSafeInteger(index) || index <= previous || index > updated.length || ids.has(clip.id)) return undefined;
+		updated.splice(index, 0, clip);
+		ids.add(clip.id);
+		previous = index;
+	}
+	return updated;
 }
 
 function placeEditedClip(

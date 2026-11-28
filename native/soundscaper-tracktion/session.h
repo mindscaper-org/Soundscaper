@@ -162,7 +162,7 @@ public:
 	void deleteClip(Revision, ClipId);
 	std::vector<ClipId> deleteRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end);
 	std::vector<ClipId> copyRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const juce::File& clipboard, bool cut);
-	void pasteRange(Revision, RangePasteMode, TrackId, Frame start, const juce::File& clipboard);
+	std::vector<IndexedClip> pasteRange(Revision, RangePasteMode, TrackId, Frame start, const juce::File& clipboard);
 	bool undo(Revision);
 	bool redo(Revision);
 	void save(Revision);

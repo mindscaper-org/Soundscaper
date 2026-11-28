@@ -5,7 +5,7 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import {
-	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT, TRACKTION_TRACK_PAGE_SIZE,
+	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_PASTE_REPLY_LIMIT, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT, TRACKTION_TRACK_PAGE_SIZE,
 	type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
 	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
 	type TracktionRecordingCommand, type TracktionRecordingResult, type TracktionRenderCommand, type TracktionTrackMix,
@@ -105,10 +105,11 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const finishesRecording = command.kind === 'finishRecording';
 	const discarding = finishesRecording && command.discard;
 	const rangeRemovesClips = (command.kind === 'deleteRange' || command.kind === 'cutRange') && command.trackId !== null;
+	const overlapPaste = command.kind === 'pasteRange' && command.mode === 'overlap';
 	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
 		: command.kind === 'moveClip' || command.kind === 'duplicateClip' ? 'placedClip'
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
-	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split' || rangeRemovesClips
+	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split' || rangeRemovesClips || overlapPaste
 		|| command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
 	const allowed = permitsHistory ? [...fields, 'history'] : [...fields];
@@ -116,6 +117,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	if (editedClipField) allowed.push(editedClipField);
 	if (command.kind === 'split') allowed.push('splitClips');
 	if (rangeRemovesClips) allowed.push('removedClipIds');
+	if (overlapPaste) allowed.push('pastedClips');
 	if (finishesRecording) allowed.push('transport');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
@@ -164,6 +166,13 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 		const removedClipIds = readClosedDomainArray(result.removedClipIds, 'Tracktion removed clip IDs', 1, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT).map(readItemId);
 		if (!edited || new Set(removedClipIds).size !== removedClipIds.length) throw new TypeError('Tracktion returned inconsistent removed clips.');
 		return Object.freeze({ ...edit, removedClipIds: Object.freeze(removedClipIds) }) as TracktionReply<Command>;
+	}
+	if (overlapPaste && result.pastedClips !== undefined) {
+		const pastedClips = readClosedDomainArray(result.pastedClips, 'Tracktion pasted clips', 1, TRACKTION_PASTE_REPLY_LIMIT).map(readIndexedClip);
+		const ids = new Set(pastedClips.map(({ clip }) => clip.id));
+		if (ids.size !== pastedClips.length || pastedClips.some(({ clip, index }, position) => clip.start < command.start
+			|| index <= (pastedClips[position - 1]?.index ?? -1))) throw new TypeError('Tracktion returned inconsistent pasted clips.');
+		return Object.freeze({ ...edit, pastedClips: Object.freeze(pastedClips) }) as TracktionReply<Command>;
 	}
 	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
 	return Object.freeze({ ...edit, ...insertion }) as TracktionReply<Command>;

@@ -14,6 +14,7 @@ namespace
 {
 constexpr auto selectionName = "selection.xml";
 constexpr auto metadataLimit = 16 * 1024 * 1024;
+constexpr auto pasteReplyLimit = 32;
 
 bool stageSelection(const juce::ValueTree& selection, const juce::File& file)
 {
@@ -125,7 +126,7 @@ std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, 
 	return removedIds;
 }
 
-void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId, Frame start, const juce::File& clipboard)
+std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId, Frame start, const juce::File& clipboard)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -175,6 +176,8 @@ void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId
 	if (!media.isDirectory() || media.isSymbolicLink()) throw std::runtime_error("The project media directory is unavailable");
 	std::map<juce::File, juce::File> adopted;
 	std::vector<juce::File> addedFiles;
+	const auto reportPlacements = mode == RangePasteMode::overlap && selection.getNumChildren() == 1 && clips.size() <= pasteReplyLimit;
+	te::Clip::Array inserted;
 	bool editing = false;
 	try
 	{
@@ -237,6 +240,7 @@ void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId
 			if (!item) throw std::invalid_argument("Tracktion could not insert a clipboard clip");
 			const auto offset = item->getPosition().offset + tracktion::TimeDuration::fromSamples(clip.sourceTrim, rate);
 			item->setPosition({{s.position(start + clip.first), s.position(start + clip.last)}, offset});
+			if (reportPlacements) inserted.add(item);
 		}
 		s.commit();
 	}
@@ -246,5 +250,17 @@ void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId
 		for (const auto& added : addedFiles) added.deleteFile();
 		throw;
 	}
+
+	// The transaction dispatches Tracktion's pending clip ordering before we read the final indices.
+	std::vector<IndexedClip> placements;
+	placements.reserve(static_cast<std::size_t>(inserted.size()));
+	for (auto* item : inserted)
+	{
+		auto placement = describeClipPlacement(*tracks[firstTrack], *item, s.sampleRate);
+		if (!placement) return {};
+		placements.push_back(std::move(*placement));
+	}
+	std::ranges::sort(placements, {}, &IndexedClip::index);
+	return placements;
 }
 }

@@ -17,6 +17,44 @@ const longFrames = 524_288;
 const shortStart = 32;
 const longStart = 128;
 
+test('Tracktion acknowledges single-track overlap Paste with its canonical ordered placements', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-paste-reply-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const asset = 'c'.repeat(32);
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wavFixture());
+		const peer = launchTracktionPeer({ executable, mode: 'create', sampleRate: 48_000, exchangeDirectory,
+			projectDirectory: join(root, 'project'), stateDirectory: join(root, 'settings') });
+		try {
+			const [track] = (await peer.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const trackId = track.id;
+			const { itemId: first } = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'First', start: 0 });
+			const { itemId: second } = await peer.request({ kind: 'importFile', revision: 1, trackId, asset, name: 'Second', start: 32 });
+			const { itemId: last } = await peer.request({ kind: 'importFile', revision: 2, trackId, asset, name: 'Last', start: 112 });
+			const page = { kind: 'clips', trackId, offset: 0 } as const;
+			await peer.request({ kind: 'copyRange', trackId, mode: 'leaveGap', start: 0, end: 96, revision: 3 });
+			const paste = { kind: 'pasteRange', trackId, start: 32 } as const;
+			const result = await peer.request({ ...paste, mode: 'overlap', revision: 3 });
+			const { clips } = await peer.request({ ...page, revision: 4 });
+			const originalIds = new Set([first, second, last]);
+			const acknowledged = clips.flatMap((clip, index) => originalIds.has(clip.id) ? [] : [{ clip, index }]);
+			assert.deepEqual(acknowledged.map(({ clip: { name, start, end, sourceOffset }, index }) => [name, start, end, sourceOffset, index]),
+				[['First', 32, 96, 0, 2], ['Second', 64, 128, 0, 3]]);
+			assert.deepEqual(result, { revision: 4, itemId: null, history: { canUndo: true, canRedo: false }, pastedClips: acknowledged });
+			assert.deepEqual(await peer.request({ ...paste, mode: 'insertTracks', revision: 4 }), { revision: 5, itemId: null });
+			const { itemId: otherTrack } = await peer.request({ kind: 'addTrack', name: 'Other lane', revision: 5 });
+			assert.ok(otherTrack);
+			await peer.request({ kind: 'importFile', trackId: otherTrack, revision: 6, asset, name: 'Other audio', start: 0 });
+			await peer.request({ kind: 'copyRange', trackId: null, mode: 'allTracks', start: 0, end: 64, revision: 7 });
+			assert.deepEqual(await peer.request({ ...paste, mode: 'overlap', start: 512, revision: 7 }), { revision: 8, itemId: null });
+			const other = await peer.request({ ...page, trackId: otherTrack, revision: 8 });
+			assert.deepEqual(other.clips.map(({ start, end }) => [start, end]), [[0, 64], [512, 576]]);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 async function prepareSizeLimitedClipboard(root: string, peerPath: string) {
 	const projectDirectory = join(root, 'project');
 	const exchangeDirectory = join(root, 'exchange');

@@ -282,7 +282,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result, changed));
 				return;
 			}
-			if (edit.kind !== 'pasteRange' && edit.trackId !== null) {
+			if (edit.trackId !== null && (edit.kind !== 'pasteRange' || (edit.mode === 'overlap' && result.pastedClips))) {
 				setWorkspace(await readTracktionWorkspaceAfterClipEdit(bridge, workspace, result, { trackId: edit.trackId }));
 				return;
 			}

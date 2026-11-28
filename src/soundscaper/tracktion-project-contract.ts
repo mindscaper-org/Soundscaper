@@ -7,6 +7,7 @@ import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffe
 export const TRACKTION_TRACK_PAGE_SIZE = 64;
 export const TRACKTION_CLIP_PAGE_SIZE = 64;
 export const TRACKTION_RANGE_REMOVAL_REPLY_LIMIT = 256;
+export const TRACKTION_PASTE_REPLY_LIMIT = 32;
 
 export interface TracktionTrackView {
 	readonly id: string;
@@ -56,6 +57,7 @@ export interface TracktionEditResult {
 	readonly recordedClip?: TracktionIndexedClip;
 	readonly placedClip?: TracktionIndexedClip;
 	readonly removedClipIds?: readonly string[];
+	readonly pastedClips?: readonly TracktionIndexedClip[];
 }
 
 export interface TracktionRecordingResult extends TracktionEditResult {

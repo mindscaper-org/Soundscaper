@@ -30,6 +30,19 @@ void test('a whole-clip range acknowledgement removes exactly those rows and pre
 	assert.equal(updated.project.revision, 2);
 });
 
+void test('an overlap Paste merges acknowledged insertions with the existing rows in their final order', async () => {
+	const first = { ...clip, id: '4', start: 64, end: 80 };
+	const second = { ...clip, id: '5', start: 128, end: 144 };
+	const updated = await readTracktionWorkspaceAfterClipEdit(localOnly, workspace, {
+		revision: 2, itemId: null, history, pastedClips: [{ clip: first, index: 1 }, { clip: second, index: 3 }],
+	});
+	assert.deepEqual(updated.clips, [clip, first, remaining, second]);
+	assert.deepEqual(updated.selectedTrack, { ...source, clipCount: 4 });
+	assert.equal(updated.project.tracks[0], updated.selectedTrack);
+	assert.equal(updated.project.revision, 2);
+	assert.equal(updated.recentClips, workspace.recentClips);
+});
+
 void test('a cross-track Move updates cached source and destination rows from its acknowledgement', async () => {
 	const moved = { ...clip, start: 128, end: 144 };
 	const updated = await readTracktionWorkspaceAfterClipEdit(localOnly, workspace, {
