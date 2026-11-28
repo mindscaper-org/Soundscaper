@@ -36,6 +36,25 @@ for (const [product, route] of [['soundscaper', '/embed/en/'], ['framescaper', '
 	});
 }
 
+test('a pointer exit in the gap keeps the explanation readable until the pointer leaves the page', async ({ page }) => {
+	const editor = await bootEditor(page, '/framescaper/embed/en/');
+	await editor.getByRole('menubar').getByRole('menuitem', { name: 'File', exact: true }).click();
+	const item = page.getByRole('menu', { name: 'File', exact: true }).getByRole('menuitem', { name: /^New\b/u });
+	await item.hover();
+	const tooltip = page.getByRole('tooltip');
+	await expect(tooltip).toContainText('Start an empty timeline for a separate piece of work.');
+	const anchor = await item.boundingBox();
+	const surface = await tooltip.boundingBox();
+	const clientX = (anchor.x + anchor.width + surface.x) / 2;
+	const clientY = anchor.y + anchor.height / 2;
+	// Exercise a pointer transition without a related target inside the viewport.
+	await item.dispatchEvent('pointerout', { pointerType: 'mouse', clientX, clientY, relatedTarget: null });
+	await page.mouse.move(surface.x + 16, clientY);
+	await expect(tooltip).toBeVisible();
+	await page.locator('html').dispatchEvent('pointerleave', { pointerType: 'mouse', bubbles: false });
+	await expect(tooltip).toHaveCount(0);
+});
+
 test('disabled submenu commands explain their purpose with rich content without covering their parent menu', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	const editor = await bootEditor(page, '/embed/en/');

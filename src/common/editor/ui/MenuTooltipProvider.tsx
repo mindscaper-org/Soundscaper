@@ -70,7 +70,6 @@ export function MenuTooltipProvider({ children, resolve, resolveShortcut }: {
 		};
 		const out = (event: PointerEvent) => {
 			if (pending && !pending.contains(event.relatedTarget as Node)) cancelPending();
-			if (active && !event.relatedTarget) dismiss();
 		};
 		const move = (event: PointerEvent) => {
 			if (!active || keyboard) return;
@@ -88,6 +87,9 @@ export function MenuTooltipProvider({ children, resolve, resolveShortcut }: {
 		const blur = (event: FocusEvent) => { if (active?.target === event.target) dismiss(); };
 		const changed = () => { if (active && !active.target.isConnected) dismiss(); };
 		const observer = new MutationObserver(changed);
+		const viewport = document.documentElement;
+		// A pointerout may omit its related target during an in-page transition.
+		viewport.addEventListener('pointerleave', dismiss);
 		document.addEventListener('pointerover', over);
 		document.addEventListener('pointerout', out);
 		document.addEventListener('pointermove', move);
@@ -99,6 +101,7 @@ export function MenuTooltipProvider({ children, resolve, resolveShortcut }: {
 		return () => {
 			cancelPending();
 			observer.disconnect();
+			viewport.removeEventListener('pointerleave', dismiss);
 			document.removeEventListener('pointerover', over);
 			document.removeEventListener('pointerout', out);
 			document.removeEventListener('pointermove', move);
