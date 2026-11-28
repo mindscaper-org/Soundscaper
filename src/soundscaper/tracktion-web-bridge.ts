@@ -19,6 +19,7 @@ type Reply = TracktionProjectReply<TracktionProjectCommand>;
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const handle = () => crypto.randomUUID().replaceAll('-', '');
 const nativeClipNameByteLimit = 512;
+const projectNameLimit = 128;
 
 export function createTracktionWebBridge(createWorker: () => Worker): TracktionProjectBridge {
 	const pending = new Map<number, Readonly<{ resolve(reply: WorkerReply): void; reject(error: Error): void }>>();
@@ -199,7 +200,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 			const archive = await chooseFile('.zip,application/zip', copy.openTracktionArchive);
 			if (!archive) return null;
 			requireTracktionWebUpload(archive.size, 'ZIP');
-			const stem = archive.name.replace(/\.zip$/iu, '').slice(0, 128);
+			const stem = archive.name.replace(/\.zip$/iu, '').slice(0, projectNameLimit);
 			// Truncation can leave half of a Unicode character at the end.
 			const name = stem.replace(/[\uD800-\uDBFF]$/u, '').trim() || copy.untitledProject;
 			const reply = await send({ kind: 'openArchive', project: handle(), name, asset: handle() }, await archive.arrayBuffer());
@@ -209,22 +210,39 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 }
 
 async function chooseProjectName(): Promise<string | undefined> {
-	if (window.self === window.top) return window.prompt(copy.projectName, copy.untitledProject)?.trim();
+	const embedded = window.self !== window.top;
+	const draft = embedded ? copy.untitledProject : window.prompt(copy.projectName, copy.untitledProject);
+	if (draft === null) return undefined;
+	if (!embedded && draft.trim().length <= projectNameLimit) return draft.trim();
+
 	const dialog = document.createElement('dialog');
 	dialog.setAttribute('aria-label', copy.newProject);
 	const label = document.createElement('label');
 	label.textContent = copy.projectName;
 	const name = document.createElement('input');
-	name.value = copy.untitledProject;
+	name.value = draft;
 	name.autofocus = true;
 	label.append(name);
 	const create = projectDialogButton(dialog, copy.newProject, 'create');
+	const guidance = document.createElement('p');
+	guidance.id = 'tracktion-project-name-length';
+	guidance.textContent = `Shorten the project name to ${projectNameLimit} characters or fewer. Some characters, including emoji, count as more than one.`;
+	const validate = () => {
+		const overlong = name.value.trim().length > projectNameLimit;
+		name.setAttribute('aria-invalid', String(overlong));
+		if (overlong) name.setAttribute('aria-describedby', guidance.id);
+		else name.removeAttribute('aria-describedby');
+		guidance.hidden = !overlong;
+		create.disabled = overlong;
+	};
+	validate();
+	name.addEventListener('input', validate);
 	name.addEventListener('keydown', (event) => {
 		if (event.key !== 'Enter' || event.isComposing) return;
 		event.preventDefault();
 		create.click();
 	});
-	dialog.append(label, create, projectDialogButton(dialog, copy.cancel));
+	dialog.append(label, guidance, create, projectDialogButton(dialog, copy.cancel));
 	const choice = showProjectDialog(dialog);
 	name.select();
 	return await choice === 'create' ? name.value.trim() : undefined;

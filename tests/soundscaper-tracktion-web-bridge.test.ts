@@ -2,7 +2,6 @@
 
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import { JSDOM } from 'jsdom';
 
 import { wavFixture } from '../native/soundscaper-tracktion/tests/wave_fixture.ts';
 import type { TracktionProjectPage, TracktionTransportObservation } from '../src/soundscaper/tracktion-project-contract.ts';
@@ -10,6 +9,7 @@ import { createTracktionWebBridge } from '../src/soundscaper/tracktion-web-bridg
 import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
 import { deferred } from './helpers/async-test-control.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
+import { browserFixture, installGlobals } from './helpers/tracktion-web-dialog-fixture.ts';
 
 type Request = Readonly<{ id: number; request: Readonly<{ kind: string; project?: string; name?: string }> }>;
 
@@ -301,41 +301,7 @@ for (const releaseEngine of [true, false]) test(`closing a Tracktion project fol
 	assert.deepEqual(await bridge.request({ kind: 'project', sessionId: next.sessionId, offset: 0 }), project);
 });
 
-function browserFixture(context: TestContext, embedded = false) {
-	const { window } = new JSDOM('<!doctype html><body></body>');
-	const chooser = deferred<HTMLDialogElement>();
-	Object.defineProperty(window.HTMLDialogElement.prototype, 'showModal', {
-		value(this: HTMLDialogElement) { this.open = true; chooser.resolve(this); },
-	});
-	Object.defineProperty(window.HTMLDialogElement.prototype, 'close', {
-		value(this: HTMLDialogElement, value: string) {
-			this.open = false;
-			this.returnValue = value;
-			this.dispatchEvent(new window.Event('close'));
-		},
-	});
-	const deadlines = new Map<number, () => void>();
-	let sequence = 0;
-	const bindings = {
-		document: window.document,
-		window: {
-			self: window,
-			top: embedded ? {} : window,
-			prompt: () => embedded ? null : 'Working project',
-			setTimeout(callback: () => void): number {
-				const id = ++sequence;
-				deadlines.set(id, callback);
-				return id;
-			},
-			clearTimeout(id: number): void { deadlines.delete(id); },
-		},
-	};
-	installGlobals(context, bindings);
-	context.after(() => window.close());
-	return { window, deadlines, chooser: chooser.promise };
-}
-
-for (const choice of ['cancel', 'blank', 'named'] as const) test(`an embedded New project uses a local name dialog (${choice})`, async (context) => {
+for (const choice of ['cancel', 'blank', 'named', 'overlong'] as const) test(`an embedded New project uses a local name dialog (${choice})`, async (context) => {
 	const { chooser, window } = browserFixture(context, true);
 	const worker = new ProjectWorker();
 	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
@@ -346,15 +312,58 @@ for (const choice of ['cancel', 'blank', 'named'] as const) test(`an embedded Ne
 	assert.ok(name?.autofocus);
 	assert.equal(name.closest('label')?.textContent, 'Project name');
 	assert.deepEqual(worker.requests, []);
-	name.value = choice === 'blank' ? '   ' : '  Embedded project  ';
+	const maximumName = `${'a'.repeat(126)}🎧`;
+	name.value = choice === 'blank' ? '   ' : choice === 'overlong' ? `${maximumName}x` : '  Embedded project  ';
 	const buttonText = choice === 'cancel' ? 'Cancel' : 'New project';
 	const submit = [...dialog.querySelectorAll('button')].find((button) => button.textContent === buttonText);
 	assert.ok(submit);
-	if (choice === 'named') name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
+	if (choice === 'overlong') {
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(name.value, `${maximumName}x`);
+		assert.equal(name.getAttribute('aria-invalid'), 'true');
+		assert.equal(submit.disabled, true);
+		submit.click();
+		assert.deepEqual(worker.requests, []);
+		name.value = maximumName;
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(submit.disabled, false);
+	}
+	if (choice === 'named' || choice === 'overlong') name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
 	else submit.click();
 	const opened = await opening;
-	assert.equal(opened?.name, choice === 'named' ? 'Embedded project' : undefined);
-	assert.deepEqual(worker.requests, choice === 'named' ? ['create'] : []);
+	assert.equal(opened?.name, choice === 'named' ? 'Embedded project' : choice === 'overlong' ? maximumName : undefined);
+	assert.deepEqual(worker.requests, choice === 'named' || choice === 'overlong' ? ['create'] : []);
+	assert.equal(dialog.isConnected, false);
+});
+
+for (const choice of ['cancel', 'edit'] as const) test(`an overlong native title remains an editable draft (${choice})`, async (context) => {
+	const maximumName = `${'b'.repeat(126)}🎧`;
+	const value = ` ${maximumName}x `;
+	const { chooser, window } = browserFixture(context, false, () => value);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'create', sampleRate: 48_000 });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The name correction dialog never opened'))]);
+	const name = dialog.querySelector('input');
+	assert.equal(name?.value, value);
+	assert.equal(name.getAttribute('aria-invalid'), 'true');
+	const guidance = window.document.getElementById(name.getAttribute('aria-describedby') ?? '');
+	assert.ok(guidance && !guidance.hidden);
+	assert.match(guidance.textContent ?? '', /128/u);
+	assert.deepEqual(worker.requests, []);
+	const buttons = [...dialog.querySelectorAll('button')];
+	const button = buttons.find((item) => item.textContent === (choice === 'cancel' ? 'Cancel' : 'New project'));
+	assert.ok(button);
+	if (choice === 'edit') {
+		assert.equal(button.disabled, true);
+		name.value = ` ${maximumName} `;
+		name.dispatchEvent(new window.Event('input'));
+		assert.equal(button.disabled, false);
+		assert.equal(guidance.hidden, true);
+	}
+	button.click();
+	assert.equal((await opening)?.name, choice === 'edit' ? maximumName : undefined);
+	assert.deepEqual(worker.requests, choice === 'edit' ? ['create'] : []);
 	assert.equal(dialog.isConnected, false);
 });
 
@@ -390,17 +399,6 @@ for (const choice of ['cancel action', 'cancel picker', 'pick archive'] as const
 	assert.deepEqual(worker.requests, choice === 'pick archive' ? ['create', 'openArchive'] : ['create']);
 	if (!selected) assert.deepEqual(await bridge.request({ kind: 'project', sessionId: opened.sessionId, offset: 0 }), project);
 });
-
-function installGlobals(context: TestContext, values: Readonly<Record<string, unknown>>): void {
-	for (const [key, value] of Object.entries(values)) {
-		const previous = Object.getOwnPropertyDescriptor(globalThis, key);
-		Object.defineProperty(globalThis, key, { configurable: true, value });
-		context.after(() => {
-			if (previous) Object.defineProperty(globalThis, key, previous);
-			else Reflect.deleteProperty(globalThis, key);
-		});
-	}
-}
 
 async function seedSavedProject(context: TestContext, entries: Readonly<Record<string, unknown>> = {
 	[savedId]: { name: 'Saved project', generation: 2, updated: 321 },
