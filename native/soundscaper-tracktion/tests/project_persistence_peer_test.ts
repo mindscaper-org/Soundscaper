@@ -11,10 +11,81 @@ import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
 import { TracktionProjectService } from '../../../desktop/tracktion-project-service.ts';
 import type { TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
-import { wavFixture } from './wave_fixture.ts';
+import { waveData, wavFixture } from './wave_fixture.ts';
 
 const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 if (!executable) throw new Error('Run the Tracktion persistence tests through CTest.');
+
+test('desktop Tracktion refuses incomplete managed WAVs during Open and mix export', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-incomplete-managed-wave-'));
+	const original = join(root, 'original');
+	const current = join(root, 'current');
+	const input = join(root, 'source.wav');
+	const output = join(root, 'mix.wav');
+	const open = { kind: 'open' } as const;
+	const create = { kind: 'create', sampleRate: 48_000 } as const;
+	const owner = {};
+	let newDirectory = original;
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'),
+		isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => newDirectory,
+		chooseOpenProject: async () => join(original, 'project.tracktionedit'),
+		chooseWave: async () => input,
+		chooseExport: async () => output,
+		startPeer: async (options) => launchTracktionPeer({ ...options, executable }),
+	});
+	try {
+		const source = wavFixture(4800);
+		await Promise.all([mkdir(original), mkdir(current), writeFile(input, source)]);
+		const target = await service.request(owner, create);
+		assert.ok(target && 'sessionId' in target && target.project.tracks[0]);
+		const { sessionId } = target;
+		await service.request(owner, { kind: 'import', sessionId, revision: 0, trackId: target.project.tracks[0].id, start: 0 });
+		await service.request(owner, { kind: 'save', sessionId, revision: 1 });
+		await service.request(owner, { kind: 'render', sessionId, revision: 1 });
+		const previousOutput = await readFile(output);
+		assert.deepEqual(waveData(previousOutput), waveData(source));
+		const [name] = await readdir(join(original, 'media'));
+		assert.ok(name);
+		const media = join(original, 'media', name);
+		const complete = join(root, 'complete.wav');
+		newDirectory = current;
+		const live = await service.request(owner, create);
+		assert.ok(live && 'sessionId' in live);
+		const active = live.sessionId;
+		await service.request(owner, { kind: 'addTrack', sessionId: active, revision: 0, name: 'Unsaved track' });
+		const page = { kind: 'project', sessionId: active, offset: 0 } as const;
+		const before = await service.request(owner, page);
+		for (const incomplete of [Buffer.alloc(0), source.subarray(0, source.length / 2)]) {
+			await rename(media, complete);
+			try {
+				await writeFile(media, incomplete);
+				await assert.rejects(service.request(owner, open), /Tracktion|isolated child/u);
+				assert.deepEqual(await service.request(owner, page), before);
+			} finally { await rename(complete, media); }
+		}
+		await service.request(owner, { kind: 'undo', sessionId: active, revision: 1 });
+		await service.request(owner, { kind: 'redo', sessionId: active, revision: 2 });
+
+		const restored = await service.request(owner, open);
+		assert.ok(restored && 'sessionId' in restored);
+		const render = { kind: 'render', sessionId: restored.sessionId, revision: restored.project.revision } as const;
+		for (const incomplete of [Buffer.alloc(0), source.subarray(0, source.length / 2)]) {
+			await rename(media, complete);
+			try {
+				await writeFile(media, incomplete);
+				await assert.rejects(service.request(owner, render), /Tracktion project media is unavailable/u);
+				assert.deepEqual(await readFile(output), previousOutput);
+			} finally { await rename(complete, media); }
+		}
+		await service.request(owner, render);
+		assert.ok(waveData(await readFile(output)).equals(waveData(source)), 'Retry renders the restored WAV without reopening the Edit.');
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
 
 test('Tracktion preserves a reopenable Edit when Save or ZIP exceeds the Edit limit', {
 	skip: process.env.SOUNDSCAPER_TRACKTION_TEST_PROJECT_SIZE !== '1',

@@ -236,11 +236,11 @@ void Session::render(Revision expected, const juce::File& output, Frame start, F
 	const auto isCancelled = [cancelled] { return cancelled != nullptr && cancelled->load(); };
 	if (isCancelled())
 		throw std::runtime_error("The Tracktion render was cancelled");
+	requireEditMedia(*s.edit, "The Tracktion project media is unavailable");
 	s.edit->flushState();
 	const auto renderEdit = s.makeEdit(s.edit->state.createCopy(), te::Edit::forRendering);
 	if (!renderEdit)
 		throw std::runtime_error("Cannot detach the Tracktion Edit for rendering");
-	requireEditMedia(*renderEdit, "The Tracktion project media is unavailable");
 	RenderBindings bindings;
 	bindings.attach(*renderEdit, effects, s.sampleRate);
 
