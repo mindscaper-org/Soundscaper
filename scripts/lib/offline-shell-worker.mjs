@@ -17,8 +17,10 @@ export function offlineShellFunctionSources() {
 		cacheIsComplete,
 		completeReuseCacheNames,
 		verifiedShellResponse,
+		reuseVerifiedAsset,
 		installVerifiedAsset,
 		installAssetBatches,
+		reuseTracktionEngine,
 		installOfflineShell,
 		activateOfflineShell,
 		pathWithinShellScope,
@@ -218,17 +220,23 @@ async function verifiedShellResponse(response, descriptor, cryptoImpl) {
 	return new Response(bytes, { status: 200, statusText: response.statusText, headers });
 }
 
-async function installVerifiedAsset({ cacheStorage, candidate, descriptor, fetchImpl, cryptoImpl, reuseNames, productId }) {
+async function reuseVerifiedAsset({ cacheStorage, candidate, descriptor, cryptoImpl, reuseNames }) {
 	for (const cacheName of reuseNames) {
 		const response = await (await cacheStorage.open(cacheName)).match(descriptor.url);
 		if (!response) continue;
 		try {
 			await candidate.put(descriptor.url, await verifiedShellResponse(response, descriptor, cryptoImpl));
-			return;
+			return true;
 		} catch {
-			// A corrupt reusable entry is ignored; the immutable network response is still verified below.
+			// Keep looking when the old bytes differ or the new cache cannot accept them.
 		}
 	}
+	return false;
+}
+
+async function installVerifiedAsset(options) {
+	if (await reuseVerifiedAsset(options)) return;
+	const { candidate, descriptor, fetchImpl, cryptoImpl, productId } = options;
 	const reloadWorklet = productId === 'soundscaper' && descriptor.url === '/tracktion/tracktion-audio-worklet.js';
 	const response = await fetchImpl(descriptor.url, {
 		cache: reloadWorklet ? 'reload' : 'default',
@@ -251,6 +259,23 @@ async function installAssetBatches(options, descriptors) {
 			offset += 1;
 		}
 		await Promise.all(batch.map((descriptor) => installVerifiedAsset({ ...options, descriptor })));
+	}
+}
+
+async function reuseTracktionEngine(options, descriptors, installUrls) {
+	const copy = async (url) => {
+		const descriptor = descriptors.get(url);
+		return descriptor !== undefined && await reuseVerifiedAsset({ ...options, descriptor }).catch(() => false);
+	};
+	const retained = [];
+	for (const url of ['/tracktion/tracktion-project-worker.js', '/tracktion/edit-core.js', '/tracktion/edit-core.wasm']) {
+		if (installUrls.includes(url)) continue;
+		if (!await copy(url)) {
+			// These files only support offline startup when the complete engine matches the new release.
+			await Promise.all(retained.map((path) => options.candidate.delete(path).catch(() => false)));
+			return;
+		}
+		retained.push(url);
 	}
 }
 
@@ -281,14 +306,18 @@ export async function installOfflineShell({
 	const candidate = await cacheStorage.open(cacheName);
 	const byUrl = new Map(configuration.assets.map((asset) => [asset.url, asset]));
 	try {
-		await installAssetBatches({
+		const options = {
 			cacheStorage,
 			candidate,
 			fetchImpl,
 			cryptoImpl,
 			reuseNames,
 			productId: configuration.productId,
-		}, configuration.installUrls.map((url) => byUrl.get(url)));
+		};
+		await installAssetBatches(options, configuration.installUrls.map((url) => byUrl.get(url)));
+		if (configuration.productId === 'soundscaper' && reuseNames.length > 0) {
+			await reuseTracktionEngine(options, byUrl, configuration.installUrls);
+		}
 		const completion = JSON.stringify({
 			schemaVersion: 2,
 			productId: configuration.productId,
