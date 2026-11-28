@@ -12343,7 +12343,11 @@
 						},
 						{
 							"kind": "implementation",
-							"path": "src/soundscaper/editor-native-plugin-actions.ts"
+							"path": "src/soundscaper/editor-project-commands.ts"
+						},
+						{
+							"kind": "implementation",
+							"path": "desktop/tracktion-installed-plugin-registration.mjs"
 						},
 						{
 							"kind": "implementation",

@@ -4,7 +4,6 @@ import test from 'node:test';
 import { acceptNativePluginPortOffer, createNativePluginEffectNode, registerNativePluginRuntimeIdentity, releaseNativePluginRuntime } from '../src/common/editor/native-plugin-realtime-node.js';
 import { validateSoundscaperProject } from '../src/soundscaper/editor-project-validation.ts';
 import { createSoundscaperEditorProjectEnvironment } from '../src/soundscaper/editor-project-environment.ts';
-import { createSoundscaperNativePluginActions } from '../src/soundscaper/editor-native-plugin-actions.ts';
 import { createSoundscaperProject } from '../src/soundscaper/editor-project.ts';
 import { quiesceNativePluginState, registerNativePluginStateQuiescence } from '../src/common/editor/native-plugin-state-quiescence.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
@@ -18,7 +17,6 @@ for (const changed of [false, true]) test(`MP60: File Duplicate completes after 
 	const controller: ReturnType<typeof createSoundscaperCompatibilityController> = createSoundscaperCompatibilityController(environment, {
 		prepareProjectSnapshot: purpose => quiesceNativePluginState(controller, purpose),
 	});
-	const nativePlugins = createSoundscaperNativePluginActions(controller);
 	await controller.ready;
 	const state = { instanceId: 'duplicate-native-instance', format: 'clap', stablePluginId: 'org.example.effect',
 		binarySha256: 'b'.repeat(64), stateBody: body('c'), enabled: true, bypassed: false, continuity: 'live', latencySamples: 0 };
@@ -39,7 +37,9 @@ for (const changed of [false, true]) test(`MP60: File Duplicate completes after 
 	const unregister = registerNativePluginStateQuiescence(controller, { capture() {
 		if (!capturing) return;
 		capturing = false;
-		if (changed) nativePlugins.upsert({ ...state, stateBody: body('d') });
+		if (changed) controller.actions.edit.commit({
+			type: 'native-plugin-state/upsert', state: { ...state, stateBody: body('d') },
+		}, {}, { skipPlaybackEngine: true });
 	} });
 	try {
 		const original = createSoundscaperProject({ id: 'duplicate-live-native', title: 'Live native', tracks: [{
