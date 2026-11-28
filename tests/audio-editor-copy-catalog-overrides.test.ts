@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test from 'node:test';
 
-import {
-	resolveCopyCatalogOverrides,
-} from '../src/common/editor/ui/copy-catalog-overrides.ts';
 import {
 	FRAMESCAPER_NATIVE_SERVICES_COPY,
 	resolveFramescaperNativeServicesCopy,
@@ -15,39 +13,34 @@ import {
 	resolveSoundscaperMasteringSequenceCopy,
 } from '../src/common/editor/ui/soundscaper-mastering-sequence-copy.ts';
 
-const CATALOG = Object.freeze({ apply: 'Apply', cancel: 'Cancel' });
-
-test('an override replaces a declared key only when it carries text', () => {
-	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG, {}), { apply: 'Apply', cancel: 'Cancel' });
-	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG), { apply: 'Apply', cancel: 'Cancel' });
-	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG, { apply: 'Anwenden' }), {
-		apply: 'Anwenden', cancel: 'Cancel',
-	});
-	// An empty or absent translation falls back rather than blanking the control.
-	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG, { apply: '', cancel: undefined }), {
-		apply: 'Apply', cancel: 'Cancel',
-	});
-	// A key the catalog does not declare is not a control this surface has.
-	assert.deepEqual(resolveCopyCatalogOverrides(CATALOG, { close: 'Schließen' }), {
-		apply: 'Apply', cancel: 'Cancel',
-	});
+test('the retired flat copy catalog override helper is absent', async () => {
+	await assert.rejects(access(new URL('../src/common/editor/ui/copy-catalog-overrides.ts', import.meta.url)), { code: 'ENOENT' });
 });
 
-test('editor copy catalogs resolve through the one override policy', () => {
-	// The policy is decided once: a change to trimming or the empty-string rule
-	// cannot land in one catalog and be missed in the other.
-	for (const overrides of [
-		{},
-		{ proxies: 'Stellvertreter', close: 'Schließen' },
-		{ proxies: '', close: '', unknownKey: 'x' },
-	]) {
-		assert.deepEqual(
-			resolveFramescaperNativeServicesCopy(overrides),
-			resolveCopyCatalogOverrides(FRAMESCAPER_NATIVE_SERVICES_COPY, overrides),
-		);
-		assert.deepEqual(
-			resolveSoundscaperMasteringSequenceCopy(overrides),
-			resolveCopyCatalogOverrides(SOUNDSCAPER_MASTERING_SEQUENCE_COPY, overrides),
-		);
-	}
+test('Framescaper Native Services applies declared text overrides and preserves all other labels', () => {
+	const defaults = FRAMESCAPER_NATIVE_SERVICES_COPY;
+	assert.deepEqual(resolveFramescaperNativeServicesCopy(), defaults);
+	assert.deepEqual(resolveFramescaperNativeServicesCopy({}), defaults);
+	assert.deepEqual(resolveFramescaperNativeServicesCopy({
+		'ui.framescaperNative.proxies': 'Stellvertreter',
+		externalDisplay: '',
+		externalDisplayNone: undefined,
+		externalDisplayUnavailable: '  ',
+		unknownKey: 'x',
+	}), { ...defaults, proxies: 'Stellvertreter' });
+	assert.equal(Object.isFrozen(resolveFramescaperNativeServicesCopy()), true);
+});
+
+test('mastering sequence copy applies declared text overrides and preserves all other labels', () => {
+	const defaults = SOUNDSCAPER_MASTERING_SEQUENCE_COPY;
+	assert.deepEqual(resolveSoundscaperMasteringSequenceCopy(), defaults);
+	assert.deepEqual(resolveSoundscaperMasteringSequenceCopy({}), defaults);
+	assert.deepEqual(resolveSoundscaperMasteringSequenceCopy({
+		close: 'Schließen',
+		masteringSequence: '',
+		masteringSequences: '  ',
+		masteringSequenceName: undefined,
+		proxies: 'Stellvertreter',
+	}), { ...defaults, close: 'Schließen' });
+	assert.equal(Object.isFrozen(resolveSoundscaperMasteringSequenceCopy()), true);
 });
