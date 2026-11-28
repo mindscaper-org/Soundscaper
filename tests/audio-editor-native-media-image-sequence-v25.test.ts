@@ -15,6 +15,11 @@ import { createUnreportedVideoSourceCharacteristicsV25 } from '../src/common/edi
 
 const DIGESTS = ['11'.repeat(32), '22'.repeat(32), '33'.repeat(32)] as const;
 
+test('the retired standalone sequence import runner is absent from the V25 contract', async () => {
+	const sequence = await import('../src/common/editor/native-media-image-sequence-v25.ts');
+	assert.equal(Object.hasOwn(sequence, 'runFramescaperImageSequenceImportV25'), false);
+});
+
 test('V25 project JSON stores compact digest-bound inventory and pack references', () => {
 	const selection = resolveNativeMediaImageSequence({
 		fileNames: ['shot_010.exr', 'shot_008.exr', 'shot_009.exr'],
