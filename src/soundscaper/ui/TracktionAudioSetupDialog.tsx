@@ -19,6 +19,7 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 }) {
 	const selected = inventory.selected?.setup ?? inventory.preferred ?? undefined;
 	const [hostId, setHostId] = useState(() => selected?.hostId ?? inventory.hosts[0]?.id ?? '');
+	const [hosts, setHosts] = useState(inventory.hosts);
 	const [devices, setDevices] = useState<TracktionAudioDevices | null>(null);
 	const [draft, setDraft] = useState<FormData | null>(null);
 	const [refresh, setRefresh] = useState(0);
@@ -61,13 +62,28 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 		}
 	}
 
-	function reload(nextHost: string, form?: HTMLFormElement | null): void {
-		if (nextHost !== hostId) setDraft(null);
-		else if (devices && form) setDraft(new FormData(form));
+	function reload(nextHost: string, nextDraft: FormData | null = null): void {
+		setDraft(nextDraft);
 		setDevices(null);
 		setFailure('');
 		setHostId(nextHost);
 		setRefresh((value) => value + 1);
+	}
+
+	async function refreshInventory(form: HTMLFormElement | null): Promise<void> {
+		if (pending || loading) return;
+		const currentDraft = devices && form ? new FormData(form) : draft;
+		setPending(true);
+		setFailure('');
+		try {
+			const result = await bridge.request({ kind: 'audioHosts', sessionId });
+			setHosts(result.hosts);
+			reload(hostId || result.hosts[0]?.id || '', currentDraft);
+		} catch (error) {
+			setFailure(error instanceof Error ? error.message : String(error));
+		} finally {
+			setPending(false);
+		}
 	}
 
 	function submit(event: FormEvent<HTMLFormElement>): void {
@@ -88,13 +104,13 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 		<form onSubmit={submit}>
 			<p><label>{copy.audioDeviceHost} <select name="hostId" value={hostId} disabled={pending || loading}
 				onChange={(event) => reload(event.currentTarget.value)}>
-				{hostId && !inventory.hosts.some((host) => host.id === hostId) && <option value={hostId}>{copy.audioDevicePreferredUnavailable}</option>}
-				{inventory.hosts.map((host) => <option key={host.id} value={host.id}>{host.name}</option>)}
+				{hostId && !hosts.some((host) => host.id === hostId) && <option value={hostId}>{copy.audioDevicePreferredUnavailable}</option>}
+				{hosts.map((host) => <option key={host.id} value={host.id}>{host.name}</option>)}
 			</select></label>{' '}
-			<button type="button" onClick={(event) => reload(hostId, event.currentTarget.form)} disabled={pending || !hostId || loading}>
+			<button type="button" onClick={(event) => { void refreshInventory(event.currentTarget.form); }} disabled={pending || loading}>
 				{copy.audioDeviceRefresh}
 			</button></p>
-			{!inventory.hosts.length && <p role="status">{copy.audioHostInventoryUnavailable}</p>}
+			{!hosts.length && <p role="status">{copy.audioHostInventoryUnavailable}</p>}
 			{devices && <fieldset key={hostId + ':' + String(refresh)} disabled={pending}>
 				<p><label>{copy.audioOutputDevice} <select name="outputId" defaultValue={outputId}>
 					<option value="">{copy.audioDeviceSystemDefault}</option>
