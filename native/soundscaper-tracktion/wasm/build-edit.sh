@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-only
-set -eu
+set -euo pipefail
 
 modules=(
 	juce_audio_basics/juce_audio_basics.cpp
@@ -35,21 +35,28 @@ sources=("${modules[@]/#/\/source\/juce\/modules\/}"
 	/source/tracktion/modules/tracktion_graph/tracktion_graph.cpp
 	/project/session.cpp /project/session_paging.cpp /project/session_automation.cpp /project/session_range.cpp
 	/project/session_clipboard.cpp /project/session_transport.cpp /project/session_recording.cpp
-	/project/session_device.cpp /project/session_effects.cpp /project/project_archive.cpp)
+	/project/session_device.cpp /project/session_effects.cpp /project/project_archive.cpp
+	/source/juce/modules/juce_core/juce_core_zlib.c
+	/source/juce/modules/juce_audio_formats/juce_audio_formats_*.c
+	/source/juce/modules/juce_graphics/juce_graphics_*.c)
 objects=()
 for source in "${sources[@]}"; do
-	object="${source##*/}.o"
-	objects+=("$object")
-	em++ -std=c++20 "${flags[@]}" -c "$source" -o "$object"
+	objects+=("${source##*/}.o")
 done
 
-for source in /source/juce/modules/juce_core/juce_core_zlib.c \
-	/source/juce/modules/juce_audio_formats/juce_audio_formats_*.c \
-	/source/juce/modules/juce_graphics/juce_graphics_*.c; do
-	object="${source##*/}.o"
-	objects+=("$object")
-	emcc "${flags[@]}" -c "$source" -o "$object"
-done
+compile_object() {
+	local source="$1"
+	local object="${source##*/}.o"
+	shift
+	if [[ "$source" == *.cpp ]]; then
+		exec em++ -std=c++20 "$@" -c "$source" -o "$object"
+	fi
+	exec emcc "$@" -c "$source" -o "$object"
+}
+export -f compile_object
+
+# Match the probe container's two CPUs while keeping the original link order.
+printf '%s\0' "${sources[@]}" | xargs -0 -P 2 -I '{}' bash -c 'compile_object "$@"' bash '{}' "${flags[@]}"
 
 # Keep JUCE file reads and recording writes in Wasm across pthreads.
 # The JavaScript worker can continue serving editor and hosted audio requests.
