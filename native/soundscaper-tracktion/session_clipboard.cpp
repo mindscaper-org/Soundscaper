@@ -162,6 +162,9 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 	const auto width = translate(duration);
 	if (width <= 0) throw std::invalid_argument("The Tracktion clipboard is shorter than one destination sample");
 	static_cast<void>(s.position(start + width));
+	constexpr auto invalidClip = "Invalid Tracktion clipboard clip or source interval";
+	const auto maximumSourceFrame = tracktion::toSamples(te::Edit::getMaximumEditEnd(), rate);
+	std::map<juce::String, juce::File> sources;
 	std::vector<PasteClip> clips;
 	for (int lane = 0; lane < selection.getNumChildren(); ++lane)
 		for (const auto& item : selection.getChild(lane))
@@ -170,12 +173,19 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 			const auto last = frameField(item, "last");
 			const auto trim = frameField(item, "trim");
 			auto clip = item.getChild(0);
-			const auto source = ownedMediaFile(mediaRoot, clip.getProperty(te::IDs::source).toString());
-			if (!clip.hasType(te::IDs::AUDIOCLIP) || !source.existsAsFile()
-			    || first < 0 || last > duration || trim < 0 || trim > tracktion::toSamples(te::Edit::getMaximumEditEnd(), rate)
-			    || first >= last || translate(first) >= translate(last))
-				throw std::invalid_argument("Invalid Tracktion clipboard clip or source interval");
-			clips.push_back({clip.createCopy(), source, lane, translate(first), translate(last), trim});
+			if (!clip.hasType(te::IDs::AUDIOCLIP) || first < 0 || last > duration || trim < 0
+			    || trim > maximumSourceFrame || first >= last)
+				throw std::invalid_argument(invalidClip);
+			const auto translatedFirst = translate(first), translatedLast = translate(last);
+			if (translatedFirst >= translatedLast) throw std::invalid_argument(invalidClip);
+			const auto [source, inserted] = sources.try_emplace(clip.getProperty(te::IDs::source).toString());
+			if (inserted)
+			{
+				source->second = ownedMediaFile(mediaRoot, source->first);
+				if (source->second == juce::File{}) throw std::invalid_argument(invalidClip);
+			}
+			// The parsed tree belongs to this paste. Tracktion copies the state when remapping its IDs.
+			clips.push_back({std::move(clip), source->second, lane, translatedFirst, translatedLast, trim});
 		}
 	if (clips.empty()) throw std::invalid_argument("There is no Tracktion clipboard audio");
 
@@ -183,7 +193,7 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 	const auto firstTrack = tracks.indexOf(&s.track(trackId));
 	const auto trackEnd = firstTrack + selection.getNumChildren();
 	const auto media = s.requireMediaDirectory();
-	std::map<juce::File, juce::File> adopted;
+	std::map<juce::File, juce::String> adopted;
 	std::vector<juce::File> addedFiles;
 	const auto reportPlacements = mode == RangePasteMode::overlap && selection.getNumChildren() == 1 && clips.size() <= pasteReplyLimit;
 	te::Clip::Array inserted;
@@ -195,6 +205,8 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 			auto found = adopted.find(clip.source);
 			if (found == adopted.end())
 			{
+				if (ownedMediaFile(mediaRoot, mediaReference(clip.source)) != clip.source)
+					throw std::invalid_argument(invalidClip);
 				auto target = media.getChildFile(clip.source.getFileName());
 				if (target.isSymbolicLink() || !target.hasIdenticalContentTo(clip.source))
 				{
@@ -202,9 +214,9 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 					addedFiles.push_back(target);
 					copyOwnedWave(clip.source, target, "Cannot adopt the clipboard media");
 				}
-				found = adopted.emplace(clip.source, target).first;
+				found = adopted.emplace(clip.source, mediaReference(target)).first;
 			}
-			clip.state.setProperty(te::IDs::source, mediaReference(found->second), nullptr);
+			clip.state.setProperty(te::IDs::source, found->second, nullptr);
 		}
 		s.begin("Paste time range");
 		editing = true;

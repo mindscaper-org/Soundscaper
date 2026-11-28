@@ -75,6 +75,47 @@ function(soundscaper_prepare_tracktion_source source destination)
 	string(REPLACE "    void handleAsyncUpdate() override"
 		"    void dispatchPendingOrdering() { while (isUpdatePending()) handleUpdateNowIfNeeded(); }\n\n    void handleAsyncUpdate() override"
 		code "${code}")
+	# JUCE notifies each individual child move. The clip projection can follow
+	# that move without sorting every clip after every notification.
+	string(REPLACE
+		[=[    void objectOrderChanged() override          { objectAddedOrRemoved (nullptr); }]=]
+		[=[    void objectOrderChanged() override          { objectAddedOrRemoved (nullptr); }
+
+    void valueTreeChildOrderChanged (juce::ValueTree& tree, int oldIndex, int newIndex) override
+    {
+        if (tree != parent)
+            return;
+
+        if (! juce::isPositiveAndBelow (newIndex, tree.getNumChildren()))
+        {
+            ValueTreeObjectList<Clip>::valueTreeChildOrderChanged (tree, oldIndex, newIndex);
+            return;
+        }
+
+        {
+            const ScopedLockType sl (arrayLock);
+            const auto from = indexOf (tree.getChild (newIndex));
+            if (from >= 0)
+            {
+                auto to = from;
+                const auto direction = oldIndex < newIndex ? 1 : -1;
+                // The crossed siblings keep their relative order in both lists.
+                for (auto index = oldIndex; index != newIndex; index += direction)
+                {
+                    const auto next = to + direction;
+                    if (! juce::isPositiveAndBelow (next, objects.size()))
+                        break;
+                    if (objects.getUnchecked (next)->state == tree.getChild (index))
+                        to = next;
+                }
+                if (from != to)
+                    objects.move (from, to);
+            }
+        }
+
+        objectOrderChanged();
+    }]=]
+		code "${code}")
 	string(REPLACE "const juce::Array<Clip*>& ClipOwner::getClips() const"
 		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"
 		code "${code}")
