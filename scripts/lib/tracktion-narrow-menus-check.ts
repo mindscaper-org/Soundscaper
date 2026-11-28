@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import type { Locator, Page } from 'playwright-core';
 
+import { wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
+
 async function assertFitsWidth(locator: Locator, label: string): Promise<void> {
 	const { left, right, viewport } = await locator.evaluate((element) => {
 		const { left, right } = element.getBoundingClientRect();
@@ -38,4 +40,35 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await assertFitsWidth(record, 'Record onto the active track');
 	assert.equal(await record.isEnabled(), true, 'The narrow transport menu exposes an enabled Record action');
 	await assertFitsWidth(file, 'File with the transport menu open');
+	await transport.tap();
+	await verifyNarrowTrimDialog(page, nav, file, editing);
+}
+
+async function verifyNarrowTrimDialog(page: Page, nav: Locator, file: Locator, editing: Locator): Promise<void> {
+	const sharedStem = `Field_recording_${'location-project-notes_'.repeat(4)}`;
+	const first = `${sharedStem}TAKE_001`;
+	const second = `${sharedStem}TAKE_002`;
+	for (const [stem, start] of [[first, 0], [second, 768]] as const) {
+		await file.tap();
+		const selection = page.waitForEvent('filechooser').then((picker) => picker.setFiles({
+			name: `${stem}.wav`, mimeType: 'audio/wav', buffer: wavFixture(768),
+		}));
+		await Promise.all([selection, nav.getByRole('button', { name: 'Import audio', exact: true }).tap()]);
+		await page.getByText(`${stem} (${start}–${start + 768})`, { exact: true }).waitFor();
+	}
+	await editing.tap();
+	await nav.getByRole('button', { name: 'Trim clip', exact: true }).tap();
+	const trim = page.getByRole('dialog', { name: 'Trim clip', exact: true });
+	const clip = trim.getByRole('combobox', { name: 'Clip', exact: true });
+	await assertFitsWidth(clip, 'The Clip selector with long source names');
+	assert.equal(await trim.evaluate((element) => element.scrollWidth - element.clientWidth), 0);
+	const target = `${second} (768–1536)`;
+	assert.deepEqual(await clip.getByRole('option').allTextContents(), [`${first} (0–768)`, target]);
+	await clip.selectOption({ label: target });
+	await trim.getByRole('spinbutton', { name: 'Start frame', exact: true }).fill('784');
+	await trim.getByRole('spinbutton', { name: 'End frame', exact: true }).fill('1520');
+	await trim.getByRole('button', { name: 'Apply', exact: true }).tap();
+	await trim.waitFor({ state: 'detached' });
+	await page.getByText(`${second} (784–1520)`, { exact: true }).waitFor();
+	await page.getByText(`${first} (0–768)`, { exact: true }).waitFor();
 }

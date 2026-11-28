@@ -39,6 +39,10 @@
 	font: inherit;
 }
 
+.tracktion-editor select {
+	max-inline-size: 100%;
+}
+
 .tracktion-editor main {
 	padding: 1rem;
 }
