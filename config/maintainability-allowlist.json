@@ -130,7 +130,6 @@
 		"tests/audio-editor-local-assistance-guided.test.tsx": 597,
 		"tests/audio-editor-local-assistance-selected-video.test.ts": 598,
 		"tests/audio-editor-native-realtime-transport.test.ts": 592,
-		"tests/audio-editor-native-realtime-worklet.test.js": 597,
 		"tests/audio-editor-pcm-sink.test.js": 598,
 		"tests/audio-editor-product-video-export-strategy.test.ts": 563,
 		"tests/audio-editor-project-graph-v21.test.ts": 599,

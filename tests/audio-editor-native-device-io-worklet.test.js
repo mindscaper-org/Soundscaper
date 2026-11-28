@@ -1,7 +1,15 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import test from 'node:test';
+
+test('the retired native playback worklet modules are absent', () => {
+	const editor = new URL('../src/common/editor/', import.meta.url);
+	for (const file of ['native-realtime-worklet.js', 'native-realtime-worklet-node.js']) {
+		assert.equal(existsSync(new URL(file, editor)), false, file);
+	}
+});
 
 test('native device worklet closes on device loss and every short transfer', async (context) => {
 	const original = globalThis.AudioWorkletProcessor;
@@ -248,6 +256,33 @@ test('native playback keeps contiguous packets across a disconnected programme i
 	assert.deepEqual(receive().map(channel => [channel[0], channel.at(-1)]), [[.25, .25], [-.25, -.25]]);
 	assert.deepEqual(histories, [[0, 0], [1, 256], [2, 512]]);
 	assert.equal(peer.closed, false);
+});
+
+test('native device I/O copies both directions across quanta without creating sample views', async (context) => {
+	const { NativeDeviceIoProcessor } = await import('../src/common/editor/native-device-io-worklet.js');
+	const processor = new NativeDeviceIoProcessor({ processorOptions: {
+		direction: 'duplex', channelCount: 1, periodFrames: 8, queueCapacity: 2,
+	} });
+	const peer = messagePort();
+	processor.port.onmessage({ data: { type: 'native-device-attach', generation: 1 }, ports: [peer] });
+	const capture = peer.posted[0];
+	capture.channels[0].set([1, 2, 3, 4, 5, 6, 7, 8]);
+	peer.onmessage({ data: { ...capture, kind: 'audio', status: 'ok', framesTransferred: 8 } });
+	const inputQuanta = [Float32Array.of(8, 7, 6, 5), Float32Array.of(4, 3, 2, 1)];
+	const outputs = inputQuanta.map(() => [[new Float32Array(4)], [new Float32Array(4)]]);
+	const guards = ['set', 'subarray', 'slice'].map((method) => context.mock.method(
+		Float32Array.prototype, method, () => assert.fail(`Audio callback called Float32Array.${method}`),
+	));
+	try {
+		for (const [quantum, input] of inputQuanta.entries()) processor.process([[input]], outputs[quantum]);
+	} finally {
+		for (const guard of guards) guard.mock.restore();
+	}
+	assert.deepEqual(outputs.map(([pcm]) => [...pcm[0]]), [[1, 2, 3, 4], [5, 6, 7, 8]]);
+	assert.deepEqual(outputs.map(([, ended]) => ended[0][0]), [0, 0]);
+	const playback = peer.posted.find((packet) => packet.kind === 'audio');
+	assert.deepEqual([...playback.channels[0]], [8, 7, 6, 5, 4, 3, 2, 1]);
+	assert.equal(peer.posted.filter((packet) => packet.kind === 'capture-credit').length, 3);
 });
 
 test('duplex calibration injects one bounded impulse and reports only its frame offset', async (context) => {

@@ -141,7 +141,6 @@ export function closedMappedSourceCallsite(call, context) {
 		'src/common/editor/engine/standard-effect-node.ts',
 		'src/common/editor/native-device-io-worklet-node.js',
 		'src/common/editor/native-plugin-realtime-node.js',
-		'src/common/editor/native-realtime-worklet-node.js',
 		'src/common/editor/recording.js',
 	]);
 	const name = callableName(call.expression);

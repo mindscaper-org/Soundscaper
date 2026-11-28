@@ -152,9 +152,7 @@ export function describeNativeRealtimeFormatMismatch(
 }
 
 /**
- * The slice of the transport worklet node this client drives. It is the shape
- * `createNativeRealtimeWorkletNode` returns, injected so the client can be
- * proven without an AudioContext.
+ * The device I/O worklet controls the client uses to manage the native port.
  */
 export interface NativeRealtimeWorkletTransport {
 	attach(port: NativeRealtimeTransferredPort, config: Readonly<{ generation: number }>): number;
