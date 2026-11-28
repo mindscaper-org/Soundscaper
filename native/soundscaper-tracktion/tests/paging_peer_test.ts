@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import { inspectTracktionReply } from '../../../desktop/tracktion-peer-contract.ts';
 import type { TracktionClipPage, TracktionEditResult, TracktionProjectPage } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { waveData, wavFixture } from './wave_fixture.ts';
 
@@ -250,7 +251,7 @@ test('Tracktion fits 64 tracks with fully escaped names in one reply', async () 
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('Tracktion returns stable 64-row clip pages with fully escaped names', async () => {
+test('Tracktion fills the frame with clip rows while keeping fully escaped names intact', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-page-'));
 	const exchangeDirectory = join(root, 'exchange');
 	try {
@@ -267,23 +268,20 @@ test('Tracktion returns stable 64-row clip pages with fully escaped names', asyn
 				name, start: 0, sourceOffset: 5, frames: 52 });
 			assert.ok(clipId);
 			const clipIds = [clipId];
-			for (let index = 1; index <= 64; index += 1) {
+			for (let index = 1; index < 150; index += 1) {
 				const duplicate: TracktionEditResult = await peer.request({ kind: 'duplicateClip', revision: index, trackId, clipId, start: index * 64 });
 				assert.ok(duplicate.itemId);
 				clipIds.push(duplicate.itemId);
 			}
-			const revision = 65;
+			const revision = 150;
 			const summary = await peer.request({ kind: 'project', offset: 0 });
 			assert.deepEqual(summary.tracks, [{ ...track, clipCount: revision }]);
 			const clipPage = { kind: 'clips', revision, trackId } as const;
 			const first = await peer.request({ ...clipPage, offset: 0 });
 			assert.equal(first.revision, revision);
-			assert.equal(first.clips.length, 64);
-			assert.equal(first.nextOffset, 64);
-			const last = await peer.request({ ...clipPage, offset: 64 });
-			assert.equal(last.revision, revision);
-			assert.equal(last.nextOffset, null);
-			assert.deepEqual([...first.clips, ...last.clips], clipIds.map((id, index) => ({
+			assert.ok(first.clips.length > 64 && first.clips.length < revision);
+			assert.equal(first.nextOffset, first.clips.length);
+			assert.deepEqual(await readClipPages(peer, trackId, revision), clipIds.map((id, index) => ({
 				id, name, start: index * 64, end: index * 64 + 52, sourceOffset: 5,
 			})));
 			assert.deepEqual(await peer.request({ ...clipPage, offset: revision }), { revision, clips: [], nextOffset: null });
@@ -294,4 +292,15 @@ test('Tracktion returns stable 64-row clip pages with fully escaped names', asyn
 			await assert.rejects(peer.request({ kind: 'project', offset: 2 }), /track page/u);
 		} finally { await peer.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a variable clip page must advance by its returned rows and stay within the row limit', () => {
+	const command = { kind: 'clips', revision: 7, trackId: '12', offset: 64 } as const;
+	const clip = { id: '20', name: 'Voice', start: 0, end: 32, sourceOffset: 0 };
+	const reply = { revision: 7, clips: [clip], nextOffset: 65 };
+	const read = (value: unknown) => inspectTracktionReply({ ok: true, value }, command);
+	assert.deepEqual(read(reply), reply);
+	assert.throws(() => read({ ...reply, nextOffset: 66 }), /page cursor/u);
+	assert.throws(() => read({ ...reply, clips: [], nextOffset: 64 }), /page cursor/u);
+	assert.throws(() => read({ ...reply, clips: Array.from({ length: 257 }, () => clip), nextOffset: null }), /Tracktion clips/u);
 });

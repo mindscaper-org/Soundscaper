@@ -24,6 +24,11 @@ inline juce::var number(std::int64_t value)
 	return juce::var(static_cast<juce::int64>(value));
 }
 
+inline juce::var pageCursor(std::size_t end, std::size_t total)
+{
+	return end < total ? number(static_cast<std::int64_t>(end)) : juce::var();
+}
+
 inline juce::var editHistoryReply(const Session& session)
 {
 	const auto history = session.editHistory();
@@ -49,6 +54,29 @@ inline juce::var clipReply(const ClipView& clip)
 		{"id", juce::String(std::to_string(clip.id))}, {"name", juce::String(clip.name).substring(0, 128)},
 		{"start", number(clip.start)}, {"end", number(clip.end)}, {"sourceOffset", number(clip.sourceOffset)},
 	});
+}
+
+inline constexpr auto clipPageRowLimit = 256u;
+
+inline juce::var clipPageReply(const ClipPage& page, Revision revision, std::size_t offset)
+{
+	// Include JSON escaping and separators, leaving room for the 64 KiB frame's envelope.
+	constexpr std::size_t rowBudget = 60 * 1024;
+	std::size_t bytes = 0;
+	juce::MemoryOutputStream encoded;
+	juce::Array<juce::var> clips;
+	clips.ensureStorageAllocated(static_cast<int>(page.clips.size()));
+	for (const auto& clip : page.clips)
+	{
+		auto row = clipReply(clip);
+		encoded.reset();
+		juce::JSON::writeToStream(encoded, row, true);
+		bytes += encoded.getDataSize() + 2;
+		if (bytes > rowBudget) break;
+		clips.add(std::move(row));
+	}
+	const auto next = pageCursor(offset + static_cast<std::size_t>(clips.size()), page.total);
+	return record({{"revision", number(revision)}, {"clips", juce::var(clips)}, {"nextOffset", next}});
 }
 
 inline juce::var indexedClipReply(const IndexedClip& clip)

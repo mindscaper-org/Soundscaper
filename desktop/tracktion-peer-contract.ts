@@ -5,7 +5,7 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import {
-	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_PASTE_REPLY_LIMIT, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT, TRACKTION_TRACK_PAGE_SIZE,
+	TRACKTION_CLIP_PAGE_LIMIT, TRACKTION_PASTE_REPLY_LIMIT, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT, TRACKTION_TRACK_PAGE_SIZE,
 	type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
 	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
 	type TracktionRecordingCommand, type TracktionRecordingResult, type TracktionRenderCommand, type TracktionTrackMix,
@@ -268,16 +268,17 @@ function readClip(value: unknown) {
 function readTracktionClipPage(value: unknown, command: Extract<TracktionCommand, { kind: 'clips' }>): TracktionClipPage {
 	const page = readClosedDomainRecord(value, 'Tracktion clip page', ['revision', 'clips', 'nextOffset']);
 	if (page.revision !== command.revision) throw new TypeError('A Tracktion clip page has changed revision.');
-	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, TRACKTION_CLIP_PAGE_SIZE).map(readClip);
+	const clips = readClosedDomainArray(page.clips, 'Tracktion clips', 0, TRACKTION_CLIP_PAGE_LIMIT).map(readClip);
+	// A clip page can reach the byte limit before it reaches the row limit.
 	return Object.freeze({
-		revision: command.revision, nextOffset: readNextOffset(page.nextOffset, command.offset, clips.length, TRACKTION_CLIP_PAGE_SIZE),
+		revision: command.revision, nextOffset: readNextOffset(page.nextOffset, command.offset, clips.length, clips.length),
 		clips: Object.freeze(clips),
 	});
 }
 
 function readNextOffset(value: unknown, offset: number, length: number, pageSize = PAGE_SIZE): number | null {
 	if (value === null) return null;
-	if (length !== pageSize || value !== offset + pageSize || !Number.isSafeInteger(value)) {
+	if (length === 0 || length !== pageSize || value !== offset + length || !Number.isSafeInteger(value)) {
 		throw new TypeError('Invalid Tracktion page cursor.');
 	}
 	return value as number;

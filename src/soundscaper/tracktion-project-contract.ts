@@ -5,7 +5,7 @@ import type { TracktionAutomationCommand, TracktionAutomationPage } from './trac
 import type { TracktionEffectCommand, TracktionEffectInstallation, TracktionEffectPage } from './tracktion-effect-contract.ts';
 
 export const TRACKTION_TRACK_PAGE_SIZE = 64;
-export const TRACKTION_CLIP_PAGE_SIZE = 64;
+export const TRACKTION_CLIP_PAGE_LIMIT = 256;
 export const TRACKTION_RANGE_REMOVAL_REPLY_LIMIT = 256;
 export const TRACKTION_PASTE_REPLY_LIMIT = 32;
 

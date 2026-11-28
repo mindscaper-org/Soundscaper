@@ -19,12 +19,11 @@ constexpr auto pageSize = 32u;
 // Names are capped at 128 characters. Even with six JSON bytes per character,
 // 64 rows with their IDs, frame positions and envelope fit in a 64 KiB reply.
 constexpr auto trackPageSize = 64u;
-constexpr auto clipPageSize = 64u;
 constexpr auto maxJsInteger = 9007199254740991ll;
-using peer_reply::clipReply;
 using peer_reply::editHistoryReply;
 using peer_reply::indexedClipReply;
 using peer_reply::number;
+using peer_reply::pageCursor;
 using peer_reply::record;
 
 void requireFields(const juce::DynamicObject& request, std::initializer_list<const char*> fields)
@@ -144,11 +143,6 @@ juce::File exchangeFile(const juce::File& exchange, const juce::DynamicObject& r
 	return file;
 }
 
-juce::var pageCursor(size_t end, size_t total)
-{
-	return end < total ? number(static_cast<std::int64_t>(end)) : juce::var();
-}
-
 juce::var trackReply(const TrackSummary& track)
 {
 	return record({
@@ -167,16 +161,6 @@ juce::var projectPageReply(const ProjectPage& project, size_t offset)
 		{"revision", number(project.revision)}, {"sampleRate", project.sampleRate},
 		{"canUndo", project.canUndo}, {"canRedo", project.canRedo},
 		{"tracks", juce::var(tracks)}, {"nextOffset", pageCursor(offset + project.tracks.size(), project.total)},
-	});
-}
-
-juce::var clipPageReply(const ClipPage& page, Revision revision, size_t offset)
-{
-	juce::Array<juce::var> clips;
-	for (const auto& clip : page.clips)
-		clips.add(clipReply(clip));
-	return record({
-		{"revision", number(revision)}, {"clips", juce::var(clips)}, {"nextOffset", pageCursor(offset + page.clips.size(), page.total)},
 	});
 }
 
@@ -302,7 +286,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	{
 		requireFields(request, {"revision", "trackId", "offset"});
 		const auto offset = arrayIndex(request, "offset");
-		return clipPageReply(session.clipPage(itemId(request, "trackId"), offset, clipPageSize), revision, offset);
+		return peer_reply::clipPageReply(session.clipPage(itemId(request, "trackId"), offset, peer_reply::clipPageRowLimit), revision, offset);
 	}
 	if (kind == "trackMix")
 	{

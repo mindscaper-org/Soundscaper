@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	TRACKTION_CLIP_PAGE_SIZE, type TracktionClipPage, type TracktionProjectBridge,
+	type TracktionClipPage, type TracktionProjectBridge,
 	type TracktionProjectCommand, type TracktionProjectPage, type TracktionProjectReply,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import { readTracktionWorkspaceAfterClipEdit, type TracktionWorkspace } from '../src/soundscaper/tracktion-workspace.ts';
@@ -50,7 +50,7 @@ void test('Split without usable placements keeps the original track refresh', as
 					return reply as TracktionProjectReply<Command>;
 				}
 				assert.equal(command.kind, 'clips');
-				const next = command.offset + TRACKTION_CLIP_PAGE_SIZE;
+				const next = command.offset + 64;
 				const page: TracktionClipPage = { revision: 8, nextOffset: next < expected.length ? next : null,
 					clips: expected.slice(command.offset, next) };
 				return page as TracktionProjectReply<Command>;

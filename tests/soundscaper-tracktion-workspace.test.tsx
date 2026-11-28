@@ -5,7 +5,7 @@ import test, { type TestContext } from 'node:test';
 import React, { act } from 'react';
 
 import {
-	TRACKTION_CLIP_PAGE_SIZE, type TracktionClipPage, type TracktionProjectBridge, type TracktionProjectCommand,
+	type TracktionClipPage, type TracktionProjectBridge, type TracktionProjectCommand,
 	type TracktionProjectPage, type TracktionProjectReply, type TracktionTransportView, type TracktionTransportObservation,
 } from '../src/soundscaper/tracktion-project-contract.ts';
 import {
@@ -76,7 +76,7 @@ async function mountEditor(context: TestContext, {
 				nextOffset: command.offset + 32 < tracks.length ? command.offset + 32 : null };
 			case 'clips': {
 				const count = tracks.find(({ id }) => id === command.trackId)?.clipCount ?? 0;
-				const next = Math.min(command.offset + TRACKTION_CLIP_PAGE_SIZE, count);
+				const next = Math.min(command.offset + 64, count);
 				const shift = undoChangesClips && revision !== firstPage.revision ? 16 : 0;
 				const clips = Array.from({ length: next - command.offset }, (_, index) => ({
 					id: `${command.trackId}/${command.offset + index}`,
