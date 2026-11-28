@@ -81,7 +81,7 @@ std::vector<ClipId> Session::State::deleteRange(RangeDeleteMode mode, std::optio
 			}
 		}
 		for (auto* clip : subsequent)
-			clip->setPosition(s.clipPlacement(*clip, sample(clip->getPosition().getStart()) - (end - start)));
+			clip->setPositionForSampleMove(s.clipPlacement(*clip, sample(clip->getPosition().getStart()) - (end - start)));
 		for (auto* parameter : automation)
 			parameter->getCurve().removePointsAndCloseGap(*parameter, te::EditTimeRange(range), &s.edit->getUndoManager());
 		if (publish) publish();

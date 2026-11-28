@@ -16,6 +16,61 @@ import './project_persistence_peer_test.ts';
 import './rf64_peer_test.ts';
 import { wavFixture } from './wave_fixture.ts';
 
+test('Tracktion ripple keeps aligned clip durations and rounds fractional project clips', async () => {
+	const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
+	assert.ok(executable, 'build the Tracktion peer first');
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-ripple-durations-'));
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const edit = join(projectDirectory, 'project.tracktionedit');
+	const input = join(exchangeDirectory, 'input');
+	const asset = 'a'.repeat(32);
+	const sampleRate = 48_000;
+	const durations = new Map([['Aligned', 64 / sampleRate], ['Fractional', 65.625 / sampleRate]]);
+	const waveTag = /<AUDIOCLIP\b[^>]*>/gu;
+	const durationAttribute = /\blength="([^"]+)"/u;
+	const launch = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'settings') };
+	try {
+		await mkdir(input, { recursive: true });
+		await writeFile(join(input, `${asset}.wav`), wavFixture(96));
+		const created = launchTracktionPeer({ ...launch, mode: 'create', sampleRate });
+		let trackId: string;
+		try {
+			const [track] = (await created.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			trackId = track.id;
+			await created.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Aligned', start: 768 });
+			await created.request({ kind: 'importFile', revision: 1, trackId, asset, name: 'Fractional', start: 1_000 });
+			await created.request({ kind: 'save', revision: 2 });
+		} finally { await created.close(); }
+		const original = await readFile(edit, 'utf8');
+		const authored = original.replace(waveTag, (tag) => {
+			const duration = durations.get(/\bname="([^"]+)"/u.exec(tag)?.[1] ?? '');
+			return duration === undefined ? tag : tag.replace(durationAttribute, `length="${duration}"`);
+		});
+		assert.notEqual(authored, original);
+		await writeFile(edit, authored);
+		const peer = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			const page = { kind: 'clips', trackId, offset: 0 } as const;
+			const before = (await peer.request({ ...page, revision: 0 })).clips;
+			await peer.request({ kind: 'deleteRange', revision: 0, mode: 'track', trackId, start: 0, end: 128 });
+			const moved = (await peer.request({ ...page, revision: 1 })).clips;
+			assert.deepEqual(moved.map(({ name, start, end }) => [name, start, end]),
+				[['Aligned', 640, 704], ['Fractional', 872, 938]]);
+			await peer.request({ kind: 'undo', revision: 1 });
+			assert.deepEqual((await peer.request({ ...page, revision: 2 })).clips, before);
+			await peer.request({ kind: 'redo', revision: 2 });
+			assert.deepEqual((await peer.request({ ...page, revision: 3 })).clips, moved);
+			await peer.request({ kind: 'save', revision: 3 });
+			const saved = [...(await readFile(edit, 'utf8')).matchAll(waveTag)];
+			const savedDuration = (name: string) => Number(durationAttribute.exec(saved.find(([tag]) => tag.includes(`name="${name}"`))?.[0] ?? '')?.[1]);
+			assert.equal(savedDuration('Aligned'), durations.get('Aligned'), 'no stored-duration rewrite for an aligned translation');
+			assert.ok(Math.abs(savedDuration('Fractional') * sampleRate - 66) < 1e-8, 'retain normalization for a genuine fractional duration');
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('desktop WAV import survives a temporary project media outage and keeps the unsaved Edit', async () => {
 	const executable = process.env.SOUNDSCAPER_TRACKTION_TEST_PEER;
 	assert.ok(executable, 'build the Tracktion peer first');

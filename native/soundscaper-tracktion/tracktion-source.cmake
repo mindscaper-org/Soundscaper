@@ -26,6 +26,8 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_AudioFileUtils.cpp" EXCLUDE
 		PATTERN "tracktion_AudioFileUtils.h" EXCLUDE
 		PATTERN "tracktion_AutomatableEditItem.cpp" EXCLUDE
+		PATTERN "tracktion_Clip.cpp" EXCLUDE
+		PATTERN "tracktion_Clip.h" EXCLUDE
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
 		PATTERN "tracktion_ClipTrack.cpp" EXCLUDE
@@ -126,6 +128,39 @@ void AudioClipBase::createNewProxyAsync()
     else
         elementState.removeProperty (IDs::parameters, nullptr);
 ]=])
+
+	# A sample-aligned translation of a clip does not change its duration.
+	# Avoid dispatching a second position change for floating-point roundoff.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/clips/tracktion_Clip.h"
+		"e01e4bd07de729f4300ecfda606aad6c6b78a8bf13e064f637936fd0fa476dcf"
+		"    void setPosition (ClipPosition newPosition);"
+		"    void setPosition (ClipPosition newPosition);\n    void setPositionForSampleMove (ClipPosition newPosition);")
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/clips/tracktion_Clip.cpp"
+		"842ef51ed376afccfc43b938a557fdbccdb76e11b6837333f199cb692e407c96"
+		"void Clip::setStart (TimePosition newStart, bool preserveSync, bool keepLength)"
+		[=[void Clip::setPositionForSampleMove (ClipPosition newPosition)
+{
+    const auto newStart = newPosition.getStart();
+    const auto newEnd = newPosition.getEnd();
+    const auto currentLength = length.get();
+    const auto currentEnd = clipStart.get() + currentLength;
+    const auto timeScale = std::max ({ 1.0, currentEnd.inSeconds(), newEnd.inSeconds() });
+    const auto tolerance = std::numeric_limits<double>::epsilon() * timeScale;
+
+    if (newStart >= 0_tp && newEnd <= Edit::getMaximumEditEnd()
+        && newPosition.offset >= 0_td && newPosition.offset == offset.get()
+        && std::abs ((newPosition.getLength() - currentLength).inSeconds()) <= tolerance)
+    {
+        clipStart = newStart;
+        return;
+    }
+
+    setPosition (newPosition);
+}
+
+void Clip::setStart (TimePosition newStart, bool preserveSync, bool keepLength)]=])
 
 	# Keep the original split margin for other clip types. Audio clips can
 	# split at any valid project sample.
