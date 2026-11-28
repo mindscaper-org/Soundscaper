@@ -87,7 +87,7 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 	async function execute(command: TracktionProjectCommand): Promise<unknown> {
 		if (command.kind === 'create' || command.kind === 'open') {
 			const selection = command.kind === 'create'
-				? { id: handle(), name: window.prompt(copy.projectName, copy.untitledProject)?.trim() }
+				? { id: handle(), name: await chooseProjectName() }
 				: await chooseProject();
 			if (!selection?.name) return null;
 			const request = { ...command, project: selection.id };
@@ -208,6 +208,28 @@ export function createTracktionWebBridge(createWorker: () => Worker): TracktionP
 	};
 }
 
+async function chooseProjectName(): Promise<string | undefined> {
+	if (window.self === window.top) return window.prompt(copy.projectName, copy.untitledProject)?.trim();
+	const dialog = document.createElement('dialog');
+	dialog.setAttribute('aria-label', copy.newProject);
+	const label = document.createElement('label');
+	label.textContent = copy.projectName;
+	const name = document.createElement('input');
+	name.value = copy.untitledProject;
+	name.autofocus = true;
+	label.append(name);
+	const create = projectDialogButton(dialog, copy.newProject, 'create');
+	name.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter' || event.isComposing) return;
+		event.preventDefault();
+		create.click();
+	});
+	dialog.append(label, create, projectDialogButton(dialog, copy.cancel));
+	const choice = showProjectDialog(dialog);
+	name.select();
+	return await choice === 'create' ? name.value.trim() : undefined;
+}
+
 function chooseFile(accept: string): Promise<File | null> {
 	return new Promise((resolve) => {
 		const input = document.createElement('input');
@@ -233,8 +255,7 @@ async function chooseProject(): Promise<TracktionLocalProject | null> {
 	const heading = document.createElement('h2');
 	heading.textContent = copy.projectsTitle;
 	dialog.setAttribute('aria-label', copy.projectsTitle);
-	const form = document.createElement('form');
-	form.method = 'dialog';
+	dialog.append(heading);
 	const usedLabels = new Set<string>([copy.cancel]);
 	const repeatedNames = new Set<string>();
 	for (const { name } of projects) {
@@ -244,7 +265,6 @@ async function chooseProject(): Promise<TracktionLocalProject | null> {
 	const suffixes = new Map<string, number>();
 	let dates: Intl.DateTimeFormat | undefined;
 	for (const project of projects) {
-		const button = document.createElement('button');
 		let label = project.name;
 		if (repeatedNames.has(project.name)) {
 			const updated = new Date(project.updated);
@@ -261,23 +281,32 @@ async function chooseProject(): Promise<TracktionLocalProject | null> {
 			suffixes.set(base, suffix);
 			usedLabels.add(label);
 		}
-		button.textContent = label;
-		button.value = project.id;
-		form.append(button);
+		dialog.append(projectDialogButton(dialog, label, project.id));
 	}
 	if (!projects.length) {
 		const empty = document.createElement('p');
 		empty.textContent = copy.noProjects;
-		form.append(empty);
+		dialog.append(empty);
 	}
-	const cancel = document.createElement('button');
-	cancel.textContent = copy.cancel;
-	form.append(cancel);
-	dialog.append(heading, form);
-	return await new Promise((resolve) => {
+	dialog.append(projectDialogButton(dialog, copy.cancel));
+	const selected = await showProjectDialog(dialog);
+	return projects.find((project) => project.id === selected) ?? null;
+}
+
+function projectDialogButton(dialog: HTMLDialogElement, label: string, value = ''): HTMLButtonElement {
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.textContent = label;
+	button.value = value;
+	button.addEventListener('click', () => dialog.close(value));
+	return button;
+}
+
+function showProjectDialog(dialog: HTMLDialogElement): Promise<string> {
+	return new Promise((resolve) => {
 		dialog.addEventListener('close', () => {
 			dialog.remove();
-			resolve(projects.find((project) => project.id === dialog.returnValue) ?? null);
+			resolve(dialog.returnValue);
 		}, { once: true });
 		document.body.append(dialog);
 		dialog.showModal();

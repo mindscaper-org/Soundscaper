@@ -301,18 +301,27 @@ for (const releaseEngine of [true, false]) test(`closing a Tracktion project fol
 	assert.deepEqual(await bridge.request({ kind: 'project', sessionId: next.sessionId, offset: 0 }), project);
 });
 
-function browserFixture(context: TestContext) {
+function browserFixture(context: TestContext, embedded = false) {
 	const { window } = new JSDOM('<!doctype html><body></body>');
 	const chooser = deferred<HTMLDialogElement>();
 	Object.defineProperty(window.HTMLDialogElement.prototype, 'showModal', {
 		value(this: HTMLDialogElement) { this.open = true; chooser.resolve(this); },
+	});
+	Object.defineProperty(window.HTMLDialogElement.prototype, 'close', {
+		value(this: HTMLDialogElement, value: string) {
+			this.open = false;
+			this.returnValue = value;
+			this.dispatchEvent(new window.Event('close'));
+		},
 	});
 	const deadlines = new Map<number, () => void>();
 	let sequence = 0;
 	const bindings = {
 		document: window.document,
 		window: {
-			prompt: () => 'Working project',
+			self: window,
+			top: embedded ? {} : window,
+			prompt: () => embedded ? null : 'Working project',
 			setTimeout(callback: () => void): number {
 				const id = ++sequence;
 				deadlines.set(id, callback);
@@ -325,6 +334,29 @@ function browserFixture(context: TestContext) {
 	context.after(() => window.close());
 	return { window, deadlines, chooser: chooser.promise };
 }
+
+for (const choice of ['cancel', 'blank', 'named'] as const) test(`an embedded New project uses a local name dialog (${choice})`, async (context) => {
+	const { chooser, window } = browserFixture(context, true);
+	const worker = new ProjectWorker();
+	const bridge = createTracktionWebBridge(() => worker as unknown as Worker);
+	const opening = bridge.request({ kind: 'create', sampleRate: 48_000 });
+	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The embedded name dialog never opened'))]);
+	assert.equal(dialog.getAttribute('aria-label'), 'New project');
+	const name = dialog.querySelector('input');
+	assert.ok(name?.autofocus);
+	assert.equal(name.closest('label')?.textContent, 'Project name');
+	assert.deepEqual(worker.requests, []);
+	name.value = choice === 'blank' ? '   ' : '  Embedded project  ';
+	const buttonText = choice === 'cancel' ? 'Cancel' : 'New project';
+	const submit = [...dialog.querySelectorAll('button')].find((button) => button.textContent === buttonText);
+	assert.ok(submit);
+	if (choice === 'named') name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter' }));
+	else submit.click();
+	const opened = await opening;
+	assert.equal(opened?.name, choice === 'named' ? 'Embedded project' : undefined);
+	assert.deepEqual(worker.requests, choice === 'named' ? ['create'] : []);
+	assert.equal(dialog.isConnected, false);
+});
 
 function installGlobals(context: TestContext, values: Readonly<Record<string, unknown>>): void {
 	for (const [key, value] of Object.entries(values)) {
@@ -348,7 +380,7 @@ async function seedSavedProject(context: TestContext, entries: Readonly<Record<s
 }
 
 for (const selected of [false, true]) test(`the project chooser starts the Tracktion worker only after a saved project is selected ${selected}`, async (context) => {
-	const { chooser, window } = browserFixture(context);
+	const { chooser } = browserFixture(context);
 	await seedSavedProject(context);
 	const workers: ProjectWorker[] = [];
 	const bridge = createTracktionWebBridge(() => {
@@ -360,8 +392,9 @@ for (const selected of [false, true]) test(`the project chooser starts the Track
 	const dialog = await Promise.race([chooser, opening.then(() => assert.fail('The saved project chooser never opened'))]);
 	assert.equal(workers.length, 0);
 	assert.match(dialog.textContent, /Saved project/u);
-	dialog.returnValue = selected ? savedId : '';
-	dialog.dispatchEvent(new window.Event('close'));
+	const button = [...dialog.querySelectorAll('button')].find((entry) => entry.textContent === (selected ? 'Saved project' : 'Cancel'));
+	assert.ok(button);
+	button.click();
 	const opened = await opening;
 	if (!selected) {
 		assert.equal(opened, null);
