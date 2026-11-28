@@ -104,6 +104,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const finishesRecording = command.kind === 'finishRecording';
 	const discarding = finishesRecording && command.discard;
 	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
+		: command.kind === 'moveClip' || command.kind === 'duplicateClip' ? 'placedClip'
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
 	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split'
 		|| command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
@@ -142,7 +143,7 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	}
 	if (editedClipField && result[editedClipField] !== undefined) {
 		const placement = readIndexedClip(result[editedClipField]);
-		const expectedId = command.kind === 'trim' ? command.clipId : itemId;
+		const expectedId = command.kind === 'trim' || command.kind === 'moveClip' ? command.clipId : itemId;
 		if (!edited || placement.clip.id !== expectedId) throw new TypeError('Tracktion returned an inconsistent edited clip.');
 		return Object.freeze({ ...edit, [editedClipField]: placement }) as TracktionReply<Command>;
 	}

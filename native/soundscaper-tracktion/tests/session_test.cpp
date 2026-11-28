@@ -108,7 +108,7 @@ void verifyClipPlacement(const juce::File& root)
 		const auto& moved = after.tracks[1].clips.at(0);
 		require(after.tracks[0].clips.empty() && moved.id == original && moved.start == 258
 			&& moved.end == 386 && moved.sourceOffset == 123, "move preserves clip identity and source interval");
-		copy = session.duplicateClip(5, original, second, 451);
+		copy = session.duplicateClip(5, original, second, 451).itemId;
 		session.deleteClip(6, original);
 		const auto erased = readProjectSnapshot(session);
 		require(erased.tracks[1].clips.size() == 1 && erased.tracks[1].clips[0].start == 451,

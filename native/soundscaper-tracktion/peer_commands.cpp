@@ -431,8 +431,13 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		const auto clip = itemId(request, "clipId");
 		const auto track = itemId(request, "trackId");
 		const auto start = integer("start");
-		if (kind == "moveClip") session.moveClip(revision, clip, track, start);
-		else created = session.duplicateClip(revision, clip, track, start);
+		if (kind == "moveClip") editedClip = session.moveClip(revision, clip, track, start);
+		else
+		{
+			auto duplicate = session.duplicateClip(revision, clip, track, start);
+			created = duplicate.itemId;
+			editedClip = std::move(duplicate.placement);
+		}
 	}
 	else if (kind == "deleteClip")
 	{
@@ -520,7 +525,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 			}));
 	if (editedClip)
 	{
-		const auto field = kind == "trim" ? "trimmedClip" : kind == "finishRecording" ? "recordedClip" : "importedClip";
+		const auto field = kind == "trim" ? "trimmedClip" : kind == "finishRecording" ? "recordedClip"
+			: kind == "importFile" ? "importedClip" : "placedClip";
 		reply.getDynamicObject()->setProperty(field, indexedClipReply(*editedClip));
 	}
 	if (splitClips)

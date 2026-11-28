@@ -65,6 +65,12 @@ struct SplitResult
 	std::optional<SplitClips> clips;
 };
 
+struct PlacedClipResult
+{
+	ClipId itemId;
+	std::optional<IndexedClip> placement;
+};
+
 struct TrackSummary
 {
 	TrackId id;
@@ -151,8 +157,8 @@ public:
 	                  std::optional<Frame> frameCount, const std::string& name = {});
 	std::optional<IndexedClip> trim(Revision, ClipId, Frame start, Frame end);
 	SplitResult split(Revision, ClipId, Frame);
-	void moveClip(Revision, ClipId, TrackId destination, Frame start);
-	ClipId duplicateClip(Revision, ClipId, TrackId destination, Frame start);
+	std::optional<IndexedClip> moveClip(Revision, ClipId, TrackId destination, Frame start);
+	PlacedClipResult duplicateClip(Revision, ClipId, TrackId destination, Frame start);
 	void deleteClip(Revision, ClipId);
 	void deleteRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end);
 	void copyRange(Revision, RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const juce::File& clipboard, bool cut);

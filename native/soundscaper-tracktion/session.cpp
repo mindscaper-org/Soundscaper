@@ -421,10 +421,7 @@ std::optional<IndexedClip> Session::trim(Revision expected, ClipId id, Frame sta
 	s.begin("Trim clip");
 	clip.setPosition({range, current.offset + (range.getStart() - current.getStart())});
 	s.commit();
-	if (clip.isLinked()) return std::nullopt;
-	const auto index = track.getClips().indexOf(&clip);
-	if (index < 0) return std::nullopt;
-	return IndexedClip{summarizeClip(clip, s.sampleRate), static_cast<std::size_t>(index)};
+	return describeClipPlacement(track, clip, s.sampleRate);
 }
 
 SplitResult Session::split(Revision expected, ClipId id, Frame frame)
@@ -459,7 +456,7 @@ SplitResult Session::split(Revision expected, ClipId id, Frame frame)
 	}};
 }
 
-void Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame start)
+std::optional<IndexedClip> Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame start)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -467,7 +464,8 @@ void Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame 
 	auto& target = s.track(destination);
 	const auto placement = s.clipPlacement(clip, start);
 	const auto sameTrack = &source == &target;
-	if (sameTrack && placement.getStart() == clip.getPosition().getStart()) return;
+	if (sameTrack && placement.getStart() == clip.getPosition().getStart()) return std::nullopt;
+	const auto linked = clip.isLinked();
 	const auto item = clip.itemID;
 	s.begin("Move clip");
 	if (!sameTrack) clip.moveTo(target);
@@ -479,15 +477,17 @@ void Session::moveClip(Revision expected, ClipId id, TrackId destination, Frame 
 	}
 	moved->setPosition(placement);
 	s.commit();
+	return linked ? std::nullopt : describeClipPlacement(target, *moved, s.sampleRate);
 }
 
-ClipId Session::duplicateClip(Revision expected, ClipId id, TrackId destination, Frame start)
+PlacedClipResult Session::duplicateClip(Revision expected, ClipId id, TrackId destination, Frame start)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
 	auto& clip = s.clip(id).second;
 	auto& target = s.track(destination);
 	const auto placement = s.clipPlacement(clip, start);
+	const auto linked = clip.isLinked();
 	s.begin("Duplicate clip");
 	auto* duplicate = te::insertClipCopy(target, te::ClipCopy::fromClip(clip).withNewItemID(*s.edit));
 	if (!duplicate)
@@ -497,7 +497,7 @@ ClipId Session::duplicateClip(Revision expected, ClipId id, TrackId destination,
 	}
 	duplicate->setPosition(placement);
 	s.commit();
-	return duplicate->itemID.getRawID();
+	return {duplicate->itemID.getRawID(), linked ? std::nullopt : describeClipPlacement(target, *duplicate, s.sampleRate)};
 }
 
 void Session::deleteClip(Revision expected, ClipId id)

@@ -192,15 +192,17 @@ test('the framed Tracktion peer owns edits and publishes output through opaque e
 			const placement = { clipId: original.id, trackId: destination.id, start: 100 };
 			await assert.rejects(reopened.request({ ...placement, kind: 'moveClip', revision: 33, trackId: '18446744073709551615' }), /unknown.*track/iu);
 			const moved = await reopened.request({ ...placement, kind: 'moveClip', revision: 33 });
-			assert.deepEqual(moved, { revision: 34, itemId: null });
+			const duration = original.end - original.start;
+			const movedClip = { ...original, start: 100, end: 100 + duration };
+			assert.deepEqual(moved, { revision: 34, itemId: null, history: { canUndo: true, canRedo: false },
+				placedClip: { clip: movedClip, index: 0 } });
 			const copy = await reopened.request({ ...placement, kind: 'duplicateClip', revision: 34, trackId: origin.id, start: 200 });
 			assert.ok(copy.itemId && copy.itemId !== original.id);
 			const erased = await reopened.request({ kind: 'deleteClip', clipId: original.id, revision: 35 });
 			assert.deepEqual(erased, { revision: 36, itemId: null, history: { canUndo: true, canRedo: false } });
 			await reopened.request({ kind: 'undo', revision: 36 });
 			const restored = await reopened.request({ kind: 'clips', revision: 37, trackId: destination.id, offset: 0 });
-			const duration = original.end - original.start;
-			assert.deepEqual(restored.clips, [{ ...original, start: 100, end: 100 + duration }]);
+			assert.deepEqual(restored.clips, [movedClip]);
 			const empty = await reopened.request({ kind: 'deleteRange', revision: 37, mode: 'track', trackId: destination.id, start: 10_000, end: 10_001 });
 			assert.deepEqual(empty, { revision: 37, itemId: null });
 		} finally {

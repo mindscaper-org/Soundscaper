@@ -24,6 +24,14 @@ ClipView summarizeClip(const te::Clip& clip, int sampleRate)
 	        tracktion::toSamples(position.getOffset(), sampleRate)};
 }
 
+std::optional<IndexedClip> describeClipPlacement(const te::AudioTrack& track, te::Clip& clip, int sampleRate)
+{
+	if (clip.isLinked()) return std::nullopt;
+	const auto index = track.getClips().indexOf(&clip);
+	if (index < 0) return std::nullopt;
+	return IndexedClip{summarizeClip(clip, sampleRate), static_cast<std::size_t>(index)};
+}
+
 EditHistory Session::editHistory() const
 {
 	const auto& history = state->edit->getUndoManager();

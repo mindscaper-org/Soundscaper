@@ -17,6 +17,7 @@ inline constexpr auto mediaDirectory = "media";
 juce::File ownedMediaFile(const juce::File& directory, const juce::String& reference);
 void copyOwnedWave(const juce::File& source, const juce::File& destination, const char* failure);
 ClipView summarizeClip(const te::Clip&, int sampleRate);
+std::optional<IndexedClip> describeClipPlacement(const te::AudioTrack&, te::Clip&, int sampleRate);
 
 void registerOfflineEffectPlugin(te::Engine&);
 bool hasEnabledOfflineEffect(const te::Edit&);

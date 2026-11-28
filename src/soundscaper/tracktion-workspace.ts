@@ -64,27 +64,40 @@ export async function readTracktionWorkspaceAfterClipEdit(
 ): Promise<TracktionWorkspace> {
 	const { sessionId, selectedTrack: source } = workspace;
 	const { revision } = result;
-	if (source && source.id === trackId) {
-		const clips = applyClipPlacements(workspace.clips, result);
-		if (clips) {
-			const selectedTrack = withClipCount(source, clips.length);
-			const changedTrack = selectedTrack === source ? undefined : selectedTrack;
-			const project = projectWithEdit(workspace, result, changedTrack);
-			const tracks = changedTrack ? replaceTrack(workspace.tracks, changedTrack) : workspace.tracks;
-			if (project) return { ...workspace, project, tracks, selectedTrack, clips,
-				recentClips: limitRecentClips(workspace.recentClips, selectedTrack) };
-		}
-	}
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
 	const sourceClips = removedFromSource ? workspace.clips.filter((clip) => clip.id !== removedFromSource) : workspace.clips;
-	const localRemoval = removedFromSource && target && target === source ? withClipCount(target, sourceClips.length) : undefined;
-	const localProject = localRemoval && projectWithEdit(workspace, result, localRemoval);
-	const project = localProject ?? await bridge.request({ kind: 'project', sessionId, offset: 0 });
+	const knownRemoval = removedFromSource && target === source ? sourceClips : undefined;
+	const localProject = target && projectWithEdit(workspace, result);
+	if (target && localProject) {
+		const localClips = target === source ? knownRemoval ?? applyClipPlacements(workspace.clips, result)
+			: applyPlacementToDestination(workspace, target, result, removedFromSource, sourceClips);
+		if (localClips) return workspaceWithClipRows(workspace, localProject, target, localClips, sourceClips, true);
+	}
+	const project = await bridge.request({ kind: 'project', sessionId, offset: 0 });
 	if (project.revision !== revision || !target) return await readWorkspaceFromPage(bridge, workspace, project, trackId);
 	const current = project.tracks.find((track) => track.id === target.id);
-	const clips = localRemoval ? sourceClips
-		: current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id);
-	const selectedTrack = localRemoval ?? withClipCount(target, clips.length);
+	const clips = knownRemoval ?? (current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id));
+	return workspaceWithClipRows(workspace, project, target, clips, sourceClips, false);
+}
+
+function applyPlacementToDestination(
+	workspace: TracktionWorkspace, target: TracktionTrackView, result: TracktionEditResult,
+	removedFromSource: string | undefined, sourceClips: readonly TracktionClipView[],
+): readonly TracktionClipView[] | undefined {
+	const { placedClip, itemId } = result;
+	if (!workspace.selectedTrack || !placedClip || placedClip.clip.id !== (itemId ?? removedFromSource)) return undefined;
+	if (removedFromSource && sourceClips.length !== workspace.clips.length - 1) return undefined;
+	const destinationClips = target.clipCount === 0 ? [] : workspace.recentClips.find(({ trackId }) => trackId === target.id)?.clips;
+	if (destinationClips?.length !== target.clipCount) return undefined;
+	return placeEditedClip(destinationClips, placedClip, true);
+}
+
+function workspaceWithClipRows(
+	workspace: TracktionWorkspace, project: TracktionProjectPage, target: TracktionTrackView,
+	clips: readonly TracktionClipView[], sourceClips: readonly TracktionClipView[], patchProject: boolean,
+): TracktionWorkspace {
+	const { selectedTrack: source } = workspace;
+	const selectedTrack = withClipCount(target, clips.length);
 	const changesSelection = source && source.id !== target.id;
 	const recentClips = changesSelection ? rememberSelectedClips(workspace, selectedTrack, sourceClips)
 		: limitRecentClips(workspace.recentClips, selectedTrack);
@@ -93,11 +106,15 @@ export async function readTracktionWorkspaceAfterClipEdit(
 		if (track.id === selectedTrack.id) return selectedTrack;
 		return track.id === previousTrack?.id ? previousTrack : track;
 	});
-	return { ...workspace, project, tracks, selectedTrack, clips, recentClips };
+	let pageTracks = project.tracks;
+	if (patchProject && selectedTrack !== target) pageTracks = replaceTrack(pageTracks, selectedTrack);
+	if (patchProject && previousTrack && previousTrack !== source) pageTracks = replaceTrack(pageTracks, previousTrack);
+	return { ...workspace, project: pageTracks === project.tracks ? project : { ...project, tracks: pageTracks },
+		tracks, selectedTrack, clips, recentClips };
 }
 
 function applyClipPlacements(clips: readonly TracktionClipView[], result: TracktionEditResult): readonly TracktionClipView[] | undefined {
-	const { splitClips, importedClip, recordedClip, trimmedClip, itemId } = result;
+	const { splitClips, importedClip, recordedClip, trimmedClip, placedClip, itemId } = result;
 	if (splitClips) {
 		const { left, right } = splitClips;
 		if (right.clip.id !== itemId) return undefined;
@@ -111,8 +128,8 @@ function applyClipPlacements(clips: readonly TracktionClipView[], result: Trackt
 		updated.splice(second.index, 0, second.clip);
 		return updated;
 	}
-	const inserted = importedClip ?? recordedClip;
-	const placement = inserted ?? trimmedClip;
+	const inserted = importedClip ?? recordedClip ?? (itemId === null ? undefined : placedClip);
+	const placement = inserted ?? trimmedClip ?? placedClip;
 	if (!placement || inserted && inserted.clip.id !== itemId) return undefined;
 	return placeEditedClip(clips, placement, inserted !== undefined);
 }
@@ -129,11 +146,9 @@ function placeEditedClip(
 	return updated;
 }
 
-function projectWithEdit(workspace: TracktionWorkspace, { revision, history }: TracktionEditResult, updatedTrack?: TracktionTrackView) {
+function projectWithEdit(workspace: TracktionWorkspace, { revision, history }: TracktionEditResult) {
 	if (!history || revision !== workspace.project.revision + 1) return undefined;
-	const { tracks } = workspace.project;
-	return { ...workspace.project, ...history, revision,
-		tracks: updatedTrack ? replaceTrack(tracks, updatedTrack) : tracks };
+	return { ...workspace.project, ...history, revision };
 }
 
 function replaceTrack(tracks: readonly TracktionTrackView[], track: TracktionTrackView): readonly TracktionTrackView[] {

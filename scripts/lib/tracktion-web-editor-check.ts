@@ -351,7 +351,7 @@ export async function verifyTracktionWebEditor(page: Page, origin: string, path 
 	await move.getByRole('button', { name: 'Apply' }).click();
 	const placed = list.getByText('Tracktion web media (1600–2368)', { exact: true });
 	await placed.waitFor();
-	assert.deepEqual(await commandsSince(movedClip), ['moveClip', 'project', 'clips']);
+	assert.deepEqual(await commandsSince(movedClip), ['moveClip']);
 	const moveTrackRoundTrip = (await commandsSince()).length;
 	await track.selectOption({ index: 0 });
 	await clip.waitFor();

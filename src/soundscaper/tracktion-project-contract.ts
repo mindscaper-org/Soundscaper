@@ -53,6 +53,7 @@ export interface TracktionEditResult {
 	readonly splitClips?: Readonly<{ left: TracktionIndexedClip; right: TracktionIndexedClip }>;
 	readonly importedClip?: TracktionIndexedClip;
 	readonly recordedClip?: TracktionIndexedClip;
+	readonly placedClip?: TracktionIndexedClip;
 }
 
 export interface TracktionRecordingResult extends TracktionEditResult {

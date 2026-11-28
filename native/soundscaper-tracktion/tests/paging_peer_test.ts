@@ -103,7 +103,7 @@ async function readClipPages(peer: ReturnType<typeof launchTracktionPeer>, track
 	return clips;
 }
 
-test('Tracktion import and trim acknowledge the clip and its ordered position', async () => {
+test('Tracktion import, trim, move and duplicate acknowledge the clip and its ordered position', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-trim-reply-'));
 	const exchangeDirectory = join(root, 'exchange');
 	try {
@@ -132,6 +132,25 @@ test('Tracktion import and trim acknowledge the clip and its ordered position', 
 			assert.deepEqual(await readClipPages(peer, trackId, 4), before);
 			await peer.request({ kind: 'redo', revision: 4 });
 			assert.deepEqual(await readClipPages(peer, trackId, 5), [before[1], clip]);
+			const move = { kind: 'moveClip', trackId, clipId, start: 140 } as const;
+			const moved = { ...clip, start: 140, end: 171 };
+			const history = { canUndo: true, canRedo: false };
+			assert.deepEqual(await peer.request({ ...move, revision: 5 }), {
+				revision: 6, itemId: null, history, placedClip: { clip: moved, index: 1 },
+			});
+			assert.deepEqual(await peer.request({ ...move, revision: 6 }), { revision: 6, itemId: null });
+			const { itemId: destination } = await peer.request({ kind: 'addTrack', revision: 6, name: 'Destination' });
+			assert.ok(destination);
+			const copied = await peer.request({ kind: 'duplicateClip', revision: 7, trackId: destination, clipId, start: 50 });
+			const copy = { ...clip, id: copied.itemId, start: 50, end: 81 };
+			assert.ok(copy.id);
+			assert.deepEqual(copied, { revision: 8, itemId: copy.id, history, placedClip: { clip: copy, index: 0 } });
+			const transferred = { ...clip, start: 2, end: 33 };
+			assert.deepEqual(await peer.request({ ...move, revision: 8, trackId: destination, start: transferred.start }), {
+				revision: 9, itemId: null, history, placedClip: { clip: transferred, index: 0 },
+			});
+			assert.deepEqual(await readClipPages(peer, destination, 9), [transferred, copy]);
+			assert.deepEqual(await readClipPages(peer, trackId, 9), [before[1]]);
 		} finally { await peer.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
