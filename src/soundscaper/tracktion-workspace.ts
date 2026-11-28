@@ -5,11 +5,13 @@ import {
 	type TracktionProjectBridge, type TracktionOpenedProject, type TracktionProjectPage, type TracktionTrackView,
 } from './tracktion-project-contract.ts';
 
+const RECENT_CLIP_TRACK_LIMIT = 4;
+
 export interface TracktionWorkspace extends TracktionOpenedProject {
 	readonly tracks: readonly TracktionTrackView[];
 	readonly selectedTrack: TracktionTrackView | undefined;
 	readonly clips: readonly TracktionClipView[];
-	readonly previousSelection: Readonly<{ trackId: string; clips: readonly TracktionClipView[] }> | undefined;
+	readonly recentClips: readonly Readonly<{ trackId: string; clips: readonly TracktionClipView[] }>[];
 }
 
 export async function readTracktionWorkspace(
@@ -23,6 +25,26 @@ export async function readTracktionWorkspace(
 
 export function readOpenedTracktionWorkspace(bridge: TracktionProjectBridge, project: TracktionOpenedProject): Promise<TracktionWorkspace> {
 	return readWorkspaceFromPage(bridge, project, project.project);
+}
+
+export async function readTracktionWorkspaceAfterSelection(
+	bridge: TracktionProjectBridge, workspace: TracktionWorkspace, selectedTrack: TracktionTrackView,
+): Promise<TracktionWorkspace> {
+	const cached = workspace.recentClips.find(({ trackId }) => trackId === selectedTrack.id);
+	const clips = cached?.clips ?? (selectedTrack.clipCount
+		? await readTracktionClips(bridge, workspace.sessionId, workspace.project.revision, selectedTrack.id) : []);
+	return { ...workspace, selectedTrack, clips, recentClips: rememberSelectedClips(workspace, selectedTrack) };
+}
+
+function rememberSelectedClips(workspace: TracktionWorkspace, nextTrack: TracktionTrackView, clips = workspace.clips) {
+	const recent = workspace.recentClips.filter(({ trackId }) => trackId !== nextTrack.id);
+	if (workspace.selectedTrack && clips.length) recent.unshift({ trackId: workspace.selectedTrack.id, clips });
+	return limitRecentClips(recent, nextTrack);
+}
+
+function limitRecentClips(recent: TracktionWorkspace['recentClips'], nextTrack: TracktionTrackView) {
+	const limit = nextTrack.clipCount === 0 ? RECENT_CLIP_TRACK_LIMIT : RECENT_CLIP_TRACK_LIMIT - 1;
+	return recent.length > limit ? recent.slice(0, limit) : recent;
 }
 
 export async function readTracktionWorkspaceWithCachedTracks(
@@ -51,7 +73,8 @@ export async function readTracktionWorkspaceAfterClipEdit(
 			const changedTrack = selectedTrack === source ? undefined : selectedTrack;
 			const project = projectWithEdit(workspace, result, changedTrack);
 			const tracks = changedTrack ? replaceTrack(workspace.tracks, changedTrack) : workspace.tracks;
-			if (project) return { ...workspace, project, tracks, selectedTrack, clips };
+			if (project) return { ...workspace, project, tracks, selectedTrack, clips,
+				recentClips: limitRecentClips(workspace.recentClips, selectedTrack) };
 		}
 	}
 	const target = source?.id === trackId ? source : workspace.tracks.find((track) => track.id === trackId);
@@ -64,17 +87,15 @@ export async function readTracktionWorkspaceAfterClipEdit(
 	const clips = localRemoval ? sourceClips
 		: current?.clipCount === 0 ? [] : await readTracktionClips(bridge, sessionId, revision, target.id);
 	const selectedTrack = localRemoval ?? withClipCount(target, clips.length);
-	let previousSelection = workspace.previousSelection;
-	let previousTrack = source;
-	if (source && source.id !== target.id) {
-		previousSelection = { trackId: source.id, clips: sourceClips };
-		previousTrack = withClipCount(source, sourceClips.length);
-	}
+	const changesSelection = source && source.id !== target.id;
+	const recentClips = changesSelection ? rememberSelectedClips(workspace, selectedTrack, sourceClips)
+		: limitRecentClips(workspace.recentClips, selectedTrack);
+	const previousTrack = changesSelection ? withClipCount(source, sourceClips.length) : source;
 	const tracks = selectedTrack === target && previousTrack === source ? workspace.tracks : workspace.tracks.map((track) => {
 		if (track.id === selectedTrack.id) return selectedTrack;
 		return track.id === previousTrack?.id ? previousTrack : track;
 	});
-	return { ...workspace, project, tracks, selectedTrack, clips, previousSelection };
+	return { ...workspace, project, tracks, selectedTrack, clips, recentClips };
 }
 
 function placeEditedClip(
@@ -123,8 +144,8 @@ export async function readTracktionWorkspaceAfterTrackInsertion(
 	const nextOffset = tracks.length > TRACKTION_TRACK_PAGE_SIZE ? TRACKTION_TRACK_PAGE_SIZE : null;
 	const firstPage = { ...project, nextOffset, tracks: nextOffset === null ? tracks : tracks.slice(0, nextOffset) };
 	const clips = selectedTrack.clipCount ? await readTracktionClips(bridge, sessionId, revision, selectedTrack.id) : [];
-	const previousSelection = previous && { trackId: previous.id, clips: workspace.clips };
-	return { ...workspace, project: firstPage, tracks, selectedTrack, clips, previousSelection };
+	const recentClips = rememberSelectedClips(workspace, selectedTrack);
+	return { ...workspace, project: firstPage, tracks, selectedTrack, clips, recentClips };
 }
 
 async function readWorkspaceFromPage(
@@ -143,10 +164,10 @@ async function readWorkspaceFromPage(
 	}
 	const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0];
 	const clips = selectedTrack?.clipCount ? await readTracktionClips(bridge, sessionId, firstPage.revision, selectedTrack.id) : [];
-	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips, previousSelection: undefined };
+	return { sessionId, name: project.name, project: firstPage, tracks, selectedTrack, clips, recentClips: [] };
 }
 
-export async function readTracktionClips(
+async function readTracktionClips(
 	bridge: TracktionProjectBridge, sessionId: string, revision: number, trackId: string,
 ): Promise<readonly TracktionClipView[]> {
 	const clips: TracktionClipView[] = [];

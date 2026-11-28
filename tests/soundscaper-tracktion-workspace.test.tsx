@@ -202,7 +202,7 @@ void test('trimming applies the ordered clip returned by the edit across a clip 
 	const track = { id: '150', name: 'Audio track', clipCount: clips.length };
 	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: true, canRedo: true, nextOffset: null, tracks: [track] };
 	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks: [track],
-		selectedTrack: track, previousSelection: undefined, clips };
+		selectedTrack: track, recentClips: [], clips };
 	const original = clips.at(63);
 	assert.ok(original);
 	const clip = { ...original, start: original.start + 24, end: original.end - 8, sourceOffset: 29 };
@@ -225,8 +225,8 @@ void test('importing applies the ordered clip and track count without rereading 
 	const selectedTrack = { id: '129', name: 'Track 129', clipCount: clips.length };
 	tracks[128] = selectedTrack;
 	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: 64, tracks: tracks.slice(0, 64) };
-	const previousSelection = { trackId: '1', clips: [] };
-	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks, selectedTrack, clips, previousSelection };
+	const recentClips = [{ trackId: '1', clips: clips.slice(0, 1) }];
+	const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', project, tracks, selectedTrack, clips, recentClips };
 	const noRead: TracktionProjectBridge = { async request() { return assert.fail('An acknowledged import requires no bridge requests'); } };
 	const clip = { id: '2000', name: 'Tracktion resolved name', start: 33, end: 62, sourceOffset: 0 };
 	const history = { canUndo: true, canRedo: false };
@@ -238,7 +238,7 @@ void test('importing applies the ordered clip and track count without rereading 
 	assert.equal(updated.tracks.at(-1), updated.selectedTrack);
 	assert.equal(updated.project.tracks, project.tracks);
 	assert.deepEqual(updated.project, { ...project, ...history, revision: 8 });
-	assert.equal(updated.previousSelection, previousSelection);
+	assert.equal(updated.recentClips, recentClips);
 });
 
 void test('a trim refresh reads all track metadata if the engine advances beyond its revision', async () => {
@@ -247,7 +247,7 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 	const clip = { id: '1/0', name: 'Original', start: 0, end: 512, sourceOffset: 0 };
 	const workspace: TracktionWorkspace = {
 		sessionId: 'session', name: 'Project', project, tracks, selectedTrack: tracks[0], clips: [clip],
-		previousSelection: { trackId: '33', clips: [clip] },
+		recentClips: [{ trackId: '33', clips: [clip] }],
 	};
 	const commands: TracktionProjectCommand[] = [];
 	const bridge: TracktionProjectBridge = {
@@ -265,7 +265,7 @@ void test('a trim refresh reads all track metadata if the engine advances beyond
 	assert.equal(refreshed.project.revision, 9);
 	assert.equal(refreshed.tracks.at(-1)?.clipCount, 2);
 	assert.equal(refreshed.clips[0]?.start, 16);
-	assert.equal(refreshed.previousSelection, undefined);
+	assert.deepEqual(refreshed.recentClips, []);
 	assert.deepEqual(commands, [
 		{ kind: 'project', sessionId: 'session', offset: 0 },
 		{ kind: 'project', sessionId: 'session', offset: 32 },
@@ -280,7 +280,7 @@ void test('deleting a clip reuses the remaining clips outside the first track pa
 	const project = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: 64, tracks: tracks.slice(0, 64) };
 	const retained = { id: 'retained', name: 'Kept', start: 20, end: 40, sourceOffset: 8 };
 	const workspace: TracktionWorkspace = {
-		sessionId: 'session', name: 'Project', project, tracks, selectedTrack, previousSelection: undefined,
+		sessionId: 'session', name: 'Project', project, tracks, selectedTrack, recentClips: [],
 		clips: [{ ...retained, id: 'removed', name: 'Deleted', start: 0, end: 20 }, retained],
 	};
 	const refreshedPage: TracktionProjectPage = { ...project, revision: 8, canUndo: true, canRedo: false };
@@ -315,7 +315,7 @@ void test('track insertions preserve track and clip selection across the project
 	const copiedClip = { ...originalClip, id: 'b' };
 	const project: TracktionProjectPage = { revision: 7, sampleRate: 48_000, canUndo: false, canRedo: true, nextOffset: null, tracks };
 	const workspace: TracktionWorkspace = {
-		sessionId: 'session', name: 'Project', project, tracks, selectedTrack: source, clips: [originalClip], previousSelection: undefined,
+		sessionId: 'session', name: 'Project', project, tracks, selectedTrack: source, clips: [originalClip], recentClips: [],
 	};
 	const history = { canUndo: true, canRedo: false };
 	const duplicate = { id: '65', name: 'Track 63 copy', clipCount: 1 };
@@ -336,7 +336,7 @@ void test('track insertions preserve track and clip selection across the project
 	assert.equal(copied.project.nextOffset, 64);
 	assert.equal(copied.selectedTrack, duplicate);
 	assert.deepEqual(copied.clips, [copiedClip]);
-	assert.deepEqual(copied.previousSelection, { trackId: source.id, clips: [originalClip] });
+	assert.deepEqual(copied.recentClips, [{ trackId: source.id, clips: [originalClip] }]);
 	const newTrack = { id: '66', name: 'New track', clipCount: 0 };
 	const appended = await readTracktionWorkspaceAfterTrackInsertion(bridge, copied, {
 		revision: 9, itemId: newTrack.id, history, insertion: { index: 65, track: newTrack },
@@ -367,17 +367,25 @@ void test('changing tracks keeps the loaded track inventory and reads the select
 	assert.equal(requests.length, before + 1);
 });
 
-void test('returning to the previous track reuses its clip pages until an edit changes them', async (context) => {
+void test('returning across four recent tracks reuses clip pages until eviction or Undo', async (context) => {
 	const { dom, requests, click } = await mountEditor(context, { clipsPerTrack: 65, undoChangesClips: true });
 	const selectTrack = (value: string) => act(async () => {
 		reactProps(dom.one('select')).onChange({ currentTarget: { value } });
 	});
 	await click('Open projects');
-	await selectTrack('33');
+	for (const trackId of ['2', '3', '33', '32']) await selectTrack(trackId);
 	const before = requests.length;
+	for (const trackId of ['1', '2', '3', '33']) {
+		await selectTrack(trackId);
+		assert.equal(dom.one('li').textContent, `Clip ${trackId} (0–512)`);
+	}
+	assert.equal(requests.length, before, 'all four recently displayed tracks reuse both pages');
+	await selectTrack('4');
+	const afterEviction = requests.length;
 	await selectTrack('1');
-	assert.equal(dom.one('li').textContent, 'Clip 1 (0–512)');
-	assert.equal(requests.length, before, 'the cached track’s two pages need no bridge request');
+	assert.deepEqual(requests.slice(afterEviction), [0, 64].map((offset) => ({
+		kind: 'clips', sessionId: 'session', revision: 7, trackId: '1', offset,
+	})));
 
 	await selectTrack('33');
 	await click('Undo');

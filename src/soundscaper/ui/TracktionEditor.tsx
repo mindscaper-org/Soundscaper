@@ -18,8 +18,8 @@ import type {
 } from '../tracktion-project-contract.ts';
 import { startTracktionPlayback } from '../tracktion-transport.ts';
 import {
-	readOpenedTracktionWorkspace, readTracktionClips, readTracktionWorkspace,
-	readTracktionWorkspaceAfterClipEdit, readTracktionWorkspaceAfterTrackInsertion, readTracktionWorkspaceWithCachedTracks,
+	readOpenedTracktionWorkspace, readTracktionWorkspace, readTracktionWorkspaceAfterClipEdit,
+	readTracktionWorkspaceAfterSelection, readTracktionWorkspaceAfterTrackInsertion, readTracktionWorkspaceWithCachedTracks,
 	type TracktionWorkspace,
 } from '../tracktion-workspace.ts';
 import { TracktionAudioSetupDialog } from './TracktionAudioSetupDialog.tsx';
@@ -199,13 +199,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 		if (!workspace || workspace.selectedTrack?.id === trackId) return;
 		const selectedTrack = workspace.tracks.find((track) => track.id === trackId);
 		if (!selectedTrack) return;
-		run(async () => {
-			const previous = workspace.previousSelection;
-			const clips = previous?.trackId === trackId ? previous.clips : (selectedTrack.clipCount === 0 ? []
-				: await readTracktionClips(bridge, workspace.sessionId, workspace.project.revision, trackId));
-			const previousSelection = workspace.selectedTrack && { trackId: workspace.selectedTrack.id, clips: workspace.clips };
-			setWorkspace({ ...workspace, selectedTrack, clips, previousSelection });
-		});
+		run(async () => setWorkspace(await readTracktionWorkspaceAfterSelection(bridge, workspace, selectedTrack)));
 	}
 
 	function importWave(): void {
