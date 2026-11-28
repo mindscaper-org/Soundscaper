@@ -11,7 +11,7 @@ import { resolveStaticFile, securityHeaders } from './protocol.js';
 import { tracktionAudioPreferences } from './tracktion-audio-preferences.ts';
 import type { TracktionOfflineEffectHost } from './tracktion-offline-effects.ts';
 import type { TracktionPluginLibrary } from './tracktion-plugin-library.ts';
-import { registerTracktionProjectIpc, TRACKTION_PROJECT_REQUEST } from './tracktion-project-ipc.ts';
+import { registerTracktionProjectIpc, TRACKTION_PROJECT_LOST, TRACKTION_PROJECT_REQUEST } from './tracktion-project-ipc.ts';
 import { TracktionProjectService } from './tracktion-project-service.ts';
 import { startTracktionUtilitySession } from './tracktion-utility-session.ts';
 
@@ -70,6 +70,11 @@ export async function openTracktionWindow(options: {
 		audioPreferences: tracktionAudioPreferences(join(app.getPath('userData'), 'Tracktion Audio Setup.json')),
 		...(options.pluginLibrary ? { pluginLibrary: options.pluginLibrary } : {}),
 		isOwnerCurrent: (owner) => owner === window && !window.isDestroyed(),
+		onProjectLost: (owner, sessionId, message) => {
+			if (owner === window && !window.isDestroyed() && window.webContents.getURL() === EDITOR_URL) {
+				window.webContents.send(TRACKTION_PROJECT_LOST, sessionId, message);
+			}
+		},
 		startPeer: (launch) => startTracktionUtilitySession(
 			utilityProcess.fork, options.utilityEntry ?? resolve(import.meta.dirname, 'tracktion-utility-process.ts'), { ...launch, executable },
 			options.pluginLibrary ?? options.offlineEffects,

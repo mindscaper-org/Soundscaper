@@ -16,6 +16,8 @@ import { readTracktionProjectRequest } from './tracktion-project-request.ts';
 interface TracktionProjectPeer {
 	request<Command extends TracktionCommand>(command: Command): Promise<TracktionReply<Command>>;
 	close(): Promise<void>;
+	readonly completion?: Promise<void>;
+	readonly stopped?: boolean;
 }
 
 type LaunchMode = Readonly<{ mode: 'create'; sampleRate: number }> | Readonly<{ mode: 'open' }>;
@@ -36,6 +38,7 @@ interface Ports {
 	readonly chooseWave: () => Promise<string | null>;
 	readonly chooseExport: (format: 'wav' | 'zip') => Promise<string | null>;
 	readonly startPeer: (launch: ProjectLaunch) => Promise<TracktionProjectPeer>;
+	readonly onProjectLost?: (owner: object, sessionId: string, message: string) => void;
 }
 
 type Reply = TracktionProjectReply<TracktionProjectCommand>;
@@ -55,11 +58,13 @@ interface ActiveProject {
 
 interface Operation {
 	readonly owner: object;
+	readonly sessionId: string | null;
 	readonly controller: AbortController;
 	readonly result: Promise<Reply>;
 }
 
 const EDIT_FILE = 'project.tracktionedit';
+const UTILITY_EXIT_MESSAGE = 'The Tracktion audio engine stopped unexpectedly. Reopen your saved project to continue.';
 
 /** Main-side lifetime and file authority for one experimental Soundscaper editor window. */
 export class TracktionProjectService {
@@ -82,6 +87,7 @@ export class TracktionProjectService {
 		const controller = new AbortController();
 		const operation = {
 			owner, controller,
+			sessionId: 'sessionId' in command ? command.sessionId : null,
 			result: Promise.resolve().then(() => this.#execute(owner, command, controller.signal)),
 		};
 		this.#operation = operation;
@@ -143,6 +149,21 @@ export class TracktionProjectService {
 			throw new Error('This Tracktion project handle has expired.');
 		}
 		return active;
+	}
+
+	#observeProjectExit(active: ActiveProject): void {
+		void active.peer.completion?.then(async () => {
+			if (this.#active !== active) return;
+			this.#active = null;
+			const operation = this.#operation?.sessionId === active.id ? this.#operation : null;
+			operation?.controller.abort(new Error(UTILITY_EXIT_MESSAGE));
+			try {
+				if (this.#ports.isOwnerCurrent(active.owner)) this.#ports.onProjectLost?.(active.owner, active.id, UTILITY_EXIT_MESSAGE);
+			} finally {
+				await operation?.result.catch(() => undefined);
+				await closeProject(active);
+			}
+		}).catch(console.error);
 	}
 
 	async #execute(owner: object, command: TracktionProjectCommand, signal: AbortSignal): Promise<Reply> {
@@ -229,12 +250,15 @@ export class TracktionProjectService {
 			if (command.kind === 'create') await saveNewProject(candidate);
 			candidate.savedRevision = opened.project.revision;
 			this.#assertOwner(owner, signal);
-			if (previous) {
+			if (peer.stopped) throw new Error(UTILITY_EXIT_MESSAGE);
+			if (previous && this.#active === previous) {
 				this.#active = null;
 				await closeProject(previous);
 			}
 			this.#assertOwner(owner, signal);
+			if (peer.stopped) throw new Error(UTILITY_EXIT_MESSAGE);
 			this.#active = candidate;
+			this.#observeProjectExit(candidate);
 			return opened;
 		} catch (error) {
 			if (candidate) await closeProject(candidate);

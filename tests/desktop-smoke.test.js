@@ -160,6 +160,7 @@ test('desktop smoke bridge inventory equals the sandbox preload surface', async 
 test('Soundscaper exposes one Tracktion project request bridge', async () => {
 	const exposed = new Map();
 	const calls = [];
+	const listeners = new Map();
 	const source = await readFile(resolve(ROOT, 'desktop/tracktion-preload.cjs'), 'utf8');
 	vm.runInNewContext(source, {
 		require(module) {
@@ -171,6 +172,11 @@ test('Soundscaper exposes one Tracktion project request bridge', async () => {
 						calls.push([channel, command]);
 						return Promise.resolve('reply');
 					},
+					on: (channel, receive) => listeners.set(channel, receive),
+					removeListener(channel, receive) {
+						assert.equal(listeners.get(channel), receive);
+						listeners.delete(channel);
+					},
 				},
 			};
 		},
@@ -178,10 +184,19 @@ test('Soundscaper exposes one Tracktion project request bridge', async () => {
 	assert.deepEqual([...exposed.keys()], ['soundscaperTracktion']);
 	const bridge = exposed.get('soundscaperTracktion');
 	assert.equal(Object.isFrozen(bridge), true);
-	assert.deepEqual(Object.keys(bridge), ['request']);
+	assert.deepEqual(Object.keys(bridge), ['request', 'onProjectLost']);
 	const command = { type: 'project-status' };
 	assert.equal(await bridge.request(command), 'reply');
 	assert.deepEqual(calls, [['soundscaper-tracktion:project-request', command]]);
+	const notifications = [];
+	const unsubscribe = bridge.onProjectLost((...args) => notifications.push(args));
+	const lost = listeners.get('soundscaper-tracktion:project-lost');
+	assert.equal(typeof lost, 'function');
+	lost({ sender: 'not exposed to the document' }, null, 'stopped');
+	lost({ sender: 'not exposed to the document' }, 'session', 'stopped');
+	assert.deepEqual(notifications, [['session', 'stopped']]);
+	unsubscribe();
+	assert.equal(listeners.size, 0);
 });
 
 test('desktop smoke resolves an explicit package architecture independently of the Node host', () => {

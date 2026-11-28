@@ -145,7 +145,7 @@ export async function startTracktionUtilitySession(
 		return closing;
 	}
 
-	return Object.freeze({ request, close });
+	return Object.freeze({ request, close, completion: exit.promise, get stopped() { return closed; } });
 }
 
 function deferred<Value>() {

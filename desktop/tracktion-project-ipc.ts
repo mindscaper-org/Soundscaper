@@ -3,6 +3,7 @@
 import type { TracktionProjectService } from './tracktion-project-service.ts';
 
 export const TRACKTION_PROJECT_REQUEST = 'soundscaper-tracktion:project-request';
+export const TRACKTION_PROJECT_LOST = 'soundscaper-tracktion:project-lost';
 
 /** Use the shell's current-window and main-document IPC handler. */
 export function registerTracktionProjectIpc(options: {
