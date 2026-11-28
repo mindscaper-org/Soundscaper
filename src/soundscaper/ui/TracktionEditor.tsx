@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 
 import { AUDIO_DEVICE_COPY_BY_LOCALE } from '../../common/i18n/audio-device-copy.js';
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
@@ -30,6 +30,7 @@ import { TracktionEffectsDialog, tracktionEffectsTitle } from './TracktionEffect
 import { TracktionMixerDialog } from './TracktionMixerDialog.tsx';
 import { TracktionPasteDialog } from './TracktionPasteDialog.tsx';
 import { TracktionRangeEditDialog } from './TracktionRangeEditDialog.tsx';
+import { useTracktionMenus } from './useTracktionMenus.ts';
 
 const copy = PROJECT_COMMAND_COPY_BY_LOCALE.en;
 const editCopy = EDIT_COMMAND_COPY_BY_LOCALE.en;
@@ -66,8 +67,7 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	const recording = transport?.recording === true;
 	const playing = transport?.playing === true;
 	const visibleStatus = recording ? 'Recording' : status || (playing ? 'Playing' : '');
-	const menuBar = useRef<HTMLElement>(null);
-	const menuGroup = useId();
+	const { menuBar, menuGroup, closeMenus } = useTracktionMenus();
 	const tracks = workspace?.tracks;
 	const trackOptions = useMemo(() => tracks?.map((track) => <option key={track.id} value={track.id}>{track.name}</option>), [tracks]);
 	const clips = workspace?.clips;
@@ -153,15 +153,6 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 			pending.current = false;
 			setBusy(false);
 		});
-	}
-
-	function closeMenus(): void {
-		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) {
-			const summary = menu.querySelector('summary');
-			const focused = menu.ownerDocument.activeElement;
-			if (focused !== summary && menu.contains(focused)) summary?.focus({ preventScroll: true });
-			menu.open = false;
-		}
 	}
 
 	function readTransport(sessionId: string): Promise<TracktionTransportObservation> {

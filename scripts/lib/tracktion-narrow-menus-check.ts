@@ -36,6 +36,15 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	const name = `FieldRecordingSession_${'locationNotes_'.repeat(7)}T001`;
 	await Promise.all([page.waitForEvent('dialog').then((dialog) => dialog.accept(name)), create.tap()]);
 	await assertFitsWidth(page.getByRole('heading', { name, exact: true }), 'The created project');
+	await file.tap();
+	const track = page.getByRole('combobox', { name: 'Track', exact: true });
+	await track.evaluate((element) => {
+		element.addEventListener('click', (event) => { element.setAttribute('data-clicked', String(event.isTrusted)); }, { once: true });
+	});
+	await track.tap();
+	assert.equal(await file.locator('..').getAttribute('open'), null);
+	assert.equal(await track.getAttribute('data-clicked'), 'true', 'dismissing the menu preserves the touch on the track selector');
+	await page.keyboard.press('Escape');
 	await transport.tap();
 	await assertFitsWidth(record, 'Record onto the active track');
 	assert.equal(await record.isEnabled(), true, 'The narrow transport menu exposes an enabled Record action');
