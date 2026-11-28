@@ -22,6 +22,7 @@ endfunction()
 
 function(soundscaper_prepare_tracktion_source source destination)
 	file(COPY "${source}/" DESTINATION "${destination}"
+		PATTERN "tracktion_AudioClipBase.cpp" EXCLUDE
 		PATTERN "tracktion_AutomatableEditItem.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.cpp" EXCLUDE
 		PATTERN "tracktion_ClipOwner.h" EXCLUDE
@@ -35,6 +36,39 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_EngineBehaviour.h" EXCLUDE
 		PATTERN "tracktion_DeviceManager.cpp" EXCLUDE
 		PATTERN "tracktion_WaveDeviceDescription.cpp" EXCLUDE)
+
+	# An ordinary wave already plays from its source. Reserve the proxy timer
+	# for derived audio, unresolved media and retiring a previous proxy.
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp"
+		"f69e557d299545f93428e7259d1965b742cebf3277b516b295d1655cfb2d3fe0"
+		[=[
+void AudioClipBase::createNewProxyAsync()
+{
+    if (canUseProxy() || requiresRenderingSource())
+        startTimer (600);
+}
+]=] [=[
+void AudioClipBase::createNewProxyAsync()
+{
+    const bool renderSource = requiresRenderingSource();
+    if (! renderSource && ! canUseProxy())
+        return;
+
+    if (! renderSource && state.hasType (IDs::AUDIOCLIP) && ! needsRender() && ! usesTimeStretchedProxy())
+    {
+        const auto original = getAudioFile();
+        if (lastProxy.isNull() || lastProxy == original)
+        {
+            const auto info = original.getInfo();
+            if (info.wasParsedOk && ! info.needsCachedProxy)
+                return;
+        }
+    }
+
+    startTimer (600);
+}
+]=])
 
 	# Serializing explicit parameter values must preserve undo and redo history.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"
