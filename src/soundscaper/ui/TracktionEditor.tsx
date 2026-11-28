@@ -155,7 +155,12 @@ export function TracktionEditor({ bridge, recordingInput = true, desktopAudioSet
 	}
 
 	function closeMenus(): void {
-		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) menu.open = false;
+		for (const menu of menuBar.current?.querySelectorAll<HTMLDetailsElement>('details[open]') ?? []) {
+			const summary = menu.querySelector('summary');
+			const focused = menu.ownerDocument.activeElement;
+			if (focused !== summary && menu.contains(focused)) summary?.focus({ preventScroll: true });
+			menu.open = false;
+		}
 	}
 
 	function readTransport(sessionId: string): Promise<TracktionTransportObservation> {

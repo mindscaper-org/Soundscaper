@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
 import { AUDIO_DEVICE_COPY_BY_LOCALE } from '../../common/i18n/audio-device-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionAudioDevices, TracktionAudioHosts } from '../tracktion-audio-device-contract.ts';
 import type { TracktionProjectBridge } from '../tracktion-project-contract.ts';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = AUDIO_DEVICE_COPY_BY_LOCALE.en;
 
@@ -25,8 +26,7 @@ export function TracktionAudioSetupDialog({ inventory, bridge, sessionId, sample
 	const [refresh, setRefresh] = useState(0);
 	const [pending, setPending] = useState(false);
 	const [failure, setFailure] = useState('');
-	const dialog = useRef<HTMLDialogElement>(null);
-	useEffect(() => { dialog.current?.showModal(); }, []);
+	const dialog = useTracktionModalDialog();
 	useEffect(() => {
 		if (!hostId) return;
 		let mounted = true;

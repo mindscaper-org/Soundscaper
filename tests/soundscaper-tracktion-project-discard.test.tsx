@@ -121,6 +121,23 @@ test('top-level project replacements keep the synchronous browser confirmation',
 	assert.deepEqual(requests, ['open', 'clips']);
 });
 
+test('closing the active Tracktion menu gives its summary focus before opening the next dialog', async (context) => {
+	const { document, button, click, allowNative } = await mountEditor(context, false);
+	allowNative();
+	for (const label of ['Open projects', 'Trim clip']) {
+		const target = button(label);
+		const menu = target.closest('details');
+		const summary = menu?.querySelector('summary');
+		assert.ok(menu && summary);
+		menu.open = true;
+		target.focus();
+		assert.equal(document.activeElement?.textContent, label);
+		await click(label);
+		assert.equal(menu.open, false);
+		assert.equal(document.activeElement?.textContent, summary.textContent);
+	}
+});
+
 for (const retained of [true, undefined]) {
 	test(`Reopening after Tracktion engine loss reflects the ${retained ? 'retained' : 'lost'} clipboard`, async (context) => {
 		const { document, requests, button, click, loseProject, allowNative } = await mountEditor(context, false);

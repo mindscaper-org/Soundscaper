@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionClipCommand, TracktionClipView, TracktionTrackView } from '../tracktion-project-contract.ts';
 import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const titles: Record<TracktionClipCommand['kind'], string> = {
@@ -24,7 +25,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 	readonly onApply: (edit: TracktionClipCommand) => void;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
+	const dialog = useTracktionModalDialog();
 	const [id, setId] = useState(clips[0]?.id);
 	const [validation, setValidation] = useState('');
 	const clip = clips.find((candidate) => candidate.id === id) ?? clips[0];
@@ -35,7 +36,6 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 	const destinationOptions = useMemo(() => placing && tracks.map((track) => (
 		<option key={track.id} value={track.id}>{track.name}</option>)), [placing, tracks]);
 
-	useEffect(() => { dialog.current?.showModal(); }, []);
 
 	function apply(fields: FormData): void {
 		if (busy || !clip) return;

@@ -12,7 +12,11 @@ async function mountEditor(context: TestContext, embedded = false) {
 	const { window: host } = new JSDOM('<main></main><iframe></iframe>');
 	const window = embedded ? host.document.querySelector('iframe')?.contentWindow as (Window & typeof globalThis) | null : host;
 	assert.ok(window);
-	Object.defineProperty(window.HTMLDialogElement.prototype, 'showModal', { value(this: HTMLDialogElement) { this.open = true; } });
+	const closedInDocument: boolean[] = [];
+	Object.defineProperties(window.HTMLDialogElement.prototype, {
+		showModal: { value(this: HTMLDialogElement) { this.open = true; } },
+		close: { value(this: HTMLDialogElement) { closedInDocument.push(this.isConnected); this.open = false; } },
+	});
 	const { document } = window;
 	const previous = new Map<string, PropertyDescriptor | undefined>();
 	for (const [key, value] of Object.entries({ React, window, document, Element: window.Element,
@@ -30,8 +34,22 @@ async function mountEditor(context: TestContext, embedded = false) {
 			else Reflect.deleteProperty(globalThis, key);
 		}
 	});
-	return { window, document, root };
+	return { window, document, root, closedInDocument };
 }
+
+void test('taking the Tracktion clip dialog off screen closes its native modal while still mounted', async (context) => {
+	const { document, root, closedInDocument } = await mountEditor(context);
+	const clips = [{ id: 'clip', name: 'Take', start: 0, end: 128, sourceOffset: 0 }];
+	const tracks = [{ id: 'track', name: 'Voice', clipCount: 1 }];
+	await act(async () => root.render(<TracktionClipEditDialog kind="trim" clips={clips}
+		tracks={tracks} sourceTrackId="track" busy={false} failure="" onApply={() => undefined} onDismiss={() => root.render(null)} />));
+	const dialog = document.querySelector('dialog[open]');
+	const cancel = dialog?.querySelector<HTMLButtonElement>('button[type="button"]');
+	assert.ok(cancel);
+	await act(async () => { cancel.click(); });
+	assert.equal(document.querySelector('dialog'), null);
+	assert.deepEqual(closedInDocument, [true]);
+});
 
 void test('the clip edit dialog reuses its options while changing selection and retrying', async (context) => {
 	const { window, document, root } = await mountEditor(context);

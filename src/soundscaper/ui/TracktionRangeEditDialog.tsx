@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionRangeCommand } from '../tracktion-project-contract.ts';
 import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const choices = {
@@ -31,10 +32,9 @@ export function TracktionRangeEditDialog({ kind, trackId, busy, failure, onApply
 	readonly onApply: (edit: TracktionRangeCommand) => void;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
+	const dialog = useTracktionModalDialog();
 	const [validation, setValidation] = useState('');
 	const { title, label, modes } = choices[kind];
-	useEffect(() => { dialog.current?.showModal(); }, []);
 
 	function apply(fields: FormData): void {
 		if (busy) return;

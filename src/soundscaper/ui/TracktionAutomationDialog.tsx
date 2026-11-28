@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { isTracktionAutomationParameter, TRACKTION_AUTOMATION_PAGE_SIZE, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationEdit,
 	type TracktionAutomationPage, type TracktionAutomationParameter } from '../tracktion-automation-contract.ts';
 import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
 
@@ -25,8 +26,7 @@ export function TracktionAutomationDialog({ track, onDismiss, failure, ...editor
 	readonly failure: string;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
-	useEffect(() => { dialog.current?.showModal(); }, []);
+	const dialog = useTracktionModalDialog();
 	return <dialog ref={dialog} aria-label={copy.tracktionAutomation} onCancel={(event) => {
 		event.preventDefault();
 		if (!editor.busy) onDismiss();

@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef } from 'react';
-
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionPasteCommand } from '../tracktion-project-contract.ts';
 import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const modes = { overlap: copy.paste, insertTracks: copy.pasteInsert, insertAll: copy.pasteSync };
@@ -19,8 +18,7 @@ export function TracktionPasteDialog({ trackId, position, busy, failure, onApply
 	readonly onApply: (edit: TracktionPasteCommand) => void;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
-	useEffect(() => { dialog.current?.showModal(); }, []);
+	const dialog = useTracktionModalDialog();
 
 	function apply(fields: FormData): void {
 		if (busy) return;

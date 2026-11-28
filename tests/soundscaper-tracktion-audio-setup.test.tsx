@@ -12,8 +12,9 @@ import { TracktionAudioSetupDialog } from '../src/soundscaper/ui/TracktionAudioS
 
 async function mountSetup(context: TestContext, bridge: TracktionProjectBridge, inventory: TracktionAudioHosts, onDismiss: () => void) {
 	const { window } = new JSDOM('<main></main>');
-	Object.defineProperty(window.HTMLDialogElement.prototype, 'showModal', {
-		value(this: HTMLDialogElement) { this.open = true; },
+	Object.defineProperties(window.HTMLDialogElement.prototype, {
+		showModal: { value(this: HTMLDialogElement) { this.open = true; } },
+		close: { value(this: HTMLDialogElement) { this.open = false; } },
 	});
 	const { document } = window;
 	const previous = new Map<string, PropertyDescriptor | undefined>();

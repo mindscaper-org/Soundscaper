@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import type { TracktionEffectInstallation, TracktionEffectSlot } from '../tracktion-effect-contract.ts';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
 export const tracktionEffectsTitle = copy.tracktionOfflineEffects;
@@ -17,10 +18,9 @@ export function TracktionEffectsDialog({ track, slots, catalog, onAdd, onRemove,
 	readonly onScan?: () => void;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
+	const dialog = useTracktionModalDialog();
 	const [installation, setInstallation] = useState(catalog?.[0]?.id ?? '');
 	const [slot, setSlot] = useState(slots[0]?.id ?? '');
-	useEffect(() => { dialog.current?.showModal(); }, []);
 	return <dialog ref={dialog} aria-label={tracktionEffectsTitle} onCancel={onDismiss}>
 		<h2>{tracktionEffectsTitle}</h2>
 		<p>{track}</p>

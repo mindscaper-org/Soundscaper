@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef } from 'react';
-
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import type { TracktionTrackMix } from '../tracktion-project-contract.ts';
 import { TracktionEditForm } from './TracktionEditForm.tsx';
+import { useTracktionModalDialog } from './useTracktionModalDialog.ts';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
 
@@ -16,8 +15,7 @@ export function TracktionMixerDialog({ track, mix, onApply, onDismiss }: {
 	readonly onApply: (mix: TracktionTrackMix) => void;
 	readonly onDismiss: () => void;
 }) {
-	const dialog = useRef<HTMLDialogElement>(null);
-	useEffect(() => { dialog.current?.showModal(); }, []);
+	const dialog = useTracktionModalDialog();
 
 	function apply(fields: FormData): void {
 		onApply({ gainDb: Number(fields.get('gainDb')), pan: Number(fields.get('pan')),
