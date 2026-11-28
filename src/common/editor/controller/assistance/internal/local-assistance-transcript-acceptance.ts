@@ -26,7 +26,6 @@ import {
 	createAssistanceTranscriptBodyPublicationV1,
 	type AssistanceSpeechRecognitionReviewV1,
 } from '../../../assistance/transcript-body-publication-v1.ts';
-import { MAX_TRANSCRIPT_LABEL_COMMANDS } from '../../../assistance/transcript-labels.ts';
 import { createAddLabelTrackCommand } from '../../../commands/factories.ts';
 import {
 	localAssistanceSourceFrameToTimelineFrame,
@@ -46,6 +45,7 @@ const TRACK_ID_PREFIX = 'assistance-transcript-track:';
 const TRACK_EXTENSION_KEY = 'org.soundscaper.assistance-transcript-v1';
 const BODY_KIND = 'assistance-transcript';
 const BODY_ENCODING = 'canonical-json-v1';
+const MAX_TRANSCRIPT_LABEL_COMMANDS = 10_000;
 const MAXIMUM_WRITER_CHUNK_BYTES = 4 * 1024 * 1024;
 const UTF8 = new TextEncoder();
 const SHA256 = /^[a-f0-9]{64}$/u;

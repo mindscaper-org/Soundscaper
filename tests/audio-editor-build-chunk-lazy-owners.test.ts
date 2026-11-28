@@ -358,7 +358,7 @@ test('optional export execution has an isolated lazy owner', () => {
 });
 
 test('stateful local assistance implementations share one dedicated lazy owner', () => {
-	for (const name of ['shot-detection.ts', 'scene-scores.ts']) {
+	for (const name of ['shot-detection.ts', 'scene-scores.ts', 'transcript-labels.ts']) {
 		const retiredModule = new URL(`../src/common/editor/assistance/${name}`, import.meta.url);
 		assert.equal(existsSync(retiredModule), false, `${name} is absent from the source tree`);
 	}
@@ -411,7 +411,6 @@ test('stateful local assistance implementations share one dedicated lazy owner',
 		'src/common/editor/assistance/transcript-cleanup-presets.ts',
 		'src/common/editor/assistance/transcript-indexing-v1.ts',
 		'src/common/editor/assistance/transcript-ingest.ts',
-		'src/common/editor/assistance/transcript-labels.ts',
 		'src/common/editor/assistance/vad-silence.ts',
 		'src/common/editor/assistance/wav2vec2-english-tokenizer-v1.ts',
 		'src/common/editor/assistance/visual-indexing-v1.ts',
