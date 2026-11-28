@@ -44,6 +44,7 @@ struct Session::State
 	std::unique_ptr<te::Edit> makeEdit(juce::ValueTree, te::Edit::EditRole);
 	juce::ValueTree newProject(int rate);
 	juce::ValueTree openProject() const;
+	juce::File requireMediaDirectory() const;
 	tracktion::TimePosition position(Frame) const;
 	te::ClipPosition clipPlacement(const te::Clip&, Frame start) const;
 	void checkRevision(Revision, bool finishingRecording = false) const;

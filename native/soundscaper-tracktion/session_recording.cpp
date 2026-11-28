@@ -162,10 +162,7 @@ void Session::startRecording(Revision expected, TrackId trackId, Frame frame)
 	}
 	else if (!s.hostedMonoInput)
 		throw std::invalid_argument("The Tracktion hosted device has no recording input");
-	const auto media = s.directory.getChildFile(mediaDirectory);
-	if (!media.isDirectory() || media.isSymbolicLink())
-		throw std::invalid_argument("The project media directory is unavailable");
-	const auto file = media.getChildFile(juce::Uuid().toString() + ".wav");
+	const auto file = s.requireMediaDirectory().getChildFile(juce::Uuid().toString() + ".wav");
 	if (file.exists() || file.isSymbolicLink())
 		throw std::invalid_argument("Tracktion could not reserve a recording name");
 

@@ -212,6 +212,14 @@ juce::ValueTree Session::State::openProject() const
 	return juce::ValueTree::fromXml(*xml);
 }
 
+juce::File Session::State::requireMediaDirectory() const
+{
+	const auto media = directory.getChildFile(mediaDirectory);
+	if (!media.isDirectory() || media.isSymbolicLink())
+		throw std::invalid_argument("The project media directory is unavailable");
+	return media;
+}
+
 tracktion::TimePosition Session::State::position(Frame frame) const
 {
 	const auto end = tracktion::toSamples(te::Edit::getMaximumEditEnd(), sampleRate);
@@ -384,10 +392,7 @@ ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File
 		throw std::invalid_argument("The source interval is outside the Tracktion Edit");
 	reader.reset();
 
-	const auto media = s.directory.getChildFile(mediaDirectory);
-	if (!media.isDirectory() || media.isSymbolicLink())
-		throw std::invalid_argument("The project media directory is unavailable");
-	const auto destination = media.getChildFile(juce::Uuid().toString() + ".wav");
+	const auto destination = s.requireMediaDirectory().getChildFile(juce::Uuid().toString() + ".wav");
 	copyOwnedWave(source, destination, "Cannot copy the audio into the project");
 
 	s.begin("Import audio");

@@ -172,8 +172,7 @@ std::vector<IndexedClip> Session::pasteRange(Revision expected, RangePasteMode m
 	auto tracks = te::getAudioTracks(*s.edit);
 	const auto firstTrack = tracks.indexOf(&s.track(trackId));
 	const auto trackEnd = firstTrack + selection.getNumChildren();
-	const auto media = s.directory.getChildFile(mediaDirectory);
-	if (!media.isDirectory() || media.isSymbolicLink()) throw std::runtime_error("The project media directory is unavailable");
+	const auto media = s.requireMediaDirectory();
 	std::map<juce::File, juce::File> adopted;
 	std::vector<juce::File> addedFiles;
 	const auto reportPlacements = mode == RangePasteMode::overlap && selection.getNumChildren() == 1 && clips.size() <= pasteReplyLimit;

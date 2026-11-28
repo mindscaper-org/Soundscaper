@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
 import { launchTracktionPeer } from '../../../desktop/tracktion-peer.ts';
+import type { TracktionClipView } from '../../../src/soundscaper/tracktion-project-contract.ts';
 import { writeFileSizeLimitedPeer } from './file-size-limited-peer-fixture.ts';
 import { wavFixture } from './wave_fixture.ts';
 
@@ -185,6 +186,74 @@ test('Tracktion Paste rejects incomplete media without changing the destination'
 			assert.deepEqual(await readdir(join(projectDirectory, 'media')), []);
 			assert.deepEqual(await readFile(selection), previousClipboard);
 		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('Tracktion Paste keeps the live Edit and clipboard during a project media outage', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-paste-media-outage-'));
+	const projectDirectory = join(root, 'project');
+	const exchangeDirectory = join(root, 'exchange');
+	const clipboardDirectory = join(root, 'clipboard');
+	const launch = { executable, projectDirectory, exchangeDirectory, clipboardDirectory, stateDirectory: join(root, 'state') };
+	const media = join(projectDirectory, 'media');
+	const offline = join(root, 'offline-media');
+	const selection = join(clipboardDirectory, 'selection.xml');
+	const asset = 'f'.repeat(32);
+	const wave = wavFixture();
+	try {
+		await mkdir(join(exchangeDirectory, 'input'), { recursive: true });
+		await writeFile(join(exchangeDirectory, 'input', `${asset}.wav`), wave);
+		const peer = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		let trackId: string;
+		let expectedClips: readonly TracktionClipView[];
+		try {
+			const page = { kind: 'project', offset: 0 } as const;
+			const [track] = (await peer.request(page)).tracks;
+			assert.ok(track);
+			trackId = track.id;
+			const imported = await peer.request({ kind: 'importFile', revision: 0, trackId, asset, name: 'Source', start: 0 });
+			assert.ok(imported.itemId);
+			await peer.request({ kind: 'save', revision: imported.revision });
+			await peer.request({ kind: 'copyRange', revision: imported.revision, trackId, mode: 'leaveGap', start: 0, end: 64 });
+			const previousClipboard = await readFile(selection);
+			const previousFiles = (await readdir(clipboardDirectory)).sort();
+			const duplicate = await peer.request({ kind: 'duplicateClip', revision: imported.revision, trackId, clipId: imported.itemId, start: 128 });
+			const witness = await peer.request({ kind: 'addTrack', revision: duplicate.revision, name: 'Redo witness' });
+			const { revision } = await peer.request({ kind: 'undo', revision: witness.revision });
+			const before = await peer.request(page);
+			assert.ok(before.canUndo && before.canRedo);
+			assert.equal(before.tracks[0]?.clipCount, 2);
+			const clipPage = { kind: 'clips', revision, trackId, offset: 0 } as const;
+			const beforeClips = await peer.request(clipPage);
+			const paste = { kind: 'pasteRange', mode: 'overlap', start: 512, trackId } as const;
+			const [managed] = await readdir(media);
+			assert.ok(managed);
+			await rename(media, offline);
+			try {
+				await assert.rejects(peer.request({ ...paste, revision }), /project media directory is unavailable/u);
+				assert.deepEqual(await peer.request(page), before);
+				assert.deepEqual(await peer.request(clipPage), beforeClips);
+				assert.deepEqual(await readFile(selection), previousClipboard);
+				assert.deepEqual((await readdir(clipboardDirectory)).sort(), previousFiles);
+			} finally { await rename(offline, media); }
+
+			const redone = await peer.request({ kind: 'redo', revision });
+			assert.equal((await peer.request(page)).tracks[1]?.name, 'Redo witness');
+			const retried = await peer.request({ ...paste, revision: redone.revision });
+			expectedClips = (await peer.request({ ...clipPage, revision: retried.revision })).clips;
+			assert.deepEqual(expectedClips.slice(0, 2), beforeClips.clips);
+			const pasted = expectedClips[2];
+			assert.ok(pasted);
+			assert.equal(expectedClips.length, 3);
+			assert.deepEqual([pasted.name, pasted.start, pasted.end, pasted.sourceOffset], ['Source', 512, 576, 0]);
+			assert.deepEqual(await readdir(media), [managed]);
+			assert.deepEqual(await readFile(join(media, managed)), wave);
+			await peer.request({ kind: 'save', revision: retried.revision });
+		} finally { await peer.close(); }
+		const reopened = launchTracktionPeer({ ...launch, mode: 'open' });
+		try {
+			assert.deepEqual((await reopened.request({ kind: 'clips', revision: 0, trackId, offset: 0 })).clips, expectedClips);
+		} finally { await reopened.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
