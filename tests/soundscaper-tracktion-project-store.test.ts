@@ -6,6 +6,7 @@ import { test, type TestContext } from 'node:test';
 import {
 	publishTracktionProject, restoreTracktionProject, type TracktionVirtualFilesystem,
 } from '../native/soundscaper-tracktion/wasm/tracktion-project-store.ts';
+import { request, transact } from '../src/common/media/indexeddb.ts';
 import { openTracktionProjectDatabase, tracktionProjectStores } from '../src/soundscaper/tracktion-web-project-library.ts';
 import { createInstrumentedIndexedDB } from './helpers/instrumented-indexeddb.js';
 
@@ -55,6 +56,17 @@ async function setup(context: TestContext) {
 	fs.writeFile('/projects/original/project.tracktionedit', initialEdit);
 	fs.writeFile(`/projects/original/media/${firstName}`, initialMedia);
 	return { storage, name, fs };
+}
+
+async function clearSavedProjects(): Promise<void> {
+	const db = await openTracktionProjectDatabase();
+	try {
+		await transact(db, tracktionProjectStores, 'readwrite', async (stores) => {
+			await Promise.all(tracktionProjectStores.map(async (store) => await request(stores[store].clear())));
+		});
+	} finally {
+		db.close();
+	}
 }
 
 test('saving an edited Tracktion project reuses saved audio and updates only changed media', async (context) => {
@@ -162,4 +174,60 @@ test('an unchanged Tracktion save lets a second tab publish its real edit', asyn
 	await restoreTracktionProject(reopened, { ...draft, directory: 'reopened' });
 	assert.deepEqual(reopened.files.get('/projects/reopened/project.tracktionedit'), revisedEdit);
 	assert.deepEqual(reopened.files.get(`/projects/reopened/media/${secondName}`), addedMedia);
+});
+
+for (const changed of [false, true]) test(`Save reconstructs a missing browser library from the open Edit (changed: ${changed})`, async (context) => {
+	const { fs, storage, name } = await setup(context);
+	const first = await publishTracktionProject(fs, draft);
+	await clearSavedProjects();
+	const edited = Uint8Array.of(16, 32, 64);
+	if (changed) {
+		fs.writeFile('/projects/original/project.tracktionedit', edited);
+		fs.writeFile(`/projects/original/media/${secondName}`, addedMedia);
+	}
+	const failure = new Error('The browser could not write its recovery metadata');
+	storage.failNextPutForStore(generations, failure);
+	await assert.rejects(publishTracktionProject(fs, first), (error) => error === failure);
+	assert.deepEqual(storage.records(name, projects), []);
+	assert.deepEqual(storage.records(name, generations), []);
+
+	const recovered = await publishTracktionProject(fs, first);
+	assert.notEqual(recovered.id, first.id);
+	assert.match(recovered.id, /^[0-9a-f]{32}$/u);
+	assert.equal(recovered.directory, first.directory);
+	assert.equal(recovered.generation, 1);
+	assert.equal(recovered.name, first.name);
+	assert.deepEqual(recovered.savedMedia, changed ? [firstName, secondName] : [firstName]);
+	assert.deepEqual(await publishTracktionProject(fs, recovered), recovered);
+	assert.equal(storage.recordCount(name, generations), 1);
+	const reopened = new ProjectFilesystem();
+	await restoreTracktionProject(reopened, { ...draft, id: recovered.id, directory: 'reopened' });
+	assert.deepEqual(reopened.files.get('/projects/reopened/project.tracktionedit'), changed ? edited : initialEdit);
+	assert.deepEqual(reopened.files.get(`/projects/reopened/media/${firstName}`), initialMedia);
+	assert.deepEqual(reopened.files.get(`/projects/reopened/media/${secondName}`), changed ? addedMedia : undefined);
+});
+
+test('a concurrent publication wins if it restores the original identity before the recovery write', async (context) => {
+	const { fs, storage, name } = await setup(context);
+	const first = await publishTracktionProject(fs, draft);
+	await clearSavedProjects();
+	const db = await openTracktionProjectDatabase();
+	const begin = db.transaction.bind(db);
+	const newer = { generation: first.generation + 1, name: first.name, updated: 123 };
+	const updatedSnapshot = { edit: Uint8Array.of(1, 2, 3), mediaNames: [] };
+	const observation = context.mock.method(db, 'transaction', (stores: string | string[], mode: IDBTransactionMode) => {
+		if (mode === 'readwrite') {
+			storage.seedRecord(name, generations, newer, first.id);
+			storage.seedRecord(name, projects, updatedSnapshot, first.id);
+		}
+		return begin(stores, mode);
+	});
+	try {
+		await assert.rejects(publishTracktionProject(fs, first), /Another browser tab saved/u);
+		assert.equal(observation.mock.callCount(), 2);
+		assert.deepEqual(storage.records(name, generations), [newer]);
+		assert.deepEqual(storage.records(name, projects), [updatedSnapshot]);
+	} finally {
+		db.close();
+	}
 });

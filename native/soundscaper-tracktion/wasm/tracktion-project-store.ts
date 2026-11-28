@@ -101,6 +101,16 @@ export async function restoreTracktionProject(
 	}
 }
 
+async function savedProjectMissing(versions: IDBObjectStore, project: WorkingProject): Promise<boolean> {
+	const record: unknown = await request(versions.get(project.id));
+	if (record === undefined && project.generation > 0) return true;
+	const previous = decodeTracktionProjectMetadata(record);
+	if ((previous?.generation ?? 0) !== project.generation) {
+		throw new Error('Another browser tab saved a newer revision of this Tracktion project');
+	}
+	return false;
+}
+
 export async function publishTracktionProject(
 	fs: TracktionVirtualFilesystem, project: WorkingProject,
 ): Promise<WorkingProject> {
@@ -113,34 +123,36 @@ export async function publishTracktionProject(
 	const unchanged = editDigest === project.savedEditDigest
 		&& retained.size === published.size && mediaNames.every((name) => published.has(name));
 	const write = !unchanged || project.inlineMedia === true;
-	const storeNames = write ? tracktionProjectStores : generationStore;
-	const mode = write ? 'readwrite' : 'readonly';
-	const generation = unchanged ? project.generation : project.generation + 1;
 	const database = await openTracktionProjectDatabase();
 	try {
-		return await transact(database, storeNames, mode, async (stores) => {
+		if (!write) {
+			const missing = await transact(database, generationStore, 'readonly', (stores) => savedProjectMissing(stores[generationStore], project));
+			if (!missing) return project;
+		}
+		return await transact(database, tracktionProjectStores, 'readwrite', async (stores) => {
 			const versions = stores[generationStore];
-			const previous = decodeTracktionProjectMetadata(await request(versions.get(project.id)));
-			if ((previous?.generation ?? 0) !== project.generation) {
-				throw new Error('Another browser tab saved a newer revision of this Tracktion project');
-			}
-			if (!write) return project;
+			const missing = await savedProjectMissing(versions, project);
+			if (!write && !missing) return project;
+			// A new identity lets other open tabs recover independently after the library is cleared.
+			const id = missing ? crypto.randomUUID().replaceAll('-', '') : project.id;
+			const generation = missing ? 1 : unchanged ? project.generation : project.generation + 1;
 			const projects = stores[projectStore];
-			// Committed WAVs are immutable. Only new files need to cross the
-			// Wasm boundary and be cloned into IndexedDB during Save.
 			for (const name of mediaNames) {
-				if (!project.inlineMedia && published.has(name)) continue;
-				await request(projects.put(fs.readFile(`${path}/media/${name}`), mediaRecord(project.id, name)));
+				// Committed media can be reused while the original library record exists.
+				if (!missing && !project.inlineMedia && published.has(name)) continue;
+				await request(projects.put(fs.readFile(`${path}/media/${name}`), mediaRecord(id, name)));
 			}
-			for (const name of published) {
-				if (!retained.has(name)) await request(projects.delete(mediaRecord(project.id, name)));
+			if (!missing) {
+				for (const name of published) {
+					if (!retained.has(name)) await request(projects.delete(mediaRecord(id, name)));
+				}
 			}
 			const snapshot = { edit, mediaNames } satisfies SavedProjectManifest;
 			await Promise.all([
-				request(projects.put(snapshot, project.id)),
-				unchanged ? undefined : request(versions.put({ generation, name: project.name, updated: Date.now() } satisfies TracktionProjectMetadata, project.id)),
+				request(projects.put(snapshot, id)),
+				unchanged && !missing ? undefined : request(versions.put({ generation, name: project.name, updated: Date.now() } satisfies TracktionProjectMetadata, id)),
 			]);
-			return { ...project, generation, savedMedia: mediaNames, inlineMedia: false, savedEditDigest: editDigest };
+			return { ...project, id, generation, savedMedia: mediaNames, inlineMedia: false, savedEditDigest: editDigest };
 		});
 	} finally {
 		database.close();
