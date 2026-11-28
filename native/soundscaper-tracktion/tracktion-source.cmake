@@ -45,10 +45,10 @@ function(soundscaper_prepare_tracktion_source source destination)
 
 	# An ordinary wave already plays from its source. Reserve the proxy timer
 	# for derived audio, unresolved media and retiring a previous proxy.
-	soundscaper_patch_tracktion_source("${source}" "${destination}"
-		"modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp"
-		"f69e557d299545f93428e7259d1965b742cebf3277b516b295d1655cfb2d3fe0"
-		[=[
+	set(audio_clip "modules/tracktion_engine/model/clips/tracktion_AudioClipBase.cpp")
+	soundscaper_read_tracktion_source("${source}" "${audio_clip}"
+		"f69e557d299545f93428e7259d1965b742cebf3277b516b295d1655cfb2d3fe0" code)
+	string(REPLACE [=[
 void AudioClipBase::createNewProxyAsync()
 {
     if (canUseProxy() || requiresRenderingSource())
@@ -74,7 +74,22 @@ void AudioClipBase::createNewProxyAsync()
 
     startTimer (600);
 }
-]=])
+]=] code "${code}")
+	# A clip with auto crossfade disabled only needs the overlap scan to update
+	# a neighbour. Skip that work when the owner has no auto crossfade clips.
+	string(REPLACE
+		"void AudioClipBase::updateAutoCrossfades (bool updateOverlapped)\n{\n    CRASH_TRACER"
+		[=[void AudioClipBase::updateAutoCrossfades (bool updateOverlapped)
+{
+    CRASH_TRACER
+
+    if (! autoCrossfade)
+    {
+        auto* owner = getParent();
+        if (! updateOverlapped || owner == nullptr || ! owner->hasAutoCrossfadeClips())
+            return;
+    }]=] code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${audio_clip}" CONTENT "${code}" @ONLY)
 
 	# The device-less render Edit still needs reversed WAV sources. Its caller
 	# prepares them synchronously because queued jobs need the message thread.
@@ -178,7 +193,37 @@ void Clip::setStart (TimePosition newStart, bool preserveSync, bool keepLength)]
 		"modules/tracktion_engine/model/clips/tracktion_ClipOwner.h"
 		"cc332f9847996d75c8af0f20c04557692a22bd1c341afb94ac5aacabaed549db"
 		"    const juce::Array<Clip*>& getClips() const;"
-		"    const juce::Array<Clip*>& getClips() const;\n    void dispatchPendingClipOrdering();")
+		"    const juce::Array<Clip*>& getClips() const;\n    bool hasAutoCrossfadeClips() const;\n    void dispatchPendingClipOrdering();")
+	string(REPLACE
+		"    void objectAddedOrRemoved (Clip* c)\n    {"
+		[=[    void objectAddedOrRemoved (Clip* c)
+    {
+        if (c != nullptr)
+            cachedAutoCrossfade.reset();]=] code "${code}")
+	string(REPLACE
+		"    void valueTreePropertyChanged (juce::ValueTree& v, const juce::Identifier& id) override\n    {\n        if (Clip::isClipState (v))"
+		[=[    void valueTreePropertyChanged (juce::ValueTree& v, const juce::Identifier& id) override
+    {
+        if (id == IDs::autoCrossfade)
+            cachedAutoCrossfade.reset();
+
+        if (Clip::isClipState (v))]=] code "${code}")
+	string(REPLACE
+		"    void handleAsyncUpdate() override"
+		[=[    bool hasAutoCrossfadeClips() const
+    {
+        if (! cachedAutoCrossfade.has_value())
+            cachedAutoCrossfade = std::any_of (objects.begin(), objects.end(), [] (const Clip* clip)
+            {
+                return static_cast<bool> (clip->state[IDs::autoCrossfade]);
+            });
+
+        return *cachedAutoCrossfade;
+    }
+
+    mutable std::optional<bool> cachedAutoCrossfade;
+
+    void handleAsyncUpdate() override]=] code "${code}")
 	string(REPLACE "    void handleAsyncUpdate() override"
 		"    void dispatchPendingOrdering() { while (isUpdatePending()) handleUpdateNowIfNeeded(); }\n\n    void handleAsyncUpdate() override"
 		code "${code}")
@@ -224,7 +269,18 @@ void Clip::setStart (TimePosition newStart, bool preserveSync, bool keepLength)]
     }]=]
 		code "${code}")
 	string(REPLACE "const juce::Array<Clip*>& ClipOwner::getClips() const"
-		"void ClipOwner::dispatchPendingClipOrdering()\n{\n    if (clipList)\n        clipList->dispatchPendingOrdering();\n}\n\nconst juce::Array<Clip*>& ClipOwner::getClips() const"
+		[=[void ClipOwner::dispatchPendingClipOrdering()
+{
+    if (clipList)
+        clipList->dispatchPendingOrdering();
+}
+
+bool ClipOwner::hasAutoCrossfadeClips() const
+{
+    return clipList && clipList->hasAutoCrossfadeClips();
+}
+
+const juce::Array<Clip*>& ClipOwner::getClips() const]=]
 		code "${code}")
 	file(CONFIGURE OUTPUT "${destination}/${clip_owner}" CONTENT "${code}" @ONLY)
 

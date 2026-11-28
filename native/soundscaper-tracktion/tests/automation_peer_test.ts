@@ -93,6 +93,59 @@ test('Tracktion gain and pan curves render, persist and ripple with track edits'
 	} finally { await rm(root, { recursive: true, force: true }); }
 });
 
+test('Tracktion preserves imported clip fades through track moves and history', async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-auto-crossfade-'));
+	const exchangeDirectory = join(root, 'exchange');
+	const projectDirectory = join(root, 'project');
+	const edit = join(projectDirectory, 'project.tracktionedit');
+	const output = join(exchangeDirectory, 'output');
+	const source = 'a'.repeat(32);
+	const launch = { executable, projectDirectory, exchangeDirectory, stateDirectory: join(root, 'state') };
+	try {
+		await Promise.all([mkdir(join(exchangeDirectory, 'input'), { recursive: true }), mkdir(output, { recursive: true })]);
+		await writeFile(join(exchangeDirectory, 'input', `${source}.wav`), wavFixture(9_600));
+		const created = launchTracktionPeer({ ...launch, mode: 'create', sampleRate: 48_000 });
+		let dryId: string;
+		let destination: string;
+		try {
+			const [track] = (await created.request({ kind: 'project', offset: 0 })).tracks;
+			assert.ok(track);
+			const second = await created.request({ kind: 'addTrack', revision: 0, name: 'Separate lane' });
+			assert.ok(second.itemId);
+			destination = second.itemId;
+			await created.request({ kind: 'importFile', revision: 1, trackId: track.id, asset: source, name: 'Fade clip', start: 0 });
+			const dry = await created.request({ kind: 'importFile', revision: 2, trackId: track.id, asset: source, name: 'Dry clip', start: 4_800 });
+			assert.ok(dry.itemId);
+			dryId = dry.itemId;
+			await created.request({ kind: 'save', revision: 3 });
+		} finally { await created.close(); }
+		const original = await readFile(edit, 'utf8');
+		const authored = original.replace(/(<AUDIOCLIP\b[^>]*\bname="Fade clip"[^>]*)(>)/u, '$1 autoCrossfade="1" fadeOut="0.075"$2');
+		assert.notEqual(authored, original);
+		await writeFile(edit, authored);
+		let peer = launchTracktionPeer({ ...launch, mode: 'open' });
+		const mix = async (revision: number, asset: string) => {
+			await peer.request({ kind: 'render', revision, asset, start: 0, end: 14_400 });
+			return waveData(await readFile(join(output, `${asset}.wav`)));
+		};
+		try {
+			const overlap = await mix(0, '1'.repeat(32));
+			assert.equal(overlap.length, 57_600);
+			await peer.request({ kind: 'moveClip', revision: 0, clipId: dryId, trackId: destination, start: 4_800 });
+			const separate = await mix(1, '2'.repeat(32));
+			const audible = separate.readInt16LE(4 * 7_200);
+			assert.ok(audible > 4_096 && audible < 8_192, `manual fade midpoint was ${audible}`);
+			await peer.request({ kind: 'undo', revision: 1 });
+			assert.deepEqual(await mix(2, '3'.repeat(32)), overlap);
+			await peer.request({ kind: 'redo', revision: 2 });
+			await peer.request({ kind: 'save', revision: 3 });
+			await peer.close();
+			peer = launchTracktionPeer({ ...launch, mode: 'open' });
+			assert.deepEqual(await mix(0, '4'.repeat(32)), separate);
+		} finally { await peer.close(); }
+	} finally { await rm(root, { recursive: true, force: true }); }
+});
+
 test('Tracktion returns the ordered automation point index across pages and unchanged updates', async () => {
 	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-automation-order-'));
 	const exchangeDirectory = join(root, 'exchange');
