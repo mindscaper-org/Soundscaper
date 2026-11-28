@@ -17,7 +17,8 @@ export function tracktionAudioPreferences(path: string): TracktionAudioPreferenc
 	return {
 		async read() {
 			const stream = await open(path, 'r').catch((error: unknown) => {
-				if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+				const { code } = error as NodeJS.ErrnoException;
+				if (code === 'ENOENT' || code === 'EACCES' || code === 'EPERM') return null;
 				throw error;
 			});
 			if (!stream) return null;
