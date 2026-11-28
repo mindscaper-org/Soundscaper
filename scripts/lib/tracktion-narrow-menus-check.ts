@@ -3,7 +3,9 @@
 import assert from 'node:assert/strict';
 import type { Locator, Page } from 'playwright-core';
 
-import { wavFixture } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
+import { wavFixture, waveData } from '../../native/soundscaper-tracktion/tests/wave_fixture.ts';
+
+type MixerRenderWindow = Window & { tracktionMixerRender?: Blob };
 
 async function assertFitsWidth(locator: Locator, label: string): Promise<void> {
 	const { left, right, viewport } = await locator.evaluate((element) => {
@@ -53,6 +55,61 @@ export async function verifyTracktionNarrowMenus(page: Page, site: URL): Promise
 	await verifyNarrowTrimDialog(page, nav, file, editing);
 	await verifyNarrowSavedChooser(page, nav, file, name);
 	await verifyNarrowMoveRetry(page, nav, editing);
+	await verifyNarrowMixerPrecision(page, nav, file, editing);
+}
+
+async function verifyNarrowMixerPrecision(page: Page, nav: Locator, file: Locator, editing: Locator): Promise<void> {
+	const sample = wavFixture(512);
+	for (let frame = 0; frame < 512; frame += 1) {
+		sample.writeInt16LE(28_000, 44 + frame * 4);
+		sample.writeInt16LE(-27_000, 46 + frame * 4);
+	}
+	await file.tap();
+	const selection = page.waitForEvent('filechooser').then((picker) => picker.setFiles({
+		name: 'Mixer precision.wav', mimeType: 'audio/wav', buffer: sample,
+	}));
+	await Promise.all([selection, nav.getByRole('button', { name: 'Import audio', exact: true }).tap()]);
+	await page.getByText(/^Mixer precision \(/u).waitFor();
+	await page.evaluate(() => {
+		const create = URL.createObjectURL;
+		URL.createObjectURL = (object) => {
+			if (object instanceof Blob && object.type === 'audio/wav') (window as MixerRenderWindow).tracktionMixerRender = object;
+			return create.call(URL, object);
+		};
+	});
+	const mixer = page.getByRole('dialog', { name: 'Mixer', exact: true });
+	const gain = mixer.getByRole('spinbutton', { name: /Gain/u });
+	const apply = mixer.getByRole('button', { name: 'Apply', exact: true });
+	async function openMixer(): Promise<void> {
+		await editing.tap();
+		await nav.getByRole('button', { name: 'Mixer', exact: true }).tap();
+	}
+	async function render(): Promise<Buffer> {
+		await page.evaluate(() => { (window as MixerRenderWindow).tracktionMixerRender = undefined; });
+		await file.tap();
+		await nav.getByRole('button', { name: 'Export mix (WAV)', exact: true }).tap();
+		await page.waitForFunction(() => Boolean((window as MixerRenderWindow).tracktionMixerRender));
+		return waveData(Buffer.from(await page.evaluate(async () => {
+			const rendered = (window as MixerRenderWindow).tracktionMixerRender;
+			if (!rendered) throw new Error('Tracktion did not render the mix');
+			return Array.from(new Uint8Array(await rendered.arrayBuffer()));
+		})));
+	}
+	await openMixer();
+	await gain.fill('-0.00045');
+	await apply.tap();
+	const precise = await render();
+	await openMixer();
+	assert.equal(await gain.inputValue(), '0');
+	await mixer.getByRole('checkbox', { name: 'Solo', exact: true }).check();
+	await apply.tap();
+	assert.deepEqual(await render(), precise, 'Solo preserves the untouched fractional gain');
+	await openMixer();
+	await gain.focus();
+	await page.keyboard.press('ControlOrMeta+a');
+	await page.keyboard.type('0');
+	await apply.tap();
+	assert.notDeepEqual(await render(), precise, 'expressly entering zero changes the fractional gain');
 }
 
 async function verifyNarrowMoveRetry(page: Page, nav: Locator, editing: Locator): Promise<void> {
