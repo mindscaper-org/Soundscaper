@@ -34,6 +34,7 @@ function(soundscaper_prepare_tracktion_source source destination)
 		PATTERN "tracktion_TrackUtils.h" EXCLUDE
 		PATTERN "tracktion_TransportControl.cpp" EXCLUDE
 		PATTERN "tracktion_NodeRenderContext.cpp" EXCLUDE
+		PATTERN "tracktion_NodeRenderContext.h" EXCLUDE
 		PATTERN "tracktion_SourceFileReference.cpp" EXCLUDE
 		PATTERN "tracktion_EditFileOperations.cpp" EXCLUDE
 		PATTERN "tracktion_EditFileOperations.h" EXCLUDE
@@ -354,10 +355,10 @@ const juce::Array<Clip*>& ClipOwner::getClips() const]=]
 	file(CONFIGURE OUTPUT "${destination}/${edit_file}" CONTENT "${code}" @ONLY)
 
 	# Completing the render loop after a failed audio write must report failure.
-	soundscaper_patch_tracktion_source("${source}" "${destination}"
-		"modules/tracktion_engine/playback/graph/tracktion_NodeRenderContext.cpp"
-		"40f8e18c146c05e93dc40a54602a6af674ca81a6253120e4782e9a59ae5af6a2"
-		[=[
+	set(render_context "modules/tracktion_engine/playback/graph/tracktion_NodeRenderContext.cpp")
+	soundscaper_read_tracktion_source("${source}" "${render_context}"
+		"40f8e18c146c05e93dc40a54602a6af674ca81a6253120e4782e9a59ae5af6a2" code)
+	string(REPLACE [=[
          && ! writer->appendBuffer (buffer, blockSizeSamples))
         return WriteResult::failed;
 ]=] [=[
@@ -366,7 +367,32 @@ const juce::Array<Clip*>& ClipOwner::getClips() const]=]
         owner.errorMessage = TRANS("Couldn't write to target file");
         return WriteResult::failed;
     }
-]=])
+]=] code "${code}")
+	# Process the same pre-roll blocks without wall-clock delays for native
+	# gain and pan. Other plugins retain Tracktion's existing warm-up timing.
+	string(REPLACE "    plugins = findAllPlugins (*nodePlayer->getNode());"
+		[=[    plugins = findAllPlugins (*nodePlayer->getNode());
+    waitDuringPreroll = r.realTimeRender || std::any_of (plugins.begin(), plugins.end(), [] (const Plugin* plugin)
+    {
+        return dynamic_cast<const VolumeAndPanPlugin*> (plugin) == nullptr;
+    });]=] code "${code}")
+	string(REPLACE
+		[=[    else
+    {
+        // for the pre-count blocks, sleep to give things a chance to get going
+        juce::Thread::sleep ((int) (blockLength.inSeconds() * 1000));
+    }]=]
+		[=[    else if (waitDuringPreroll)
+    {
+        // Plugins that may initialise asynchronously still receive wall-clock warm-up time.
+        juce::Thread::sleep ((int) (blockLength.inSeconds() * 1000));
+    }]=] code "${code}")
+	file(CONFIGURE OUTPUT "${destination}/${render_context}" CONTENT "${code}" @ONLY)
+	soundscaper_patch_tracktion_source("${source}" "${destination}"
+		"modules/tracktion_engine/playback/graph/tracktion_NodeRenderContext.h"
+		"265b6bee4a3fe7d043f7c591e056bed95b1d3f10d3a91356a70ba3c3713b294b"
+		"    int numPreRenderBlocks = 0;"
+		"    int numPreRenderBlocks = 0;\n    bool waitDuringPreroll = true;")
 
 	# Preserve an explicitly chosen start sample even within the first 5 ms.
 	soundscaper_patch_tracktion_source("${source}" "${destination}"
