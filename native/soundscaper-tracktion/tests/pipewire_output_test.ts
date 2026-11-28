@@ -75,6 +75,7 @@ test('Tracktion sustains PipeWire playback and can restart from the stopped play
 				assert.ok(frames - beforeRestart > 4_096, 'audio resumes from the stopped playhead');
 				await peer.request({ kind: 'stop' });
 			}
+			await verifyPlaybackMediaAfterClipDeletion(peer, options.projectDirectory);
 		} finally {
 			monitor.kill('SIGTERM');
 			await monitorClosed;
@@ -92,8 +93,14 @@ async function verifyProjectMediaReadiness(peer: ReturnType<typeof launchTrackti
 	const file = join(media, name);
 	const moved = `${file}.moved`;
 	const status = () => peer.request({ kind: 'transportStatus' });
+	const project = await peer.request({ kind: 'project', offset: 0 });
+	const [track] = project.tracks;
+	assert.ok(track);
+	const { id: trackId } = track;
+	const { gainDb, pan, solo } = await peer.request({ kind: 'trackMix', revision: project.revision, trackId });
+	await peer.request({ kind: 'setTrackMix', revision: project.revision, trackId, gainDb, pan, solo, muted: true });
 	await rename(file, moved);
-	assert.equal((await status()).ready, false, 'readiness notices a missing cached source');
+	assert.equal((await status()).ready, false, 'readiness notices a missing source after a mix edit');
 	const { ready: _ready, ...stopped } = await status();
 	assert.deepEqual(await peer.request({ kind: 'transportObservation' }), stopped);
 	await symlink(moved, file);
@@ -102,6 +109,7 @@ async function verifyProjectMediaReadiness(peer: ReturnType<typeof launchTrackti
 	await unlink(file);
 	await rename(moved, file);
 	await waitForTransport(status, (snapshot) => snapshot.ready);
+	await peer.request({ kind: 'undo', revision: project.revision + 1 });
 
 	const movedMedia = `${media}.moved`;
 	await rename(media, movedMedia);
@@ -109,6 +117,28 @@ async function verifyProjectMediaReadiness(peer: ReturnType<typeof launchTrackti
 	assert.equal((await status()).ready, false, 'readiness refuses a substituted project media directory');
 	await unlink(media);
 	await rename(movedMedia, media);
+	await waitForTransport(status, (snapshot) => snapshot.ready);
+	await peer.request({ kind: 'redo', revision: project.revision + 2 });
+	assert.equal((await status()).ready, true, 'mix redo keeps the restored media ready');
+	await peer.request({ kind: 'undo', revision: project.revision + 3 });
+}
+
+async function verifyPlaybackMediaAfterClipDeletion(peer: ReturnType<typeof launchTracktionPeer>, projectDirectory: string): Promise<void> {
+	const [name] = await readdir(join(projectDirectory, 'media'));
+	assert.ok(name);
+	const file = join(projectDirectory, 'media', name);
+	const moved = `${file}.moved`;
+	const status = () => peer.request({ kind: 'transportStatus' });
+	const { revision, tracks: [track] } = await peer.request({ kind: 'project', offset: 0 });
+	assert.ok(track);
+	const { clips } = await peer.request({ kind: 'clips', revision, trackId: track.id, offset: 0 });
+	assert.ok(clips[0]);
+	await peer.request({ kind: 'deleteClip', revision, clipId: clips[0].id });
+	await rename(file, moved);
+	assert.equal((await status()).ready, true, 'deleting the last clip removes its source from readiness');
+	await peer.request({ kind: 'undo', revision: revision + 1 });
+	assert.equal((await status()).ready, false, 'undo needs the deleted clip source again');
+	await rename(moved, file);
 	await waitForTransport(status, (snapshot) => snapshot.ready);
 }
 

@@ -267,9 +267,10 @@ void Session::State::begin(const char* name)
 	edit->getUndoManager().beginNewTransaction(name);
 }
 
-void Session::State::commit()
+void Session::State::commit(bool keepsPlaybackMedia)
 {
 	endTransaction(*edit);
+	if (keepsPlaybackMedia && playbackMediaRevision == revision) playbackMediaRevision = revision + 1;
 	++revision;
 }
 
@@ -362,7 +363,7 @@ void Session::setTrackMix(Revision expected, TrackId id, TrackMix mix)
 	s.begin("Adjust track mix");
 	if (!s.edit->getUndoManager().perform(new TrackMixChange(*s.edit, track.itemID, current, mix)))
 		throw std::runtime_error("Cannot apply the Tracktion track mix");
-	s.commit();
+	s.commit(true);
 }
 
 ClipId Session::insertAudio(Revision expected, TrackId trackId, const juce::File& source, Frame start,
@@ -518,18 +519,20 @@ void Session::deleteClip(Revision expected, ClipId id)
 bool Session::undo(Revision expected)
 {
 	state->checkRevision(expected);
+	const auto keepsPlaybackMedia = historyKeepsTimeline(false);
 	if (!state->edit->getUndoManager().undo()) return false;
 	if (isPlaying() && hasEnabledOfflineEffect(*state->edit)) stop();
-	state->commit();
+	state->commit(keepsPlaybackMedia);
 	return true;
 }
 
 bool Session::redo(Revision expected)
 {
 	state->checkRevision(expected);
+	const auto keepsPlaybackMedia = historyKeepsTimeline(true);
 	if (!state->edit->getUndoManager().redo()) return false;
 	if (isPlaying() && hasEnabledOfflineEffect(*state->edit)) stop();
-	state->commit();
+	state->commit(keepsPlaybackMedia);
 	return true;
 }
 

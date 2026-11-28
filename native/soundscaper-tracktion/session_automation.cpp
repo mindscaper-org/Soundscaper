@@ -84,7 +84,7 @@ std::size_t Session::setAutomationPoint(Revision expected, TrackId track, TrackP
 		if (index) curve.removePoint(slot, undo);
 		pointIndex = curve.addPoint(te::EditPosition(time), value, point.curve, undo);
 	}
-	s.commit();
+	s.commit(true);
 	return static_cast<std::size_t>(pointIndex);
 }
 
@@ -97,7 +97,7 @@ void Session::removeAutomationPoint(Revision expected, TrackId track, TrackParam
 		throw std::invalid_argument("The Tracktion automation point is outside the curve");
 	s.begin("Remove automation point");
 	curve.removePoint(static_cast<int>(index), &s.edit->getUndoManager());
-	s.commit();
+	s.commit(true);
 }
 
 void Session::clearAutomation(Revision expected, TrackId track, TrackParameter key)
@@ -108,6 +108,6 @@ void Session::clearAutomation(Revision expected, TrackId track, TrackParameter k
 	if (curve.getNumPoints() == 0) return;
 	s.begin("Clear automation");
 	curve.clear(&s.edit->getUndoManager());
-	s.commit();
+	s.commit(true);
 }
 }

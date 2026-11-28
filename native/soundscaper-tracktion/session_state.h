@@ -52,7 +52,7 @@ struct Session::State
 	te::AudioTrack& track(TrackId) const;
 	std::pair<te::AudioTrack&, te::Clip&> clip(ClipId) const;
 	void begin(const char* name);
-	void commit();
+	void commit(bool keepsPlaybackMedia = false);
 	void rollback();
 	std::vector<ClipId> deleteRange(RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const std::function<void()>& publish = {});
 
