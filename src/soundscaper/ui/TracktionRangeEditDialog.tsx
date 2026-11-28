@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionRangeCommand } from '../tracktion-project-contract.ts';
+import { TracktionEditForm } from './TracktionEditForm.tsx';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const choices = {
@@ -35,10 +36,8 @@ export function TracktionRangeEditDialog({ kind, trackId, busy, failure, onApply
 	const { title, label, modes } = choices[kind];
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
-	function submit(event: FormEvent<HTMLFormElement>): void {
-		event.preventDefault();
+	function apply(fields: FormData): void {
 		if (busy) return;
-		const fields = new FormData(event.currentTarget);
 		const start = Number(fields.get('start'));
 		const end = Number(fields.get('end'));
 		if (start >= end) {
@@ -55,7 +54,7 @@ export function TracktionRangeEditDialog({ kind, trackId, busy, failure, onApply
 		if (!busy) onDismiss();
 	}}>
 		<h2>{title}</h2>
-		<form onSubmit={submit} onInput={() => setValidation('')}>
+		<TracktionEditForm onApply={apply} onInput={() => setValidation('')}>
 			<p><label>{copy.tracktionStartFrame} <input type="number" name="start" min="0" step="1" required disabled={busy} /></label></p>
 			<p><label>{copy.tracktionEndFrame} <input type="number" name="end" min="1" step="1" required disabled={busy} /></label></p>
 			<p><label>{label} <select name="mode" defaultValue="leaveGap" disabled={busy}>
@@ -64,6 +63,6 @@ export function TracktionRangeEditDialog({ kind, trackId, busy, failure, onApply
 			{(validation || failure) && <p role="alert">{validation || failure}</p>}
 			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
 			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
-		</form>
+		</TracktionEditForm>
 	</dialog>;
 }

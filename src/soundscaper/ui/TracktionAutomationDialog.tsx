@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import { isTracktionAutomationParameter, TRACKTION_AUTOMATION_PAGE_SIZE, TRACKTION_AUTOMATION_RANGES, type TracktionAutomationEdit,
 	type TracktionAutomationPage, type TracktionAutomationParameter } from '../tracktion-automation-contract.ts';
+import { TracktionEditForm } from './TracktionEditForm.tsx';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
 
@@ -57,9 +58,7 @@ function AutomationPointEditor({ parameter, page, offset, selectedPointIndex, on
 	const [min, max] = TRACKTION_AUTOMATION_RANGES[parameter];
 	const { nextOffset } = page;
 
-	function submit(event: FormEvent<HTMLFormElement>): void {
-		event.preventDefault();
-		const fields = new FormData(event.currentTarget);
+	function apply(fields: FormData): void {
 		onEdit({ kind: 'setAutomationPoint', parameter, index, frame: Number(fields.get('frame')),
 			value: Number(fields.get('value')), curve: Number(fields.get('curve')) });
 	}
@@ -73,13 +72,13 @@ function AutomationPointEditor({ parameter, page, offset, selectedPointIndex, on
 			<button type="button" disabled={offset === 0} onClick={() => onPage(parameter, Math.max(0, offset - TRACKTION_AUTOMATION_PAGE_SIZE))}>{copy.tracktionPreviousAutomationPage}</button>{' '}
 			<button type="button" disabled={nextOffset === null} onClick={() => { if (nextOffset !== null) onPage(parameter, nextOffset); }}>{copy.tracktionNextAutomationPage}</button>
 		</p>}
-		<form key={selection} onSubmit={submit}>
+		<TracktionEditForm key={selection} onApply={apply}>
 			<p><label>{copy.tracktionAutomationFrame} <input name="frame" type="number" min="0" step="1" required defaultValue={point?.frame ?? 0} /></label></p>
 			<p><label>{copy.tracktionAutomationValue} <input name="value" type="number" min={min} max={max} step="any" required defaultValue={point?.value ?? 0} /></label></p>
 			<p><label>{copy.tracktionAutomationCurve} <input name="curve" type="number" min="-1" max="1" step="any" required defaultValue={point?.curve ?? 0} /></label></p>
 			<button type="submit">{index === null ? copy.tracktionAddAutomationPoint : copy.tracktionUpdateAutomationPoint}</button>{' '}
 			{index !== null && <button type="button" onClick={() => onEdit({ kind: 'removeAutomationPoint', parameter, index })}>{copy.tracktionRemoveAutomationPoint}</button>}{' '}
 			{page.points.length > 0 && <button type="button" onClick={() => onEdit({ kind: 'clearAutomation', parameter })}>{copy.tracktionClearAutomation}</button>}
-		</form>
+		</TracktionEditForm>
 	</>;
 }

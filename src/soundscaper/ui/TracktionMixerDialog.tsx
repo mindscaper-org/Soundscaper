@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, type FormEvent } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import { TRACK_COPY_BY_LOCALE } from '../../common/i18n/track-copy.js';
 import type { TracktionTrackMix } from '../tracktion-project-contract.ts';
+import { TracktionEditForm } from './TracktionEditForm.tsx';
 
 const copy = TRACK_COPY_BY_LOCALE.en;
 
@@ -18,16 +19,14 @@ export function TracktionMixerDialog({ track, mix, onApply, onDismiss }: {
 	const dialog = useRef<HTMLDialogElement>(null);
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
-	function submit(event: FormEvent<HTMLFormElement>): void {
-		event.preventDefault();
-		const fields = new FormData(event.currentTarget);
+	function apply(fields: FormData): void {
 		onApply({ gainDb: Number(fields.get('gainDb')), pan: Number(fields.get('pan')),
 			muted: fields.has('muted'), solo: fields.has('solo') });
 	}
 
 	return <dialog ref={dialog} aria-label={copy.mixer} onCancel={onDismiss}>
 		<h2>{copy.mixer}</h2>
-		<form onSubmit={submit}>
+		<TracktionEditForm onApply={apply}>
 			<fieldset>
 				<legend>{track}</legend>
 				<p><label>{copy.gain} <input name="gainDb" type="number" required min="-100" max="6" step="any"
@@ -38,6 +37,6 @@ export function TracktionMixerDialog({ track, mix, onApply, onDismiss }: {
 			</fieldset>
 			<button type="submit">{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
 			<button type="button" onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
-		</form>
+		</TracktionEditForm>
 	</dialog>;
 }

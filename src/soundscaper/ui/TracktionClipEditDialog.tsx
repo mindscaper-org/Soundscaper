@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
 import { PROJECT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/project-command-copy.js';
 import type { TracktionClipCommand, TracktionClipView, TracktionTrackView } from '../tracktion-project-contract.ts';
+import { TracktionEditForm } from './TracktionEditForm.tsx';
 
 const copy = EDIT_COMMAND_COPY_BY_LOCALE.en;
 const titles: Record<TracktionClipCommand['kind'], string> = {
@@ -36,10 +37,8 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
-	function submit(event: FormEvent<HTMLFormElement>): void {
-		event.preventDefault();
+	function apply(fields: FormData): void {
 		if (busy || !clip) return;
-		const fields = new FormData(event.currentTarget);
 		if (kind === 'deleteClip') {
 			onApply({ kind, clipId: clip.id });
 			return;
@@ -67,7 +66,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 		if (!busy) onDismiss();
 	}}>
 		<h2>{title}</h2>
-		<form onSubmit={submit} onInput={() => setValidation('')}>
+		<TracktionEditForm onApply={apply} onInput={() => setValidation('')}>
 			<p><label>{copy.tracktionClip} <select value={clip.id} disabled={busy} onChange={(event) => { setId(event.currentTarget.value); }}>
 				{clipOptions}
 			</select></label></p>
@@ -92,6 +91,6 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 			{(validation || failure) && <p role="alert">{validation || failure}</p>}
 			<button type="submit" disabled={busy}>{CLIP_INTERACTIONS_COPY_BY_LOCALE.en.apply}</button>{' '}
 			<button type="button" disabled={busy} onClick={onDismiss}>{PROJECT_COMMAND_COPY_BY_LOCALE.en.cancel}</button>
-		</form>
+		</TracktionEditForm>
 	</dialog>;
 }
