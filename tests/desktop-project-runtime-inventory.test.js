@@ -40,10 +40,14 @@ test('desktop stages the current shot boundary review and detector modes', () =>
 	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shots.js`), false);
 });
 
-test('desktop compilation keeps the shared delivery contract and batch owner', () => {
-	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/soundscaper-delivery-contract-v1.js'));
+test('desktop compilation keeps ordinary delivery batches without the retired Soundscaper delivery wire', () => {
 	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/delivery-batch.js'));
-	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/soundscaper-persistent-delivery-plan-v1.js'), false);
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/native-media-plan-canonical-form.js'));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('src/common/editor/delivery-report.js'), false);
+	for (const name of ['soundscaper-delivery-contract-v1', 'bounded-json-structure-v1', 'soundscaper-persistent-delivery-plan-v1']) {
+		assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`src/common/editor/${name}.js`), false, name);
+		assert.equal(existsSync(new URL(`../src/common/editor/${name}.ts`, import.meta.url)), false, name);
+	}
 });
 
 test('desktop project serialization stages its encoder outside the assistance runtime', () => {

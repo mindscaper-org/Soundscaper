@@ -286,8 +286,6 @@
 		,
 		{ "path": "src/common/editor/automation-write-mode-v21.ts", "kind": "persisted-contract", "justification": "automation-write-mode-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
-		{ "path": "src/common/editor/bounded-json-structure-v1.ts", "kind": "persisted-contract", "justification": "bounded-json-structure-v1.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
 		{ "path": "src/common/editor/controller/shared/isolated-track-render-project-v21.ts", "kind": "persisted-contract", "justification": "isolated-track-render-project-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/controller/track-audio/internal/mix-render/mix-render-snapshot-v21.ts", "kind": "persisted-contract", "justification": "mix-render-snapshot-v21.ts projects production mixer and automation authority for a persisted render-contract revision independent of product schema." }
@@ -386,8 +384,6 @@
 		{ "path": "src/common/editor/quality/project-pdc-reference-v21.ts", "kind": "persisted-contract", "justification": "project-pdc-reference-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,
 		{ "path": "src/common/editor/routing-cycle-v21.ts", "kind": "persisted-contract", "justification": "routing-cycle-v21.ts is a persisted domain-component or render-contract revision independent of product schema." }
-		,
-		{ "path": "src/common/editor/soundscaper-delivery-contract-v1.ts", "kind": "ipc-contract", "justification": "soundscaper-delivery-contract-v1.ts is an independently versioned persisted or cross-process carrier contract." }
 		,
 		{ "path": "src/common/editor/source-characteristics-v14.ts", "kind": "persisted-contract", "justification": "source-characteristics-v14.ts is a persisted domain-component or render-contract revision independent of product schema." }
 		,

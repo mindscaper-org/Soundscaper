@@ -338,7 +338,6 @@
 		"../../desktop/framescaper-project-library-main-ipc.ts",
 		"../../desktop/soundscaper-project-library-main.ts",
 		"../../src/common/editor/delivery-batch.ts",
-		"../../src/common/editor/soundscaper-delivery-contract-v1.ts",
 		"../../desktop/process-tree-termination.ts",
 		"../../src/common/editor/ffmpeg-video-source-characteristics.ts",
 		"../../src/common/editor/ffmpeg-video-timing-probe.ts",
