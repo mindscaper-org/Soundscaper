@@ -380,6 +380,11 @@ const INSTALLED: Readonly<Record<string, (owner: unknown) => boolean>> = Object.
 	'native-openfx': (owner) => surfacesFor(owner).includes('ofx-add') && openFxAuthoringFor(owner) !== null,
 });
 
+test('the unused direct native-media render session binding is absent', async () => {
+	const runtime = await import('../src/framescaper/editor-selected-native-media-render-session.ts');
+	assert.equal(Reflect.has(runtime, 'bindFramescaperSelectedRenderSessionRuntimeNativeMedia'), false);
+});
+
 test('a complete desktop bridge installs every inherited product binding on the controller', () => {
 	const controller = controllerStub();
 	const bridge = bridgeWith([...IMAGE_SEQUENCE_BRIDGE_METHODS, ...OPEN_FX_BRIDGE_METHODS]);

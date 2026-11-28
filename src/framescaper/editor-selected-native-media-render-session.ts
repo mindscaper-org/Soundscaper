@@ -117,23 +117,6 @@ export function createFramescaperSelectedRenderSessionNativeMedia(
 	});
 }
 
-/** Bind a factory to the selected controller without exposing a visible control. */
-export function bindFramescaperSelectedRenderSessionRuntimeNativeMedia(
-	profile: unknown,
-	controller: Readonly<{ readonly project: unknown }>,
-): void {
-	if (!controller || typeof controller !== 'object') {
-		throw new TypeError('The selected nativeMedia render-session owner must be a controller.');
-	}
-	OWNER_RUNTIMES.set(controller, Object.freeze({
-		create: (authority: unknown) => createFramescaperSelectedRenderSessionNativeMedia({
-			profile,
-			project: structuredClone(controller.project),
-			authority,
-		}),
-	}));
-}
-
 export function framescaperSelectedRenderSessionRuntimeNativeMediaFor(
 	owner: unknown,
 ): FramescaperSelectedRenderSessionRuntimeNativeMedia | null {
