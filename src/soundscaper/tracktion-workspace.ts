@@ -114,7 +114,12 @@ function workspaceWithClipRows(
 }
 
 function applyClipPlacements(clips: readonly TracktionClipView[], result: TracktionEditResult): readonly TracktionClipView[] | undefined {
-	const { splitClips, importedClip, recordedClip, trimmedClip, placedClip, itemId } = result;
+	const { splitClips, importedClip, recordedClip, trimmedClip, placedClip, removedClipIds, itemId } = result;
+	if (removedClipIds) {
+		const removed = new Set(removedClipIds);
+		const remaining = clips.filter(({ id }) => !removed.has(id));
+		return removed.size === removedClipIds.length && remaining.length + removed.size === clips.length ? remaining : undefined;
+	}
 	if (splitClips) {
 		const { left, right } = splitClips;
 		if (right.clip.id !== itemId) return undefined;

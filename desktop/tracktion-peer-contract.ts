@@ -5,7 +5,8 @@ import { isTracktionAutomationValue, TRACKTION_AUTOMATION_RANGES, type Tracktion
 	type TracktionAutomationPage } from '../src/soundscaper/tracktion-automation-contract.ts';
 import type { TracktionEffectEdit, TracktionEffectPage } from '../src/soundscaper/tracktion-effect-contract.ts';
 import {
-	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_TRACK_PAGE_SIZE, type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
+	TRACKTION_CLIP_PAGE_SIZE, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT, TRACKTION_TRACK_PAGE_SIZE,
+	type TracktionAutomationPointResult, type TracktionClipCommand, type TracktionClipPage,
 	type TracktionEditResult, type TracktionMixCommand, type TracktionProjectPage, type TracktionPasteCommand, type TracktionRangeCommand,
 	type TracktionRecordingCommand, type TracktionRecordingResult, type TracktionRenderCommand, type TracktionTrackMix,
 	type TracktionTransportCommand, type TracktionTransportObservation, type TracktionTransportView,
@@ -103,16 +104,18 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 	const permitsInsertion = command.kind === 'addTrack' || command.kind === 'duplicateTrack';
 	const finishesRecording = command.kind === 'finishRecording';
 	const discarding = finishesRecording && command.discard;
+	const rangeRemovesClips = (command.kind === 'deleteRange' || command.kind === 'cutRange') && command.trackId !== null;
 	const editedClipField = command.kind === 'trim' ? 'trimmedClip' : command.kind === 'importFile' ? 'importedClip'
 		: command.kind === 'moveClip' || command.kind === 'duplicateClip' ? 'placedClip'
 		: finishesRecording && !discarding ? 'recordedClip' : undefined;
-	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split'
+	const permitsHistory = permitsInsertion || editedClipField !== undefined || command.kind === 'split' || rangeRemovesClips
 		|| command.kind === 'setTrackMix' || command.kind === 'setAutomationPoint'
 		|| command.kind === 'removeAutomationPoint' || command.kind === 'clearAutomation' || command.kind === 'deleteClip';
 	const allowed = permitsHistory ? [...fields, 'history'] : [...fields];
 	if (permitsInsertion) allowed.push('insertion');
 	if (editedClipField) allowed.push(editedClipField);
 	if (command.kind === 'split') allowed.push('splitClips');
+	if (rangeRemovesClips) allowed.push('removedClipIds');
 	if (finishesRecording) allowed.push('transport');
 	const result = readClosedDomainRecord(value, 'Tracktion edit result', allowed, fields);
 	const revision = nonnegativeInteger(result.revision);
@@ -156,6 +159,11 @@ export function inspectTracktionReply<Command extends TracktionCommand>(
 			throw new TypeError('Tracktion returned inconsistent split clips.');
 		}
 		return Object.freeze({ ...edit, splitClips: Object.freeze({ left, right }) }) as TracktionReply<Command>;
+	}
+	if (rangeRemovesClips && result.removedClipIds !== undefined) {
+		const removedClipIds = readClosedDomainArray(result.removedClipIds, 'Tracktion removed clip IDs', 1, TRACKTION_RANGE_REMOVAL_REPLY_LIMIT).map(readItemId);
+		if (!edited || new Set(removedClipIds).size !== removedClipIds.length) throw new TypeError('Tracktion returned inconsistent removed clips.');
+		return Object.freeze({ ...edit, removedClipIds: Object.freeze(removedClipIds) }) as TracktionReply<Command>;
 	}
 	const insertion = result.insertion === undefined ? {} : { insertion: readTrackInsertion(result.insertion, itemId) };
 	return Object.freeze({ ...edit, ...insertion }) as TracktionReply<Command>;

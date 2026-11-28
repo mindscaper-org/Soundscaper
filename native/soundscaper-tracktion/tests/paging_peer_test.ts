@@ -151,6 +151,14 @@ test('Tracktion import, trim, move and duplicate acknowledge the clip and its or
 			});
 			assert.deepEqual(await readClipPages(peer, destination, 9), [transferred, copy]);
 			assert.deepEqual(await readClipPages(peer, trackId, 9), [before[1]]);
+			assert.deepEqual(await peer.request({
+				kind: 'deleteRange', trackId: destination, mode: 'leaveGap', start: 49, end: 82, revision: 9,
+			}), { revision: 10, itemId: null, history, removedClipIds: [copy.id] });
+			assert.deepEqual(await readClipPages(peer, destination, 10), [transferred]);
+			assert.deepEqual(await peer.request({
+				kind: 'cutRange', trackId: destination, mode: 'leaveGap', start: 2, end: 33, revision: 10,
+			}), { revision: 11, itemId: null, history, removedClipIds: [transferred.id] });
+			assert.deepEqual(await readClipPages(peer, destination, 11), []);
 		} finally { await peer.close(); }
 	} finally { await rm(root, { recursive: true, force: true }); }
 });

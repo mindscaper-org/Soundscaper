@@ -18,6 +18,18 @@ const workspace: TracktionWorkspace = { sessionId: 'session', name: 'Project', p
 	clips: [clip, remaining], recentClips: [{ trackId: target.id, clips: [destinationClip] }] };
 const localOnly: TracktionProjectBridge = { async request() { return assert.fail('The acknowledged placement needs no bridge requests'); } };
 
+void test('a whole-clip range acknowledgement removes exactly those rows and preserves the other track', async () => {
+	const updated = await readTracktionWorkspaceAfterClipEdit(localOnly, workspace, {
+		revision: 2, itemId: null, history, removedClipIds: [clip.id, remaining.id],
+	});
+	assert.deepEqual(updated.clips, []);
+	assert.deepEqual(updated.selectedTrack, { ...source, clipCount: 0 });
+	assert.equal(updated.tracks[1], target);
+	assert.equal(updated.project.tracks[1], target);
+	assert.equal(updated.recentClips, workspace.recentClips);
+	assert.equal(updated.project.revision, 2);
+});
+
 void test('a cross-track Move updates cached source and destination rows from its acknowledgement', async () => {
 	const moved = { ...clip, start: 128, end: 144 };
 	const updated = await readTracktionWorkspaceAfterClipEdit(localOnly, workspace, {

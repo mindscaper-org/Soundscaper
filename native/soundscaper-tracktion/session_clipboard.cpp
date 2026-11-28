@@ -56,8 +56,8 @@ struct PasteClip
 };
 }
 
-void Session::copyRange(Revision expected, RangeDeleteMode mode, std::optional<TrackId> trackId,
-                        Frame start, Frame end, const juce::File& clipboard, bool cut)
+std::vector<ClipId> Session::copyRange(Revision expected, RangeDeleteMode mode, std::optional<TrackId> trackId,
+                                     Frame start, Frame end, const juce::File& clipboard, bool cut)
 {
 	auto& s = *state;
 	s.checkRevision(expected);
@@ -117,10 +117,12 @@ void Session::copyRange(Revision expected, RangeDeleteMode mode, std::optional<T
 			throw std::runtime_error("Cannot publish the Tracktion clipboard");
 		snapshot.published = true;
 	};
-	if (cut) s.deleteRange(mode, trackId, start, end, publish);
+	std::vector<ClipId> removedIds;
+	if (cut) removedIds = s.deleteRange(mode, trackId, start, end, publish);
 	else publish();
 	for (const auto& old : clipboard.findChildFiles(juce::File::findDirectories, false))
 		if (old != snapshot.directory && generationName(old.getFileName()) && !old.isSymbolicLink()) old.deleteRecursively();
+	return removedIds;
 }
 
 void Session::pasteRange(Revision expected, RangePasteMode mode, TrackId trackId, Frame start, const juce::File& clipboard)

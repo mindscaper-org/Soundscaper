@@ -294,6 +294,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 	std::uint64_t created = 0;
 	std::optional<IndexedClip> editedClip;
 	std::optional<SplitClips> splitClips;
+	std::vector<ClipId> removedClipIds;
 	auto stoppedRecording = false;
 	if (kind == "startRecording")
 	{
@@ -458,8 +459,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		if (!request.getProperty("trackId").isVoid()) track = itemId(request, "trackId");
 		const auto start = integer("start");
 		const auto end = integer("end");
-		if (kind == "deleteRange") session.deleteRange(revision, selected, track, start, end);
-		else session.copyRange(revision, selected, track, start, end, clipboard, kind == "cutRange");
+		if (kind == "deleteRange") removedClipIds = session.deleteRange(revision, selected, track, start, end);
+		else removedClipIds = session.copyRange(revision, selected, track, start, end, clipboard, kind == "cutRange");
 	}
 	else if (kind == "pasteRange")
 	{
@@ -516,7 +517,8 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 		{"itemId", created != 0 ? juce::var(juce::String(std::to_string(created))) : juce::var()},
 	});
 	const auto insertedTrack = kind == "addTrack" || kind == "duplicateTrack";
-	if (insertedTrack || editedClip || splitClips || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
+	if (insertedTrack || editedClip || splitClips || !removedClipIds.empty()
+	    || kind == "setTrackMix" || kind == "removeAutomationPoint" || kind == "clearAutomation" || kind == "deleteClip")
 		reply.getDynamicObject()->setProperty("history", editHistoryReply(session));
 	if (insertedTrack)
 		if (const auto insertion = session.trackInsertion(created))
@@ -534,6 +536,7 @@ juce::var dispatch(Session& session, const juce::File& exchange, const juce::Fil
 			{"left", indexedClipReply(splitClips->left)}, {"right", indexedClipReply(splitClips->right)},
 		}));
 	if (stoppedRecording) reply.getDynamicObject()->setProperty("transport", transportObservation(session));
+	if (!removedClipIds.empty()) reply.getDynamicObject()->setProperty("removedClipIds", peer_reply::clipIdsReply(removedClipIds));
 	return reply;
 }
 }

@@ -7,14 +7,14 @@
 
 namespace soundscaper::tracktion_backend
 {
-void Session::deleteRange(Revision expected, RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end)
+std::vector<ClipId> Session::deleteRange(Revision expected, RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end)
 {
 	state->checkRevision(expected);
-	state->deleteRange(mode, trackId, start, end);
+	return state->deleteRange(mode, trackId, start, end);
 }
 
-void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end,
-                                 const std::function<void()>& publish)
+std::vector<ClipId> Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> trackId, Frame start, Frame end,
+                                              const std::function<void()>& publish)
 {
 	auto& s = *this;
 	const auto allTracks = mode == RangeDeleteMode::allTracks;
@@ -47,7 +47,18 @@ void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> tr
 			else intersecting.add(clip);
 		}
 	}
-	if (removed.isEmpty() && intersecting.isEmpty() && subsequent.isEmpty() && automation.empty()) return;
+	if (removed.isEmpty() && intersecting.isEmpty() && subsequent.isEmpty() && automation.empty()) return {};
+
+	std::vector<ClipId> removedIds;
+	// A bounded reply can replace the clip pages when all changes are whole-clip deletions on one track.
+	constexpr auto removalReplyLimit = 256;
+	if (!allTracks && intersecting.isEmpty() && subsequent.isEmpty() && automation.empty()
+	    && removed.size() <= removalReplyLimit
+	    && std::none_of(removed.begin(), removed.end(), [](const auto* clip) { return clip->isLinked(); }))
+	{
+		removedIds.reserve(static_cast<std::size_t>(removed.size()));
+		for (const auto* clip : removed) removedIds.push_back(clip->itemID.getRawID());
+	}
 
 	s.begin("Delete time range");
 	try
@@ -81,5 +92,6 @@ void Session::State::deleteRange(RangeDeleteMode mode, std::optional<TrackId> tr
 		s.rollback();
 		throw;
 	}
+	return removedIds;
 }
 }

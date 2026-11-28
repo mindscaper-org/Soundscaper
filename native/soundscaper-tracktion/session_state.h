@@ -53,7 +53,7 @@ struct Session::State
 	void begin(const char* name);
 	void commit();
 	void rollback();
-	void deleteRange(RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const std::function<void()>& publish = {});
+	std::vector<ClipId> deleteRange(RangeDeleteMode, std::optional<TrackId>, Frame start, Frame end, const std::function<void()>& publish = {});
 
 	void releaseRecordingInput();
 
