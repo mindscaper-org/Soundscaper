@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { EDIT_COMMAND_COPY_BY_LOCALE } from '../../common/i18n/edit-command-copy.js';
 import { CLIP_INTERACTIONS_COPY_BY_LOCALE } from '../../common/i18n/editor-clip-interactions-copy.ts';
@@ -29,6 +29,10 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 	const clip = clips.find((candidate) => candidate.id === id) ?? clips[0];
 	const placing = kind === 'moveClip' || kind === 'duplicateClip';
 	const title = titles[kind];
+	const clipOptions = useMemo(() => clips.map((item) => (
+		<option key={item.id} value={item.id}>{item.name} ({item.start}–{item.end})</option>)), [clips]);
+	const destinationOptions = useMemo(() => placing && tracks.map((track) => (
+		<option key={track.id} value={track.id}>{track.name}</option>)), [placing, tracks]);
 
 	useEffect(() => { dialog.current?.showModal(); }, []);
 
@@ -65,7 +69,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 		<h2>{title}</h2>
 		<form onSubmit={submit} onInput={() => setValidation('')}>
 			<p><label>{copy.tracktionClip} <select value={clip.id} disabled={busy} onChange={(event) => { setId(event.currentTarget.value); }}>
-				{clips.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.start}–{item.end})</option>)}
+				{clipOptions}
 			</select></label></p>
 			<div key={clip.id}>
 				{kind === 'split' && <p><label>{copy.tracktionSplitFrame} <input type="number" name="frame" required step="1" disabled={busy}
@@ -79,7 +83,7 @@ export function TracktionClipEditDialog({ kind, clips, tracks, sourceTrackId, bu
 				</>}
 				{placing && <>
 					<p><label>{copy.tracktionDestinationTrack} <select name="track" defaultValue={sourceTrackId} disabled={busy}>
-						{tracks.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+						{destinationOptions}
 					</select></label></p>
 					<p><label>{copy.tracktionStartFrame} <input type="number" name="start" required step="1" min="0" disabled={busy}
 						defaultValue={kind === 'duplicateClip' ? clip.end : clip.start} /></label></p>
