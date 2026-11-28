@@ -25,6 +25,13 @@ test('desktop compilation retains the MCP service and omits the unused registrat
 	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes('desktop/mcp-main-registration.js'), false);
 });
 
+test('desktop stages the current shot boundary review and detector modes', () => {
+	const directory = 'src/common/editor/assistance/';
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shot-boundaries-v1.js`));
+	assert.ok(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shot-detection-mode.js`));
+	assert.equal(DESKTOP_EXPECTED_RUNTIME_FILES.includes(`${directory}shots.js`), false);
+});
+
 test('desktop project serialization stages its encoder outside the assistance runtime', () => {
 	const encoder = 'src/common/editor/scape-project-document-encode.js';
 	assert.ok(DESKTOP_PROJECT_RUNTIME_FILES.includes(encoder));

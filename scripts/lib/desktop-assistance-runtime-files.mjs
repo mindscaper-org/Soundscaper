@@ -205,7 +205,6 @@ export const DESKTOP_ASSISTANCE_RUNTIME_FILES = Object.freeze([
 	'src/common/editor/assistance/siglip2-tokenizer-v1.js',
 	'src/common/editor/assistance/shot-boundaries-v1.js',
 	'src/common/editor/assistance/shot-detection-mode.js',
-	'src/common/editor/assistance/shots.js',
 	'src/common/editor/assistance/source-time-rows-v1.js',
 	'src/common/editor/assistance/speaker-attribution.js',
 	'src/common/editor/assistance/subject-tracker-v1.js',
