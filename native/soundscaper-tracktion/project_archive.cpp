@@ -108,10 +108,14 @@ void Session::archive(Revision expected, const juce::File& output, ProjectArchiv
 
 	// The Edit already refers to owned relative media. Pack those references
 	// directly and exclude caches, files left by undo, and unrelated contents.
+	std::set<juce::String> references;
 	std::set<juce::File> sources;
 	for (auto* track : te::getAudioTracks(*s.edit))
 		for (auto* clip : track->getClips())
-			sources.insert(clip->getSourceFileReference().getFile());
+		{
+			const auto& reference = clip->getSourceFileReference();
+			if (references.insert(reference.source.get()).second) sources.insert(reference.getFile());
+		}
 	for (const auto& file : sources)
 	{
 		const auto path = juce::String(mediaDirectory) + "/" + file.getFileName();
