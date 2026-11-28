@@ -110,3 +110,62 @@ test('a short Tracktion ZIP write preserves the previous archive and the live Ed
 		finally { await rm(root, { recursive: true, force: true }); }
 	}
 });
+
+test('Tracktion ZIP snapshot write failure preserves the unsaved Edit and its history', { skip: process.platform !== 'linux' }, async () => {
+	const root = await mkdtemp(join(tmpdir(), 'soundscaper-tracktion-short-archive-snapshot-'));
+	const project = join(root, 'project');
+	const limited = join(root, 'limited-peer');
+	const wave = join(root, 'Source.wav');
+	const output = join(root, 'project.zip');
+	const owner = {};
+	const service = new TracktionProjectService({
+		scratchRoot: join(root, 'scratch'), isOwnerCurrent: (caller) => caller === owner,
+		chooseCreateDirectory: async () => project, chooseOpenProject: async () => null,
+		chooseWave: async () => wave, chooseExport: async () => output,
+		startPeer: async (options) => launchTracktionPeer({ ...options, executable: limited }),
+	});
+	try {
+		await mkdir(project);
+		await writeFile(wave, wavFixture());
+		await writeFileSizeLimitedPeer(limited, 4);
+		const opened = await service.request(owner, { kind: 'create', sampleRate: 48_000 });
+		assert.ok(opened && 'sessionId' in opened);
+		const { sessionId } = opened;
+		const [track] = opened.project.tracks;
+		assert.ok(track);
+		const imported = await service.request(owner, { kind: 'import', sessionId, trackId: track.id, revision: 0, start: 0 });
+		assert.ok(imported && 'itemId' in imported && imported.itemId);
+		await service.request(owner, { kind: 'archive', sessionId, revision: imported.revision });
+		const previous = await readFile(output);
+		assert.ok(unzipSync(previous)['project.tracktionedit']);
+		let revision = imported.revision;
+		for (let index = 1; index < 12; index += 1) {
+			const duplicate = await service.request(owner, { kind: 'duplicateClip', sessionId, revision, trackId: track.id,
+				clipId: imported.itemId, start: index * 128 });
+			assert.ok(duplicate && 'itemId' in duplicate);
+			revision = duplicate.revision;
+		}
+		const witness = await service.request(owner, { kind: 'addTrack', sessionId, revision, name: 'Redo witness' });
+		assert.ok(witness && 'itemId' in witness);
+		await service.request(owner, { kind: 'undo', sessionId, revision: witness.revision });
+		const page = { kind: 'project', sessionId, offset: 0 } as const;
+		const before = await service.request(owner, page);
+		assert.ok(before && 'tracks' in before && before.canUndo && before.canRedo);
+		assert.equal(before.tracks[0]?.clipCount, 12);
+		const clips = { kind: 'clips', sessionId, revision: before.revision, trackId: track.id, offset: 0 } as const;
+		const beforeClips = await service.request(owner, clips);
+		await assert.rejects(service.request(owner, { kind: 'archive', sessionId, revision: before.revision }),
+			(error: unknown) => error instanceof TracktionRejectedCommand && /stage the Tracktion archive Edit/u.test(error.message));
+		assert.deepEqual(await service.request(owner, page), before);
+		assert.deepEqual(await service.request(owner, clips), beforeClips);
+		assert.deepEqual(await readFile(output), previous);
+		await service.request(owner, { kind: 'redo', sessionId, revision: before.revision });
+		const redone = await service.request(owner, page);
+		assert.ok(redone && 'tracks' in redone);
+		assert.equal(redone.tracks[1]?.name, 'Redo witness');
+		assert.equal(redone.tracks[0]?.clipCount, 12);
+	} finally {
+		try { await service.dispose(); }
+		finally { await rm(root, { recursive: true, force: true }); }
+	}
+});
